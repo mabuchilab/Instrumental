@@ -2,3 +2,8 @@
 *.pyc
 *.pyo
 *.swp
+
+/bin/
+/build/
+/dist/
+/*.egg-info/
