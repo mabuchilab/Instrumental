@@ -1,5 +1,5 @@
-Instrumental
-============ 
+![logo] Instrumental
+====================
 
 Instrumental is a Python-based instrumentation library (and more!) for the Mabuchi Lab.
 
@@ -35,3 +35,5 @@ It should also provide optional unit-awareness.
 Tools
 -----
 The tools module is used for full-fledged scripts and programs that may make use of all of the other modules above. A good example would be a script that pulls a trace from the scope, auto-fits a ringdown curve, and saves both the raw data and fit parameters to files in a well-organized directory structure.
+
+[logo]: images/logo.png "Instrumental"
