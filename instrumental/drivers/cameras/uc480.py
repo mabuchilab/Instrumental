@@ -1,5 +1,10 @@
 # -*- coding: utf-8  -*-
 # Copyright 2013 Nate Bogdanowicz
+"""
+Driver for Thorlabs DCx cameras. May be compatible with iDS cameras that use
+uEye software. Currently Windows-only, but Linux support should be
+possible to implement if desired.
+"""
 
 from ctypes import WinDLL, pointer, POINTER, c_char
 from ctypes.wintypes import DWORD, INT, ULONG, HWND
@@ -12,6 +17,9 @@ NULL = POINTER(HWND)()
 lib = WinDLL('uc480_64')
 
 def cameras():
+    """
+    Get a list of all cameras currently attached.
+    """
     cams = []
     num = INT()
     if lib.is_GetNumberOfCameras(pointer(num)) == IS_SUCCESS:
@@ -25,7 +33,8 @@ def cameras():
     return cams
 
 def get_camera(**kwargs):
-    """ Get camera by attribute. Returns the first attached camera that
+    """
+    Get a camera by attribute. Returns the first attached camera that
     matches the **kwargs. E.g. passing serial='abc' will return a camera
     whose serial number is 'abc', or None if no such camera is connected.
     """
@@ -47,6 +56,10 @@ def get_camera(**kwargs):
 
 
 class Camera(object):
+    """
+    A uc480-supported Camera. Get access to a Camera using cameras() and
+    get_camera(), not using the constructor directly.
+    """
     def __init__(self, cam_info):
         # Careful: cam_info will not update to reflect changes, it's a snapshot
         self._info = cam_info
@@ -63,6 +76,9 @@ class Camera(object):
             self.close() # In case someone forgot to close()
 
     def open(self):
+        """
+        Connect to the camera and set up the image memory.
+        """
         ret = lib.is_InitCamera(pointer(self._id), NULL)
         if ret != IS_SUCCESS:
             print("Failed to open camera")
@@ -84,6 +100,10 @@ class Camera(object):
             lib.is_SetDisplayMode(self._id, IS_SET_DM_DIB)
 
     def close(self):
+        """
+        Close the camera and release associated image memory. Should be called
+        when you are done using the camera.
+        """
         ret = lib.is_ExitCamera(self._id)
         if ret != IS_SUCCESS:
             print("Failed to close camera")
@@ -97,10 +117,16 @@ class Camera(object):
         return None
 
     def freeze_frame(self):
+        """
+        Acquires a single image from the camera and stores it in memory. Can
+        be used in conjunction with direct memory access to display an image
+        without saving it to file.
+        """
         lib.is_FreezeVideo(self._id, self._width, self._height)
 
     def save_frame(self, filename=NULL, filetype=None):
-        """ Saves the current video image to disk. If no filename is given,
+        """
+        Saves the current video image to disk. If no filename is given,
         this will display the 'Save as' dialog. If no filetype is given,
         it will be determined by the extension of the filename, if available.
         If neither exists, the image will be saved as a bitmap.
@@ -143,11 +169,22 @@ class Camera(object):
             getattr(self, member_str).value = value
         return setter
 
+    #: Camera ID number
     id = property(lambda self: self._info.dwCameraID) # Read-only
+
+    #: Camera serial number string
     serial = property(lambda self: self._info.SerNo) # Read-only
+
+    #: Camera model number string
     model = property(lambda self: self._info.Model) # Read-only
+
+    #: Number of bytes used by each line of the image
     bytes_per_line = property(lambda self: self._bytes_per_line()) # Read-only
+
+    #: Width of the camera image in pixels
     width = property(_value_getter('_width'), _value_setter('_width'))
+
+    #: Height of the camera image in pixels
     height = property(_value_getter('_height'), _value_setter('_height'))
 
 
