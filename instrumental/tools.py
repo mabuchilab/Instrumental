@@ -7,7 +7,7 @@ import numpy as np
 
 from .fitting import guided_trace_fit, ringdown_fit
 from . import u
-from .drivers import SCOPE_A
+from .drivers.scopes.tds3032 import SCOPE_A
 
 # Fix for Python 2
 try: input = raw_input
