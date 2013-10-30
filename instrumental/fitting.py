@@ -6,7 +6,7 @@ from numpy import loadtxt, square, extract, diff, sign, logical_and, \
 import scipy.optimize
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Cursor
-from matplotlib import MatplotlibDeprecationWarning
+from matplotlib.cbook import MatplotlibDeprecationWarning
 import warnings
 from exceptions import UserWarning
 
