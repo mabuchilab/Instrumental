@@ -161,7 +161,7 @@ def _linear_fit_decay(x, y):
     return exp(a), b, c
     
 
-def ringdown_fit(data_x, data_y):
+def guided_ringdown_fit(data_x, data_y):
     """
     Guided fit of a ringdown. Takes *data_x* and *data_y* as ``pint``
     Quantities with dimensions of time and voltage, respectively. Plots the

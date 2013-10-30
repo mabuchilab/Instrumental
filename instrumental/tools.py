@@ -5,7 +5,7 @@ import shutil
 from datetime import date, datetime
 import numpy as np
 
-from .fitting import guided_trace_fit, ringdown_fit
+from .fitting import guided_trace_fit, guided_ringdown_fit
 from . import u
 from .drivers.scopes.tds3032 import SCOPE_A
 
@@ -91,7 +91,7 @@ def fit_ringdown(subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Documents\Nate
     full_filename = os.path.join(base_dir, date.today().isoformat(), subdir, filename)
     _save_data(x, y, full_filename)
     
-    FWHM = ringdown_fit(x, y)
+    FWHM = guided_ringdown_fit(x, y)
     _save_summary(full_filename, FWHM)
     print("FWHM = {}".format(FWHM))
     
