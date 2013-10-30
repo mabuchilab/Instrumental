@@ -35,7 +35,7 @@ def cameras():
 def get_camera(**kwargs):
     """
     Get a camera by attribute. Returns the first attached camera that
-    matches the **kwargs. E.g. passing serial='abc' will return a camera
+    matches the ``\*\*kwargs``. E.g. passing serial='abc' will return a camera
     whose serial number is 'abc', or None if no such camera is connected.
     """
     cams = cameras()

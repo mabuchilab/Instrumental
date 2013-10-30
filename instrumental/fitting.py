@@ -14,8 +14,10 @@ from .plotting import param_plot
 from . import u, Q_
 
 def _ginput(*args, **kwargs):
-    """Hides the stupid default warnings when using ginput. There has to be
-    a better way... """
+    """
+    Hides the stupid default warnings when using ginput. There has to be
+    a better way...
+    """
     warnings.simplefilter('ignore', MatplotlibDeprecationWarning)
     out = plt.ginput(*args, **kwargs)
     warnings.warn('default', MatplotlibDeprecationWarning)
@@ -23,7 +25,9 @@ def _ginput(*args, **kwargs):
 
 
 def curve_fit(f, xdata, ydata, p0=None, sigma=None, **kw):
-    # Wrapper for scipy's curve_fit. Enables proper use of pint:
+    """
+    Wrapper for scipy's curve_fit that works with pint Quantities.
+    """
     # - needs to check unit "correctness"
     # f() must be written properly such that it works with 'raw' numbers if they're in base units
     
@@ -67,10 +71,20 @@ def curve_fit(f, xdata, ydata, p0=None, sigma=None, **kw):
 
 
 def lorentzian(x, A, x0, FWHM):
+    """
+    Lorentzian curve. Takes an array ``x`` and returns an array
+    :math:`\\frac{A}{1 + (\\frac{2(x-x0)}{FWHM})^2}`
+    """
     return A / (1 + square( 2*(x-x0)/FWHM ))
 
 
 def triple_lorentzian(nu, A0, B0, FWHM, nu0, dnu):
+    """
+    Triple lorentzian curve. Takes an array ``nu`` and returns an array
+    that is the sum of three lorentzians
+    ``lorentzian(nu, A0, nu0, FWHM) + lorentzian(nu, B0, nu0-dnu, FWHM)
+    + lorentzian(nu, B0, nu0+dnu, FWHM)``.
+    """
     t1 = lorentzian(nu, A0, nu0, FWHM)
     t2 = lorentzian(nu, B0, nu0-dnu, FWHM)
     t3 = lorentzian(nu, B0, nu0+dnu, FWHM)
@@ -148,6 +162,17 @@ def _linear_fit_decay(x, y):
     
 
 def ringdown_fit(data_x, data_y):
+    """
+    Guided fit of a ringdown. Takes *data_x* and *data_y* as ``pint``
+    Quantities with dimensions of time and voltage, respectively. Plots the
+    data and asks user to manually crop to select the region to fit.
+
+    It then does a rough linear fit to find initial parameters and performs
+    a nonlinear fit.
+
+    Finally, it plots the data with the curve fit overlayed and returns the
+    full-width at half-max (FWHM) with units.
+    """
     # Have user choose crop points
     plt.plot(data_x, data_y)
     cursor = Cursor(plt.gca(), useblit=True)
@@ -190,6 +215,21 @@ def ringdown_fit(data_x, data_y):
     
 
 def guided_trace_fit(data_x, data_y, EOM_freq):
+    """
+    Guided fit of a cavity scan trace that has sidebands. Takes *data_x* and
+    *data_y* as ``pint`` Quantities, and the EOM frequency *EOM_freq* can be
+    anything that the ``pint.Quantity`` constructor understands, like an
+    existing ``pint.Quantity`` or a string, e.g. ``'5 Mhz'``.
+
+    It plots the data then asks the user to identify the three maxima by
+    by clicking on them in left-to-right order. It then uses that input
+    to estimate and then do a nonlinear fit of the parameters.
+
+    Finally, it plots the data with the curve fit overlayed and returns the
+    parameters in a map.
+
+    The parameters are ``A0``, ``B0``, ``FWHM``, ``nu0``, and ``dnu``.
+    """
     EOM_freq = Q_(EOM_freq)
     
     # Have user mark the three maxima

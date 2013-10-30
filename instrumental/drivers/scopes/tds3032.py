@@ -21,10 +21,8 @@ class TDS_3032(object):
 
     def get_data(self, channel=1):
         """
-        Pull the data from channel *channel* and return it as a tuple of
-        ``np.array``s containing x and y data.
-
-        TODO: Also return units and/or return unitful arrays.
+        Pull the data from channel *channel* and return it as a tuple
+        ``(x,y)`` of unitful arrays.
         """
         inst = self.inst
         
