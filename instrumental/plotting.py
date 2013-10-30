@@ -11,7 +11,7 @@ import numpy as np
 
 from . import u, Q_
 
-def get_lines(*args):
+def _get_lines(*args):
     """
     Helper func to parse input to plot()
     """
@@ -45,7 +45,7 @@ def plot(*args, **kwargs):
     """
     Plot with knowledge of pint Quantities
     """
-    lines = get_lines(*args, **kwargs)
+    lines = _get_lines(*args, **kwargs)
     
     plt.plot(*args, **kwargs)
     ax = plt.gca()
@@ -55,7 +55,7 @@ def plot(*args, **kwargs):
         ax.set_ylabel(y.units)
         
 
-def bbox_from_fontsize(left, bottom, right, height, fig=None):
+def _bbox_from_fontsize(left, bottom, right, height, fig=None):
     """
     Specify left, bottom, right padding and height in units of font-size
     """
@@ -78,7 +78,7 @@ def bbox_from_fontsize(left, bottom, right, height, fig=None):
                              box_bottom_rel+box_height_rel)
 
 
-def bbox_fixed_margin(left, bottom, right, top, fig=None):
+def _bbox_fixed_margin(left, bottom, right, top, fig=None):
     if not fig:
         fig = plt.gcf()
     
@@ -98,7 +98,7 @@ def bbox_fixed_margin(left, bottom, right, top, fig=None):
                              box_top_rel)
 
 
-def initialize_range_params(param_dict):
+def _initialize_range_params(param_dict):
     """
     Helper function that initializes the range-related parameters
     """
@@ -157,7 +157,7 @@ def initialize_range_params(param_dict):
         pass
 
 
-def initialize_params(params):
+def _initialize_params(params):
     """
     Helper function to ensure 'params' is in a nice state for later use.
     """
@@ -175,7 +175,7 @@ def initialize_params(params):
             pd = {'init': pd}
             p[k] = pd
         
-        initialize_range_params(pd)
+        _initialize_range_params(pd)
         
         pd.setdefault('label', k.title())
 
@@ -190,7 +190,7 @@ slider_pad_left = 5.0
 slider_pad_right = 5.0
 slider_fullheight = slider_pad_bot + slider_height + slider_pad_top
 
-def bbox_with_margins(left, bottom, right, top):
+def _bbox_with_margins(left, bottom, right, top):
     fig = plt.gcf()
     x0 = fig.bbox.x0 + left
     y0 = fig.bbox.y0 + bottom
@@ -199,23 +199,23 @@ def bbox_with_margins(left, bottom, right, top):
     return Bbox([[x0, y0], [x1, y1]]).transformed(fig.transFigure.inverted())
 
 
-def slider_bbox(i, fig=None):
-    return bbox_from_fontsize(slider_pad_left,
-                              1+i*slider_fullheight,
-                              slider_pad_right,
-                              slider_height,
-                              fig)
+def _slider_bbox(i, fig=None):
+    return _bbox_from_fontsize(slider_pad_left,
+                               1+i*slider_fullheight,
+                               slider_pad_right,
+                               slider_height,
+                               fig)
 
 
-def main_ax_bbox(ax, i, fig=None):
+def _main_ax_bbox(ax, i, fig=None):
     left = 3.0 + (2 if ax.get_ylabel() else 0)
     right = 1.4
     bottom = 2.0 + (2 if ax.get_xlabel() else 0) + i*slider_fullheight
     top = 1.4 + (1 if ax.get_title() else 0)
-    return bbox_fixed_margin(left, bottom, right, top, fig)
+    return _bbox_fixed_margin(left, bottom, right, top, fig)
 
     
-def unitify(param_dict, value):
+def _unitify(param_dict, value):
     """
     Helper function to create a pint.Quantity from the dict of a given
     parameter. Returns just the value if units weren't provided.
@@ -251,8 +251,8 @@ def param_plot(x, func, params, **kwargs):
         curves.
     """
     
-    params = initialize_params(params)
-    flat_params = {k:unitify(v, v['init']) for k,v in params.iteritems()}
+    params = _initialize_params(params)
+    flat_params = {k:_unitify(v, v['init']) for k,v in params.iteritems()}
     
     # Set up figure and axes that we'll plot on
     fig = plt.figure()
@@ -262,7 +262,7 @@ def param_plot(x, func, params, **kwargs):
     
     # Function for redrawing curve when a parameter value is changed
     def update(val):
-        param_args = {k:unitify(v, v['slider'].val) for k,v in params.iteritems()}
+        param_args = {k:_unitify(v, v['slider'].val) for k,v in params.iteritems()}
         l.set_ydata(func(x, **param_args))
         fig.canvas.draw_idle()
         
@@ -271,7 +271,7 @@ def param_plot(x, func, params, **kwargs):
     
     # Create axes and sliders for each parameter
     for i,(name, vals) in enumerate(params.iteritems()):
-        ax = plt.axes(slider_bbox(i).bounds)
+        ax = plt.axes(_slider_bbox(i).bounds)
         slider = Slider(ax, vals['label'], vals['min'], vals['max'], vals['init'])
         slider.on_changed(update)
         vals['ax'] = ax
@@ -279,9 +279,9 @@ def param_plot(x, func, params, **kwargs):
     
     # Function for auto-scaling sliders to (ironically) keep them fixed
     def resize_func(event):
-        ax0.set_position(main_ax_bbox(ax0, len(params), fig).bounds)
+        ax0.set_position(_main_ax_bbox(ax0, len(params), fig).bounds)
         for i, val in enumerate(params.itervalues()):
-            box = slider_bbox(i)
+            box = _slider_bbox(i)
             val['ax'].set_position(box)
         
     fig.canvas.mpl_connect('resize_event', resize_func)
