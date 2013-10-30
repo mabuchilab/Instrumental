@@ -1,14 +1,31 @@
 # -*- coding: utf-8 -*-
 # Copyright 2013 Nate Bogdanowicz
+"""
+Driver module for Tektronix TDS3032 oscilloscopes.
+"""
 
 import numpy as np
 import visa
 
 class TDS_3032(object):
+    """
+    A Tektronix TDS3032 oscilloscope.
+    """
     def __init__(self, name):
+        """
+        Create a scope object that has the given VISA name *name* and connect
+        to it. You can find available instrument names using the VISA
+        Instrument Manager.
+        """
         self.inst = visa.instrument(name)
 
     def get_data(self, channel=1):
+        """
+        Pull the data from channel *channel* and return it as a tuple of
+        ``np.array``s containing x and y data.
+
+        TODO: Also return units and/or return unitful arrays.
+        """
         inst = self.inst
         
         inst.write("data:source ch{}".format(channel))
