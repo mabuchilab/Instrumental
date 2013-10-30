@@ -15,7 +15,7 @@ except NameError: pass
 
 prev_data_fname = ''
 
-def save_data(time, signal, full_filename, comment=''):
+def _save_data(time, signal, full_filename, comment=''):
     full_dir = os.path.dirname(full_filename)
     if not os.path.exists(full_dir):
         os.makedirs(full_dir)
@@ -28,7 +28,7 @@ def save_data(time, signal, full_filename, comment=''):
     np.savetxt(full_filename, data, header=header, delimiter=",")
 
 
-def save_ringdown(time, signal, full_filename):
+def _save_ringdown(time, signal, full_filename):
     full_dir = os.path.dirname(full_filename)
     if not os.path.exists(full_dir):
         os.makedirs(full_dir)
@@ -41,7 +41,7 @@ def save_ringdown(time, signal, full_filename):
     np.savetxt(full_filename, data, header=header, delimiter=",")
 
 
-def save_summary(full_data_filename, FWHM):
+def _save_summary(full_data_filename, FWHM):
     # Save directory must exist
     full_dir, data_fname = os.path.split(full_data_filename)
     summary_fname = os.path.join(full_dir, 'Summary.tsv')
@@ -55,7 +55,7 @@ def save_summary(full_data_filename, FWHM):
     summary_file.close()
 
 
-def ensure_photo_copied(full_photo_name):
+def _ensure_photo_copied(full_photo_name):
     # Place copy of photo in 'pics' dir one level up for easy comparison
     if not os.path.exists(full_photo_name):
         return
@@ -89,10 +89,10 @@ def fit_ringdown(subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Documents\Nate
     
     filename = 'Ringdown {:02}.csv'.format(trace_num)
     full_filename = os.path.join(base_dir, date.today().isoformat(), subdir, filename)
-    save_data(x, y, full_filename)
+    _save_data(x, y, full_filename)
     
     FWHM = ringdown_fit(x, y)
-    save_summary(full_filename, FWHM)
+    _save_summary(full_filename, FWHM)
     print("FWHM = {}".format(FWHM))
     
 
@@ -106,9 +106,9 @@ def fit_scan(EOM_freq, subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Document
     filename = 'Scan {:02}.csv'.format(trace_num)
     full_data_dir = os.path.join(base_dir, date.today().isoformat(), subdir)
     full_filename = os.path.join(full_data_dir, filename)
-    save_data(x, y, full_filename, comment)
+    _save_data(x, y, full_filename, comment)
     
     params = guided_trace_fit(x, y, EOM_freq)
-    save_summary(full_filename, params['FWHM'])
-    ensure_photo_copied(os.path.join(full_data_dir, 'folder.jpg'))
+    _save_summary(full_filename, params['FWHM'])
+    _ensure_photo_copied(os.path.join(full_data_dir, 'folder.jpg'))
     print("FWHM = {}".format(params['FWHM']))

@@ -77,7 +77,7 @@ def triple_lorentzian(nu, A0, B0, FWHM, nu0, dnu):
     return t1 + t2 + t3
 
 
-def estimate_FWHM_pint(nu, amp, half_max, left_limit, center, right_limit):
+def _estimate_FWHM_pint(nu, amp, half_max, left_limit, center, right_limit):
     """ Pint-friendly way to estimate FWHM. Doesn't use 'bad' numpy stuff"""
     left_sum, right_sum = 0 * u.MHz, 0 * u.MHz
     divisor = 0
@@ -101,7 +101,7 @@ def estimate_FWHM_pint(nu, amp, half_max, left_limit, center, right_limit):
     return right_mean - left_mean
 
 
-def estimate_FWHM(nu, amp, half_max, left_limit, center, right_limit):
+def _estimate_FWHM(nu, amp, half_max, left_limit, center, right_limit):
     # Get x values of points where the data crosses half_max
     all_points = extract(diff(sign(amp-half_max)), nu)
     
@@ -112,7 +112,7 @@ def estimate_FWHM(nu, amp, half_max, left_limit, center, right_limit):
     return FWHM
 
 
-def linear_fit_decay(x, y):
+def _linear_fit_decay(x, y):
     # Takes ndarrays for now, DON'T USE PINT QUANTITIES!
     # From wolfram Mathworld; Need to fix to re-use some calculations!!
 
@@ -168,7 +168,7 @@ def ringdown_fit(data_x, data_y):
         return a*exp(b*x) + c
     
     # Do linear fit to get initial parameter estimate
-    a0, b0, c0 = linear_fit_decay(t.magnitude, amp.to('').magnitude)
+    a0, b0, c0 = _linear_fit_decay(t.magnitude, amp.to('').magnitude)
     
     # Do nonlinear fit
     popt, pcov = curve_fit(decay, t.magnitude, amp.magnitude, p0=[a0, b0, c0], maxfev=2000)
@@ -213,7 +213,7 @@ def guided_trace_fit(data_x, data_y, EOM_freq):
     dnu = EOM_freq
     #plt.plot(nu, amp)
     #plt.show()
-    FWHM = estimate_FWHM_pint(nu, amp, A0/2, nu0-dnu/2, nu0, nu0+dnu/2)
+    FWHM = _estimate_FWHM_pint(nu, amp, A0/2, nu0-dnu/2, nu0, nu0+dnu/2)
     
     # Do a curve fit to get new params
     popt, pcov = curve_fit(triple_lorentzian, nu, amp, p0=(A0, B0, FWHM, nu0, dnu))
