@@ -28,8 +28,40 @@ def cameras():
             cam_list.dwCount = ULONG(num.value) # This is stupid
 
             if lib.is_GetCameraList(pointer(cam_list)) == IS_SUCCESS:
+                ids = []
+                repeated = []
                 for info in cam_list.ci:
-                    cams.append(Camera(info))
+                    id = info.dwCameraID
+                    if id in ids:
+                        repeated.append(id)
+                    ids.append(id)
+
+                if not repeated:
+                    for info in cam_list.ci:
+                        cams.append(Camera(info))
+                else:
+                    print("Some cameras have duplicate IDs. Uniquifying IDs now...")
+                    # Choose IDs that haven't been used yet
+                    potential_ids = [i for i in range(1,len(ids)+1) if i not in ids]
+                    for id in repeated:
+                        new_id = potential_ids.pop(0)
+                        print("Trying to set id from {} to {}".format(id, new_id))
+                        _id = HCAM(id)
+                        ret = lib.is_InitCamera(pointer(_id), NULL)
+                        if not ret == IS_SUCCESS:
+                            print("Error connecting to camera {}".format(id))
+                            return None # Avoid infinite recursion
+                        else:
+                            ret = lib.is_SetCameraID(_id, INT(new_id))
+                            if not ret == IS_SUCCESS:
+                                print("Error setting the camera id")
+                                return None # Avoid infinite recursion
+                    # All IDs should be fixed now, let's retry
+                    cams = cameras()
+            else:
+                print("Error getting camera list")
+    else:
+        print("Error getting number of attached cameras")
     return cams
 
 def get_camera(**kwargs):
