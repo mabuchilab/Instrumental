@@ -107,6 +107,12 @@ class Camera(object):
         if self._in_use:
             self.close() # In case someone forgot to close()
 
+    def set_auto_exposure(self, enable=True):
+        ret = lib.is_SetAutoParameter(self._id, IS_SET_ENABLE_AUTO_SHUTTER,
+                                      pointer(INT(enable)), NULL)
+        if ret != IS_SUCCESS:
+            print("Failed to set auto exposure property")
+
     def open(self):
         """
         Connect to the camera and set up the image memory.
