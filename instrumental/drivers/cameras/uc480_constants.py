@@ -330,3 +330,78 @@ IS_MIN_AUTO_WB_SPEED                =   0
 IS_MAX_AUTO_WB_SPEED                = 100
 IS_MIN_AUTO_WB_REFERENCE            =   0
 IS_MAX_AUTO_WB_REFERENCE            = 255
+
+# ----------------------------------------------------------------------------
+# color modes
+# ----------------------------------------------------------------------------
+IS_GET_COLOR_MODE                   = 0x8000
+
+IS_SET_CM_RGB32                     = 0
+IS_SET_CM_RGB24                     = 1
+IS_SET_CM_RGB16                     = 2
+IS_SET_CM_RGB15                     = 3
+IS_SET_CM_Y8                        = 6
+IS_SET_CM_RGB8                      = 7
+IS_SET_CM_BAYER                     = 11
+IS_SET_CM_UYVY                      = 12
+IS_SET_CM_UYVY_MONO                 = 13
+IS_SET_CM_UYVY_BAYER                = 14
+IS_SET_CM_CBYCRY                    = 23
+
+IS_SET_CM_RGBY                      = 24
+IS_SET_CM_RGB30                     = 25
+IS_SET_CM_Y12                       = 26
+IS_SET_CM_BAYER12                   = 27
+IS_SET_CM_Y16                       = 28
+IS_SET_CM_BAYER16                   = 29
+
+IS_CM_MODE_MASK                     = 0x007F
+
+# planar vs packed format
+IS_CM_FORMAT_PACKED                 = 0x0000
+IS_CM_FORMAT_PLANAR                 = 0x2000
+IS_CM_FORMAT_MASK                   = 0x2000
+
+# BGR vs. RGB order
+IS_CM_ORDER_BGR                     = 0x0000
+IS_CM_ORDER_RGB                     = 0x0080
+IS_CM_ORDER_MASK                    = 0x0080
+
+
+# define compliant color format names
+IS_CM_MONO8                 = IS_SET_CM_Y8                                              # occupies 8 Bit
+IS_CM_MONO12                = IS_SET_CM_Y12                                             # occupies 16 Bit
+IS_CM_MONO16                = IS_SET_CM_Y16                                             # occupies 16 Bit
+
+IS_CM_BAYER_RG8             = IS_SET_CM_BAYER                                           # occupies 8 Bit
+IS_CM_BAYER_RG12            = IS_SET_CM_BAYER12                                         # occupies 16 Bit
+IS_CM_BAYER_RG16            = IS_SET_CM_BAYER16                                         # occupies 16 Bit
+
+IS_CM_SENSOR_RAW8           = IS_SET_CM_BAYER                                           # occupies 8 Bit
+IS_CM_SENSOR_RAW12          = IS_SET_CM_BAYER12                                         # occupies 16 Bit
+IS_CM_SENSOR_RAW16          = IS_SET_CM_BAYER16                                         # occupies 16 Bit
+
+IS_CM_BGR555_PACKED         = (IS_SET_CM_RGB15 | IS_CM_ORDER_BGR | IS_CM_FORMAT_PACKED) # occupies 16 Bit
+IS_CM_BGR565_PACKED         = (IS_SET_CM_RGB16 | IS_CM_ORDER_BGR | IS_CM_FORMAT_PACKED) # occupies 16 Bit
+
+IS_CM_RGB8_PACKED           = (IS_SET_CM_RGB24 | IS_CM_ORDER_RGB | IS_CM_FORMAT_PACKED) # occupies 24 Bit
+IS_CM_BGR8_PACKED           = (IS_SET_CM_RGB24 | IS_CM_ORDER_BGR | IS_CM_FORMAT_PACKED) # occupies 24 Bit
+IS_CM_RGBA8_PACKED          = (IS_SET_CM_RGB32 | IS_CM_ORDER_RGB | IS_CM_FORMAT_PACKED) # occupies 32 Bit
+IS_CM_BGRA8_PACKED          = (IS_SET_CM_RGB32 | IS_CM_ORDER_BGR | IS_CM_FORMAT_PACKED) # occupies 32 Bit
+IS_CM_RGBY8_PACKED          = (IS_SET_CM_RGBY  | IS_CM_ORDER_RGB | IS_CM_FORMAT_PACKED) # occupies 32 Bit
+IS_CM_BGRY8_PACKED          = (IS_SET_CM_RGBY  | IS_CM_ORDER_BGR | IS_CM_FORMAT_PACKED) # occupies 32 Bit
+IS_CM_RGB10V2_PACKED        = (IS_SET_CM_RGB30 | IS_CM_ORDER_RGB | IS_CM_FORMAT_PACKED) # occupies 32 Bit
+IS_CM_BGR10V2_PACKED        = (IS_SET_CM_RGB30 | IS_CM_ORDER_BGR | IS_CM_FORMAT_PACKED) # occupies 32 Bit
+
+IS_CM_YUV422_PACKED         = 0 # no compliant version
+IS_CM_UYVY_PACKED           = (IS_SET_CM_UYVY | IS_CM_FORMAT_PACKED)                    # occupies 16 Bit
+IS_CM_UYVY_MONO_PACKED      = (IS_SET_CM_UYVY_MONO | IS_CM_FORMAT_PACKED)
+IS_CM_UYVY_BAYER_PACKED     = (IS_SET_CM_UYVY_BAYER | IS_CM_FORMAT_PACKED)
+IS_CM_CBYCRY_PACKED         = (IS_SET_CM_CBYCRY | IS_CM_FORMAT_PACKED)                  # occupies 16 Bit
+
+IS_CM_RGB8_PLANAR           = 0 # no compliant version
+IS_CM_RGB12_PLANAR          = 0 # no compliant version
+IS_CM_RGB16_PLANAR          = 0 # no compliant version
+
+
+IS_CM_ALL_POSSIBLE                  = 0xFFFF
