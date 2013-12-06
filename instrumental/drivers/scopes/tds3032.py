@@ -6,6 +6,7 @@ Driver module for Tektronix TDS3032 oscilloscopes.
 
 import numpy as np
 import visa
+from instrumental import u
 
 class TDS_3032(object):
     """
