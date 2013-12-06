@@ -6,7 +6,7 @@ uEye software. Currently Windows-only, but Linux support should be
 possible to implement if desired.
 """
 
-from ctypes import WinDLL, pointer, POINTER, c_char
+from ctypes import WinDLL, pointer, POINTER, c_char, c_char_p
 from ctypes.wintypes import DWORD, INT, ULONG, HWND
 import os.path
 from .uc480_constants import *
@@ -113,6 +113,25 @@ class Camera(object):
         if ret != IS_SUCCESS:
             print("Failed to set auto exposure property")
 
+    def load_stored_parameters(self, set_num):
+        if set_num in [1, 2]:
+            ret = lib.is_LoadParameters(self._id, c_char_p("/cam/set{}".format(set_num)))
+            if ret != IS_SUCCESS:
+                print("Failed to load internally stored parameters")
+            else:
+                self._reallocate_image_mem()
+        else:
+            print("set_num must be either 1 or 2")
+
+    def load_parameter_file(self, filename=None):
+        if not filename:
+            ptr = NULL
+        else:
+            ptr = c_char_p(filename)
+        ret = lib.is_LoadParameters(self._id, ptr)
+        if ret != IS_SUCCESS:
+            print("Failed to load parameter file")
+
     def open(self):
         """
         Connect to the camera and set up the image memory.
@@ -122,20 +141,47 @@ class Camera(object):
             print("Failed to open camera")
         else:
             self._in_use = True
-            self.width, self.height = self._get_max_img_size()
+            self._allocate_image_mem()
 
-            # Set the color depth to the current Windows setting
-            lib.is_GetColorDepth(self._id, pointer(self._color_depth), pointer(self._color_mode))
-            lib.is_SetColorMode(self._id, self._color_mode)
+    def _allocate_image_mem(self):
+        """
+        Create and set the image memory.
+        """
+        self.width, self.height = self._get_max_img_size()
 
-            # Allocate memory
-            lib.is_AllocImageMem(self._id, self._width, self._height, self._color_depth,
-                                 pointer(self._p_img_mem), pointer(self._memid))
-            lib.is_SetImageMem(self._id, self._p_img_mem, self._memid)
+        # Set the save/display color depth to the current Windows setting
+        lib.is_GetColorDepth(self._id, pointer(self._color_depth), pointer(self._color_mode))
+        lib.is_SetColorMode(self._id, self._color_mode)
 
-            # Initialize display
-            lib.is_SetImageSize(self._id, self._width, self._height)
-            lib.is_SetDisplayMode(self._id, IS_SET_DM_DIB)
+        # Allocate and set memory
+        lib.is_AllocImageMem(self._id, self._width, self._height, self._color_depth,
+                             pointer(self._p_img_mem), pointer(self._memid))
+        lib.is_SetImageMem(self._id, self._p_img_mem, self._memid)
+
+        # Initialize display
+        lib.is_SetImageSize(self._id, self._width, self._height)
+        lib.is_SetDisplayMode(self._id, IS_SET_DM_DIB)
+
+    def _reallocate_image_mem(self):
+        """ Like _allocate_image_mem(), except it frees existing image memory,
+        and uses the existing mode/depth rather than using is_GetColorDepth() """
+        # Free old image memory
+        lib.is_FreeImageMem(self._id, self._p_img_mem, self._memid)
+        self.width, self.height = self._get_max_img_size()
+        mode = lib.is_SetColorMode(self._id, IS_GET_COLOR_MODE)
+        depth_dict = { IS_SET_CM_RGB32: 32, IS_SET_CM_RGB24: 24,
+                       IS_SET_CM_RGB16: 16, IS_SET_CM_RGB15: 16,
+                       IS_SET_CM_UYVY: 16, IS_SET_CM_Y8: 8,
+                       IS_SET_CM_BAYER: 8 }
+        self._color_depth = INT(depth_dict.get(mode, 8))
+
+        # Allocate memory
+        lib.is_AllocImageMem(self._id, self._width, self._height, self._color_depth,
+                             pointer(self._p_img_mem), pointer(self._memid))
+        lib.is_SetImageMem(self._id, self._p_img_mem, self._memid)
+
+        # Set AOI to the full image size
+        lib.is_SetImageSize(self._id, self._width, self._height)
 
     def close(self):
         """
