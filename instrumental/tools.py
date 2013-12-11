@@ -6,7 +6,7 @@ from datetime import date, datetime
 import numpy as np
 
 from .fitting import guided_trace_fit, guided_ringdown_fit
-from . import u
+from . import u, Q_
 from .drivers.scopes.tds3032 import SCOPE_A
 
 # Fix for Python 2
@@ -112,3 +112,66 @@ def fit_scan(EOM_freq, subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Document
     _save_summary(full_filename, params['FWHM'])
     _ensure_photo_copied(os.path.join(full_data_dir, 'folder.jpg'))
     print("FWHM = {}".format(params['FWHM']))
+
+def diff(unitful_array):
+    return Q_(np.diff(unitful_array.magnitude), unitful_array.units)
+
+def FSRs_from_mode_wavelengths(wavelengths):
+    return np.abs(diff(u.c / wavelengths)).to('GHz')
+
+def find_FSR():
+    wavelengths = []
+    while True:
+        raw = raw_input('Input wavelength (nm): ')
+        if not raw:
+            break
+        wavelengths.append(float(raw))
+    wavelengths = wavelengths * u.nm
+    FSRs = FSRs_from_mode_wavelengths(wavelengths)
+    print(FSRs)
+    print('Mean: {}'.format(np.mean(FSRs)))
+
+TOP_CAM_SERIAL = '4002856484'
+SIDE_CAM_SERIAL = '4002862589'
+
+def do_ringdown_set(set_name, base_dir=r'C:\Users\dodd\Documents\Nate\Data'):
+    set_dir = os.path.join(base_dir, date.today().isoformat(), set_name)
+    if not os.path.exists(set_dir):
+        os.makedirs(set_dir)
+
+    # Block until light is turned on
+    raw_input('Please turn on light then press [ENTER]: ')
+
+    from .drivers.cameras.uc480 import get_camera, cameras
+    top_cam = get_camera(serial=TOP_CAM_SERIAL)
+    side_cam = get_camera(serial=SIDE_CAM_SERIAL)
+    top_cam.open()
+    #top_cam.load_stored_parameters(1)
+    top_cam.load_stored_parameters(1)
+    top_cam.save_frame(os.path.join(set_dir, 'Top.jpg'))
+    top_cam.close()
+    side_cam.open()
+    side_cam.load_stored_parameters(1)
+    side_cam.save_frame(os.path.join(set_dir, 'Side.jpg'))
+    side_cam.close()
+
+    scope = SCOPE_A
+    fname = 'Ringdown {:02}.csv'
+    trace_num = 0
+    cum_FWHM = 0 * u.MHz
+    print("-------------Enter d[one] to stop taking data-------------")
+    while True:
+        s = raw_input('Press [ENTER] to process ringdown {}: '.format(trace_num))
+        if s and s[0] == 'd':
+            break
+        x, y = scope.get_data(channel=1)
+        full_filename = os.path.join(set_dir, fname.format(trace_num))
+        _save_data(x, y, full_filename)
+
+        FWHM = guided_ringdown_fit(x, y)
+        _save_summary(full_filename, FWHM)
+        print("-------------------------------------- FWHM = {}".format(FWHM))
+        cum_FWHM += FWHM
+        trace_num += 1
+    print('Mean FWHM: {}'.format(cum_FWHM/trace_num))
+
