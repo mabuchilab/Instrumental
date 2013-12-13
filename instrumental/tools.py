@@ -8,6 +8,7 @@ import numpy as np
 from .fitting import guided_trace_fit, guided_ringdown_fit
 from . import u, Q_
 from .drivers.scopes.tds3032 import SCOPE_A
+from .drivers import scopes
 
 # Fix for Python 2
 try: input = raw_input
@@ -71,7 +72,7 @@ def _ensure_photo_copied(full_photo_name):
         shutil.copy(full_photo_name, full_newphoto_name)
 
 
-def fit_ringdown(subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Documents\Nate\Data'):
+def fit_ringdown_save(subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Documents\Nate\Data'):
     """
     Read a trace from the scope, save it and fit a ringdown curve.
     
@@ -94,9 +95,18 @@ def fit_ringdown(subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Documents\Nate
     FWHM = guided_ringdown_fit(x, y)
     _save_summary(full_filename, FWHM)
     print("FWHM = {}".format(FWHM))
+
+def fit_ringdown(scope, channel=1, FSR=None):
+    scope = scopes.scope(scope) # This is absurd
+    x, y = scope.get_data(channel)
+    FWHM = guided_ringdown_fit(x, y)
+    print("FWHM = {}".format(FWHM))
+    if FSR:
+        FSR = u.Quantity(FSR)
+        print("Finesse = {:,.0F}".format(float(FSR/FWHM)))
     
 
-def fit_scan(EOM_freq, subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Documents\Nate\Data'):
+def fit_scan_save(EOM_freq, subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Documents\Nate\Data'):
     scope = SCOPE_A
     
     EOM_freq = u.Quantity(EOM_freq)
@@ -111,6 +121,13 @@ def fit_scan(EOM_freq, subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Document
     params = guided_trace_fit(x, y, EOM_freq)
     _save_summary(full_filename, params['FWHM'])
     _ensure_photo_copied(os.path.join(full_data_dir, 'folder.jpg'))
+    print("FWHM = {}".format(params['FWHM']))
+
+def fit_scan(EOM_freq, scope, channel=1):
+    scope = scopes.scope(scope) # This is absurd
+    EOM_freq = u.Quantity(EOM_freq)
+    x, y = scope.get_data(channel)
+    params = guided_trace_fit(x, y, EOM_freq)
     print("FWHM = {}".format(params['FWHM']))
 
 def diff(unitful_array):
