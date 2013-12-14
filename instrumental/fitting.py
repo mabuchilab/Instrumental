@@ -78,7 +78,7 @@ def lorentzian(x, A, x0, FWHM):
     return A / (1 + square( 2*(x-x0)/FWHM ))
 
 
-def triple_lorentzian(nu, A0, B0, FWHM, nu0, dnu):
+def triple_lorentzian(nu, A0, B0, FWHM, nu0, dnu, y0):
     """
     Triple lorentzian curve. Takes an array ``nu`` and returns an array
     that is the sum of three lorentzians
@@ -88,7 +88,7 @@ def triple_lorentzian(nu, A0, B0, FWHM, nu0, dnu):
     t1 = lorentzian(nu, A0, nu0, FWHM)
     t2 = lorentzian(nu, B0, nu0-dnu, FWHM)
     t3 = lorentzian(nu, B0, nu0+dnu, FWHM)
-    return t1 + t2 + t3
+    return t1 + t2 + t3 + y0
 
 
 def _estimate_FWHM_pint(nu, amp, half_max, left_limit, center, right_limit):
@@ -238,7 +238,7 @@ def guided_trace_fit(data_x, data_y, EOM_freq):
     pts = _ginput(3)
     plt.close()
     
-    (x1,y1), (x2,y2), (x3,y3) = ((x*u.s, (y+0.05)*u.V) for (x,y) in pts)
+    (x1,y1), (x2,y2), (x3,y3) = ((x*u.s, y*u.V) for (x,y) in pts)
     scale_factor_x = 2*EOM_freq / (x3-x1)
     scale_factor_y = 1 / u.V
     
@@ -251,17 +251,16 @@ def guided_trace_fit(data_x, data_y, EOM_freq):
     B0 = (y1+y3)/2 * scale_factor_y
     nu0 = x2 * scale_factor_x
     dnu = EOM_freq
-    #plt.plot(nu, amp)
-    #plt.show()
+    y0 = 0 * u.dimensionless
     FWHM = _estimate_FWHM_pint(nu, amp, A0/2, nu0-dnu/2, nu0, nu0+dnu/2)
     
     # Do a curve fit to get new params
-    popt, pcov = curve_fit(triple_lorentzian, nu, amp, p0=(A0, B0, FWHM, nu0, dnu))
-    A0, B0, FWHM, nu0, dnu = popt
+    popt, pcov = curve_fit(triple_lorentzian, nu, amp, p0=(A0, B0, FWHM, nu0, dnu, y0))
+    A0, B0, FWHM, nu0, dnu, y0 = popt
     
     # Put params in format needed for param_plot
     params = {
-        'order': ['A0', 'B0', 'FWHM', 'nu0', 'dnu'],
+        'order': ['A0', 'B0', 'FWHM', 'nu0', 'dnu', 'y0'],
         'A0': A0,
         'B0': B0,
         'FWHM': FWHM,
@@ -269,7 +268,8 @@ def guided_trace_fit(data_x, data_y, EOM_freq):
             'init': nu0,
             'pm': dnu/8
         },
-        'dnu': dnu
+        'dnu': dnu,
+        'y0': y0
     }
     
     # Plot the data and fit on a param_plot
