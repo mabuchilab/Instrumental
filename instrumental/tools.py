@@ -7,7 +7,6 @@ import numpy as np
 
 from .fitting import guided_trace_fit, guided_ringdown_fit
 from . import u, Q_
-from .drivers.scopes.tds3032 import SCOPE_A
 from .drivers import scopes
 
 # Fix for Python 2
@@ -85,7 +84,7 @@ def fit_ringdown_save(subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Documents
     base_dir: string
         The path of the toplevel data directory.
     """
-    scope = SCOPE_A
+    scope = scopes.scope(scopes.SCOPE_A)
     x, y = scope.get_data(1)
     
     filename = 'Ringdown {:02}.csv'.format(trace_num)
@@ -107,7 +106,7 @@ def fit_ringdown(scope, channel=1, FSR=None):
     
 
 def fit_scan_save(EOM_freq, subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Documents\Nate\Data'):
-    scope = SCOPE_A
+    scope = scopes.scope(scopes.SCOPE_A)
     
     EOM_freq = u.Quantity(EOM_freq)
     x, y = scope.get_data(1)
@@ -172,7 +171,7 @@ def do_ringdown_set(set_name, base_dir=r'C:\Users\dodd\Documents\Nate\Data'):
     side_cam.save_frame(os.path.join(set_dir, 'Side.jpg'))
     side_cam.close()
 
-    scope = SCOPE_A
+    scope = scopes.scope(scopes.SCOPE_A)
     fname = 'Ringdown {:02}.csv'
     trace_num = 0
     cum_FWHM = 0 * u.MHz
