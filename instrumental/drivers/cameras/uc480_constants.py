@@ -405,3 +405,59 @@ IS_CM_RGB16_PLANAR          = 0 # no compliant version
 
 
 IS_CM_ALL_POSSIBLE                  = 0xFFFF
+
+# ----------------------------------------------------------------------------
+# event constants
+# ----------------------------------------------------------------------------
+IS_SET_EVENT_ODD                    = 0
+IS_SET_EVENT_EVEN                   = 1
+IS_SET_EVENT_FRAME                  = 2
+IS_SET_EVENT_EXTTRIG                = 3
+IS_SET_EVENT_VSYNC                  = 4
+IS_SET_EVENT_SEQ                    = 5
+IS_SET_EVENT_STEAL                  = 6
+IS_SET_EVENT_VPRES                  = 7
+IS_SET_EVENT_TRANSFER_FAILED        = 8
+IS_SET_EVENT_DEVICE_RECONNECTED     = 9
+IS_SET_EVENT_MEMORY_MODE_FINISH     = 10
+IS_SET_EVENT_FRAME_RECEIVED         = 11
+IS_SET_EVENT_WB_FINISHED            = 12
+IS_SET_EVENT_AUTOBRIGHTNESS_FINISHED = 13
+
+IS_SET_EVENT_REMOVE                 = 128
+IS_SET_EVENT_REMOVAL                = 129
+IS_SET_EVENT_NEW_DEVICE             = 130
+IS_SET_EVENT_STATUS_CHANGED         = 131
+
+
+# ----------------------------------------------------------------------------
+# live/freeze parameters
+# ----------------------------------------------------------------------------
+IS_GET_LIVE                         = 0x8000
+
+IS_WAIT                             = 0x0001
+IS_DONT_WAIT                        = 0x0000
+IS_FORCE_VIDEO_STOP                 = 0x4000
+IS_FORCE_VIDEO_START                = 0x4000
+IS_USE_NEXT_MEM                     = 0x8000
+
+# ----------------------------------------------------------------------------
+# Timing
+# ----------------------------------------------------------------------------
+
+# pixelclock
+IS_GET_PIXEL_CLOCK                  = 0x8000
+IS_GET_DEFAULT_PIXEL_CLK            = 0x8001
+IS_GET_PIXEL_CLOCK_INC              = 0x8005
+
+# frame rate
+IS_GET_FRAMERATE                    = 0x8000
+IS_GET_DEFAULT_FRAMERATE            = 0x8001
+
+# exposure
+IS_GET_EXPOSURE_TIME                = 0x8000
+IS_GET_DEFAULT_EXPOSURE             = 0x8001
+IS_GET_EXPOSURE_MIN_VALUE           = 0x8002
+IS_GET_EXPOSURE_MAX_VALUE           = 0x8003
+IS_GET_EXPOSURE_INCREMENT           = 0x8004
+IS_GET_EXPOSURE_FINE_INCREMENT      = 0x8005
