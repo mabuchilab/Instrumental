@@ -6,8 +6,8 @@ uEye software. Currently Windows-only, but Linux support should be
 possible to implement if desired.
 """
 
-from ctypes import WinDLL, pointer, POINTER, c_char, c_char_p
-from ctypes.wintypes import DWORD, INT, ULONG, HWND
+from ctypes import WinDLL, pointer, POINTER, c_char, c_char_p, addressof, cast
+from ctypes.wintypes import DWORD, INT, ULONG, DOUBLE, HWND
 import os.path
 from .uc480_constants import *
 from .uc480_structs import *
@@ -102,6 +102,8 @@ class Camera(object):
         self._color_mode = INT()
         self._p_img_mem = POINTER(c_char)() # Never directly modify this pointer!
         self._memid = INT()
+        self._list_p_img_mem = None
+        self._list_memid = None
 
     def __del__(self):
         if self._in_use:
@@ -119,7 +121,9 @@ class Camera(object):
             if ret != IS_SUCCESS:
                 print("Failed to load internally stored parameters")
             else:
-                self._reallocate_image_mem()
+                # Reset original display color mode
+                lib.is_GetColorDepth(self._id, pointer(self._color_depth), pointer(self._color_mode))
+                lib.is_SetColorMode(self._id, self._color_mode)
         else:
             print("set_num must be either 1 or 2")
 
@@ -131,8 +135,12 @@ class Camera(object):
         ret = lib.is_LoadParameters(self._id, ptr)
         if ret != IS_SUCCESS:
             print("Failed to load parameter file")
+        else:
+            # Reset original display color mode
+            lib.is_GetColorDepth(self._id, pointer(self._color_depth), pointer(self._color_mode))
+            lib.is_SetColorMode(self._id, self._color_mode)
 
-    def open(self):
+    def open(self, num_bufs=1):
         """
         Connect to the camera and set up the image memory.
         """
@@ -141,7 +149,10 @@ class Camera(object):
             print("Failed to open camera")
         else:
             self._in_use = True
-            self._allocate_image_mem()
+            if num_bufs == 1:
+                self._allocate_image_mem()
+            else:
+                self._allocate_mem_seq(num_bufs)
 
     def _allocate_image_mem(self):
         """
@@ -162,26 +173,40 @@ class Camera(object):
         lib.is_SetImageSize(self._id, self._width, self._height)
         lib.is_SetDisplayMode(self._id, IS_SET_DM_DIB)
 
-    def _reallocate_image_mem(self):
-        """ Like _allocate_image_mem(), except it frees existing image memory,
-        and uses the existing mode/depth rather than using is_GetColorDepth() """
-        # Free old image memory
-        lib.is_FreeImageMem(self._id, self._p_img_mem, self._memid)
+    def _allocate_mem_seq(self, num_bufs):
+        """
+        Create and setup the image memory for live capture
+        """
         self.width, self.height = self._get_max_img_size()
-        mode = lib.is_SetColorMode(self._id, IS_GET_COLOR_MODE)
-        depth_dict = { IS_SET_CM_RGB32: 32, IS_SET_CM_RGB24: 24,
-                       IS_SET_CM_RGB16: 16, IS_SET_CM_RGB15: 16,
-                       IS_SET_CM_UYVY: 16, IS_SET_CM_Y8: 8,
-                       IS_SET_CM_BAYER: 8 }
-        self._color_depth = INT(depth_dict.get(mode, 8))
 
-        # Allocate memory
-        lib.is_AllocImageMem(self._id, self._width, self._height, self._color_depth,
-                             pointer(self._p_img_mem), pointer(self._memid))
-        lib.is_SetImageMem(self._id, self._p_img_mem, self._memid)
+        # Set the save/display color depth to the current Windows setting
+        lib.is_GetColorDepth(self._id, pointer(self._color_depth), pointer(self._color_mode))
+        lib.is_SetColorMode(self._id, self._color_mode)
+        
+        self._list_p_img_mem = []
+        self._list_memid = []
+        for i in range(num_bufs):
+            p_img_mem = POINTER(c_char)()
+            memid = INT()
+            lib.is_AllocImageMem(self._id, self._width, self._height, self._color_depth,
+                                 pointer(p_img_mem), pointer(memid))
+            lib.is_AddToSequence(self._id, p_img_mem, memid)
+            self._list_p_img_mem.append(p_img_mem)
+            self._list_memid.append(memid)
 
-        # Set AOI to the full image size
+        # Initialize display
         lib.is_SetImageSize(self._id, self._width, self._height)
+        lib.is_SetDisplayMode(self._id, IS_SET_DM_DIB)
+
+    def _install_event_handler(self):
+        import win32event
+        self.hEvent = win32event.CreateEvent(None, False, False, '')
+        lib.is_InitEvent(self._id, self.hEvent.handle, IS_SET_EVENT_FRAME)
+        lib.is_EnableEvent(self._id, IS_SET_EVENT_FRAME)
+
+    def _uninstall_event_handler(self):
+        lib.is_DisableEvent(self._id, IS_SET_EVENT_FRAME)
+        lib.is_ExitEvent(self._id, IS_SET_EVENT_FRAME)
 
     def close(self):
         """
@@ -200,6 +225,11 @@ class Camera(object):
             return num.value
         return None
 
+    def wait_for_frame(self, timeout=0):
+        import win32event
+        ret = win32event.WaitForSingleObject(self.hEvent, timeout)
+        return (ret == win32event.WAIT_OBJECT_0)
+
     def freeze_frame(self):
         """
         Acquires a single image from the camera and stores it in memory. Can
@@ -208,7 +238,24 @@ class Camera(object):
         """
         lib.is_FreezeVideo(self._id, self._width, self._height)
 
-    def save_frame(self, filename=NULL, filetype=None):
+    def start_live_video(self, framerate=None):
+        self._install_event_handler()
+        if framerate is None:
+            framerate = IS_GET_FRAMERATE
+        newFPS = DOUBLE()
+        ret = lib.is_SetFrameRate(self._id, DOUBLE(framerate), pointer(newFPS))
+        if ret != IS_SUCCESS:
+            print("Error: failed to set framerate")
+        else:
+            self.framerate = newFPS.value
+
+        lib.is_CaptureVideo(self._id, IS_WAIT)
+
+    def stop_live_video(self):
+        lib.is_StopLiveVideo(self._id, IS_WAIT)
+        self._uninstall_event_handler()
+
+    def save_frame(self, filename=NULL, filetype=None, live=False):
         """
         Saves the current video image to disk. If no filename is given,
         this will display the 'Save as' dialog. If no filetype is given,
@@ -234,7 +281,8 @@ class Camera(object):
         ftype_flag = fdict[ext.lower()]
         filename = filename + ext
 
-        lib.is_FreezeVideo(self._id, self._width, self._height)
+        if not live:
+            lib.is_FreezeVideo(self._id, self._width, self._height)
         lib.is_SaveImageEx(self._id, filename, ftype_flag, INT(0))
 
     def _get_max_img_size(self):
@@ -252,6 +300,28 @@ class Camera(object):
         def setter(self, value):
             getattr(self, member_str).value = value
         return setter
+
+    def get_image_buffer(self):
+        bpl = self.bytes_per_line
+
+        # Create a pointer to the data as a CHAR ARRAY so we can convert it to a buffer
+        p_img_mem = self._last_img_mem()
+        arr_ptr = cast(p_img_mem, POINTER(c_char * (bpl*self.height)))
+        return buffer(arr_ptr.contents) # buffer pointing to array of image data
+
+    def _last_img_mem(self):
+        """ Returns a ctypes char-pointer to the starting address of the image memory
+        last used for image capturing """
+        if self._list_p_img_mem is None:
+            # Just using a single image buffer
+            return self._p_img_mem
+        else:
+            # Using a buffer sequence
+            nNum = INT()
+            pcMem = POINTER(c_char)()
+            pcMemLast = POINTER(c_char)()
+            lib.is_GetActSeqBuf(self._id, pointer(nNum), pointer(pcMem), pointer(pcMemLast))
+            return pcMemLast
 
     #: Camera ID number
     id = property(lambda self: self._info.dwCameraID) # Read-only
