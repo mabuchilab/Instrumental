@@ -1,41 +1,38 @@
+"""
+A simple GUI that can grab snapshots from a uc480 camera plugged
+into the local machine. Cameras currently only support Windows.
+"""
+
 import sys
-from ctypes import cast, c_char, POINTER
-from PySide.QtGui import QApplication, QLabel, QPushButton, QImage, QPixmap
+from PySide.QtGui import QApplication, QScrollArea, QPushButton
 from PySide.QtUiTools import QUiLoader
 
 from instrumental.drivers.cameras import uc480
-
-loader = QUiLoader()
-
-def get_image(cam):
-    cam.freeze_frame()
-    bytesperline = cam.bytes_per_line
-
-    # Create a pointer to the data as a CHAR ARRAY so we can convert it to a buffer
-    arr_ptr = cast(cam._p_img_mem, POINTER(c_char * (bytesperline*cam.height)))
-    data = buffer(arr_ptr.contents) # buffer pointing to array of image data
-    format = QImage.Format_RGB32
-
-    image = QImage(data, cam.width, cam.height, bytesperline, format)
-    return image
-
+from instrumental import gui
 
 if __name__ == '__main__':
-    cam = uc480.get_camera(serial='4002856484')
+    # Change serial number to match that of your camera
+    cam = uc480.get_camera(serial='4002862589')
     cam.open()
+    cam.load_stored_parameters(1) # Load camera's stored parameters (optional)
 
+    # Load Qt and the UI file
+    loader = QUiLoader()
     app = QApplication(sys.argv)
     ui = loader.load('snapshot_gui.ui')
-    
-    label = ui.findChild(QLabel, 'imageLabel')
 
-    def load_image():
-        image = get_image(cam)
-        label.setPixmap(QPixmap.fromImage(image))
+    # Create and add CameraView to the GUI's scrollarea
+    cam_view = gui.CameraView(cam)
+    scroll_area = ui.findChild(QScrollArea, 'scrollArea')
+    scroll_area.setWidget(cam_view)
 
+    # Grab a frame whenever the button is pushed
     button = ui.findChild(QPushButton, 'acquireButton')
-    button.clicked.connect(load_image)
+    button.clicked.connect(cam_view.grab_frame)
 
+    # Show the window and enter the GUI's main loop
     ui.show()
     app.exec_()
+
+    # Clean up once we're done
     cam.close()
