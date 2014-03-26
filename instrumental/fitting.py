@@ -6,7 +6,17 @@ from numpy import loadtxt, square, extract, diff, sign, logical_and, \
 import scipy.optimize
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Cursor
-from matplotlib.cbook import MatplotlibDeprecationWarning
+
+# MatplotlibDeprecationWarning moved to cbook in version 1.3.0
+# and was added in version 1.2.1rc1
+try:
+    from matplotlib.cbook import MatplotlibDeprecationWarning
+except ImportError:
+    try:
+        from matplotlib import MatplotlibDeprecationWarning
+    except ImportError:
+        MatplotlibDeprecationWarning = None
+
 import warnings
 from exceptions import UserWarning
 
@@ -18,10 +28,13 @@ def _ginput(*args, **kwargs):
     Hides the stupid default warnings when using ginput. There has to be
     a better way...
     """
-    warnings.simplefilter('ignore', MatplotlibDeprecationWarning)
-    out = plt.ginput(*args, **kwargs)
-    warnings.warn('default', MatplotlibDeprecationWarning)
-    return out
+    if MatplotlibDeprecationWarning is None:
+        return plt.ginput(*args, **kwargs)
+    else:
+        warnings.simplefilter('ignore', MatplotlibDeprecationWarning)
+        out = plt.ginput(*args, **kwargs)
+        warnings.warn('default', MatplotlibDeprecationWarning)
+        return out
 
 
 def curve_fit(f, xdata, ydata, p0=None, sigma=None, **kw):
@@ -260,41 +273,25 @@ def guided_trace_fit(data_x, data_y, EOM_freq):
     
     # Put params in format needed for param_plot
     params = {
-        'order': ['A0', 'B0', 'FWHM', 'nu0', 'dnu', 'y0'],
         'A0': A0,
         'B0': B0,
         'FWHM': FWHM,
-        'nu0': {
-            'init': nu0,
-            'pm': dnu/8
-        },
+        'nu0': nu0,
         'dnu': dnu,
         'y0': y0
     }
     
     # Plot the data and fit on a param_plot
-    final_params = param_plot(nu, triple_lorentzian, params, linewidth=2)
-    plt.gca().plot(nu, amp, 'gx', zorder=0)
+    plt.plot(nu, amp, 'gx', nu, triple_lorentzian(nu, **params), 'b-', linewidth=2)
     plt.xlim([(nu0-2*dnu).magnitude, (nu0+2*dnu).magnitude])
     plt.title('Cavity Trace Fit')
     plt.xlabel('Frequency (MHz)')
     plt.ylabel('Transmission (arb. units)')
     plt.legend(['Data Trace', 'Fitted Curve'])
-    
-    # Make sure we block until plot is closed
-    plt.ioff()
-    warnings.filterwarnings('ignore', '.*tight_layout.*', UserWarning)
+    plt.text(0, 1, 'FWHM = {:.2f}'.format(FWHM), ha='left', va='top', transform=plt.gca().transAxes)
     plt.show()
-    warnings.filterwarnings('default', '.*tight_layout.*', UserWarning)
-    plt.ion()
     
-    # Subtle issue here: since dnu is DEFINED as being EOM_freq, if the user
-    # adjusts it, all our frequency-based params are off by this factor
-    scale_x_correction = EOM_freq/final_params['dnu']
-    final_params['dnu'] *= scale_x_correction
-    final_params['nu0'] *= scale_x_correction
-    final_params['FWHM'] *= scale_x_correction    
-    return final_params
+    return params
 
 
 if __name__ == '__main__':
