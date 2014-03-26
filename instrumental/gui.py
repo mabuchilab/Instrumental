@@ -6,7 +6,7 @@ class DrawableCameraView(QGraphicsView):
     def __init__(self, camera=None, scene=None):
         super(DrawableCameraView, self).__init__()
         if scene is None:
-            self.scene = GraphicsScene()
+            self.scene = QGraphicsScene()
         else:
             self.scene = scene
         self.setScene(self.scene)
