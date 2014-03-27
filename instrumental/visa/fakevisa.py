@@ -9,12 +9,12 @@ from codecs import encode, decode
 import socket
 
 from messenger import Messenger
+from .. import settings
 
 # Create socket immediately upon module import
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-host = "171.64.84.122"
-port = 12345
-sock.connect((host, port))
+host, port = settings['prefs']['default_server'].split(':')
+sock.connect((host, int(port)))
 messenger = Messenger(sock)
 
 class VisaIOError(Exception):
