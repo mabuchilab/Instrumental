@@ -5,7 +5,7 @@ Driver module for Tektronix TDS3032 oscilloscopes.
 """
 
 import numpy as np
-import visa
+from ... import visa
 from instrumental import u
 from . import Scope
 
@@ -33,6 +33,7 @@ class TDS_3032(Scope):
         
         inst.write("data:source ch{}".format(channel))
         stop = int(inst.ask("wfmpre:nr_pt?")) # Get source's number of points
+        stop = 10000
         inst.write("data:width 2")
         inst.write("data:encdg RIBinary")
         inst.write("data:start 1")

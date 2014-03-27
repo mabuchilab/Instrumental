@@ -4,7 +4,7 @@
 Package containing a driver module/class for each supported oscilloscope type.
 """
 
-import visa
+from ... import visa
 
 SCOPE_A = "TCPIP::171.64.84.116::INSTR"
 SCOPE_B = "TCPIP::171.64.85.167::INSTR"
