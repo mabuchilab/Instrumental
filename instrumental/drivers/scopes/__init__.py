@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013 Nate Bogdanowicz
+# Copyright 2013-2014 Nate Bogdanowicz
 """
 Package containing a driver module/class for each supported oscilloscope type.
 """
 
+from .. import InstrumentTypeError
 from ... import visa
 
 SCOPE_A = "TCPIP::171.64.84.116::INSTR"
@@ -38,5 +39,5 @@ def scope(scope):
         elif model == 'MSO4034':
             return TDS_3032(instrument=inst)
 
-    print("Error: unsupported scope with IDN = '{}'".format(idn))
+    raise InstrumentTypeError("Error: unsupported scope with IDN = '{}'".format(idn))
     return None
