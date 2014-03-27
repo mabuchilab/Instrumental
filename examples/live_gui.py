@@ -6,6 +6,7 @@ arrow keys to switch between overlay images.
 """
 
 import sys
+import os.path
 from PySide.QtGui import QApplication, QPushButton, QScrollArea, QHBoxLayout
 from PySide.QtUiTools import QUiLoader
 
@@ -34,7 +35,9 @@ if __name__ == '__main__':
     hbox = ui.findChild(QHBoxLayout, 'horizontalLayout')
     hbox.insertWidget(0, camview2)
 
-    camview.set_overlays(['Side.jpg', 'Ruler.jpg', 'Top.jpg'])
+    fnames = ['Side.jpg', 'Ruler.jpg', 'Top.jpg']
+    fnames = [os.path.join('images', fname) for fname in fnames]
+    camview.set_overlays(fnames)
 
     statusbar = ui.statusBar()
     def set_status():
