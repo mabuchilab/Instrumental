@@ -178,7 +178,7 @@ def do_ringdown_set(set_name, base_dir=r'C:\Users\dodd\Documents\Nate\Data'):
     print("-------------Enter d[one] to stop taking data-------------")
     while True:
         s = raw_input('Press [ENTER] to process ringdown {}: '.format(trace_num))
-        if s and s[0] == 'd':
+        if s and s[0].lower() == 'd':
             break
         x, y = scope.get_data(channel=1)
         full_filename = os.path.join(set_dir, fname.format(trace_num))
@@ -191,3 +191,15 @@ def do_ringdown_set(set_name, base_dir=r'C:\Users\dodd\Documents\Nate\Data'):
         trace_num += 1
     print('Mean FWHM: {}'.format(cum_FWHM/trace_num))
 
+def get_photo_fnames():
+    basedir = r'C:\Users\dodd\Documents\Nate\Data'
+    fnames = []
+    w = os.walk(basedir)
+    w.next()
+    for root, dirs, files in w:
+        num_subdirs = len(dirs)
+        for i in range(num_subdirs):
+            root, dirs, files = w.next()
+            files = [os.path.join(root, f) for f in files if (f.lower() in ['top.jpg','folder.jpg'])]
+            fnames.extend(files)
+    return fnames
