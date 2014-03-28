@@ -13,7 +13,10 @@ from .. import conf
 
 # Create socket immediately upon module import
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-host, port = conf.prefs['default_server'].split(':')
+try:
+    host, port = conf.prefs['default_server'].split(':')
+except KeyError:
+    raise Exception("Error: No default fakevisa server specified in the instrumental.conf")
 sock.connect((host, int(port)))
 messenger = Messenger(sock)
 
