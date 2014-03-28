@@ -9,11 +9,11 @@ from codecs import encode, decode
 import socket
 
 from messenger import Messenger
-from .. import settings
+from .. import conf
 
 # Create socket immediately upon module import
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-host, port = settings['prefs']['default_server'].split(':')
+host, port = conf.prefs['default_server'].split(':')
 sock.connect((host, int(port)))
 messenger = Messenger(sock)
 

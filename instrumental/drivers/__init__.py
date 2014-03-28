@@ -3,7 +3,7 @@
 class InstrumentTypeError(Exception):
     pass
 
-from .. import settings
+from .. import conf
 from .. import visa
 from scopes import scope
 
@@ -22,10 +22,7 @@ def instrument(name):
     Function to create any Instrumental instrument object from an alias or
     address.
     """
-    if name in settings['instruments'].keys():
-        addr = settings['instruments'][name]
-    else:
-        addr = name
+    addr = conf.instruments.get(name, name)
     visa_inst = visa.instrument(addr)
     inst = None
 
