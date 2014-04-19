@@ -29,7 +29,7 @@ all_by_module = {
     'instrumental.tools' : ['fit_scan', 'fit_ringdown'],
     'instrumental.optics.beam_plotting' : ['plot_profile', 'plot_profile_and_RoC'],
     'instrumental.optics.beam_tools' : ['find_cavity_mode', 'find_cavity_modes', 'get_zR', 'get_w0', 'get_z0', 'beam_profile', 'beam_roc', 'get_profiles'],
-    'instrumental.optics.optical_elements' : ['Space', 'Lens', 'CMirror', 'FMirror', 'CInterface', 'FInterface']
+    'instrumental.optics.optical_elements' : ['Space', 'Lens', 'Mirror', 'Interface']
 }
 
 # Modules that should be imported when accessed as attributes of instrumental
