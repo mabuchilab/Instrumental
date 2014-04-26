@@ -38,6 +38,8 @@ def scope(scope):
             return TDS_3032(instrument=inst)
         elif model == 'MSO4034':
             return TDS_3032(instrument=inst)
+        elif model == 'DPO4034':
+            return TDS_3032(instrument=inst)
 
     raise InstrumentTypeError("Error: unsupported scope with IDN = '{}'".format(idn))
     return None
