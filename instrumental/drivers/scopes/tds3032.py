@@ -6,7 +6,7 @@ Driver module for Tektronix TDS3032 oscilloscopes.
 
 import numpy as np
 from ... import visa
-from instrumental import u
+from instrumental import u, Q_
 from . import Scope
 
 class TDS_3032(Scope):
@@ -61,3 +61,76 @@ class TDS_3032(Scope):
         data_y = u[y_unit] * ((raw_data_y - y_offset)*y_scale + y_zero)
         
         return data_x, data_y
+
+    def set_measurement_params(self, num, mtype, channel):
+        """
+        Set the parameters for a measurement.
+
+        Parameters
+        ----------
+        num : int
+            Measurement number to set, from 1-4.
+        mtype : str
+            Type of the measurement, e.g. 'amplitude'
+        channel : int
+            Number of the channel to measure.
+        """
+        prefix = 'measurement:meas{}'.format(num)
+        self.inst.write("{}:type {};source ch{}".format(prefix, mtype, channel))
+
+    def read_measurement_stats(self, num):
+        """
+        Read the value and statistics of a measurement.
+
+        Returns
+        -------
+        stats : dict
+            Dictionary of measurement statistics. Includes value, mean, stddev,
+            minimum, maximum, and nsamps.
+        """
+        prefix = 'measurement:meas{}:'.format(num)
+
+        if not self.are_measurement_stats_on():
+            raise Exception("Measurement statistics are turned off, please turn them on.")
+
+        # Potential issue: If we ask for all of these values in one command,
+        # are they guaranteed to be taken from the same statistical set?
+        # Perhaps we should stop_acquire(), then run_acquire()...
+        keys = ['value', 'mean', 'stddev', 'minimum', 'maximum']
+        res = self.inst.ask(prefix+'value?;mean?;stddev?;minimum?;maximum?;units?').split(';')
+        units = res.pop(-1).strip('"')
+        stats = {k:Q_(rval+units) for k,rval in zip(keys, res)}
+
+        num_samples = int(self.inst.ask('measurement:statistics:weighting?'))
+        stats['nsamps'] = num_samples
+        return stats
+
+    def read_measurement_value(self, num):
+        """
+        Read the value of a measurement.
+        """
+        prefix = 'measurement:meas{}:'.format(num)
+
+        raw_value, raw_units = self.inst.ask('{}:value?;units?'.format(prefix)).split(';')
+        units = raw_units.strip('"')
+        return Q_(raw_value+units)
+        
+    def run_acquire(self):
+        self.inst.write("acquire:state run")
+
+    def stop_acquire(self):
+        self.inst.write("acquire:state stop")
+
+    def are_measurement_stats_on(self):
+        res = self.inst.ask("measu:statistics:mode?")
+        return res not in ['OFF', '0']
+
+    def enable_measurement_stats(self, enable=True):
+        # For some reason, the TDS4034 uses ALL instead of ON
+        self.inst.write("measu:statistics:mode {}".format('ALL' if enable else 'OFF'))
+
+    def disable_measurement_stats(self):
+        self.enable_measurement_stats(False)
+
+    def set_measurement_nsamps(self, nsamps):
+        self.inst.write("measu:stati:weighting {}".format(nsamps))
