@@ -2,6 +2,7 @@
 import os
 import os.path
 import shutil
+import warnings
 from datetime import date, datetime
 import numpy as np
 
@@ -18,8 +19,9 @@ prev_data_fname = ''
 
 
 class DataSession(object):
-    def __init__(self, name):
+    def __init__(self, name, overwrite=False):
         self.name = name
+        self.overwrite = overwrite
         self.data_dir = self._find_data_dir()
         self.start_time = datetime.now()
         self.end_time = None
@@ -35,17 +37,18 @@ class DataSession(object):
             of measured quantities, and whose values are pint Quantity objects
             representing the value of each measurement.
         """
-        filename = os.path.join(self.data_dir, "Measurement {}.csv".format(self.measurement_num))
+        filename_try = "Measurement {}.csv".format(self.measurement_num)
+        filename = self._conflict_handled_filename(filename_try)
         self.measurement_num += 1
         with open(filename, 'w') as f:
             # TODO: Warn if overwriting file
             f.write('# Data saved {}\n\n'.format(datetime.now().isoformat(' ')))
             for name, value in meas_dict.items():
                 fmt = self._default_format(value.magnitude)
-                f.write('{} = {}'.format(name, fmt) % value)
+                f.write('{} = {}\n'.format(name, fmt) % value.magnitude)
 
                 if name not in self.meas_list:
-                    self.meas_list[name] = value
+                    self.meas_list[name] = Q_(np.array([value.magnitude]), value.units)
                 else:
                     self.meas_list[name] = qappend(self.meas_list[name], value)
 
@@ -68,17 +71,37 @@ class DataSession(object):
             arrays.append(qarr.magnitude)
             fmt.append(self._default_format(qarr.magnitude))
 
-        filename = os.path.join(self.data_dir, "Summary.csv")
+        filename = self._conflict_handled_filename("Summary.csv")
         with open(filename, 'w') as f:
             # TODO: Warn if overwriting file
             # Write the 'header'
-            f.write("Data saved {}".format(datetime.now().isoformat(' ')))
+            f.write("# Data saved {}\n".format(datetime.now().isoformat(' ')))
             f.write("\n")
             f.write(', '.join(labels) + "\n")
 
             # Write the data
             data = np.array(arrays).T
             np.savetxt(f, data, fmt=fmt, delimiter=',')
+
+    def _conflict_handled_filename(self, fname):
+        # fname is name of file within data_dir
+        full_fname = os.path.join(self.data_dir, fname)
+        is_conflict = os.path.exists(full_fname)
+        if is_conflict:
+            if self.overwrite:
+                print("Warning: Overwriting file {}".format(fname))
+            else:
+                i = 1
+                new_full_fname = full_fname
+                while os.path.exists(new_filename):
+                    new_fname = '({}) {}'.format(i, fname)
+                    new_full_fname = os.path.join(self.data_dir, new_fname)
+                    i += 1
+                print('Filename "{}" used already. Using "{}" instead.'.format(
+                    fname, new_fname))
+                full_fname = new_full_fname
+        return full_fname
+
 
     def _quantity_list_to_array(self, qlist):
         # I feel like there should already exist a function for this...
@@ -87,13 +110,21 @@ class DataSession(object):
         return Q_(mags, units)
 
     def _find_data_dir(self):
-        # TODO: Warn if reusing a name (directory)
         base_dir = conf.prefs['data_directory']
         date_subdir = date.today().isoformat()
         session_subdir = self.name
+
+        i = 1
         data_dir = os.path.join(base_dir, date_subdir, session_subdir)
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
+        while os.path.exists(data_dir):
+            alt_session_subdir = '{} {}'.format(session_subdir, i)
+            data_dir = os.path.join(base_dir, date_subdir, alt_session_subdir)
+            i += 1
+
+        if i > 1:
+            print('Session name "{}" used already. Using "{}" instead.'.format(
+                session_subdir, alt_session_subdir))
+        os.makedirs(data_dir)
         return data_dir
 
 
