@@ -9,55 +9,76 @@ from .fitting import guided_trace_fit, guided_ringdown_fit
 from . import u, Q_, conf
 from .drivers import scopes
 
+
 # Fix for Python 2
 try: input = raw_input
 except NameError: pass
 
 prev_data_fname = ''
 
+
 class DataSession(object):
     def __init__(self, name):
         self.name = name
-        self.data_dir = self.find_data_dir()
+        self.data_dir = self._find_data_dir()
         self.start_time = datetime.now()
         self.end_time = None
         self.measurement_num = 1
         self.meas_list = {}
 
     def add_measurement(self, meas_dict, comment=None):
+        """
+        Parameters
+        ----------
+        meas_dict : dict
+            Measurement `dict` whose keys are strings representing the names
+            of measured quantities, and whose values are pint Quantity objects
+            representing the value of each measurement.
+        """
         filename = os.path.join(self.data_dir, "Measurement {}.csv".format(self.measurement_num))
         self.measurement_num += 1
         with open(filename, 'w') as f:
+            # TODO: Warn if overwriting file
             f.write('# Data saved {}\n\n'.format(datetime.now().isoformat(' ')))
             for name, value in meas_dict.items():
+                fmt = self._default_format(value.magnitude)
+                f.write('{} = {}'.format(name, fmt) % value)
 
-                # Hack for not treating ints as floats
-                if np.asarray(value.magnitude).dtype.kind == 'i':
-                    fmt = '{}'
-                else:
-                    fmt = '{:.8e}'
-
-                f.write(('{} = '+fmt+'\n').format(name, value))
                 if name not in self.meas_list:
-                    self.meas_list[name] = []
-                self.meas_list[name].append(value)
+                    self.meas_list[name] = value
+                else:
+                    self.meas_list[name] = qappend(self.meas_list[name], value)
+
+    def _default_format(self, arr):
+        """ Returns the default format string for an array of this type """
+        kind = np.asarray(arr).dtype.kind
+        if kind == 'i':
+            fmt = '%d'
+        else:
+            fmt = '%.8e'
+        return fmt
 
     def save_summary(self, comment=None):
-        arrays, labels = [], []
-        for name, qlist in self.meas_list.items():
-            qarr = self._quantity_list_to_array(qlist)
+        arrays, labels, fmt = [], [], []
+
+        # Extract names and units to make the labels
+        for name, qarr in self.meas_list.items():
             unit = qarr.units
             labels.append('{} ({})'.format(name, unit))
             arrays.append(qarr.magnitude)
+            fmt.append(self._default_format(qarr.magnitude))
 
-        timestamp = "Data saved {}".format(datetime.now().isoformat(' '))
-        labels = ', '.join(labels)
-        header = '\n'.join([timestamp, '', labels])
-
-        data = np.array(arrays).T
         filename = os.path.join(self.data_dir, "Summary.csv")
-        np.savetxt(filename, data, header=header, delimiter=',')
+        with open(filename, 'w') as f:
+            # TODO: Warn if overwriting file
+            # Write the 'header'
+            f.write("Data saved {}".format(datetime.now().isoformat(' ')))
+            f.write("\n")
+            f.write(', '.join(labels) + "\n")
 
+            # Write the data
+            data = np.array(arrays).T
+            np.savetxt(f, data, fmt=fmt, delimiter=',')
 
     def _quantity_list_to_array(self, qlist):
         # I feel like there should already exist a function for this...
@@ -65,8 +86,8 @@ class DataSession(object):
         mags = np.array([q.to(units).magnitude for q in qlist])
         return Q_(mags, units)
 
-
-    def find_data_dir(self):
+    def _find_data_dir(self):
+        # TODO: Warn if reusing a name (directory)
         base_dir = conf.prefs['data_directory']
         date_subdir = date.today().isoformat()
         session_subdir = self.name
@@ -74,6 +95,36 @@ class DataSession(object):
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
         return data_dir
+
+
+def qappend(arr, values, axis=None):
+    """ Append values to the end of an array-valued Quantity. """
+    new_mag = np.append(arr.magnitude, values.to(arr.units).magnitude, axis)
+    return Q_(new_mag, arr.units)
+
+
+def load_data(fname, delimiter=','):
+    with open(fname) as f:
+        while True:
+            line = f.readline()
+            if line == '':
+                return None  # EOF before any data
+
+            line = line.strip()
+            if line and line[0] != '#':
+                # First non-empty non-comment line has the names and units
+                break
+
+        # Read rest of file using numpy's data file parser
+        arr = np.loadtxt(f, delimiter=delimiter)
+
+        meas_dict = {}
+        for heading, col in zip(line.split(','), arr.T):
+            left, right = heading.split('(')
+            name, units = left.strip(), right.strip(')')
+            meas_dict[name] = Q_(col, units)
+        return meas_dict
+
 
 def _save_data(time, signal, full_filename, comment=''):
     full_dir = os.path.dirname(full_filename)
