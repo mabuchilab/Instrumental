@@ -36,3 +36,6 @@ try:
 except KeyError:
     # 'prefs' or 'servers' sections empty or nonexistent
     pass
+
+if 'data_directory' in prefs:
+    prefs['data_directory'] = os.path.expanduser(prefs['data_directory'])
