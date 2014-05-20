@@ -5,11 +5,11 @@ import shutil
 import warnings
 from datetime import date, datetime
 import numpy as np
+from matplotlib import pyplot as plt
 
 from .fitting import guided_trace_fit, guided_ringdown_fit
 from . import u, Q_, conf
 from .drivers import scopes
-
 
 # Fix for Python 2
 try: input = raw_input
@@ -27,6 +27,10 @@ class DataSession(object):
         self.end_time = None
         self.measurement_num = 1
         self.meas_list = {}
+        self.has_plot = False
+        self.axs = []
+        self.lines = []
+        self.plotvars = []
 
     def add_measurement(self, meas_dict, comment=None):
         """
@@ -51,6 +55,8 @@ class DataSession(object):
                     self.meas_list[name] = Q_(np.array([value.magnitude]), value.units)
                 else:
                     self.meas_list[name] = qappend(self.meas_list[name], value)
+        if self.has_plot and self.auto_update_plot:
+            self.update_plot()
 
     def _default_format(self, arr):
         """ Returns the default format string for an array of this type """
@@ -77,11 +83,75 @@ class DataSession(object):
             # Write the 'header'
             f.write("# Data saved {}\n".format(datetime.now().isoformat(' ')))
             f.write("\n")
-            f.write(', '.join(labels) + "\n")
+            f.write('\t'.join(labels) + "\n")
 
             # Write the data
             data = np.array(arrays).T
-            np.savetxt(f, data, fmt=fmt, delimiter=',')
+            np.savetxt(f, data, fmt=fmt, delimiter='\t')
+
+    def create_plot(self, vars, auto_update=True):
+        self.auto_update_plot = auto_update
+        self.has_plot = True
+        self.plotvars = self._parse_plotvars(vars)
+
+        if self.meas_list:
+            self._create_plot()
+
+    def _parse_plotvars(self, vars):
+        plotvars = []
+
+        # Helper to make sure the lambdas close over the right key
+        def makefun(key):
+            return lambda **kwargs: kwargs[key]
+
+        if isinstance(vars[0], basestring):
+            # Vars wasn't nested; nest it and retry
+            return self._parse_plotvars([vars])
+
+        for var_pair in vars:
+            plotvar_pair = []
+            plotvars.append(plotvar_pair)
+            for var in var_pair:
+                if isinstance(var, basestring):
+                    # Convert var string to a function
+                    print('var = {}'.format(var))
+                    var_func = makefun(var)
+                    var_func.name = var
+                    plotvar_pair.append(var_func)
+                elif callable(var):
+                    plotvar_pair.append(var)
+                else:
+                    raise Exception("`vars` must contain strings or functions")
+        return plotvars
+
+    def _create_plot(self):
+        plt.ion()
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        self.axs.append(ax)
+        print(plt.isinteractive())
+        for var_pair in self.plotvars:
+            x, y = var_pair
+            xval, yval = x(**self.meas_list), y(**self.meas_list)
+            line, = ax.plot(xval, yval)
+            ax.set_xlabel('{} ({}s)'.format(x.name, xval.units))
+            ax.set_ylabel('{} ({}s)'.format(y.name, yval.units))
+            self.axs.append(ax)
+            self.lines.append(line)
+        plt.show()
+
+    def update_plot(self):
+        # Create plot if it doesn't exist yet
+        if not self.axs:
+            self._create_plot()
+        else:
+            for var_pair, ax, line in zip(self.plotvars, self.axs, self.lines):
+                line.set_xdata(var_pair[0](**self.meas_list))
+                line.set_ydata(var_pair[1](**self.meas_list))
+                # TODO: fix redundancy for multiple lines on one axis
+                ax.relim()
+                ax.autoscale_view()
+            plt.draw()
 
     def _conflict_handled_filename(self, fname):
         # fname is name of file within data_dir
@@ -102,7 +172,6 @@ class DataSession(object):
                 full_fname = new_full_fname
         return full_fname
 
-
     def _quantity_list_to_array(self, qlist):
         # I feel like there should already exist a function for this...
         units = qlist[0].units
@@ -116,15 +185,17 @@ class DataSession(object):
 
         i = 1
         data_dir = os.path.join(base_dir, date_subdir, session_subdir)
-        while os.path.exists(data_dir):
-            alt_session_subdir = '{} {}'.format(session_subdir, i)
-            data_dir = os.path.join(base_dir, date_subdir, alt_session_subdir)
-            i += 1
+        if not self.overwrite:
+            while os.path.exists(data_dir):
+                alt_session_subdir = '{} {}'.format(session_subdir, i)
+                data_dir = os.path.join(base_dir, date_subdir, alt_session_subdir)
+                i += 1
 
         if i > 1:
             print('Session name "{}" used already. Using "{}" instead.'.format(
                 session_subdir, alt_session_subdir))
-        os.makedirs(data_dir)
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir)
         return data_dir
 
 
@@ -135,8 +206,10 @@ def qappend(arr, values, axis=None):
 
 
 def load_data(fname, delimiter=','):
+    line = ''
     with open(fname) as f:
         while True:
+            prev_line = line
             line = f.readline()
             if line == '':
                 return None  # EOF before any data
@@ -149,8 +222,10 @@ def load_data(fname, delimiter=','):
         # Read rest of file using numpy's data file parser
         arr = np.loadtxt(f, delimiter=delimiter)
 
+        header = prev_line.strip(' #')
+
         meas_dict = {}
-        for heading, col in zip(line.split(','), arr.T):
+        for heading, col in zip(header.split(','), arr.T):
             left, right = heading.split('(')
             name, units = left.strip(), right.strip(')')
             meas_dict[name] = Q_(col, units)
