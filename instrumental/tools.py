@@ -288,7 +288,7 @@ def _ensure_photo_copied(full_photo_name):
         shutil.copy(full_photo_name, full_newphoto_name)
 
 
-def fit_ringdown_save(subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Documents\Nate\Data'):
+def fit_ringdown_save(subdir='', trace_num=0, base_dir=None):
     """
     Read a trace from the scope, save it and fit a ringdown curve.
     
@@ -301,6 +301,8 @@ def fit_ringdown_save(subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Documents
     base_dir: string
         The path of the toplevel data directory.
     """
+    if base_dir is None:
+        base_dir = conf.prefs['data_directory']
     scope = scopes.scope(scopes.SCOPE_A)
     x, y = scope.get_data(1)
     
@@ -322,7 +324,9 @@ def fit_ringdown(scope, channel=1, FSR=None):
         print("Finesse = {:,.0F}".format(float(FSR/FWHM)))
     
 
-def fit_scan_save(EOM_freq, subdir='', trace_num=0, base_dir=r'C:\Users\dodd\Documents\Nate\Data'):
+def fit_scan_save(EOM_freq, subdir='', trace_num=0, base_dir=None):
+    if base_dir is None:
+        base_dir = conf.prefs['data_directory']
     scope = scopes.scope(scopes.SCOPE_A)
     
     EOM_freq = u.Quantity(EOM_freq)
@@ -367,7 +371,9 @@ def find_FSR():
 TOP_CAM_SERIAL = '4002856484'
 SIDE_CAM_SERIAL = '4002862589'
 
-def do_ringdown_set(set_name, base_dir=r'C:\Users\dodd\Documents\Nate\Data'):
+def do_ringdown_set(set_name, base_dir=None):
+    if base_dir is None:
+        base_dir = conf.prefs['data_directory']
     set_dir = os.path.join(base_dir, date.today().isoformat(), set_name)
     if not os.path.exists(set_dir):
         os.makedirs(set_dir)
@@ -409,7 +415,7 @@ def do_ringdown_set(set_name, base_dir=r'C:\Users\dodd\Documents\Nate\Data'):
     print('Mean FWHM: {}'.format(cum_FWHM/trace_num))
 
 def get_photo_fnames():
-    basedir = r'C:\Users\dodd\Documents\Nate\Data'
+    basedir = conf.prefs['data_directory']
     fnames = []
     w = os.walk(basedir)
     w.next()
