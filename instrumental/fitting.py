@@ -199,7 +199,9 @@ def guided_ringdown_fit(data_x, data_y):
     data_x = data_x[i1:i2]
     data_y = data_y[i1:i2]
 
-    t = data_x
+    # Set t0 = 0 so that the amplitude 'a' doesn't blow up if we
+    # have a large time offset
+    t = data_x - data_x[0]
     amp = data_y / u.V    
     
     def decay(x, a, b, c):
