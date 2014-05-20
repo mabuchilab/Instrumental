@@ -217,15 +217,15 @@ def guided_ringdown_fit(data_x, data_y):
     fit = a * exp(-t/tau) + c
     
     t.ito('ns')
+    plt.plot(t, fit, 'b-', lw=2, zorder=3)
     plt.plot(t, amp, 'gx')
-    plt.plot(t, fit, lw=2)
     plt.title('Ringdown fit')
     plt.xlabel('Time (ns)')
     plt.ylabel('Transmission (arb. units)')
-    plt.legend(['Data Trace', 'Fitted Curve'])
+    plt.legend(['Fitted Curve', 'Data Trace'])
     plt.show()
     return FWHM
-    
+
 
 def guided_trace_fit(data_x, data_y, EOM_freq):
     """
