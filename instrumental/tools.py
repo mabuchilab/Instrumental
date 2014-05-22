@@ -205,7 +205,7 @@ def qappend(arr, values, axis=None):
     return Q_(new_mag, arr.units)
 
 
-def load_data(fname, delimiter=','):
+def load_data(fname, delimiter='\t'):
     line = ''
     with open(fname) as f:
         while True:
@@ -225,7 +225,7 @@ def load_data(fname, delimiter=','):
         header = prev_line.strip(' #')
 
         meas_dict = {}
-        for heading, col in zip(header.split(','), arr.T):
+        for heading, col in zip(header.split(delimiter), arr.T):
             left, right = heading.split('(')
             name, units = left.strip(), right.strip(')')
             meas_dict[name] = Q_(col, units)
