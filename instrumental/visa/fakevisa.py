@@ -13,11 +13,19 @@ from .. import conf
 
 # Create socket immediately upon module import
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.settimeout(1.0)
 try:
     host, port = conf.prefs['default_server'].split(':')
 except KeyError:
     raise Exception("Error: No default fakevisa server specified in the instrumental.conf")
-sock.connect((host, int(port)))
+
+try:
+    sock.connect((host, int(port)))
+except socket.timeout as e:
+    raise Exception("Request timed out. Could not find FakeVISA server. " +
+                    "Check the server address in instrumental.conf and " +
+                    "verify the server program is running.")
+
 messenger = Messenger(sock)
 
 class VisaIOError(Exception):
