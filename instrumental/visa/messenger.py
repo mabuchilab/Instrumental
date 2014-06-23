@@ -1,4 +1,6 @@
 from codecs import encode, decode
+import socket
+import errno
 
 class Messenger(object):
     def __init__(self, socket):
@@ -7,8 +9,18 @@ class Messenger(object):
 
     def send(self, message):
         # 'message' is a BYTES object and may contain non-ascii 'characters'
+        if not isinstance(message, bytes):
+            raise TypeError("message must be bytes object, not unicode string")
         header = encode('{}:'.format(len(message)), 'utf-8')
-        self.socket.sendall(header + message)
+        try:
+            self.socket.sendall(header + message)
+        except socket.error as e:
+            if e.errno == errno.ECONNRESET:
+                # Should probably do some useful error handling for these
+                print("Error: Connection reset by peer")
+            elif e.errno == errno.EPIPE:
+                print("Error: Broken pipe")
+            raise e
 
     def recv(self):
         """ Returns a single received message, blocking if necessary """

@@ -5,7 +5,7 @@ Module that fakes a local VISA library and PyVISA by talking to a remote server.
 """
 
 from __future__ import unicode_literals, print_function
-from codecs import encode, decode
+from codecs import encode
 import socket
 
 from messenger import Messenger
@@ -13,7 +13,7 @@ from .. import conf
 
 # Create socket immediately upon module import
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.settimeout(1.0)
+sock.settimeout(5.0)
 try:
     host, port = conf.prefs['default_server'].split(':')
 except KeyError:
@@ -43,40 +43,60 @@ error_map = {
 
 def _receive():
     """ Returns bytes object containing the server's response """
-    s = messenger.recv()
-    if len(s) >= 2 and s[:2] == "!!":
+    b = messenger.recv()
+    if len(b) >= 2 and b[:2] == b"!!":
         # VISA Error occurred on the server end, recreate it for the client
-        err_name, err_message = s[2:].split(':', 1)
+        err_name, err_message = b[2:].split(b":", 1)
         raise error_map[err_name](err_message)
-    return s
+    return b
 
 def _send(command):
-    """ Sends a unicode string to the server """
-    messenger.send(encode(command, 'utf-8'))
+    """ Sends bytes to the server """
+    if not isinstance(command, bytes):
+        raise TypeError("Command must be bytes object, not unicode string")
+    messenger.send(command)
 
 class Instrument(object):
     """ Fakevisa wrapper to PyVISA's Instrument class """
     def __init__(self, id_str):
         self.id_str = id_str
+        self.id_byt = encode(id_str, 'utf-8')
 
     def ask(self, message):
-        """ Sends a string to the server, which sends it to the instrument and
-        returns the instrument's response string """
-        command = "A{}:{}".format(self.id_str, message)
+        """ Sends a message to the server, which sends it to the instrument and
+        returns the instrument's response string. Note that ask() does not support
+        raw bytes. Use a write() with read_raw() for receiving binary data """
+        command = b"A:" + self.id_byt + b":" + encode(message, 'utf-8')
         _send(command)
         return _receive()
-    
-    def write(self, message):
-        command = "W{}:{}".format(self.id_str, message)
+
+    def read_raw(self):
+        """ Returns message in bytes object """
+        command = b"R:" + self.id_byt
+        _send(command)
+        return _receive()
+
+    def read(self):
+        """ Returns message in unicode string """
+        resp = self.read_raw()
+        return decode(resp, 'utf-8')
+
+    def write_raw(self, message):
+        """ Write a bytes message to the device. """
+        # Unfortunately, .format() doesn't work for bytes in py3
+        command = b"W:" + self.id_byt + b":" + message
         _send(command)
         _receive() # Dumps 'Success' message and handles any VISA errors
-        return
+    
+    def write(self, message):
+        """ Write a unicode string message to the device. """
+        self.write_raw(encode(message, 'utf-8'))
 
 def instrument(name):
     """
     Returns an Instrument instance corresponding to the given resource name
     """
-    command = "I{}".format(name)
+    command = b'I:' + encode(name, 'utf-8')
     _send(command)
     id_str = _receive()
     return Instrument(id_str)
@@ -86,10 +106,10 @@ def get_instruments_list():
     Returns a list of resource names of instruments that are connected to the
     server computer
     """
-    command = "G"
+    command = b'G:'
     _send(command)
-    addr_list = _receive().split("%|%")
-    return addr_list
+    message = encode(_receive(), 'utf-8')
+    return message.split("%|%")
 
 if __name__ == '__main__':
     SCOPE_A = "TCPIP::171.64.84.116::INSTR"
