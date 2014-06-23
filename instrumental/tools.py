@@ -8,7 +8,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from .fitting import guided_trace_fit, guided_ringdown_fit
-from . import u, Q_, conf
+from . import u, Q_, conf, instrument
 from .drivers import scopes
 
 # Fix for Python 2
@@ -315,7 +315,7 @@ def fit_ringdown_save(subdir='', trace_num=0, base_dir=None):
     print("FWHM = {}".format(FWHM))
 
 def fit_ringdown(scope, channel=1, FSR=None):
-    scope = scopes.scope(scope) # This is absurd
+    scope = instrument(scope)
     x, y = scope.get_data(channel)
     FWHM = guided_ringdown_fit(x, y)
     print("FWHM = {}".format(FWHM))
