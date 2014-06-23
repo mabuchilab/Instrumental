@@ -6,6 +6,7 @@ class InstrumentTypeError(Exception):
 from .. import conf
 from .. import visa
 from scopes import scope
+from funcgenerators import funcgen
 
 class Instrument(object):
     """
@@ -27,7 +28,7 @@ def instrument(name):
     inst = None
 
     # Find the right type of Instrument to create
-    for func in [scope]:
+    for func in [scope, funcgen]:
         try:
             inst = func(visa_inst)
             break
