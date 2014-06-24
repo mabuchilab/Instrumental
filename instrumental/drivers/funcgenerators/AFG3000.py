@@ -48,14 +48,26 @@ def _verify_sweep_args(kwargs):
 
 class AFG3000(FunctionGenerator):
     def __init__(self, visa_inst):
+        """
+        Constructor for an AFG3000 Function Generator object. End users should
+        not use this directly, and should instead use
+        :py:func:`~instrumental.drivers.instrument`
+        """
         self.inst = visa_inst
 
     def set_function(self, **kwargs):
         """
+        Set selected function parameters. Useful for setting multiple parameters
+        at once. See individual setters for more details.
+
+        When setting the waveform amplitude, you may use up to two of `high`,
+        `low`, `offset`, and `vpp`/`vrms`/`dbm`.
+
         Parameters
         ----------
-        shape : {'SINusoid', 'SQUare', 'PULSe', 'RAMP', 'PRNoise', 'DC',
-        'SINC', 'GAUSsian', 'LORentz', 'ERISe', 'EDECay', 'HAVersine'}, optional
+        shape : {'SINusoid', 'SQUare', 'PULSe', 'RAMP', 'PRNoise', 'DC', \
+        'SINC', 'GAUSsian', 'LORentz', 'ERISe', 'EDECay', 'HAVersine', 'USER1', \
+        'USER2', 'USER3', 'USER4', 'EMEMory'}, optional
             Shape of the waveform. Case-insenitive, abbreviation or full string.
         phase : pint.Quantity or string or number, optional
             Phase of the waveform in radian-compatible units.
@@ -68,7 +80,7 @@ class AFG3000(FunctionGenerator):
         low : pint.Quantity or string, optional
             Low level of the waveform in volt-compatible units.
         channel : {1, 2}, optional
-            Channel to set. Some models may have only one channel.
+            Output channel to modify. Some models may have only one channel.
         """
         _verify_voltage_args(kwargs)
 
@@ -92,17 +104,54 @@ class AFG3000(FunctionGenerator):
             self.set_phase(kwargs['phase'], channel)
 
     def set_function_shape(self, shape, channel=1):
+        """ Set shape of output function. 
+
+        Parameters
+        ----------
+        shape : {'SINusoid', 'SQUare', 'PULSe', 'RAMP', 'PRNoise', 'DC', \
+        'SINC', 'GAUSsian', 'LORentz', 'ERISe', 'EDECay', 'HAVersine', 'USER1', \
+        'USER2', 'USER3', 'USER4', 'EMEMory'}, optional
+            Shape of the waveform. Case-insenitive string that contains a valid
+            shape or its abbreviation. The abbreviations are indicated above by
+            capitalization.  For example, `sin`, `SINUSOID`, and `SiN` are all
+            valid inputs, while `sinus` is not.
+        channel : {1, 2}, optional
+            Output channel to modify. Some models may have only one channel.
+        """
         if not _is_valid_shape(shape):
             raise Exception("Error: invalid shape '{}'".format(shape))
         self.inst.write('source{}:function:shape {}'.format(channel, shape))
 
     def get_vpp(self, channel=1):
+        """ Get the peak-to-peak voltage of the current waveform.
+
+        Returns
+        -------
+        vpp : pint.Quantity
+            The current waveform's peak-to-peak voltage
+        """
         return self._get_amplitude('vpp', channel)
 
     def get_vrms(self, channel=1):
+        """ Get the RMS voltage of the current waveform.
+
+        Returns
+        -------
+        vrms : pint.Quantity
+            The current waveform's RMS voltage
+        """
         return self._get_amplitude('vrms', channel)
 
     def get_dbm(self, channel=1):
+        """ Get the amplitude of the current waveform in dBm.
+
+        Note that this returns a float, not a pint.Quantity
+
+        Returns
+        -------
+        dbm : float
+            The current waveform's dBm amplitude
+        """
         return self._get_amplitude('dbm', channel)
 
     def _get_amplitude(self, units, channel):
@@ -117,14 +166,37 @@ class AFG3000(FunctionGenerator):
             resp = self.inst.ask('source{}:voltage:amplitude?'.format(channel))
         return float(resp) * u.V
 
-    def set_vpp(self, val, channel=1):
-        self._set_amplitude(val, 'vpp', channel)
+    def set_vpp(self, vpp, channel=1):
+        """ Set the peak-to-peak voltage of the current waveform.
 
-    def set_vrms(self, val, channel=1):
-        self._set_amplitude(val, 'vrms', channel)
+        Parameters
+        ----------
+        vpp : pint.Quantity
+            The new peak-to-peak voltage
+        """
+        self._set_amplitude(vpp, 'vpp', channel)
 
-    def set_dbm(self, val, channel=1):
-        self._set_amplitude(val, 'dbm', channel)
+    def set_vrms(self, vrms, channel=1):
+        """ Set the amplitude of the current waveform in dBm.
+
+        Parameters
+        ----------
+        vrms : pint.Quantity
+            The new RMS voltage
+        """
+        self._set_amplitude(vrms, 'vrms', channel)
+
+    def set_dbm(self, dbm, channel=1):
+        """ Set the amplitude of the current waveform in dBm.
+
+        Note that this returns a float, not a pint.Quantity
+
+        Parameters
+        ----------
+        dbm : float
+            The current waveform's dBm amplitude
+        """
+        self._set_amplitude(dbm, 'dbm', channel)
     
     def _set_amplitude(self, val, units, channel):
         val = Q_(val)
@@ -132,21 +204,56 @@ class AFG3000(FunctionGenerator):
         self.inst.write('source{}:voltage {}{}'.format(channel, mag, units))
 
     def set_offset(self, offset, channel=1):
+        """ Set the voltage offset of the current waveform.
+
+        This changes the offset while keeping the amplitude fixed.
+
+        Parameters
+        ----------
+        offset : pint.Quantity
+            The new voltage offset in volt-compatible units
+        """
         offset = Q_(offset)
         mag = offset.to('V').magnitude
         self.inst.write('source{}:voltage:offset {}V'.format(channel, mag))
 
     def set_high(self, high, channel=1):
+        """ Set the high voltage level of the current waveform.
+
+        This changes the high level while keeping the low level fixed.
+
+        Parameters
+        ----------
+        high : pint.Quantity
+            The new high level in volt-compatible units
+        """
         high = Q_(high)
         mag = high.to('V').magnitude
         self.inst.write('source{}:voltage:high {}V'.format(channel, mag))
 
     def set_low(self, low, channel=1):
+        """ Set the low voltage level of the current waveform.
+
+        This changes the low level while keeping the high level fixed.
+
+        Parameters
+        ----------
+        low : pint.Quantity
+            The new low level in volt-compatible units
+        """
         low = Q_(low)
         mag = low.to('V').magnitude
         self.inst.write('source{}:voltage:low {}V'.format(channel, mag))
 
     def set_phase(self, phase, channel=1):
+        """ Set the phase offset of the current waveform.
+
+        Parameters
+        ----------
+        phase : pint.Quantity or number
+            The new low level in radian-compatible units. Unitless numbers are
+            treated as radians.
+        """
         phase = Q_(phase) # This also accepts dimensionless numbers as rads
         if phase < -u.pi or phase > +u.pi:
             raise Exception("Phase out of range. Must be between -pi and +pi")
@@ -154,128 +261,362 @@ class AFG3000(FunctionGenerator):
         self.inst.write('source{}:phase {}rad'.format(channel, mag))
 
     def enable_AM(self, enable=True, channel=1):
+        """ Enable amplitude modulation mode.
+
+        Parameters
+        ----------
+        enable : bool, optional
+            Whether to enable or disable AM
+        """
         val = 'on' if enable else 'off'
         self.inst.write('source{}:am:state {}'.format(channel, val))
 
     def disable_AM(self, channel=1):
+        """ Disable amplitude modulation mode. """
         self.inst.write('source{}:am:state off'.format(channel))
 
     def AM_enabled(self, channel=1):
+        """ Returns whether amplitude modulation is enabled.
+        
+        Returns
+        -------
+        bool
+            Whether AM is enabled.
+        """
         resp = self.inst.ask('source{}:am:state?'.format(channel))
         return bool(int(resp))
 
     def enable_FM(self, enable=True, channel=1):
+        """ Enable frequency modulation mode.
+
+        Parameters
+        ----------
+        enable : bool, optional
+            Whether to enable or disable FM
+        """
         val = 'on' if enable else 'off'
         self.inst.write('source{}:fm:state {}'.format(channel, val))
 
     def disable_FM(self, channel=1):
+        """ Disable frequency modulation mode. """
         self.inst.write('source{}:fm:state off'.format(channel))
 
     def FM_enabled(self, channel=1):
+        """ Returns whether frequency modulation is enabled.
+        
+        Returns
+        -------
+        bool
+            Whether FM is enabled.
+        """
         resp = self.inst.ask('source{}:fm:state?'.format(channel))
         return bool(int(resp))
 
     def enable_FSK(self, enable=True, channel=1):
+        """ Enable frequency-shift keying mode.
+
+        Parameters
+        ----------
+        enable : bool, optional
+            Whether to enable or disable FSK
+        """
         val = 'on' if enable else 'off'
         self.inst.write('source{}:fskey:state {}'.format(channel, val))
 
     def disable_FSK(self, channel=1):
+        """ Disable frequency-shift keying mode. """
         self.inst.write('source{}:fskey:state off'.format(channel))
 
     def FSK_enabled(self, channel=1):
+        """ Returns whether frequency-shift keying modulation is enabled.
+        
+        Returns
+        -------
+        bool
+            Whether FSK is enabled.
+        """
         resp = self.inst.ask('source{}:fskey:state?'.format(channel))
         return bool(int(resp))
 
     def enable_PWM(self, enable=True, channel=1):
+        """ Enable pulse width modulation mode.
+
+        Parameters
+        ----------
+        enable : bool, optional
+            Whether to enable or disable PWM
+        """
         val = 'on' if enable else 'off'
         self.inst.write('source{}:pwm:state {}'.format(channel, val))
 
     def disable_PWM(self, channel=1):
+        """ Disable pulse width modulation mode. """
         self.inst.write('source{}:pwm:state off'.format(channel))
 
     def PWM_enabled(self, channel=1):
+        """ Returns whether pulse width modulation is enabled.
+        
+        Returns
+        -------
+        bool
+            Whether PWM is enabled.
+        """
         resp = self.inst.ask('source{}:pwm:state?'.format(channel))
         return bool(int(resp))
 
     def enable_PM(self, enable=True, channel=1):
+        """ Enable phase modulation mode.
+
+        Parameters
+        ----------
+        enable : bool, optional
+            Whether to enable or disable PM
+        """
         val = 'on' if enable else 'off'
         self.inst.write('source{}:pm:state {}'.format(channel, val))
 
     def disable_PM(self, channel=1):
+        """ Disable phase modulation mode. """
         self.inst.write('source{}:pm:state off'.format(channel))
 
     def PM_enabled(self, channel=1):
+        """ Returns whether phase modulation is enabled.
+        
+        Returns
+        -------
+        bool
+            Whether PM is enabled.
+        """
         resp = self.inst.ask('source{}:pm:state?'.format(channel))
         return bool(int(resp))
 
     def enable_burst(self, enable=True, channel=1):
+        """ Enable burst mode. 
+
+        Parameters
+        ----------
+        enable : bool, optional
+            Whether to enable or disable burst mode.
+        """
         val = 'on' if enable else 'off'
         self.inst.write('source{}:burst:state {}'.format(channel, val))
 
     def disable_burst(self, channel=1):
+        """ Disable burst mode. """
         self.inst.write('source{}:burst:state off'.format(channel))
 
     def burst_enabled(self, channel=1):
+        """ Returns whether burst mode is enabled.
+        
+        Returns
+        -------
+        bool
+            Whether burst mode is enabled.
+        """
         resp = self.inst.ask('source{}:burst:state?'.format(channel))
         return bool(int(resp))
 
     def set_frequency(self, freq, change_mode=True, channel=1):
+        """ Set the frequency to be used in fixed frequency mode.
+
+        Parameters
+        ----------
+        freq : pint.Quantity
+            The frequency to be used in fixed frequency mode.
+        change_mode : bool, optional
+            If True, will set the frequency mode to `fixed`.
+        """
         if change_mode:
             self.inst.write('source{}:freq:mode fixed'.format(channel))
         val = Q_(freq).to('Hz').magnitude
         self.inst.write('source{}:freq {}Hz'.format(channel, val))
 
     def get_frequency(self, channel=1):
+        """ Get the frequency to be used in fixed frequency mode. """
         resp = self.inst.ask('source{}:freq?'.format(channel))
         return Q_(resp, 'Hz')
 
     def set_frequency_mode(self, mode, channel=1):
+        """ Set the frequency mode. 
+
+        In fixed mode, the waveform's frequency is kept constant. In sweep mode,
+        it is swept according to the sweep settings.
+
+        Parameters
+        ----------
+        mode : {'fixed', 'sweep'}
+            Mode to switch to.
+        """
         if mode.lower() not in ['fixed', 'sweep']:
             raise Exception("Mode must be 'fixed' or 'sweep'")
         self.inst.write('source{}:freq:mode {}'.format(channel, mode))
 
     def get_frequency_mode(self, channel=1):
+        """ Get the frequency mode.
+
+        Returns
+        -------
+        'fixed' or 'sweep'
+            The frequency mode
+        """
         resp = self.inst.ask('source{}:freq:mode?'.format(channel))
         return 'sweep' if 'sweep'.startswith(resp.lower()) else 'fixed'
 
     def sweep_enabled(self, channel=1):
+        """ Whether the frequency mode is sweep. 
+
+        Just a convenience method to avoid writing 
+        ``get_frequency_mode() == 'sweep'``.
+
+        Returns
+        -------
+        bool
+            Whether the frequency mode is sweep
+        """
         return self.get_frequency_mode(channel) == 'sweep'
 
     def set_sweep_start(self, start, channel=1):
+        """ Set the sweep start frequency.
+
+        This sets the start frequency while keeping the stop frequency
+        fixed. The span and center frequencies will be changed.
+
+        Parameters
+        ----------
+        start : pint.Quantity
+            The start frequency of the sweep in Hz-compatible units
+        """
         val = Q_(start).to('Hz').magnitude
         self.inst.write('source{}:freq:start {}Hz'.format(channel, val))
 
     def set_sweep_stop(self, stop, channel=1):
+        """ Set the sweep stop frequency.
+
+        This sets the stop frequency while keeping the start frequency
+        fixed. The span and center frequencies will be changed.
+
+        Parameters
+        ----------
+        stop : pint.Quantity
+            The stop frequency of the sweep in Hz-compatible units
+        """
         val = Q_(stop).to('Hz').magnitude
         self.inst.write('source{}:freq:stop {}Hz'.format(channel, val))
 
     def set_sweep_span(self, span, channel=1):
+        """ Set the sweep frequency span.
+
+        This sets the sweep frequency span while keeping the center frequency
+        fixed. The start and stop frequencies will be changed.
+
+        Parameters
+        ----------
+        span : pint.Quantity
+            The frequency span of the sweep in Hz-compatible units
+        """
         val = Q_(span).to('Hz').magnitude
         self.inst.write('source{}:freq:span {}Hz'.format(channel, val))
 
     def set_sweep_center(self, center, channel=1):
+        """ Set the sweep frequency center.
+
+        This sets the sweep center frequency while keeping the sweep frequency
+        span fixed. The start and stop frequencies will be changed.
+
+        Parameters
+        ----------
+        center : pint.Quantity
+            The center frequency of the sweep in Hz-compatible units
+        """
         val = Q_(center).to('Hz').magnitude
         self.inst.write('source{}:freq:center {}Hz'.format(channel, val))
 
     def set_sweep_time(self, time, channel=1):
+        """ Set the sweep time. 
+        
+        The sweep time does not include hold time or return time. Sweep time
+        must be between 1 ms and 300 s.
+
+        Parameters
+        ----------
+        time : pint.Quantity
+            The sweep time in second-compatible units. Must be between 1 ms and
+            200 s
+        """
         val = Q_(time).to('s').magnitude
+        if not (1e-3 <= val <= 200):
+            raise Exception("Sweep time must be between 1 ms and 200 s")
         self.inst.write('source{}:sweep:time {}s'.format(channel, val))
 
     def set_sweep_hold_time(self, time, channel=1):
+        """ Set the hold time of the sweep.
+        
+        The hold time is the amount of time that the frequency is held constant
+        after reaching the stop frequency.
+
+        Parameters
+        ----------
+        time : pint.Quantity
+            The hold time in second-compatible units
+        """
         val = Q_(time).to('s').magnitude
         self.inst.write('source{}:sweep:htime {}s'.format(channel, val))
 
     def set_sweep_return_time(self, time, channel=1):
+        """ Set the return time of the sweep.
+        
+        The return time is the amount of time that the frequency spends
+        sweeping from the stop frequency back to the start frequency. This
+        does not include hold time.
+
+        Parameters
+        ----------
+        time : pint.Quantity
+            The return time in second-compatible units
+        """
         val = Q_(time).to('s').magnitude
         self.inst.write('source{}:sweep:rtime {}s'.format(channel, val))
 
     def set_sweep_spacing(self, spacing, channel=1):
+        """ Set whether a sweep is linear or logarithmic.
+
+        Parameters
+        ----------
+        spacing : {'linear', 'lin', 'logarithmic', 'log'}
+            The spacing in time of the sweep frequencies
+        """
         if spacing.lower() not in ['lin', 'linear', 'log', 'logarithmic']:
             raise Exception("Spacing must be 'LINear' or 'LOGarithmic'")
         self.inst.write('source{}:sweep:spacing {}'.format(channel, spacing))
 
     def set_sweep(self, channel=1, **kwargs):
+        """ Set selected sweep parameters.
+
+        Automatically enables sweep mode.
+
+        Parameters
+        ----------
+        start : pint.Quantity
+            The start frequency of the sweep in Hz-compatible units
+        stop : pint.Quantity
+            The stop frequency of the sweep in Hz-compatible units
+        span : pint.Quantity
+            The frequency span of the sweep in Hz-compatible units
+        center : pint.Quantity
+            The center frequency of the sweep in Hz-compatible units
+        sweep_time : pint.Quantity
+            The sweep time in second-compatible units. Must be between 1 ms and
+            300 s
+        hold_time : pint.Quantity
+            The hold time in second-compatible units
+        return_time : pint.Quantity
+            The return time in second-compatible units
+        spacing : {'linear', 'lin', 'logarithmic', 'log'}
+            The spacing in time of the sweep frequencies
+        """
         _verify_sweep_args(kwargs)
+        self.set_frequency_mode('sweep')
+
         if kwargs.has_key('start'):
             self.set_sweep_start(kwargs['start'], channel)
         if kwargs.has_key('stop'):
@@ -294,8 +635,18 @@ class AFG3000(FunctionGenerator):
             self.set_sweep_spacing(kwargs['spacing'], channel)
 
     def set_am_depth(self, depth, channel=1):
+        """ Set depth of amplitude modulation.
+
+        Parameters
+        ----------
+        depth : number
+            Depth of modulation in percent. Must be between 0.0% and 120.0%.
+            Has resolution of 0.1%.
+        """
         val = Q_(depth).magnitude
-        self.inst.write('source{}:am:depth {:.8f}pct'.format(channel, val))
+        if not (0.0 <= val <= 120.0):
+            raise Exception("Depth must be between 0.0 and 120.0")
+        self.inst.write('source{}:am:depth {:.1f}pct'.format(channel, val))
 
     def set_arb_func(self, data, interp=None, num_pts=10000):
         """ Write arbitrary waveform data to EditMemory.
@@ -345,6 +696,13 @@ class AFG3000(FunctionGenerator):
         self.inst.write_raw(b'data ememory,' + bytes)
 
     def get_ememory(self):
+        """ Get array of data from edit memory.
+
+        Returns
+        -------
+        numpy.array
+            Data retrieved from the AFG's edit memory.
+        """
         self.inst.write('data? ememory')
         resp = self.inst.read_raw()
         if resp[0] != b'#':
@@ -353,4 +711,3 @@ class AFG3000(FunctionGenerator):
         num_bytes = int(resp[2:header_width])
         data = np.frombuffer(resp, dtype='>u2', offset=header_width, count=int(num_bytes/2))
         return data
-

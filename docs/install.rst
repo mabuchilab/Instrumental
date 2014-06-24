@@ -32,7 +32,7 @@ VISA (optional)
 ~~~~~~~~~~~~~~~
 
 .. ATTENTION::
-    PyVISA is no longer required for talking to VISA devices. Instead you should add a server address to your Instrumental config file. See details here.
+    PyVISA is no longer required for talking to VISA devices. Instead you should add a server address to your Instrumental config file. See details :ref:`here <fake-visa>`.
 
 To operate devices that communicate using VISA, e.g. Tektronix scopes, you will need (1) an implementation of VISA and (2) a Python interface layer called PyVISA. There are various implementations of VISA available, but two I know of are TekVISA (from Tektronix) and NI-VISA (from National Instruments). They *should* be compatible with each other, I believe the main difference is in the extra vendor-specific utilities provided by each--either one should work fine with PyVISA. Installers for each can be found on the lab's shared drive under "labusers/common/Software Downloads/VISA", or you can get them from the NI or Tektronix websites, though you'll have to create a free account.
 
