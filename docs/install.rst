@@ -27,6 +27,7 @@ To install the standard scientific computing stack, I recommend using `Anaconda 
 Pint
 ~~~~
 Next, install Pint for units support:: 
+
     $ pip install pint
 
 For more information, or to get a more recent version, check out the `Pint install page <https://pint.readthedocs.org/en/latest/getting.html>`_.
