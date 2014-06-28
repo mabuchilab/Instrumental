@@ -2,12 +2,14 @@
 # Copyright 2014 Nate Bogdanowicz
 
 try:
-    import configparser # Python 3
+    import configparser  # Python 3
 except ImportError:
-    import ConfigParser as configparser # Python 2
+    import ConfigParser as configparser  # Python 2
 
 import sys
 import os.path
+from warnings import warn
+from ast import literal_eval
 from .appdirs import user_data_dir
 
 __all__ = ['servers', 'instruments', 'prefs']
@@ -16,7 +18,7 @@ servers, instruments, prefs = {}, {}, {}
 # Load user config file
 data_dir = user_data_dir("Instrumental", "MabuchiLab")
 parser = configparser.RawConfigParser()
-parser.optionxform = str # Re-enable case sensitivity
+parser.optionxform = str  # Re-enable case sensitivity
 parser.read(os.path.join(data_dir, 'instrumental.conf'))
 
 # Write settings into this module's __dict__
@@ -24,10 +26,28 @@ this_module = sys.modules[__name__]
 for section_str in parser.sections():
     section = {}
     safe_section_str = section_str.replace(" ", "_")
+
     # Make each section an attribute of this module
     setattr(this_module, safe_section_str, section)
     for key, value in parser.items(section_str):
         section[key] = value
+
+# Parse 'instruments' section's values as dicts
+for key, value in instruments.items():
+    bad_value = False
+    try:
+        d = literal_eval(value)
+    except ValueError:
+        bad_value = True
+
+    if bad_value or not isinstance(d, dict):
+        warn("Bad value for key `{}` in instrumental.conf. ".format(key) +
+             "Values `instruments` section of instrumental.conf " +
+             "must be written as python-style dictionaries. Remember to " +
+             "enclose keys and values in quotes.")
+        d.pop(key)
+    else:
+        instruments[key] = d
 
 try:
     def_serv = prefs['default_server']

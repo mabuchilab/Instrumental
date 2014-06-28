@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 # Copyright 2014 Nate Bogdanowicz
 """
-Driver module for Tektronix AFG3000 Series oscilloscopes.
+Driver module for Tektronix AFG3000 Series function generators.
 """
 
 import numpy as np
 from instrumental import u, Q_
 from . import FunctionGenerator
+from .. import _get_visa_instrument
+from .. import InstrumentTypeError
 
 AFG3000_models = ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102',
                   'AFG3251', 'AFG3252']
@@ -18,6 +20,22 @@ _abbrev_shapes = ['sin', 'squ', 'puls', 'ramp', 'prn', 'dc', 'sinc', 'gaus',
 _amp_keys = ['vpp', 'vrms', 'dbm']
 _volt_keys = ['vpp', 'vrms', 'dbm', 'offset', 'high', 'low']
 
+
+def _instrument(params):
+    inst = _get_visa_instrument(params)
+    idn = inst.ask("*IDN?")
+    idn_list = idn.split(',')
+
+    if len(idn_list) != 4:
+        raise InstrumentTypeError("Not a AFG3000 series function generator")
+    manufacturer, model, serial, firmware = idn_list
+
+    if manufacturer != 'TEKTRONIX' or model in AFG3000_models:
+        raise InstrumentTypeError("Not a AFG3000 series function generator")
+
+    return AFG3000(inst)
+
+
 def _is_valid_shape(test_shape):
     if not test_shape:
         return False
@@ -26,22 +44,24 @@ def _is_valid_shape(test_shape):
         return True
     return False
 
+
 def _verify_voltage_args(kwargs):
     """
     Makes sure that at most 2 of vpp, vrms, dbm, offset, high, and low
     are set. Additionally, only 1 of vpp, vrm, and dbm can be set. Raises
     an exception if this condition is not met
     """
-    if sum( (int(kwargs.has_key(k)) for k in _amp_keys) ) > 1:
+    if sum( (int(k in kwargs) for k in _amp_keys) ) > 1:
         raise Exception('May include at most one of `vpp`, `vrms`, and `dbm`')
 
-    if sum( (int(kwargs.has_key(k)) for k in _volt_keys) ) > 2:
+    if sum( (int(k in kwargs) for k in _volt_keys) ) > 2:
         raise Exception('May include at most two of `vpp`, `vrms`, `dbm`, ' +
                         '`offset`, `high`, and `low`.')
 
+
 def _verify_sweep_args(kwargs):
-    start_stop = kwargs.has_key('start') or kwargs.has_key('stop')
-    center_span = kwargs.has_key('center') or kwargs.has_key('span')
+    start_stop = ('start' in kwargs) or ('stop' in kwargs)
+    center_span = ('center' in kwargs) or ('span' in kwargs)
     if start_stop and center_span:
         raise Exception('May include only start/stop or center/span')
 
@@ -57,8 +77,8 @@ class AFG3000(FunctionGenerator):
 
     def set_function(self, **kwargs):
         """
-        Set selected function parameters. Useful for setting multiple parameters
-        at once. See individual setters for more details.
+        Set selected function parameters. Useful for setting multiple
+        parameters at once. See individual setters for more details.
 
         When setting the waveform amplitude, you may use up to two of `high`,
         `low`, `offset`, and `vpp`/`vrms`/`dbm`.
@@ -66,9 +86,10 @@ class AFG3000(FunctionGenerator):
         Parameters
         ----------
         shape : {'SINusoid', 'SQUare', 'PULSe', 'RAMP', 'PRNoise', 'DC', \
-        'SINC', 'GAUSsian', 'LORentz', 'ERISe', 'EDECay', 'HAVersine', 'USER1', \
-        'USER2', 'USER3', 'USER4', 'EMEMory'}, optional
-            Shape of the waveform. Case-insenitive, abbreviation or full string.
+        'SINC', 'GAUSsian', 'LORentz', 'ERISe', 'EDECay', 'HAVersine',
+        'USER1', 'USER2', 'USER3', 'USER4', 'EMEMory'}, optional
+            Shape of the waveform. Case-insenitive, abbreviation or full
+            string.
         phase : pint.Quantity or string or number, optional
             Phase of the waveform in radian-compatible units.
         vpp, vrms, dbm : pint.Quantity or string, optional
@@ -86,25 +107,25 @@ class AFG3000(FunctionGenerator):
 
         channel = kwargs.get('channel', 1)
 
-        if kwargs.has_key('vpp'):
+        if 'vpp' in kwargs:
             self.set_vpp(kwargs['vpp'], channel)
-        if kwargs.has_key('vrms'):
+        if 'vrms' in kwargs:
             self.set_vrms(kwargs['vrms'], channel)
-        if kwargs.has_key('dbm'):
+        if 'dbm' in kwargs:
             self.set_dbm(kwargs['dbm'], channel)
-        if kwargs.has_key('offset'):
+        if 'offset' in kwargs:
             self.set_offset(kwargs['channel'], channel)
-        if kwargs.has_key('high'):
+        if 'high' in kwargs:
             self.set_high(kwargs['high'], channel)
-        if kwargs.has_key('low'):
+        if 'low' in kwargs:
             self.set_low(kwargs['low'], channel)
-        if kwargs.has_key('shape'):
+        if 'shape' in kwargs:
             self.set_function_shape(kwargs['shape'], channel)
-        if kwargs.has_key('phase'):
+        if 'phase' in kwargs:
             self.set_phase(kwargs['phase'], channel)
 
     def set_function_shape(self, shape, channel=1):
-        """ Set shape of output function. 
+        """ Set shape of output function.
 
         Parameters
         ----------

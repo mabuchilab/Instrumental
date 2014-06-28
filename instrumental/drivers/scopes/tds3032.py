@@ -5,9 +5,30 @@ Driver module for Tektronix TDS3032 oscilloscopes.
 """
 
 import numpy as np
-from ... import visa
 from instrumental import u, Q_
 from . import Scope
+from .. import _get_visa_instrument
+from .. import InstrumentTypeError
+from ... import visa
+
+
+def _instrument(params):
+    inst = _get_visa_instrument(params)
+    idn = inst.ask("*IDN?")
+    idn_list = idn.split(',')
+
+    if idn_list[0] == 'TEKTRONIX':
+        model = idn_list[1]
+        if model == 'TDS 3032':
+            return TDS_3032(instrument=inst)
+        elif model == 'MSO4034':
+            return TDS_3032(instrument=inst)
+        elif model == 'DPO4034':
+            return TDS_3032(instrument=inst)
+
+    raise InstrumentTypeError("Error: unsupported scope with IDN = " +
+                              "'{}'".format(idn))
+
 
 class TDS_3032(Scope):
     """

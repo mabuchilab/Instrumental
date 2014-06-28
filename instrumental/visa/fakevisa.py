@@ -13,18 +13,25 @@ from .. import conf
 
 # Create socket immediately upon module import
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.settimeout(5.0)
+sock.settimeout(1.0)
+_connected = False
+
 try:
     host, port = conf.prefs['default_server'].split(':')
 except KeyError:
     raise Exception("Error: No default fakevisa server specified in the instrumental.conf")
 
-try:
-    sock.connect((host, int(port)))
-except socket.timeout as e:
-    raise Exception("Request timed out. Could not find FakeVISA server. " +
-                    "Check the server address in instrumental.conf and " +
-                    "verify the server program is running.")
+
+def _verify_sock_connected():
+    global _connected
+    if not _connected:
+        try:
+            sock.connect((host, int(port)))
+        except socket.timeout as e:
+            raise Exception("Request timed out. Could not find FakeVISA server. " +
+                            "Check the server address in instrumental.conf and " +
+                            "verify the server program is running.")
+        _connected = True
 
 messenger = Messenger(sock)
 
@@ -43,6 +50,7 @@ error_map = {
 
 def _receive():
     """ Returns bytes object containing the server's response """
+    _verify_sock_connected()
     b = messenger.recv()
     if len(b) >= 2 and b[:2] == b"!!":
         # VISA Error occurred on the server end, recreate it for the client
@@ -54,6 +62,7 @@ def _send(command):
     """ Sends bytes to the server """
     if not isinstance(command, bytes):
         raise TypeError("Command must be bytes object, not unicode string")
+    _verify_sock_connected()
     messenger.send(command)
 
 class Instrument(object):

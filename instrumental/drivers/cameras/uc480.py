@@ -1,20 +1,35 @@
 # -*- coding: utf-8  -*-
-# Copyright 2013 Nate Bogdanowicz
+# Copyright 2013-2014 Nate Bogdanowicz
 """
 Driver for Thorlabs DCx cameras. May be compatible with iDS cameras that use
 uEye software. Currently Windows-only, but Linux support should be
 possible to implement if desired.
 """
 
-from ctypes import WinDLL, pointer, POINTER, c_char, c_char_p, addressof, cast
+from ctypes import WinDLL, pointer, POINTER, c_char, c_char_p, cast
 from ctypes.wintypes import DWORD, INT, ULONG, DOUBLE, HWND
 import os.path
-from .uc480_constants import *
-from .uc480_structs import *
+from . import Camera
+from ._uc480_constants import *
+from ._uc480_structs import *
 
 HCAM = DWORD
 NULL = POINTER(HWND)()
 lib = WinDLL('uc480_64')
+from .. import InstrumentTypeError, InstrumentNotFoundError
+
+
+def _instrument(params):
+    """ Possible params include 'ueye_cam_id', 'cam_serial', 'cam_model' """
+    print("Checking uc480...")
+    if 'ueye_cam_id' in params:
+        return get_camera(id=params['ueye_cam_id'])
+    elif 'cam_serial' in params:
+        return get_camera(serial=params['cam_serial'])
+    elif 'cam_model' in params:
+        return get_camera(model=params['cam_model'])
+    raise InstrumentTypeError()
+
 
 def cameras():
     """
@@ -72,22 +87,22 @@ def get_camera(**kwargs):
     """
     cams = cameras()
     if not cams:
-        return None
+        raise InstrumentNotFoundError("No cameras attached")
     if not kwargs:
         return cams[0]
     
     kwarg = kwargs.items()[0]
     if kwarg[0] not in ['id', 'serial', 'model']:
-        return None
+        raise TypeError("Got an unexpected keyword argument '{}'".format(kwarg[0]))
 
     for cam in cams:
         # TODO: Maybe cast to allow comparison of strings and ints, etc.
         if getattr(cam, kwarg[0]) == kwarg[1]:
             return cam
-    return None
+    raise InstrumentNotFoundError("No camera found matching the given parameters")
 
 
-class Camera(object):
+class Camera(Camera):
     """
     A uc480-supported Camera. Get access to a Camera using cameras() and
     get_camera(), not using the constructor directly.

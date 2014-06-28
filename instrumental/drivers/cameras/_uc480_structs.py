@@ -1,5 +1,5 @@
 from ctypes import Structure, c_char
-from ctypes.wintypes import WORD, DWORD, ULONG, BOOL
+#from ctypes.wintypes import WORD, DWORD, ULONG, BOOL
 
 class SENSORINFO(Structure):
     _fields_ = [('SensorID', WORD),
