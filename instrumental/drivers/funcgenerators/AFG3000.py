@@ -30,7 +30,7 @@ def _instrument(params):
         raise InstrumentTypeError("Not a AFG3000 series function generator")
     manufacturer, model, serial, firmware = idn_list
 
-    if manufacturer != 'TEKTRONIX' or model in AFG3000_models:
+    if manufacturer != 'TEKTRONIX' or model not in AFG3000_models:
         raise InstrumentTypeError("Not a AFG3000 series function generator")
 
     return AFG3000(inst)

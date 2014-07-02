@@ -95,8 +95,6 @@ def instrument(inst=None, **kwargs):
             raise Exception("Instrument with alias `{}` not ".format(alias) +
                             "found in config file")
 
-    print("params: {}".format(params))
-
     # Find the right type of Instrument to create
     has_valid_params = False
     for mod_name, acceptable in _acceptable_params.items():
@@ -107,23 +105,25 @@ def instrument(inst=None, **kwargs):
             try:
                 mod = import_module('.' + mod_name, __package__)
             except ImportError as e:
-                print(e.args)
-                print("\tModule {} not supported, skipping".format(mod_name))
+                #print(e.args)
+                #print("\tModule {} not supported, skipping".format(mod_name))
                 continue
 
             # Try to create an instance of this instrument type
             try:
                 new_inst = mod._instrument(params)
-                print("\tAccepting module " + mod_name)
                 return new_inst
             except AttributeError:
                 # Module doesn't define the required _instrument() function
-                print("\tModule " + mod_name +
-                      " missing _instrument(), skipping")
+                #print("\tModule " + mod_name +
+                #      " missing _instrument(), skipping")
+                pass
             except InstrumentTypeError:
-                print("\tNot the right type")
+                #print("\tNot the right type")
+                pass
             except InstrumentNotFoundError:
-                print("\tInstrument not found")
+                #print("\tInstrument not found")
+                pass
 
     # If we reach this point, we haven't been able to create a valid instrument
     if not has_valid_params:
