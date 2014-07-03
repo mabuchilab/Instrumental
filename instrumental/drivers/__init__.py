@@ -8,25 +8,21 @@ from importlib import import_module
 _acceptable_params = {
     'cameras.uc480':
         ['ueye_cam_id', 'cam_serial', 'cam_model'],
-    'funcgenerators.AFG3000':
+    'funcgenerators.tektronix':
         ['visa_address'],
-    'scopes.tds3032':
+    'scopes.tektronix':
         ['visa_address']
 }
 
 _visa_models = {
-    'funcgenerators.AFG3000':(
+    'funcgenerators.tektronix':(
         'TEKTRONIX',
         ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102',
-                       'AFG3251', 'AFG3252']
+         'AFG3251', 'AFG3252']
     ),
-    'scopes.tds3032':(
+    'scopes.tektronix':(
         'TEKTRONIX',
-        ['TDS 3032', 'TDS 3034B']
-    ),
-    'scopes.mso_dpo4000':(
-        'TEKTRONIX',
-        ['MSO4034', 'DPO4034']
+        ['TDS 3032', 'TDS 3034B', 'MSO4034', 'DPO4034']
     )
 }
 

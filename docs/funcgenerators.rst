@@ -7,4 +7,4 @@ Create :py:class:`~instrumental.drivers.funcgenerators.FunctionGenerator` object
 Supported Models
 ----------------
 
-* :doc:`AFG3000`
+* :doc:`tek-funcgens`

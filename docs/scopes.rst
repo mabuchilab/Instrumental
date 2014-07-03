@@ -7,4 +7,4 @@ Create :py:class:`~instrumental.drivers.scopes.Scope` objects using :py:func:`~i
 Supported Models
 ----------------
 
-* :doc:`AFG3000`
+* :doc:`tek-scopes`

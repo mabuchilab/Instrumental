@@ -1,6 +1,0 @@
-AFG3000
-=======
-
-.. automodule:: instrumental.drivers.funcgenerators.AFG3000
-    :members:
-    :undoc-members:
