@@ -14,6 +14,22 @@ _acceptable_params = {
         ['visa_address']
 }
 
+_visa_models = {
+    'funcgenerators.AFG3000':(
+        'TEKTRONIX',
+        ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102',
+                       'AFG3251', 'AFG3252']
+    ),
+    'scopes.tds3032':(
+        'TEKTRONIX',
+        ['TDS 3032', 'TDS 3034B']
+    ),
+    'scopes.mso_dpo4000':(
+        'TEKTRONIX',
+        ['MSO4034', 'DPO4034']
+    )
+}
+
 
 class InstrumentTypeError(Exception):
     pass
@@ -31,6 +47,34 @@ class Instrument(object):
     Probably not.
     """
     pass
+
+
+def _find_visa_inst_type(manufac, model):
+    for mod_name, tup in _visa_models.items():
+        mod_manufac, mod_models = tup
+        if manufac == mod_manufac and model in mod_models:
+            return mod_name
+    return None
+
+
+def list_visa_instruments():
+    from .. import visa
+    skipped = []
+    prev_addr = 'START'
+    visa_list = visa.get_instruments_list()
+    for addr in visa_list:
+        if not addr.startswith(prev_addr):
+            prev_addr = addr
+            i = visa.instrument(addr, timeout=0.1)
+            try:
+                idn = i.ask("*IDN?")
+                manufac, model, rest = idn.split(',', 2)
+                module_name = _find_visa_inst_type(manufac, model)
+                type_name = module_name if module_name else "Not recognized"
+                print("{}\t{}\t{}".format(manufac, model, type_name))
+            except visa.VisaIOError:
+                skipped.append(addr)
+            i.close()
 
 
 def _get_visa_instrument(params):
