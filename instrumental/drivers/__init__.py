@@ -27,6 +27,20 @@ _visa_models = {
 }
 
 
+class _ParamDict(dict):
+    def __init__(self, name):
+        self.name = name
+        self.module = None
+
+    def __str__(self):
+        if self.name:
+            return self.name
+        return "<_ParamDict>"
+
+    def __repr__(self):
+        return self.__str__()
+
+
 class InstrumentTypeError(Exception):
     pass
 
@@ -37,10 +51,7 @@ class InstrumentNotFoundError(Exception):
 
 class Instrument(object):
     """
-    Instrumental instrument class for VISA instruments. Not to be confused
-    with an VISA instrument object. Possibly to be renamed...
-    Should we include Thorlabs cameras, which aren't VISA-controlled?
-    Probably not.
+    Base class for all instruments.
     """
     pass
 
@@ -54,8 +65,22 @@ def _find_visa_inst_type(manufac, model):
 
 
 def list_visa_instruments():
+    """Returns a list of info about available VISA instruments.
+
+    May take a few seconds because it must poll the network.
+
+    It actually returns a list of specialized dict objects that contain
+    parameters needed to create an instance of the given instrument. You can
+    then get the actual instrument by passing the dict to
+    :py:func:`~instrumental.drivers.instrument`.
+
+    >>> inst_list = get_visa_instruments()
+    >>> print(inst_list)
+    [<TEKTRONIX 'TDS 3032'>, <TEKTRONIX 'AFG3021B'>]
+    >>> inst = instrument(inst_list[0])
+    """
     from .. import visa
-    skipped = []
+    instruments, skipped = [], []
     prev_addr = 'START'
     visa_list = visa.get_instruments_list()
     for addr in visa_list:
@@ -66,11 +91,15 @@ def list_visa_instruments():
                 idn = i.ask("*IDN?")
                 manufac, model, rest = idn.split(',', 2)
                 module_name = _find_visa_inst_type(manufac, model)
-                type_name = module_name if module_name else "Not recognized"
-                print("{}\t{}\t{}".format(manufac, model, type_name))
+                params = _ParamDict("<{} '{}'>".format(manufac, model))
+                params['visa_address'] = addr
+                if module_name:
+                    params.module = module_name
+                instruments.append(params)
             except visa.VisaIOError:
                 skipped.append(addr)
             i.close()
+    return instruments
 
 
 def _get_visa_instrument(params):
@@ -119,21 +148,28 @@ def instrument(inst=None, **kwargs):
     """
     Create any Instrumental instrument object from an alias, parameters,
     or an existing instrument.
+
+    >>> inst1 = instrument('MYAFG')
+    >>> inst2 = instrument(visa_address='TCPIP::192.168.1.34::INSTR')
+    >>> inst3 = instrument({'visa_address': 'TCPIP:192.168.1.35::INSTR'})
+    >>> inst4 = instrument(inst1)
     """
     # Allow passthrough of existing instruments
     if isinstance(inst, Instrument):
         return inst
+    elif isinstance(inst, dict):
+        params = inst
     else:
         alias = inst
 
-    # Load parameters
-    if not alias:
-        params = kwargs
-    else:
-        params = conf.instruments.get(alias, None)
-        if params is None:
-            raise Exception("Instrument with alias `{}` not ".format(alias) +
-                            "found in config file")
+        # Load parameters
+        if not alias:
+            params = kwargs
+        else:
+            params = conf.instruments.get(alias, None)
+            if params is None:
+                raise Exception("Instrument with alias `{}` not ".format(alias) +
+                                "found in config file")
 
     # Find the right type of Instrument to create
     has_valid_params = False

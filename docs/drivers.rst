@@ -17,9 +17,14 @@ Subpackages
     funcgenerators
 
 
+-------------------------------------------------------------------------------
+
+
 Functions
 ---------
-.. autofunction:: instrumental.drivers.instrument
+
+.. automodule:: instrumental.drivers
+    :members:
 
 Example
 ~~~~~~~
@@ -27,6 +32,8 @@ Example
     >>> scope = instrument('my_scope_alias')
     >>> x,y = scope.get_data()
 
+
+-------------------------------------------------------------------------------
 
 .. _fake-visa:
 
