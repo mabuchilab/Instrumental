@@ -54,9 +54,21 @@ class TekScope(Scope):
             self.inst = visa.instrument(name)
 
     def get_data(self, channel=1):
-        """
-        Pull the data from channel *channel* and return it as a tuple
-        ``(x,y)`` of unitful arrays.
+        """Retrieve a trace from the scope.
+
+        Pulls data from channel `channel` and returns it as a tuple ``(t,y)``
+        of unitful arrays.
+
+        Parameters
+        ----------
+        channel : int, optional
+            Channel number to pull trace from. Defaults to channel 1.
+
+        Returns
+        -------
+        t, y : pint.Quantity arrays
+            Unitful arrays of data from the scope. ``t`` is in seconds, while
+            ``y`` is in volts.
         """
         inst = self.inst
 
@@ -98,8 +110,7 @@ class TekScope(Scope):
         return data_x, data_y
 
     def set_measurement_params(self, num, mtype, channel):
-        """
-        Set the parameters for a measurement.
+        """Set the parameters for a measurement.
 
         Parameters
         ----------
@@ -117,6 +128,11 @@ class TekScope(Scope):
     def read_measurement_stats(self, num):
         """
         Read the value and statistics of a measurement.
+
+        Parameters
+        ----------
+        num : int
+            Number of the measurement to read from, from 1-4
 
         Returns
         -------
@@ -143,8 +159,17 @@ class TekScope(Scope):
         return stats
 
     def read_measurement_value(self, num):
-        """
-        Read the value of a measurement.
+        """Read the value of a measurement.
+
+        Parameters
+        ----------
+        num : int
+            Number of the measurement to read from, from 1-4
+
+        Returns
+        -------
+        value : pint.Quantity
+            Value of the measurement
         """
         prefix = 'measurement:meas{}:'.format(num)
 
@@ -153,23 +178,44 @@ class TekScope(Scope):
         return Q_(raw_value+units)
 
     def run_acquire(self):
+        """Sets the acquire state to 'run'"""
         self.inst.write("acquire:state run")
 
     def stop_acquire(self):
+        """Sets the acquire state to 'stop'"""
         self.inst.write("acquire:state stop")
 
     def are_measurement_stats_on(self):
+        """Returns whether measurement statistics are currently enabled"""
         res = self.inst.ask("measu:statistics:mode?")
         return res not in ['OFF', '0']
 
     def enable_measurement_stats(self, enable=True):
+        """Enables measurement statistics.
+
+        When enabled, measurement statistics are kept track of, including
+        'mean', 'stddev', 'minimum', 'maximum', and 'nsamps'.
+        
+        Parameters
+        ----------
+        enable : bool
+            Whether measurement statistics should be enabled
+        """
         # For some reason, the DPO 4034 uses ALL instead of ON
         self.inst.write("measu:statistics:mode {}".format('ALL' if enable else 'OFF'))
 
     def disable_measurement_stats(self):
+        """Disables measurement statistics"""
         self.enable_measurement_stats(False)
 
     def set_measurement_nsamps(self, nsamps):
+        """Sets the number of samples used to compute measurements.
+
+        Parameters
+        ----------
+        nsamps : int
+            Number of samples used to compute measurements
+        """
         self.inst.write("measu:stati:weighting {}".format(nsamps))
 
 
