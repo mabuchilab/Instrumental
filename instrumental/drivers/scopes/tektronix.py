@@ -68,7 +68,8 @@ class TekScope(Scope):
         inst.write("data:start 1")
         inst.write("data:stop {}".format(stop))
 
-        raw_bin = inst.ask("curve?")
+        inst.write("curve?")
+        raw_bin = inst.read_raw()
 
         # Get scale and offset factors
         x_scale = float(inst.ask("wfmpre:xincr?"))
@@ -83,8 +84,13 @@ class TekScope(Scope):
 
         raw_data_x = np.arange(1, stop+1)
 
-        header_size = int(raw_bin[1]) + 2
-        raw_data_y = np.frombuffer(raw_bin, dtype='>i2', offset=header_size)
+        if raw_bin[0] != b'#':
+            raise Exception("Binary reponse missing header! Something's wrong.")
+        header_width = int(raw_bin[1]) + 2
+        num_bytes = int(raw_bin[2:header_width])
+
+        raw_data_y = np.frombuffer(raw_bin, dtype='>i2', offset=header_width,
+                                   count=int(num_bytes//2))
 
         data_x = u[x_unit] * ((raw_data_x - x_offset)*x_scale + x_zero)
         data_y = u[y_unit] * ((raw_data_y - y_offset)*y_scale + y_zero)
