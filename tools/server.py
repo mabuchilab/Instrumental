@@ -3,9 +3,9 @@
 
 from __future__ import absolute_import, unicode_literals, print_function
 from codecs import encode, decode
-import socket
 import threading
 import visa
+import json
 
 from instrumental.visa.messenger import Messenger
 
@@ -37,7 +37,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     def handle(self):
         log("Opening connection...")
         instruments = []
-        messenger = Messenger(self.request)
+        messenger = Messenger(self.request, is_server=True)
         while True:
             message = messenger.recv()
             if not message:
@@ -47,10 +47,13 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             cmd, rest = message.split(b':', 1)
 
             if cmd == b'I':
-                name = rest
+                kwargs = json.loads(rest)
+                name = kwargs.pop('visa_address')
+                print(kwargs)
                 log("Client asked for instrument '{}'".format(name))
                 try:
-                    instruments.append(visa.instrument(name))
+                    instruments.append(visa.instrument(name, **kwargs))
+                    # Reply with the instrument's unique ID number
                     response = encode(str(len(instruments)-1))
                 except visa.Error as e:
                     response = _visa_err_response(e)
@@ -83,13 +86,21 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     instruments[id].write(body)
                     response = b'Success'
                 except visa.Error as e:
-                    response = _visa_err_respone(e)
+                    response = _visa_err_response(e)
             elif cmd == b'R':
                 id = int(rest)
                 log("Client reading from instrument with id '{}'...".format(id))
                 try:
                     # read_raw() returns bytes object
                     response = instruments[id].read_raw()
+                except visa.Error as e:
+                    response = _visa_err_response(e)
+            elif cmd == b'C':
+                id = int(rest)
+                log("Clien closing instrument with id '{}'...".format(id))
+                try:
+                    instruments[id].close()
+                    response = b'Success'
                 except visa.Error as e:
                     response = _visa_err_response(e)
 

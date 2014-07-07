@@ -7,6 +7,7 @@ Module that fakes a local VISA library and PyVISA by talking to a remote server.
 from __future__ import unicode_literals, print_function
 from codecs import encode
 import socket
+import json
 
 from messenger import Messenger
 from .. import conf
@@ -21,6 +22,7 @@ try:
 except KeyError:
     raise Exception("Error: No default fakevisa server specified in the instrumental.conf")
 
+messenger = Messenger(sock)
 
 def _verify_sock_connected():
     global _connected
@@ -32,8 +34,6 @@ def _verify_sock_connected():
                             "Check the server address in instrumental.conf and " +
                             "verify the server program is running.")
         _connected = True
-
-messenger = Messenger(sock)
 
 class VisaIOError(Exception):
     def __init__(self, message):
@@ -101,11 +101,16 @@ class Instrument(object):
         """ Write a unicode string message to the device. """
         self.write_raw(encode(message, 'utf-8'))
 
-def instrument(name):
+    def close(self):
+        self.write_raw(encode("C", 'utf-8'))
+
+def instrument(name, **kwargs):
     """
     Returns an Instrument instance corresponding to the given resource name
     """
-    command = b'I:' + encode(name, 'utf-8')
+    kwargs['visa_address'] = name
+    kwstr = encode(json.dumps(kwargs), 'utf-8')
+    command = b'I:' + kwstr
     _send(command)
     id_str = _receive()
     return Instrument(id_str)

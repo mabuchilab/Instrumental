@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright 2013-2014 Nate Bogdanowicz
 
-from .. import conf
+import socket
 from importlib import import_module
+
+from .. import conf
 
 # Listing of acceptable parameters for each driver module
 _acceptable_params = {
@@ -86,7 +88,16 @@ def list_visa_instruments():
     for addr in visa_list:
         if not addr.startswith(prev_addr):
             prev_addr = addr
-            i = visa.instrument(addr, timeout=0.1)
+            try:
+                i = visa.instrument(addr, timeout=0.1)
+            except visa.VisaIOError:
+                # Could not create visa instrument object
+                skipped.append(addr)
+                continue
+            except socket.timeout:
+                skipped.append(addr)
+                continue
+
             try:
                 idn = i.ask("*IDN?")
                 manufac, model, rest = idn.split(',', 2)
@@ -98,7 +109,8 @@ def list_visa_instruments():
                 instruments.append(params)
             except visa.VisaIOError:
                 skipped.append(addr)
-            i.close()
+            finally:
+                i.close()
     return instruments
 
 
