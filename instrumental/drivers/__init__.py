@@ -10,6 +10,8 @@ from .. import conf
 _acceptable_params = {
     'cameras.uc480':
         ['ueye_cam_id', 'cam_serial', 'cam_model'],
+    'daq.ni':
+        ['nidaq_devname'],
     'funcgenerators.tektronix':
         ['visa_address'],
     'scopes.tektronix':
@@ -114,6 +116,38 @@ def list_visa_instruments():
     return instruments
 
 
+def list_instruments():
+    """Returns a list of info about available instruments.
+
+    May take a few seconds because it must poll hardware devices.
+
+    It actually returns a list of specialized dict objects that contain
+    parameters needed to create an instance of the given instrument. You can
+    then get the actual instrument by passing the dict to
+    :py:func:`~instrumental.drivers.instrument`.
+
+    >>> inst_list = get_instruments()
+    >>> print(inst_list)
+    [<NIDAQ 'Dev1'>, <TEKTRONIX 'TDS 3032'>, <TEKTRONIX 'AFG3021B'>]
+    >>> inst = instrument(inst_list[0])
+    """
+    inst_list = list_visa_instruments()
+
+    for mod_name in _acceptable_params:
+        try:
+            mod = import_module('.' + mod_name, __package__)
+        except Exception:
+            # Module not supported
+            continue
+
+        try:
+            inst_list.extend(mod.list_instruments())
+        except AttributeError:
+            # Module doesn't have a list_instruments() function
+            continue
+    return inst_list
+
+
 def _get_visa_instrument(params):
     """
     Returns the VISA instrument corresponding to 'visa_address'. Uses caching
@@ -192,7 +226,7 @@ def instrument(inst=None, **kwargs):
             # Try to import module, skip it if optional deps aren't met
             try:
                 mod = import_module('.' + mod_name, __package__)
-            except ImportError as e:
+            except Exception as e:
                 #print(e.args)
                 #print("\tModule {} not supported, skipping".format(mod_name))
                 continue
