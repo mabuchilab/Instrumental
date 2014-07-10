@@ -120,12 +120,12 @@ def plot_profile(q_start_t_r, q_start_s_r, lambda0, elems, cyclical=False,
                         textcoords='offset points', ha='center',
                         arrowprops={'arrowstyle':'->'})
      
-    ax.set_xlabel('Position [{}]'.format(zunits))
+    ax.set_xlabel('Position ({})'.format(zunits))
     if clipping is not None:
         ylabel = ('Distance from beam axis for clipping of ' +
-                  '{:.1e} [{}]'.format(clipping, runits))
+                  '{:.1e} ({})'.format(clipping, runits))
     else:
-        ylabel = 'Spot size [{}]'.format(runits)
+        ylabel = 'Spot size ({})'.format(runits)
     ax.set_ylabel(ylabel)
     #ax.legend()
 
@@ -133,7 +133,10 @@ def plot_profile(q_start_t_r, q_start_s_r, lambda0, elems, cyclical=False,
         ax.set_ylim(bottom=0)
     ax.set_autoscaley_on(False)
     
-    if cyclical:
+    # Pad out names and convert to a list
+    names = [names[i] if i < len(names) else '' for i in range(len(zs_mag))]
+
+    if cyclical and names:
         zs_mag.append(zs_mag[-1][-1:])
         names.append(names[0])
         profs_t_mag.append(profs_t_mag[0])
@@ -143,7 +146,7 @@ def plot_profile(q_start_t_r, q_start_s_r, lambda0, elems, cyclical=False,
     for z_mag, prof_t_mag, prof_s_mag, name in zip(zs_mag, profs_t_mag,
                                                    profs_s_mag, names):
         ax.vlines([z_mag[0]], ax.get_ylim()[0], ax.get_ylim()[1],
-                  linestyle='dashed', linewidth=3, color=(.5,.5,.5),
+                  linestyle='dashed', linewidth=2, color=(.5,.5,.5),
                   antialiased=True)
 
         # Get relevant y boundaries
@@ -163,5 +166,6 @@ def plot_profile(q_start_t_r, q_start_s_r, lambda0, elems, cyclical=False,
         else:
             margin = ylim1 - (ylim1-pmax)*0.2
             va = 'top'
-        ax.text(z_mag[0], margin, name, rotation='vertical', ha='center',
-                va=va, size='xx-large', backgroundcolor='w')
+        if name:
+            ax.text(z_mag[0], margin, name, rotation='vertical', ha='center',
+                    va=va, size='xx-large', backgroundcolor='w')
