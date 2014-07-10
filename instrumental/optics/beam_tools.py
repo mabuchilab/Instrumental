@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright 2013-2014 Nate Bogdanowicz
 
+import numpy as np
 from functools import reduce
 from numpy import sqrt, complex, sign, linspace, pi
 from scipy.special import erf, erfinv
@@ -102,7 +103,15 @@ def beam_roc(q_r, z_meas, z, n):
 
     zR = get_zR(q_r)
     z0 = get_z0(q_r)
-    R = 1/_get_real(1/(z0+z-z_meas + 1j*zR))
+
+    # R is commonly infinite, so we must ignore divide by zero warnings here
+    old_settings = np.seterr(divide='ignore')
+
+    R = _get_real(1/(z0+z-z_meas + 1j*zR))
+
+    # Restore divide-by-zero warnings
+    np.seterr(**old_settings)
+
     return R
 
 
