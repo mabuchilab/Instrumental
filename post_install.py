@@ -3,10 +3,16 @@
 
 import os
 import os.path
-import shutil
-
 from setup import name, author
 from instrumental.appdirs import user_data_dir
+
+
+def copy_file_text(from_path, to_path):
+    """Copies a text file, using platform-specific line endings"""
+    with open(from_path, 'rU') as from_file:
+        with open(to_path, 'w') as to_file:
+            to_file.writelines((line for line in from_file))
+
 
 data_dir = user_data_dir(name, author)
 conf_filename = 'instrumental.conf'
@@ -16,8 +22,9 @@ default_conf_path = os.path.join('data', conf_filename)
 try:
     os.makedirs(data_dir)
 except OSError as e:
-    pass # Dir already exists
+    pass  # Dir already exists
 
 # Only copy default config file if user doesn't have one already
 if not os.path.isfile(user_conf_path):
-    shutil.copyfile(default_conf_path, user_conf_path)
+    copy_file_text(default_conf_path, user_conf_path)
+    print("Wrote config file to '{}'".format(user_conf_path))
