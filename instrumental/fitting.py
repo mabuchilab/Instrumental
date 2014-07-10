@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013 Nate Bogdanowicz
+# Copyright 2013-2014 Nate Bogdanowicz
+"""
+Module containing utilities related to fitting.
 
-from numpy import loadtxt, square, extract, diff, sign, logical_and, \
+Still very much a work in progress...
+"""
+
+from numpy import square, extract, diff, sign, logical_and, \
                   searchsorted, log, sum, exp, ma, pi
 import scipy.optimize
 import matplotlib.pyplot as plt
@@ -20,8 +25,8 @@ except ImportError:
 import warnings
 from exceptions import UserWarning
 
-from .plotting import param_plot
 from . import u, Q_
+
 
 def _ginput(*args, **kwargs):
     """
@@ -42,9 +47,10 @@ def curve_fit(f, xdata, ydata, p0=None, sigma=None, **kw):
     Wrapper for scipy's curve_fit that works with pint Quantities.
     """
     # - needs to check unit "correctness"
-    # f() must be written properly such that it works with 'raw' numbers if they're in base units
-    
-    # Only use pint if at least one of the inputs is a pint Quantity    
+    # f() must be written properly such that it works with 'raw' numbers if
+    # they're in base units
+
+    # Only use pint if at least one of the inputs is a pint Quantity
     use_pint = False
     nums = [xdata, ydata]
     nums.extend(p0)
@@ -52,18 +58,17 @@ def curve_fit(f, xdata, ydata, p0=None, sigma=None, **kw):
         if isinstance(num, Q_):
             use_pint = True
             break
-    
+
     if not use_pint:
         return scipy.optimize.curve_fit(f, xdata, ydata, p0, sigma, **kw)
-    
-    
+
     xdata_mag = xdata.to_base_units().magnitude
     ydata_mag = ydata.to_base_units().magnitude
     if p0:
         p0_mag = [p.to_base_units().magnitude for p in p0]
     else:
         p0_mag = None
-    
+
     popt_mag, pcov_mag = scipy.optimize.curve_fit(f, xdata_mag, ydata_mag,
                                                   p0_mag, **kw)
     popt = []
@@ -79,7 +84,7 @@ def curve_fit(f, xdata, ydata, p0=None, sigma=None, **kw):
     else:
         popt = popt_mag
         pcov = pcov_mag
-    
+
     return popt, pcov
 
 
@@ -118,12 +123,12 @@ def _estimate_FWHM_pint(nu, amp, half_max, left_limit, center, right_limit):
         i += 1
     left_mean = left_sum / divisor
     divisor = 0
-    
+
     while nu[i] < right_limit:
         if amp[i-1] >= half_max and amp[i] < half_max:
             right_sum += nu[i]
             divisor += 1
-        i +=1
+        i += 1
     right_mean = right_sum / divisor
     return right_mean - left_mean
 
@@ -131,7 +136,7 @@ def _estimate_FWHM_pint(nu, amp, half_max, left_limit, center, right_limit):
 def _estimate_FWHM(nu, amp, half_max, left_limit, center, right_limit):
     # Get x values of points where the data crosses half_max
     all_points = extract(diff(sign(amp-half_max)), nu)
-    
+
     # Filter out the crossings from the sidebands
     middle_points = extract(logical_and(left_limit < all_points, all_points < right_limit), all_points)
     center_index = searchsorted(middle_points, center)
@@ -146,15 +151,15 @@ def _linear_fit_decay(x, y):
     # Linearize by removing offset
     c = y[-20:].mean()
     y = y - c
-    
+
     # Mask out negative values that log() can't handle
     y_masked = ma.masked_less_equal(y, 0)
     x_masked = ma.array(x, mask=y_masked.mask)
-    
+
     # Rename for compactness
     x = x_masked.compressed()
     y = y_masked.compressed()
-    
+
     # Simply ignore every point after y goes <= 0
 #    try:
 #        last = where(y<=0)[0][0]
@@ -168,11 +173,11 @@ def _linear_fit_decay(x, y):
     a_num = sum(x*x*y)*sum(y*log(y)) - sum(x*y)*sum(x*y*log(y))
     b_num = sum(y)*sum(x*y*log(y)) - sum(x*y)*sum(y*log(y))
     den = sum(y)*sum(x*x*y) - sum(x*y)**2
-    
+
     a = a_num / den
     b = b_num / den
     return exp(a), b, c
-    
+
 
 def guided_ringdown_fit(data_x, data_y):
     """
@@ -192,7 +197,7 @@ def guided_ringdown_fit(data_x, data_y):
     cursor.horizOn = False
     (x1, y1), (x2, y2) = _ginput(2)
     plt.close()
-    
+
     # Crop the data
     i1 = searchsorted(data_x.magnitude, x1)
     i2 = searchsorted(data_x.magnitude, x2)
@@ -202,22 +207,22 @@ def guided_ringdown_fit(data_x, data_y):
     # Set t0 = 0 so that the amplitude 'a' doesn't blow up if we
     # have a large time offset
     t = data_x - data_x[0]
-    amp = data_y / u.V    
-    
+    amp = data_y / u.V
+
     def decay(x, a, b, c):
         return a*exp(b*x) + c
-    
+
     # Do linear fit to get initial parameter estimate
     a0, b0, c0 = _linear_fit_decay(t.magnitude, amp.to('').magnitude)
-    
+
     # Do nonlinear fit
     popt, pcov = curve_fit(decay, t.magnitude, amp.magnitude, p0=[a0, b0, c0], maxfev=2000)
     a, b, c = popt
     tau = Q_(-1/b, t.units)
     FWHM = (1 / (2*pi*tau)).to('MHz')
-    
+
     fit = a * exp(-t/tau) + c
-    
+
     t.ito('ns')
     plt.plot(t, fit, 'b-', lw=2, zorder=3)
     plt.plot(t, amp, 'gx')
@@ -246,21 +251,21 @@ def guided_trace_fit(data_x, data_y, EOM_freq):
     The parameters are ``A0``, ``B0``, ``FWHM``, ``nu0``, and ``dnu``.
     """
     EOM_freq = Q_(EOM_freq)
-    
+
     # Have user mark the three maxima
     plt.plot(data_x, data_y)
     plt.axis('tight')
     pts = _ginput(3)
     plt.close()
-    
+
     (x1,y1), (x2,y2), (x3,y3) = ((x*u.s, y*u.V) for (x,y) in pts)
     scale_factor_x = 2*EOM_freq / (x3-x1)
     scale_factor_y = 1 / u.V
-    
+
     # Scale the data into frequency space
     nu = data_x * scale_factor_x
     amp = data_y * scale_factor_y
-    
+
     # Calculate the initial estimated parameters
     A0 = y2 * scale_factor_y
     B0 = (y1+y3)/2 * scale_factor_y
@@ -268,11 +273,11 @@ def guided_trace_fit(data_x, data_y, EOM_freq):
     dnu = EOM_freq
     y0 = 0 * u.dimensionless
     FWHM = _estimate_FWHM_pint(nu, amp, A0/2, nu0-dnu/2, nu0, nu0+dnu/2)
-    
+
     # Do a curve fit to get new params
     popt, pcov = curve_fit(triple_lorentzian, nu, amp, p0=(A0, B0, FWHM, nu0, dnu, y0))
     A0, B0, FWHM, nu0, dnu, y0 = popt
-    
+
     # Put params in format needed for param_plot
     params = {
         'A0': A0,
@@ -282,7 +287,7 @@ def guided_trace_fit(data_x, data_y, EOM_freq):
         'dnu': dnu,
         'y0': y0
     }
-    
+
     # Plot the data and fit on a param_plot
     plt.plot(nu, amp, 'gx', nu, triple_lorentzian(nu, **params), 'b-', linewidth=2)
     plt.xlim([(nu0-2*dnu).magnitude, (nu0+2*dnu).magnitude])
@@ -292,12 +297,5 @@ def guided_trace_fit(data_x, data_y, EOM_freq):
     plt.legend(['Data Trace', 'Fitted Curve'])
     plt.text(0, 1, 'FWHM = {:.2f}'.format(FWHM), ha='left', va='top', transform=plt.gca().transAxes)
     plt.show()
-    
+
     return params
-
-
-if __name__ == '__main__':
-    # Parameter that should probaby be input somehow
-    EOM_freq = 5*u.MHz
-    data = loadtxt(r'Data/2013-08-06/bandpass_test5.csv', delimiter=',')
-    guided_trace_fit(data, EOM_freq)

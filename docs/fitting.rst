@@ -1,4 +1,5 @@
 Fitting
 =======
 
-You can fit stuff good.
+.. automodule:: instrumental.fitting
+    :members:
