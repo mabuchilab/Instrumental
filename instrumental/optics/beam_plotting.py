@@ -73,6 +73,12 @@ def plot_profile(q_start_t_r, q_start_s_r, lambda0, elems, cyclical=False,
         The *index* of the element in `elems` that we should consider as z=0.
         Useful for looking at distances from some element that's in the middle
         of the plot.
+    zunits : str or Quantity or UnitsContainer
+        Units to use for the z-axis. Must have units of [length]. Defaults to
+        'mm'.
+    runits : str or Quantity or UnitsContainer
+        Units to use for the radial axis. Must have units of [length]. Defaults
+        to 'um'.
     """
     zs, profs_t, RoCs = get_profiles(q_start_t_r, lambda0, 'tangential', elems,
                                     clipping, zeroat)
