@@ -2,16 +2,19 @@
 # Copyright 2013 Nate Bogdanowicz
 
 from collections import OrderedDict, Mapping
-from matplotlib import pyplot as plt
+import itertools
+
+import numpy as np
+import matplotlib as mpl
+from matplotlib.pyplot import *
+import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 from matplotlib.transforms import Bbox
 from matplotlib.cbook import is_string_like
-import matplotlib as mpl
-import numpy as np
 
 from . import u, Q_
 
-def _get_lines(*args):
+def _get_line_tups(*args):
     """
     Helper func to parse input to plot()
     """
@@ -36,24 +39,74 @@ def _get_lines(*args):
                 else:
                     args = args[2:]
         else:
+            x = Q_(np.arange(y.shape[0], dtype=float))
             args = args[1:]
         lines.append((x, y, fmt))
     return lines
-                    
+
+
+def _pluralize(unit_name):
+    if unit_name[-1] in ['s', 'z']:
+        return unit_name
+    return unit_name + 's'
+
+
+def _to_engineering_notation(x):
+    high = np.max(x)
+    low = np.min(x)
+    max_abs = max(np.abs(low), np.abs(high))
+    power = int(np.log10(max_abs.to_base_units().magnitude) // 3)*3
+
+
+def xlabel(s, *args, **kwargs):
+    ax = gca()
+    try:
+        units = _pluralize(str(ax.xunits))
+        s += " ({})".format(units)
+    except AttributeError:
+        pass
+    plt.xlabel(s, *args, **kwargs)
+
+
+def ylabel(s, *args, **kwargs):
+    ax = gca()
+    try:
+        units = _pluralize(str(ax.yunits))
+        s += " ({})".format(units)
+    except AttributeError:
+        pass
+    plt.ylabel(s, *args, **kwargs)
+
 
 def plot(*args, **kwargs):
     """
     Plot with knowledge of pint Quantities
     """
-    lines = _get_lines(*args, **kwargs)
+    line_tups = _get_line_tups(*args)
+    xunits = line_tups[0][0].units
+    yunits = line_tups[0][1].units
     
-    plt.plot(*args, **kwargs)
+    # Scale the arrays to all use the same units
+    scaled_line_tups = []
+    for line_tup in _get_line_tups():
+        x, y, fmt = line_tup
+        scaled_line_tups.append((x.to(xunits), y.to(yunits), fmt))
+
+    # Flatten line_tups
+    arglist = list(itertools.chain(*line_tups))
+
+    lines = plt.plot(*arglist, **kwargs)
     ax = plt.gca()
-    for line in lines:
-        x, y, fmt = line
-        ax.set_xlabel(x.units)
-        ax.set_ylabel(y.units)
-        
+    ax.xunits = xunits
+    ax.yunits = yunits
+
+    for line, line_tup in zip(lines, scaled_line_tups):
+        x, y, fmt = line_tup
+        line.qx = x
+        line.qy = y
+
+    return lines
+
 
 def _bbox_from_fontsize(left, bottom, right, height, fig=None):
     """

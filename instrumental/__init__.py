@@ -23,7 +23,6 @@ Q_ = u.Quantity
 
 # Import mapping to objects in other modules
 all_by_module = {
-    'instrumental.plotting' : ['plot', 'param_plot'],
     'instrumental.fitting' : ['guided_trace_fit', 'guided_ringdown_fit'],
     'instrumental.drivers' : ['instrument', 'list_visa_instruments'],
     'instrumental.tools' : ['fit_scan', 'fit_ringdown'],
@@ -37,7 +36,7 @@ all_by_module = {
 }
 
 # Modules that should be imported when accessed as attributes of instrumental
-attribute_modules = frozenset(['appdirs', 'conf'])
+attribute_modules = frozenset(['appdirs', 'conf', 'plotting'])
 
 # Compute the reverse mappings: from objects to their modules
 object_origins = {}
