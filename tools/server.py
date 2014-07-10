@@ -15,9 +15,11 @@ try:
 except ImportError:
     import SocketServer as socketserver
 
+
 def _visa_err_response(e):
     response = '!!{}:{}'.format(type(e).__name__, str(e))
     return encode(response, 'utf-8')
+
 
 def log(msg):
     """ Tries to print bytes object 'msg' with ascii encoding, if it
@@ -31,6 +33,7 @@ def log(msg):
     else:
         message = msg
     print(message)
+
 
 # Command syntax [message-bytes]:[command letter]:([instrument id]):[message]
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
@@ -108,12 +111,12 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             log(b"    responding with '" + response + b"'")
             messenger.send(response)
 
+
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
 
 if __name__ == "__main__":
-    #HOST, PORT = "localhost", 28265
-    HOST, PORT = "171.64.84.228", 28265
+    HOST, PORT = '', 28265
     server = ThreadedTCPServer((HOST, PORT), ThreadedTCPRequestHandler)
     ip, port = server.server_address
 
