@@ -3,6 +3,7 @@
 
 import os
 import os.path
+import sys
 from setup import name, author
 from instrumental.appdirs import user_data_dir
 
@@ -24,7 +25,15 @@ try:
 except OSError as e:
     pass  # Dir already exists
 
-# Only copy default config file if user doesn't have one already
-if not os.path.isfile(user_conf_path):
+force = (len(sys.argv) > 1 and sys.argv[1] == '--force')
+file_exists = os.path.isfile(user_conf_path)
+
+if force or not file_exists:
+    if file_exists:
+        print("Forcing overwrite of existing config file...")
+
     copy_file_text(default_conf_path, user_conf_path)
     print("Wrote config file to '{}'".format(user_conf_path))
+else:
+    print("Config file '{}' already exists.\n\n".format(user_conf_path) +
+          "Use `{} --force` to force overwrite.".format(sys.argv[0]))
