@@ -9,7 +9,7 @@ at Stanford University. It consists of:
 
 * High-level drivers for controlling common lab equipment
 * Plotting and curve fitting utilities
-* Tools for working with Gaussian beams and ABCD matrices
+* Tools for working with optics, including Gaussian beams and ABCD matrices
 * Utilities for acquiring and organizing data
 
 Instrumental makes use of NumPy, SciPy, Matplotlib, and Pint, a Python units

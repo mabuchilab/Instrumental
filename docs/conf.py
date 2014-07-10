@@ -42,7 +42,8 @@ class Mock(object):
             return Mock()
 
 # Include ctypes due to Windows-specific imports
-MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'pint', 'PyDAQmx', 'ctypes']
+MOCK_MODULES = ['numpy', 'scipy', 'scipy.special', 'scipy.interpolate',
+                'matplotlib', 'matplotlib.pyplot', 'pint', 'PyDAQmx', 'ctypes']
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = Mock()
 

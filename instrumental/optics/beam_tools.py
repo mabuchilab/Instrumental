@@ -5,17 +5,29 @@ from functools import reduce
 from numpy import sqrt, complex, sign, linspace, pi
 from scipy.special import erf, erfinv
 from optical_elements import Space
+from .. import Q_
 
-def find_cavity_mode(M):
+
+def _get_real(q):
+    """Temporary hack to add units to `real`"""
+    return Q_(q.magnitude.real, q.units)
+
+
+def _get_imag(q):
+    """Temporary hack to add units to `real`"""
+    return Q_(q.magnitude.imag, q.units)
+
+
+def _find_cavity_mode(M):
     """
     Returns 1/q for a cavity eigenmode given the effective cavity matrix M.
     """
-    A, B, C, D = M.flatten()
+    A, B, C, D = M.elems()
     
     # From Siegman: Lasers, Chapter 21.1
-    term1 = (D-A)/(2*B) 
+    term1 = (D-A)/(2*B)
     term2 = 1/B*sqrt(complex(((A+D)/2)**2 - 1))
-    sgn = sign(term2.imag)
+    sgn = sign(_get_imag(term2))
     
     # Choose transversely confined solution
     q_r = term1 - sgn*term2
@@ -30,34 +42,50 @@ def find_cavity_modes(elems):
     """
     Find the eigenmodes of an optical cavity.
 
-    Args:
-        elems: an ordered list of the cavity elements
-    Returns:
-        a tuple containing 1/q for the tangential and sagittal modes, respectively
+    Parameters
+    ----------
+    elems : list of OpticalElements
+        ordered list of the cavity elements
 
+    Returns
+    -------
+    qt_r, qs_r : complex Quantity objects
+        1/q for the tangential and sagittal modes, respectively. Has
+        units of 1/[length].
     """
-    qt_r = find_cavity_mode(reduce(lambda x,y: (y).dot(x), [el.tan for el in elems]))
-    qs_r = find_cavity_mode(reduce(lambda x,y: (y).dot(x), [el.sag for el in elems]))
+    qt_r = _find_cavity_mode(reduce(lambda x, y: y*x, [el.tan for el in elems]))
+    qs_r = _find_cavity_mode(reduce(lambda x, y: y*x, [el.sag for el in elems]))
     return qt_r, qs_r
 
 
 def get_zR(q_r):
     """ Get Rayleigh range zR from reciprocal beam parameter q_r """
-    return (1/q_r).imag
+    q_r = Q_(q_r).to('1/mm')
+    return _get_imag(1/q_r)
 
 
 def get_w0(q_r, lambda_med):
-    """ Get waist size w0 of light with in-medium wavelength lambda_med
-    and reciprocal beam parameter q_r """
+    """
+    Get waist size w0 of light with in-medium wavelength lambda_med
+    and reciprocal beam parameter q_r
+    """
+    q_r = Q_(q_r).to('1/mm')
+    lambda_med = Q_(lambda_med).to('nm')
     return sqrt(lambda_med*get_zR(q_r)/pi)
 
 
 def get_z0(q_r):
     """ Get z-location z0 of the focus from reciprocal beam parameter q_r """
-    return (1/q_r).real
+    q_r = Q_(q_r).to('1/mm')
+    return _get_real(1/q_r)
 
 
 def beam_profile(q_r, z_meas, z, lambda_med, clipping=None):
+    q_r = Q_(q_r).to('1/mm')
+    z_meas = Q_(z_meas).to('mm')
+    z = Q_(z).to('mm')
+    lambda_med = Q_(lambda_med).to('nm')
+
     w0 = get_w0(q_r, lambda_med)
     zR = get_zR(q_r)
     z0 = get_z0(q_r)
@@ -68,16 +96,23 @@ def beam_profile(q_r, z_meas, z, lambda_med, clipping=None):
 
 
 def beam_roc(q_r, z_meas, z, n):
+    q_r = Q_(q_r).to('1/mm')
+    z_meas = Q_(z_meas).to('mm')
+    z = Q_(z).to('mm')
+
     zR = get_zR(q_r)
     z0 = get_z0(q_r)
-    R = 1/(1/(z0+z-z_meas + 1j*zR)).real
+    R = 1/_get_real(1/(z0+z-z_meas + 1j*zR))
     return R
 
 
 def get_profiles(q_r, lambda0, orientation, elements, clipping=None, zeroat=0):
+    q_r = Q_(q_r).to('1/mm')
+    lambda0 = Q_(lambda0).to('nm')
+
     zs, profiles, RoCs = [], [], []
-    cur_z = 0
-    z0 = 0
+    cur_z = Q_(0, 'mm')
+    z0 = Q_(0, 'mm')
     
     rev_elems = list((elements))
     for i, el in enumerate(rev_elems):
@@ -94,7 +129,7 @@ def get_profiles(q_r, lambda0, orientation, elements, clipping=None, zeroat=0):
         
         # Propagate q_r through the current element
         M = el.sag if orientation == 'sagittal' else el.tan
-        A, B, C, D = M.flatten()
+        A, B, C, D = M.elems()
         q_r = (C + D*q_r)/(A + B*q_r)
 
     for i, z in enumerate(zs):
