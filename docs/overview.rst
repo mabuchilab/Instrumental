@@ -30,10 +30,8 @@ Plotting
 --------
 The ``plotting`` module provides or aims to provide
 
-* Unit-aware plotting functions
+* Unit-aware plotting functions as a drop-in replacement for pyplot
 * Easy slider-plots
-* Curated 'nice' default settings/colors/etc for both data analysis and
-  publication/figures
 
 
 -------------------------------------------------------------------------------

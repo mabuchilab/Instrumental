@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013 Nate Bogdanowicz
+# Copyright 2013-2014 Nate Bogdanowicz
+"""
+Module that provides unit-aware plotting functions that can be used as a
+drop-in replacement for matplotlib.pyplot.
+
+Also acts as a repository for useful plotting tools, like slider-plots.
+"""
 
 from collections import OrderedDict, Mapping
 import itertools
 
 import numpy as np
-import matplotlib as mpl
 from matplotlib.pyplot import *
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
@@ -13,6 +18,7 @@ from matplotlib.transforms import Bbox
 from matplotlib.cbook import is_string_like
 
 from . import u, Q_
+
 
 def _get_line_tups(*args):
     """
@@ -59,6 +65,10 @@ def _to_engineering_notation(x):
 
 
 def xlabel(s, *args, **kwargs):
+    """Quantity-aware wrapper of pyplot.xlabel
+
+    Automatically adds parenthesized units to the end of `s`.
+    """
     ax = gca()
     try:
         units = _pluralize(str(ax.xunits))
@@ -69,6 +79,10 @@ def xlabel(s, *args, **kwargs):
 
 
 def ylabel(s, *args, **kwargs):
+    """Quantity-aware wrapper of pyplot.ylabel.
+
+    Automatically adds parenthesized units to the end of `s`.
+    """
     ax = gca()
     try:
         units = _pluralize(str(ax.yunits))
@@ -79,13 +93,11 @@ def ylabel(s, *args, **kwargs):
 
 
 def plot(*args, **kwargs):
-    """
-    Plot with knowledge of pint Quantities
-    """
+    """Quantity-aware wrapper of pyplot.plot"""
     line_tups = _get_line_tups(*args)
     xunits = line_tups[0][0].units
     yunits = line_tups[0][1].units
-    
+
     # Scale the arrays to all use the same units
     scaled_line_tups = []
     for line_tup in _get_line_tups():
@@ -114,17 +126,17 @@ def _bbox_from_fontsize(left, bottom, right, height, fig=None):
     """
     if not fig:
         fig = plt.gcf()
-    
+
     fig_inches = fig.get_size_inches()
     fig_w_in, fig_h_in = fig_inches
     fontsize_rel_h = 12.0/(72*fig_h_in)
     fontsize_rel_w = 12.0/(72*fig_w_in)
-    
+
     box_left_rel = left*fontsize_rel_w
     box_bottom_rel = bottom*fontsize_rel_h
     box_right_rel = 1 - right*fontsize_rel_w
     box_height_rel = height*fontsize_rel_h
-    
+
     return Bbox.from_extents(box_left_rel,
                              box_bottom_rel,
                              box_right_rel,
@@ -134,17 +146,17 @@ def _bbox_from_fontsize(left, bottom, right, height, fig=None):
 def _bbox_fixed_margin(left, bottom, right, top, fig=None):
     if not fig:
         fig = plt.gcf()
-    
+
     fig_inches = fig.get_size_inches()
     fig_w_in, fig_h_in = fig_inches
     fontsize_rel_h = 12.0/(72*fig_h_in)
     fontsize_rel_w = 12.0/(72*fig_w_in)
-    
+
     box_left_rel = left*fontsize_rel_w
     box_bottom_rel = bottom*fontsize_rel_h
     box_right_rel = 1 - right*fontsize_rel_w
     box_top_rel = 1 - top*fontsize_rel_h
-    
+
     return Bbox.from_extents(box_left_rel,
                              box_bottom_rel,
                              box_right_rel,
@@ -161,7 +173,7 @@ def _initialize_range_params(param_dict):
     pd.setdefault('min', min(0.8*init, 1.2*init))
     pd.setdefault('max', max(0.8*init, 1.2*init))
     pd.setdefault('init', (pd['max']-pd['min'])*0.5 + pd['min'])
-    
+
     if 'pm' in pd and 'init' in pd:
         pd['min'] = pd['init'] - abs(pd['pm'])
         pd['max'] = pd['init'] + abs(pd['pm'])
@@ -175,7 +187,7 @@ def _initialize_range_params(param_dict):
                 if 'init' not in pd:
                     pd['init'] = (pd['max'] - pd['min'])*0.5
                 else:
-                    pass # Add check if in range, clip or expand if necessary
+                    pass  # Add check if in range, clip or expand if necessary
             else:
                 if 'init' in pd:
                     # Add check that init > min
@@ -199,7 +211,7 @@ def _initialize_range_params(param_dict):
                     pd['min'] = 0.0
                     pd['init'] = 0.5
                     pd['max'] = 1.0
-    
+
     try:
         units = pd['init'].units
         pd['units'] = pd['init'].units
@@ -220,16 +232,16 @@ def _initialize_params(params):
     else:
         # Order alphabetically by key name
         p = OrderedDict(sorted(params.items(), key=lambda t: t[0]))
-    
+
     for k, pd in p.iteritems():
-        
+
         # Allow shorhand where only initial value is specified
         if not isinstance(pd, Mapping):
             pd = {'init': pd}
             p[k] = pd
-        
+
         _initialize_range_params(pd)
-        
+
         pd.setdefault('label', k.title())
 
     return p
@@ -242,6 +254,7 @@ slider_pad_bot = 0.1
 slider_pad_left = 5.0
 slider_pad_right = 5.0
 slider_fullheight = slider_pad_bot + slider_height + slider_pad_top
+
 
 def _bbox_with_margins(left, bottom, right, top):
     fig = plt.gcf()
@@ -267,7 +280,7 @@ def _main_ax_bbox(ax, i, fig=None):
     top = 1.4 + (1 if ax.get_title() else 0)
     return _bbox_fixed_margin(left, bottom, right, top, fig)
 
-    
+
 def _unitify(param_dict, value):
     """
     Helper function to create a pint.Quantity from the dict of a given
@@ -281,7 +294,7 @@ def _unitify(param_dict, value):
 def param_plot(x, func, params, **kwargs):
     """
     Plot a function with user-adjustable parameters.
-    
+
     Parameters
     ----------
     x : array_like
@@ -293,52 +306,52 @@ def param_plot(x, func, params, **kwargs):
     params : dict
         Dictionary whose keys are strings named exactly as the parameter
         arguments to `func` are. [More info on options]
-    
+
     Returns
     -------
     final_params : dict
         A dict whose keys are the same as `params` and whose values correspond
         to the values selected by the slider. `final_params` will continue to
         change until the figure is closed, at which point it has the final
-        parameter values the user chose. This is useful for hand-fitting 
+        parameter values the user chose. This is useful for hand-fitting
         curves.
     """
-    
+
     params = _initialize_params(params)
-    flat_params = {k:_unitify(v, v['init']) for k,v in params.iteritems()}
-    
+    flat_params = {k: _unitify(v, v['init']) for k, v in params.iteritems()}
+
     # Set up figure and axes that we'll plot on
     fig = plt.figure()
     ax0 = fig.add_axes([0, 0, 1, 1])
-    
+
     l, = ax0.plot(x, func(x, **flat_params), **kwargs)
-    
+
     # Function for redrawing curve when a parameter value is changed
     def update(val):
-        param_args = {k:_unitify(v, v['slider'].val) for k,v in params.iteritems()}
+        param_args = {k: _unitify(v, v['slider'].val) for k, v in params.iteritems()}
         l.set_ydata(func(x, **param_args))
         fig.canvas.draw_idle()
-        
+
         # Update values in flat_params so end user can get their final values
         flat_params.update(param_args)
-    
+
     # Create axes and sliders for each parameter
-    for i,(name, vals) in enumerate(params.iteritems()):
+    for i, (name, vals) in enumerate(params.iteritems()):
         ax = plt.axes(_slider_bbox(i).bounds)
         slider = Slider(ax, vals['label'], vals['min'], vals['max'], vals['init'])
         slider.on_changed(update)
         vals['ax'] = ax
         vals['slider'] = slider
-    
+
     # Function for auto-scaling sliders to (ironically) keep them fixed
     def resize_func(event):
         ax0.set_position(_main_ax_bbox(ax0, len(params), fig).bounds)
         for i, val in enumerate(params.itervalues()):
             box = _slider_bbox(i)
             val['ax'].set_position(box)
-        
+
     fig.canvas.mpl_connect('resize_event', resize_func)
-    
+
     # Set current axes to the one you'd expect
     plt.sca(ax0)
     return flat_params
