@@ -16,6 +16,9 @@ Instrumental makes use of NumPy, SciPy, Matplotlib, and Pint, a Python units
 library. It optionally uses PyVISA/VISA and other drivers for interfacing with
 lab equipment.
 
+To download Instrumental or browse its source, see our `GitHub page
+<https://github.com/mabuchilab/Instrumental>`_.
+
 .. NOTE::
     Instrumental is currently still under heavy development, so its interfaces
     are subject to change. Contributions are greatly appreciated, see the
