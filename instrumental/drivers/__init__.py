@@ -15,7 +15,9 @@ _acceptable_params = {
     'funcgenerators.tektronix':
         ['visa_address'],
     'scopes.tektronix':
-        ['visa_address']
+        ['visa_address'],
+    'powermeters.newport':
+        ['visa_address', 'module']
 }
 
 _visa_models = {
@@ -217,6 +219,20 @@ def instrument(inst=None, **kwargs):
                 raise Exception("Instrument with alias `{}` not ".format(alias) +
                                 "found in config file")
 
+    if 'module' in params:
+        # We've already been given the name of the module
+        # SHOULD PROBABLY INTEGRATE THIS WITH THE OTHER CASE
+        try:
+            mod = import_module('.' + params['module'], __package__)
+        except Exception as e:
+            raise Exception("Specified module '{}' could not be imported".format(params['module']))
+
+        try:
+            new_inst = mod._instrument(params)
+        except InstrumentTypeError:
+            raise Exception("Instrument is not compatible with the given module")
+        return new_inst
+
     # Find the right type of Instrument to create
     has_valid_params = False
     for mod_name, acceptable in _acceptable_params.items():
@@ -234,18 +250,19 @@ def instrument(inst=None, **kwargs):
             # Try to create an instance of this instrument type
             try:
                 new_inst = mod._instrument(params)
-                return new_inst
             except AttributeError:
                 # Module doesn't define the required _instrument() function
                 #print("\tModule " + mod_name +
                 #      " missing _instrument(), skipping")
-                pass
+                continue
             except InstrumentTypeError:
                 #print("\tNot the right type")
-                pass
+                continue
             except InstrumentNotFoundError:
                 #print("\tInstrument not found")
-                pass
+                continue
+            
+            return new_inst
 
     # If we reach this point, we haven't been able to create a valid instrument
     if not has_valid_params:
