@@ -104,6 +104,39 @@ class Instrument(object):
     def close(self):
         self.write_raw(encode("C", 'utf-8'))
 
+    def __getattr__(self, name):
+        # NEED TO HAVE A MORE EXTENSIVE LIST OF ATTRIBUTES
+        if name not in ['timeout', 'chunk_size', 'values_format', 'term_chars',
+                        'send_end', 'delay', 'lock']:
+            raise AttributeError()
+
+        command = b'getattr:' + self.id_byt + b':' + encode(name, 'utf-8')
+        _send(command)
+        ret = _receive()
+
+        if ret == b'AttributeError':
+            raise AttributeError("'Instrument' object has no attribute '{}'".format(name))
+
+        return json.loads(ret)
+
+    def __setattr__(self, name, value):
+        # NEED TO HAVE A MORE EXTENSIVE LIST OF ATTRIBUTES
+        if name not in ['timeout', 'chunk_size', 'values_format', 'term_chars',
+                        'send_end', 'delay', 'lock']:
+            object.__setattr__(self, name, value)
+            return
+
+        command = b'setattr:' + self.id_byt + b':' + encode(name, 'utf-8') + \
+                  b':' + json.dumps(value)
+
+        _send(command)
+        ret = _receive()
+
+        # SHOULD PROBABLY ADD BETTER ERROR CHECKING
+        if ret != b'Success':
+            raise Exception("Failed to set attribute")
+
+
 def instrument(name, **kwargs):
     """
     Returns an Instrument instance corresponding to the given resource name
@@ -115,6 +148,7 @@ def instrument(name, **kwargs):
     id_str = _receive()
     return Instrument(id_str)
 
+
 def get_instruments_list():
     """
     Returns a list of resource names of instruments that are connected to the
@@ -124,6 +158,7 @@ def get_instruments_list():
     _send(command)
     message = encode(_receive(), 'utf-8')
     return message.split("%|%")
+
 
 if __name__ == '__main__':
     SCOPE_A = "TCPIP::171.64.84.116::INSTR"

@@ -100,12 +100,34 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     response = _visa_err_response(e)
             elif cmd == b'C':
                 id = int(rest)
-                log("Clien closing instrument with id '{}'...".format(id))
+                log("Client closing instrument with id '{}'...".format(id))
                 try:
                     instruments[id].close()
                     response = b'Success'
                 except visa.Error as e:
                     response = _visa_err_response(e)
+            elif cmd == b'getattr':
+                head, body = rest.split(b':', 1)
+                id = int(head)
+                name = decode(body, 'utf-8')
+                log("Client asking for attr '{}' from instrument with id {}...".format(name, id))
+                try:
+                    attr = getattr(instruments[id], name)
+                    response = encode(json.dumps(attr), 'utf-8')
+                except AttributeError as e:
+                    response = b'AttributeError'
+            elif cmd == b'setattr':
+                head, raw_name, raw_value = rest.split(b':', 2)
+                id = int(head)
+                name = decode(raw_name, 'utf-8')
+                value = json.loads(raw_value)
+
+                log("Client setting attr '{}' to '{}' for instrument with id {}...".format(name, value, id))
+                try:
+                    setattr(instruments[id], name, value)
+                    response = b'Success'
+                except Exception:
+                    response = b'ERROR'
 
             # 'response' should already be encoded as bytes
             log(b"    responding with '" + response + b"'")
