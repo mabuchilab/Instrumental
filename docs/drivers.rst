@@ -7,14 +7,13 @@ Instrumental drivers allow you to control and read data from various hardware de
 Some devices (e.g. Thorlabs cameras) have drivers that act as wrappers to their drivers' C bindings. Many others (e.g. Tektronix scopes and AFGs) utilize VISA and PyVISA, its python wrapper. PyVISA normally requires a local installation of the VISA library (e.g. TekVISA or NI-VISA) to interface with connected devices. Installing such a large package and making sure it's always running when you need it can be a pain. However, Instrumental provides its own module, named FakeVISA, that makes this process easier, and also enables easy remote access to VISA-compatible devices.
 
 
-Subpackages
------------
 .. toctree::
     :maxdepth: 1
 
     cameras
     scopes
     funcgenerators
+    wavemeters
 
 
 -------------------------------------------------------------------------------

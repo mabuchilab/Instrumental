@@ -17,6 +17,8 @@ _acceptable_params = {
     'scopes.tektronix':
         ['visa_address'],
     'powermeters.newport':
+        ['visa_address', 'module'],
+    'wavemeters.burleigh':
         ['visa_address', 'module']
 }
 
