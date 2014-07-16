@@ -52,6 +52,8 @@ class TekScope(Scope):
             self.inst = visa_inst
         else:
             self.inst = visa.instrument(name)
+            
+        self.inst.write("header OFF")
 
     def get_data(self, channel=1):
         """Retrieve a trace from the scope.
