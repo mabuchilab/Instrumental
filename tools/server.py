@@ -98,7 +98,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     response = instruments[id].read_raw()
                 except visa.Error as e:
                     response = _visa_err_response(e)
-            elif cmd == b'C':
+            elif cmd == b'close':
                 id = int(rest)
                 log("Client closing instrument with id '{}'...".format(id))
                 try:
@@ -128,6 +128,14 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     response = b'Success'
                 except Exception:
                     response = b'ERROR'
+            elif cmd == b'clear':
+                id = int(rest)
+                log("Client clearing instrument with id '{}'...".format(id))
+                try:
+                    instruments[id].clear()
+                    response = b'Success'
+                except visa.Error as e:
+                    response = _visa_err_response(e)
 
             # 'response' should already be encoded as bytes
             log(b"    responding with '" + response + b"'")

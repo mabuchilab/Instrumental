@@ -5,7 +5,7 @@ Module that fakes a local VISA library and PyVISA by talking to a remote server.
 """
 
 from __future__ import unicode_literals, print_function
-from codecs import encode
+from codecs import encode, decode
 import socket
 import json
 
@@ -65,6 +65,7 @@ def _send(command):
     _verify_sock_connected()
     messenger.send(command)
 
+
 class Instrument(object):
     """ Fakevisa wrapper to PyVISA's Instrument class """
     def __init__(self, id_str):
@@ -102,7 +103,10 @@ class Instrument(object):
         self.write_raw(encode(message, 'utf-8'))
 
     def close(self):
-        self.write_raw(encode("C", 'utf-8'))
+        self.write('close')
+
+    def clear(self):
+        self.write('clear')
 
     def __getattr__(self, name):
         # NEED TO HAVE A MORE EXTENSIVE LIST OF ATTRIBUTES
