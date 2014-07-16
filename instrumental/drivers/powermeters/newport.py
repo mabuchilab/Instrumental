@@ -67,7 +67,7 @@ class Newport_1830_C(PowerMeter):
         else:
             power = float(self._inst.ask('D?'))
 
-        return Q_(val, 'watts')
+        return Q_(power, 'watts')
 
     def enable_auto_range(self):
         """Enables auto-range."""
@@ -81,11 +81,11 @@ class Newport_1830_C(PowerMeter):
         cur_range = self.get_range()
         self.set_range(cur_range)
             
-    def set_range(self, n):
+    def set_range(self, range_num):
         """ Sets the range for power measurements (amplifier gain)
 
-        n = 0 for auto-range
-        n = 1 to 8 for manual signal range
+        range_num = 0 for auto-range
+        range_num = 1 to 8 for manual signal range
         (1 is lowest, and 8 is highest)
         
         Parameters
@@ -93,7 +93,7 @@ class Newport_1830_C(PowerMeter):
         n : int
             Sets the signal range for the input signal.
         """
-        self._inst.write('R{}'.format(int(n)))
+        self._inst.write('R{}'.format(int(range_num)))
         
     def get_range(self):
         """ Returns the current range setting as an int.
@@ -122,10 +122,7 @@ class Newport_1830_C(PowerMeter):
         return Q_(val, 'nm')
         
     def enable_attenuator(self, enabled=True):
-        """ Sets whether the power meter attenuator setting is on of off
-        
-        n=0 for no attenuator, n=1 for attenuator on
-        """
+        """Set whether the power meter attenuator setting is enabled"""
         self._inst.write('A{}'.format(int(enabled)))
 
     def disable_attenuator(self):
@@ -138,7 +135,7 @@ class Newport_1830_C(PowerMeter):
         -------
         enabled : bool
             whether the attenuator is enabled
-        """     
+        """
         val = self._inst.write('A?')
         return bool(val)
      
@@ -149,14 +146,14 @@ class Newport_1830_C(PowerMeter):
         """
         self._inst.write('F1')
 
-    def set_medium_filter(self, n):
+    def set_medium_filter(self):
         """Sets averaging filter to medium mode.
         
         The medium filter uses a 4-measurement average.
         """
         self._inst.write('F2')
 
-    def set_no_filter(self, n):
+    def set_no_filter(self):
         """Sets averaging filter to fast mode, i.e. no averaging."""
         self._inst.write('F3')
         
@@ -169,7 +166,7 @@ class Newport_1830_C(PowerMeter):
             mode of the averaging filter
         """
         val = self._inst.ask("F?")
-        return int(query)
+        return int(val)
 
     def enable_hold(self, enable=True):
         """Sets whether the 'hold' mode is enabled."""
@@ -199,7 +196,7 @@ class Newport_1830_C(PowerMeter):
         reg = self.get_status_byte()
         is_saturated = bool(reg & self.SATURATED)
         is_over_range = bool(reg & self.OUT_OF_RANGE)
-        is_busy = bool(reg & BUSY)
+        is_busy = bool(reg & self.BUSY)
         
         return not (is_saturated or is_over_range or is_busy)
 
