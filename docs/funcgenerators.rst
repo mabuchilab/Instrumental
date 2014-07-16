@@ -7,4 +7,7 @@ Create :py:class:`~instrumental.drivers.funcgenerators.FunctionGenerator` object
 Supported Models
 ----------------
 
-* :doc:`tek-funcgens`
+.. toctree::
+    :maxdepth: 1
+
+    tek-funcgens

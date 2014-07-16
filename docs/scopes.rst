@@ -7,4 +7,7 @@ Create :py:class:`~instrumental.drivers.scopes.Scope` objects using :py:func:`~i
 Supported Models
 ----------------
 
-* :doc:`tek-scopes`
+.. toctree::
+    :maxdepth: 1
+
+    tek-scopes
