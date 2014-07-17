@@ -11,3 +11,4 @@ Supported Models
     :maxdepth: 1
 
     newport-powermeters
+    thorlabs-powermeters

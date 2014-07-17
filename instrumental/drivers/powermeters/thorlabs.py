@@ -32,6 +32,13 @@ class PM100D(PowerMeter):
         self._inst = visa_inst
 
     def get_power(self):
+        """Get the current power measurement
+        
+        Returns
+        -------
+        power : Quantity
+            the current power measurement
+        """
         self._inst.write('power:dc:unit W')
         val = float(self._inst.ask('measure:power?'))
         return Q_(val, 'watts')
@@ -51,22 +58,45 @@ class PM100D(PowerMeter):
         self.enable_auto_range(False)
 
     def auto_range_enabled(self):
-        """Whether auto-ranging is enabled"""
+        """Whether auto-ranging is enabled
+        
+        Returns
+        -------
+        bool : enabled
+        """
         val = int(self._inst.ask('power:dc:range:auto?'))
         return bool(val)
 
     def get_wavelength(self):
-        """Get the input signal wavelength setting"""
+        """Get the input signal wavelength setting
+        
+        Returns
+        -------
+        wavelength : Quantity
+            the input signal wavelength in units of [length]
+        """
         val = float(self._inst.ask('sense:correction:wav?'))
         return Q_(val, 'nm')
 
     def set_wavelength(self, wavelength):
-        """Set the input signal wavelength setting"""
+        """Set the input signal wavelength setting
+        
+        Parameters
+        ----------
+        wavelength : Quantity
+            the input signal wavelength in units of [length]
+        """
         wav_nm = Q_(wavelength).to('nm').magnitude
         self._inst.write('sense:correction:wav {}'.format(wav_nm))
 
     def get_num_averaged(self):
-        """Get the number of samples to average"""
+        """Get the number of samples to average
+        
+        Returns
+        -------
+        num_averaged : int
+            number of samples that are averaged
+        """
         val = int(self._inst.ask('sense:average:count?'))
         return val
 
