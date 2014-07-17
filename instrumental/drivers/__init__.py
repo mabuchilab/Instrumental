@@ -18,6 +18,8 @@ _acceptable_params = {
         ['visa_address'],
     'powermeters.newport':
         ['visa_address', 'module'],
+    'powermeters.thorlabs':
+        ['visa_address'],
     'wavemeters.burleigh':
         ['visa_address', 'module']
 }
@@ -31,6 +33,10 @@ _visa_models = {
     'scopes.tektronix':(
         'TEKTRONIX',
         ['TDS 3032', 'TDS 3034B', 'MSO4034', 'DPO4034']
+    ),
+    'powermeters.thorlabs':(
+        'Thorlabs',
+        ['PM100D']
     )
 }
 
