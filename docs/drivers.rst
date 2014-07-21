@@ -14,6 +14,7 @@ Some devices (e.g. Thorlabs cameras) have drivers that act as wrappers to their 
     scopes
     funcgenerators
     powermeters
+    spectrometers
     wavemeters
 
 
