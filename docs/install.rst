@@ -112,3 +112,12 @@ Currently, NI-DAQmx support requires `PyDAQmx
 
 You will also need to have NI-DAQmx installed. You can find the installer
 on the `National Instruments website <http://www.ni.com>`_.
+
+Thorlabs CCSxxx Spectrometers
+"""""""""""""""""""""""""""""
+
+To operate a CCS spectrometer, you will need to install the `Thorlabs software
+package 
+<http://www.thorlabs.us/newgrouppage9.cfm?objectgroup_id=3482&pn=CCS100#3482>` 
+under the software tab.  This should install the required .dll libraries in
+your path.
