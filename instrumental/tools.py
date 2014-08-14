@@ -5,7 +5,7 @@ import shutil
 import warnings
 from datetime import date, datetime
 import numpy as np
-from matplotlib import pyplot as plt
+import instrumental.plotting as plt
 
 from .fitting import guided_trace_fit, guided_ringdown_fit
 from . import u, Q_, conf, instrument
@@ -77,6 +77,10 @@ class DataSession(object):
             arrays.append(qarr.magnitude)
             fmt.append(self._default_format(qarr.magnitude))
 
+        if not arrays:
+            warnings.warn('No data input, not saving anything...')
+            return
+
         filename = self._conflict_handled_filename("Summary.csv")
         with open(filename, 'w') as f:
             # TODO: Warn if overwriting file
@@ -89,10 +93,28 @@ class DataSession(object):
             data = np.array(arrays).T
             np.savetxt(f, data, fmt=fmt, delimiter='\t')
 
-    def create_plot(self, vars, auto_update=True):
+    def create_plot(self, vars, auto_update=True, **kwargs):
+        """Create a plot of the DataSession.
+
+        This allows for live plotting of data as you collect it.
+
+        Parameters
+        ----------
+        vars : list of tuples
+            vars to plot. Each tuple corresponds to a data series, with
+            x-data, y-data, and optional format string. This is meant to
+            be reminiscent of matplotlib's plot function. The x and y data can
+            each either be a string (representing the variable in the measurement
+            dict with that name) or a function that takes kwargs with the name
+            of those in the measurement dict and returns its computed value.
+        **kwargs : keyword arguments
+            used for formatting the plot. These are passed directly to the plot
+            function. Useful for e.g. setting the linewidth.
+        """
         self.auto_update_plot = auto_update
         self.has_plot = True
         self.plotvars = self._parse_plotvars(vars)
+        self.plot_kwargs = kwargs
 
         if self.meas_list:
             self._create_plot()
@@ -108,20 +130,27 @@ class DataSession(object):
             # Vars wasn't nested; nest it and retry
             return self._parse_plotvars([vars])
 
-        for var_pair in vars:
-            plotvar_pair = []
-            plotvars.append(plotvar_pair)
-            for var in var_pair:
+        for var_tuple in vars:
+            plotvar_triple = []
+            plotvars.append(plotvar_triple)
+            for var in var_tuple[:2]:
                 if isinstance(var, basestring):
                     # Convert var string to a function
-                    print('var = {}'.format(var))
                     var_func = makefun(var)
                     var_func.name = var
-                    plotvar_pair.append(var_func)
+                    plotvar_triple.append(var_func)
                 elif callable(var):
-                    plotvar_pair.append(var)
+                    plotvar_triple.append(var)
                 else:
                     raise Exception("`vars` must contain strings or functions")
+
+            # Handle optional format string
+            if len(var_tuple) == 3:
+                fmt = var_tuple[2]
+            else:
+                fmt = ''
+            plotvar_triple.append(fmt)
+
         return plotvars
 
     def _create_plot(self):
@@ -129,11 +158,10 @@ class DataSession(object):
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
         self.axs.append(ax)
-        print(plt.isinteractive())
-        for var_pair in self.plotvars:
-            x, y = var_pair
+        for var_triple in self.plotvars:
+            x, y, fmt = var_triple
             xval, yval = x(**self.meas_list), y(**self.meas_list)
-            line, = ax.plot(xval, yval)
+            line, = ax.plot(xval, yval, fmt, **self.plot_kwargs)
             ax.set_xlabel('{} ({}s)'.format(x.name, xval.units))
             ax.set_ylabel('{} ({}s)'.format(y.name, yval.units))
             self.axs.append(ax)
@@ -163,7 +191,7 @@ class DataSession(object):
             else:
                 i = 1
                 new_full_fname = full_fname
-                while os.path.exists(new_filename):
+                while os.path.exists(new_full_fname):
                     new_fname = '({}) {}'.format(i, fname)
                     new_full_fname = os.path.join(self.data_dir, new_fname)
                     i += 1
