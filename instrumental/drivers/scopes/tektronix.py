@@ -142,7 +142,7 @@ class TekScope(Scope):
             Dictionary of measurement statistics. Includes value, mean, stddev,
             minimum, maximum, and nsamps.
         """
-        prefix = 'measurement:meas{}:'.format(num)
+        prefix = 'measurement:meas{}'.format(num)
 
         if not self.are_measurement_stats_on():
             raise Exception("Measurement statistics are turned off, "
@@ -152,7 +152,7 @@ class TekScope(Scope):
         # are they guaranteed to be taken from the same statistical set?
         # Perhaps we should stop_acquire(), then run_acquire()...
         keys = ['value', 'mean', 'stddev', 'minimum', 'maximum']
-        res = self.inst.ask(prefix+'value?;mean?;stddev?;minimum?;maximum?;units?').split(';')
+        res = self.inst.ask(prefix+':value?;mean?;stddev?;minimum?;maximum?;units?').split(';')
         units = res.pop(-1).strip('"')
         stats = {k: Q_(rval+units) for k, rval in zip(keys, res)}
 
@@ -173,7 +173,7 @@ class TekScope(Scope):
         value : pint.Quantity
             Value of the measurement
         """
-        prefix = 'measurement:meas{}:'.format(num)
+        prefix = 'measurement:meas{}'.format(num)
 
         raw_value, raw_units = self.inst.ask('{}:value?;units?'.format(prefix)).split(';')
         units = raw_units.strip('"')
