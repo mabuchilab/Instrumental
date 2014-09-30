@@ -6,6 +6,7 @@ import warnings
 from datetime import date, datetime
 import numpy as np
 import instrumental.plotting as plt
+from matplotlib import animation
 
 from .fitting import guided_trace_fit, guided_ringdown_fit
 from . import u, Q_, conf, instrument
@@ -19,20 +20,38 @@ prev_data_fname = ''
 
 
 class DataSession(object):
-    def __init__(self, name, overwrite=False):
+    def __init__(self, name, meas_func, overwrite=False):
+        """Create a DataSession.
+
+        Parameters
+        ----------
+        name : str
+            The name of the session. Used for naming the saved data file.
+        meas_func : callable
+            A function that, when called, takes a single measurement and
+            returns the result as a dict. Each dict key is a string that is the
+            name of what's being measured, and its matching value is the
+            corresponding quantity. It takes one argument, an int that starts
+            at 0 and increments for each measurement. meas_func should raise a
+            StopIteration exception to indicate the end of data collection.
+        overwrite : bool
+            If True, data with the same filename will be overwritten. Defaults
+            to False.
+        """
         self.name = name
         self.overwrite = overwrite
         self.data_dir = self._find_data_dir()
         self.start_time = datetime.now()
         self.end_time = None
         self.measurement_num = 1
-        self.meas_list = {}
+        self.meas_dict = {}
         self.has_plot = False
         self.axs = []
         self.lines = []
         self.plotvars = []
+        self.meas_func = meas_func
 
-    def add_measurement(self, meas_dict, comment=None):
+    def _add_measurement(self, meas_dict):
         """
         Parameters
         ----------
@@ -51,12 +70,10 @@ class DataSession(object):
                 fmt = self._default_format(value.magnitude)
                 f.write('{} = {}\n'.format(name, fmt) % value.magnitude)
 
-                if name not in self.meas_list:
-                    self.meas_list[name] = Q_(np.array([value.magnitude]), value.units)
+                if name not in self.meas_dict:
+                    self.meas_dict[name] = Q_(np.array([value.magnitude]), value.units)
                 else:
-                    self.meas_list[name] = qappend(self.meas_list[name], value)
-        if self.has_plot and self.auto_update_plot:
-            self.update_plot()
+                    self.meas_dict[name] = qappend(self.meas_dict[name], value)
 
     def _default_format(self, arr):
         """ Returns the default format string for an array of this type """
@@ -67,11 +84,11 @@ class DataSession(object):
             fmt = '%.8e'
         return fmt
 
-    def save_summary(self, comment=None):
+    def save_summary(self):
         arrays, labels, fmt = [], [], []
 
         # Extract names and units to make the labels
-        for name, qarr in self.meas_list.items():
+        for name, qarr in self.meas_dict.items():
             unit = qarr.units
             labels.append('{} ({})'.format(name, unit))
             arrays.append(qarr.magnitude)
@@ -93,10 +110,10 @@ class DataSession(object):
             data = np.array(arrays).T
             np.savetxt(f, data, fmt=fmt, delimiter='\t')
 
-    def create_plot(self, vars, auto_update=True, **kwargs):
+    def create_plot(self, vars, **kwargs):
         """Create a plot of the DataSession.
 
-        This allows for live plotting of data as you collect it.
+        This plot is live-updated with data points as you take them.
 
         Parameters
         ----------
@@ -111,13 +128,26 @@ class DataSession(object):
             used for formatting the plot. These are passed directly to the plot
             function. Useful for e.g. setting the linewidth.
         """
-        self.auto_update_plot = auto_update
         self.has_plot = True
         self.plotvars = self._parse_plotvars(vars)
         self.plot_kwargs = kwargs
 
-        if self.meas_list:
-            self._create_plot()
+        self.fig = plt.figure()
+        ax = plt.axes()
+        for var_triple in self.plotvars:
+            x, y, fmt = var_triple
+
+            if self.meas_dict:
+                xval, yval = x(**self.meas_dict), y(**self.meas_dict)
+                line, = ax.plot(xval, yval, fmt, **self.plot_kwargs)
+                ax.set_xlabel('{} ({}s)'.format(x.name, xval.units))
+                ax.set_ylabel('{} ({}s)'.format(y.name, yval.units))
+            else:
+                line, = ax.plot([], [], fmt, **self.plot_kwargs)
+                ax.set_xlabel(x.name)
+                ax.set_ylabel(y.name)
+            self.axs.append(ax)
+            self.lines.append(line)
 
     def _parse_plotvars(self, vars):
         plotvars = []
@@ -153,33 +183,45 @@ class DataSession(object):
 
         return plotvars
 
-    def _create_plot(self):
-        plt.ion()
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
-        self.axs.append(ax)
-        for var_triple in self.plotvars:
-            x, y, fmt = var_triple
-            xval, yval = x(**self.meas_list), y(**self.meas_list)
-            line, = ax.plot(xval, yval, fmt, **self.plot_kwargs)
-            ax.set_xlabel('{} ({}s)'.format(x.name, xval.units))
-            ax.set_ylabel('{} ({}s)'.format(y.name, yval.units))
-            self.axs.append(ax)
-            self.lines.append(line)
-        plt.show()
+    def start(self):
+        """Start collecting data.
 
-    def update_plot(self):
-        # Create plot if it doesn't exist yet
-        if not self.axs:
-            self._create_plot()
+        This function blocks until all data has been collected.
+        """
+        if self.has_plot:
+            # Set up animation scaffolding
+            def init():
+                return self.lines
+
+            def animate(i):
+                meas = self.meas_func(i)
+                self._add_measurement(meas)
+
+                for var_triple, ax, line in zip(self.plotvars, self.axs, self.lines):
+                    x, y, fmt = var_triple
+                    xval, yval = x(**self.meas_dict), y(**self.meas_dict)
+                    line.set_xdata(xval)
+                    line.set_ydata(yval)
+                    ax.set_xlabel('{} ({}s)'.format(x.name, xval.units))
+                    ax.set_ylabel('{} ({}s)'.format(y.name, yval.units))
+                    # TODO: fix redundancy for multiple lines on one axis
+                    ax.relim()
+                    ax.autoscale_view()
+                return self.lines
+
+            # Need to keep a reference to anim for the plot to work properly
+            anim = animation.FuncAnimation(self.fig, animate, init_func=init,
+                                           blit=False, repeat=False, interval=0)
+            plt.show()
         else:
-            for var_pair, ax, line in zip(self.plotvars, self.axs, self.lines):
-                line.set_xdata(var_pair[0](**self.meas_list))
-                line.set_ydata(var_pair[1](**self.meas_list))
-                # TODO: fix redundancy for multiple lines on one axis
-                ax.relim()
-                ax.autoscale_view()
-            plt.draw()
+            try:
+                i = 0
+                while True:
+                    meas = self.meas_func(i)
+                    self._add_measurement(meas)
+                    i += 1
+            except StopIteration:
+                pass
 
     def _conflict_handled_filename(self, fname):
         # fname is name of file within data_dir
