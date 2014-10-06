@@ -21,7 +21,9 @@ _acceptable_params = {
     'powermeters.thorlabs':
         ['visa_address'],
     'wavemeters.burleigh':
-        ['visa_address', 'module']
+        ['visa_address', 'module'],
+    'spectrometers.ccs':
+        ['spec_usb_address', 'spec_serial_number', 'spec_model']
 }
 
 _visa_models = {
@@ -101,7 +103,7 @@ def list_visa_instruments():
         if not addr.startswith(prev_addr):
             prev_addr = addr
             try:
-                i = visa.instrument(addr, timeout=0.1)
+                i = visa.instrument(addr, timeout=0.2)
             except visa.VisaIOError:
                 # Could not create visa instrument object
                 skipped.append(addr)
