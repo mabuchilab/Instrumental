@@ -74,6 +74,7 @@ class DataSession(object):
                     self.meas_dict[name] = Q_(np.array([value.magnitude]), value.units)
                 else:
                     self.meas_dict[name] = qappend(self.meas_dict[name], value)
+        self.save_summary(overwrite=True)
 
     def _default_format(self, arr):
         """ Returns the default format string for an array of this type """
@@ -84,7 +85,7 @@ class DataSession(object):
             fmt = '%.8e'
         return fmt
 
-    def save_summary(self):
+    def save_summary(self, overwrite=None):
         arrays, labels, fmt = [], [], []
 
         # Extract names and units to make the labels
@@ -98,7 +99,7 @@ class DataSession(object):
             warnings.warn('No data input, not saving anything...')
             return
 
-        filename = self._conflict_handled_filename("Summary.csv")
+        filename = self._conflict_handled_filename("Summary.csv", overwrite)
         with open(filename, 'w') as f:
             # TODO: Warn if overwriting file
             # Write the 'header'
@@ -223,12 +224,15 @@ class DataSession(object):
             except StopIteration:
                 pass
 
-    def _conflict_handled_filename(self, fname):
+    def _conflict_handled_filename(self, fname, overwrite=None):
+        if overwrite is None:
+            overwrite = self.overwrite
+
         # fname is name of file within data_dir
         full_fname = os.path.join(self.data_dir, fname)
         is_conflict = os.path.exists(full_fname)
         if is_conflict:
-            if self.overwrite:
+            if overwrite:
                 print("Warning: Overwriting file {}".format(fname))
             else:
                 i = 1
