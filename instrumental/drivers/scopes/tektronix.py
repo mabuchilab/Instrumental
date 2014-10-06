@@ -179,6 +179,24 @@ class TekScope(Scope):
         units = raw_units.strip('"')
         return Q_(raw_value+units)
 
+
+    def set_math_function(self, expr):
+        """Set the expression used by the MATH channel. 
+
+        Parameters
+        ----------
+        expr : str
+            a string representing the MATH expression, using channel variables
+            CH1, CH2, etc. eg. 'CH1/CH2+CH3'
+        """
+        self.inst.write("math:type advanced")
+        self.inst.write('math:define "{}"'.format(expr))
+
+
+    def get_math_function(self):
+        return self.inst.ask("math:define?").strip('"')
+
+
     def run_acquire(self):
         """Sets the acquire state to 'run'"""
         self.inst.write("acquire:state run")
