@@ -20,6 +20,11 @@ prev_data_fname = ''
 
 
 class DataSession(object):
+    """A data-taking session.
+
+    Useful for organizing, saving, and live-plotting data while (automatically
+    or manually) taking it.
+    """
     def __init__(self, name, meas_func, overwrite=False):
         """Create a DataSession.
 

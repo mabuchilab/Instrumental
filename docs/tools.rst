@@ -1,6 +1,8 @@
 Tools
 =====
 
-Not yet ready for the big time.
+.. toctree::
 
-Currently home to miscellaneous useful utilities.
+.. automodule:: instrumental.tools
+    :members:
+    :undoc-members:
