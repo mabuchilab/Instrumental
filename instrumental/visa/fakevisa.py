@@ -14,7 +14,7 @@ from .. import conf
 
 # Create socket immediately upon module import
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.settimeout(1.0)
+sock.settimeout(5.0)
 _connected = False
 
 try:
@@ -103,10 +103,10 @@ class Instrument(object):
         self.write_raw(encode(message, 'utf-8'))
 
     def close(self):
-        self.write('close')
+        _send(b'close:' + self.id_byt)
 
     def clear(self):
-        self.write('clear')
+        _send(b'clear:' + self.id_byt)
 
     def __getattr__(self, name):
         # NEED TO HAVE A MORE EXTENSIVE LIST OF ATTRIBUTES
