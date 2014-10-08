@@ -25,20 +25,20 @@ class DataSession(object):
     Useful for organizing, saving, and live-plotting data while (automatically
     or manually) taking it.
     """
-    def __init__(self, name, meas_func, overwrite=False):
+    def __init__(self, name, meas_gen, overwrite=False):
         """Create a DataSession.
 
         Parameters
         ----------
         name : str
             The name of the session. Used for naming the saved data file.
-        meas_func : callable
-            A function that, when called, takes a single measurement and
-            returns the result as a dict. Each dict key is a string that is the
-            name of what's being measured, and its matching value is the
-            corresponding quantity. It takes one argument, an int that starts
-            at 0 and increments for each measurement. meas_func should raise a
-            StopIteration exception to indicate the end of data collection.
+        meas_gen : generator
+            A generator that, when iterated through, returns individual
+            measurements as dicts. Each dict key is a string that is the name
+            of what's being measured, and its matching value is the
+            corresponding quantity.
+            Most often you'll want to create this generator by writing a
+            generator function.
         overwrite : bool
             If True, data with the same filename will be overwritten. Defaults
             to False.
@@ -54,7 +54,7 @@ class DataSession(object):
         self.axs = []
         self.lines = []
         self.plotvars = []
-        self.meas_func = meas_func
+        self.meas_gen = meas_gen
 
     def _add_measurement(self, meas_dict):
         """
@@ -200,7 +200,7 @@ class DataSession(object):
                 return self.lines
 
             def animate(i):
-                meas = self.meas_func(i)
+                meas = next(self.meas_gen)
                 self._add_measurement(meas)
 
                 for var_triple, ax, line in zip(self.plotvars, self.axs, self.lines):
@@ -223,7 +223,7 @@ class DataSession(object):
             try:
                 i = 0
                 while True:
-                    meas = self.meas_func(i)
+                    meas = next(self.meas_gen)
                     self._add_measurement(meas)
                     i += 1
             except StopIteration:
