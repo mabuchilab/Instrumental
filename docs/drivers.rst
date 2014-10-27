@@ -10,6 +10,7 @@ Some devices (e.g. Thorlabs cameras) have drivers that act as wrappers to their 
 .. toctree::
     :maxdepth: 1
 
+    daqs
     cameras
     scopes
     funcgenerators
