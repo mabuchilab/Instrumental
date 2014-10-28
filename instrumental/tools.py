@@ -216,8 +216,11 @@ class DataSession(object):
                 return self.lines
 
             # Need to keep a reference to anim for the plot to work properly
+            # NOTE: We want this to run as fast as possible, but Windows (with
+            # QT?) has problems updating the graph if the specified interval is
+            # too short We'll use 50ms for now since it seems to work...
             anim = animation.FuncAnimation(self.fig, animate, init_func=init,
-                                           blit=False, repeat=False, interval=0)
+                                           blit=False, repeat=False, interval=50)
             plt.show()
         else:
             try:
