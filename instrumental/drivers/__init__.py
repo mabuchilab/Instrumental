@@ -96,18 +96,21 @@ def list_visa_instruments():
     from .. import visa
     instruments, skipped = [], []
     prev_addr = 'START'
-    visa_list = visa.get_instruments_list()
+    rm = visa.ResourceManager()
+    visa_list = rm.list_resources()
     for addr in visa_list:
         if not addr.startswith(prev_addr):
             prev_addr = addr
             try:
-                i = visa.instrument(addr, timeout=0.1)
+                i = rm.open_resource(addr, open_timeout=50, timeout=0.1)
             except visa.VisaIOError:
                 # Could not create visa instrument object
                 skipped.append(addr)
+                print("Skipping {} due to VisaIOError".format(addr))
                 continue
             except socket.timeout:
                 skipped.append(addr)
+                print("Skipping {} due to socket.timeout".format(addr))
                 continue
 
             try:
@@ -121,6 +124,10 @@ def list_visa_instruments():
                 instruments.append(params)
             except visa.VisaIOError:
                 skipped.append(addr)
+                continue
+            except socket.timeout:
+                skipped.append(addr)
+                continue
             finally:
                 i.close()
     return instruments
@@ -177,7 +184,8 @@ def _get_visa_instrument(params):
                                           addr + "' not found!")
     else:
         try:
-            visa_inst = visa.instrument(addr)
+            rm = visa.ResourceManager()
+            visa_inst = rm.open_resource(addr, open_timeout=50)
             # Cache the instrument for possible later use
             params['**visa_instrument'] = visa_inst
         except visa.VisaIOError:

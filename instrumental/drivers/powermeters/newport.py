@@ -17,7 +17,8 @@ def _instrument(params):
     inst = _get_visa_instrument(params)
 
     # Will have to restore original term_chars later...
-    inst.term_chars = '\n'
+    inst.read_termination = '\n'
+    inst.write_termination = '\n'
 
     return Newport_1830_C(inst)
 
@@ -45,7 +46,7 @@ class Newport_1830_C(PowerMeter):
 
     def get_status_byte(self):
         """Query the status byte register and return it as an int"""
-        status = self._inst.ask('Q?')
+        status = self._inst.query('Q?')
         return int(status)
 
     def get_power(self):
@@ -57,13 +58,13 @@ class Newport_1830_C(PowerMeter):
             Power in units of watts, regardless of the power meter's current
             'units' setting.
         """
-        original_units = self._inst.ask('U?')
+        original_units = self._inst.query('U?')
         if original_units != '1':
             self._inst.write('U1')  # Measure in watts
-            power = float(self._inst.ask('D?'))
+            power = float(self._inst.query('D?'))
             self._inst.write('U' + original_units)
         else:
-            power = float(self._inst.ask('D?'))
+            power = float(self._inst.query('D?'))
 
         return Q_(power, 'watts')
 
@@ -122,7 +123,7 @@ class Newport_1830_C(PowerMeter):
 
     def get_wavelength(self):
         """Get the input wavelength setting"""
-        val = int(self._inst.ask("W?"))
+        val = int(self._inst.query("W?"))
         return Q_(val, 'nm')
 
     def enable_attenuator(self, enabled=True):
@@ -170,7 +171,7 @@ class Newport_1830_C(PowerMeter):
         SLOW_FILTER, MEDIUM_FILTER, NO_FILTER
             the current averaging filter
         """
-        val = self._inst.ask("F?")
+        val = self._inst.query("F?")
         return int(val)
 
     def enable_hold(self, enable=True):
@@ -189,7 +190,7 @@ class Newport_1830_C(PowerMeter):
         enabled : bool
             True if in hold mode, False if in run mode
         """
-        val = int(self._inst.ask('G?'))
+        val = int(self._inst.query('G?'))
         return (val == 0)
 
     def is_measurement_valid(self):
@@ -227,7 +228,7 @@ class Newport_1830_C(PowerMeter):
 
     def zero_enabled(self):
         """Whether the zero function is enabled"""
-        val = int(self._inst.ask('Z?'))  # Need to cast to int first
+        val = int(self._inst.query('Z?'))  # Need to cast to int first
         return bool(val)
 
     def set_units(self, units):
@@ -270,6 +271,6 @@ class Newport_1830_C(PowerMeter):
         units : str
             'watts', 'db', 'dbm', or 'rel'
         """
-        val = int(self._inst.ask('U?'))
+        val = int(self._inst.query('U?'))
         units = {1: 'watts', 2: 'db', 3: 'dbm', 4: 'rel'}
         return units[val]

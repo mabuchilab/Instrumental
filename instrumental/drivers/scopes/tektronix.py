@@ -20,7 +20,7 @@ _mso_dpo_4000_models = ['MSO4034', 'DPO4034']
 
 def _instrument(params):
     inst = _get_visa_instrument(params)
-    idn = inst.ask("*IDN?")
+    idn = inst.query("*IDN?")
     idn_list = idn.split(',')
 
     if len(idn_list) != 4:
@@ -51,7 +51,8 @@ class TekScope(Scope):
         if visa_inst:
             self.inst = visa_inst
         else:
-            self.inst = visa.instrument(name)
+            rm = visa.ResourceManager()
+            self.inst = rm.open_resource(name)
             
         self.inst.write("header OFF")
 
@@ -75,7 +76,7 @@ class TekScope(Scope):
         inst = self.inst
 
         inst.write("data:source ch{}".format(channel))
-        stop = int(inst.ask("wfmpre:nr_pt?"))  # Get source's number of points
+        stop = int(inst.query("wfmpre:nr_pt?"))  # Get source's number of points
         stop = 10000
         inst.write("data:width 2")
         inst.write("data:encdg RIBinary")
@@ -86,15 +87,15 @@ class TekScope(Scope):
         raw_bin = inst.read_raw()
 
         # Get scale and offset factors
-        x_scale = float(inst.ask("wfmpre:xincr?"))
-        y_scale = float(inst.ask("wfmpre:ymult?"))
-        x_zero = float(inst.ask("wfmpre:xzero?"))
-        y_zero = float(inst.ask("wfmpre:yzero?"))
-        x_offset = float(inst.ask("wfmpre:pt_off?"))
-        y_offset = float(inst.ask("wfmpre:yoff?"))
+        x_scale = float(inst.query("wfmpre:xincr?"))
+        y_scale = float(inst.query("wfmpre:ymult?"))
+        x_zero = float(inst.query("wfmpre:xzero?"))
+        y_zero = float(inst.query("wfmpre:yzero?"))
+        x_offset = float(inst.query("wfmpre:pt_off?"))
+        y_offset = float(inst.query("wfmpre:yoff?"))
 
-        x_unit = inst.ask("wfmpre:xunit?")[1:-1]
-        y_unit = inst.ask("wfmpre:yunit?")[1:-1]
+        x_unit = inst.query("wfmpre:xunit?")[1:-1]
+        y_unit = inst.query("wfmpre:yunit?")[1:-1]
 
         raw_data_x = np.arange(1, stop+1)
 
@@ -148,15 +149,15 @@ class TekScope(Scope):
             raise Exception("Measurement statistics are turned off, "
                             "please turn them on.")
 
-        # Potential issue: If we ask for all of these values in one command,
+        # Potential issue: If we query for all of these values in one command,
         # are they guaranteed to be taken from the same statistical set?
         # Perhaps we should stop_acquire(), then run_acquire()...
         keys = ['value', 'mean', 'stddev', 'minimum', 'maximum']
-        res = self.inst.ask(prefix+':value?;mean?;stddev?;minimum?;maximum?;units?').split(';')
+        res = self.inst.query(prefix+':value?;mean?;stddev?;minimum?;maximum?;units?').split(';')
         units = res.pop(-1).strip('"')
         stats = {k: Q_(rval+units) for k, rval in zip(keys, res)}
 
-        num_samples = int(self.inst.ask('measurement:statistics:weighting?'))
+        num_samples = int(self.inst.query('measurement:statistics:weighting?'))
         stats['nsamps'] = num_samples
         return stats
 
@@ -175,7 +176,7 @@ class TekScope(Scope):
         """
         prefix = 'measurement:meas{}'.format(num)
 
-        raw_value, raw_units = self.inst.ask('{}:value?;units?'.format(prefix)).split(';')
+        raw_value, raw_units = self.inst.query('{}:value?;units?'.format(prefix)).split(';')
         units = raw_units.strip('"')
         return Q_(raw_value+units)
 
@@ -194,7 +195,7 @@ class TekScope(Scope):
 
 
     def get_math_function(self):
-        return self.inst.ask("math:define?").strip('"')
+        return self.inst.query("math:define?").strip('"')
 
 
     def run_acquire(self):
@@ -207,7 +208,7 @@ class TekScope(Scope):
 
     def are_measurement_stats_on(self):
         """Returns whether measurement statistics are currently enabled"""
-        res = self.inst.ask("measu:statistics:mode?")
+        res = self.inst.query("measu:statistics:mode?")
         return res not in ['OFF', '0']
 
     def enable_measurement_stats(self, enable=True):

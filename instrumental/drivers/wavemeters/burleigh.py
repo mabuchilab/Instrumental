@@ -111,8 +111,9 @@ def _instrument(params):
     # Not sure yet how to verify this is actually a WA-1000/1500
     inst = _get_visa_instrument(params)
 
-    # Will have to restore original term_chars later...
-    inst.term_chars = '\r\n'
+    # Will have to restore original termination chars later...
+    inst.read_termination = '\r\n'
+    inst.write_termination = '\r\n'
 
     return WA_1000(inst)
 
@@ -124,12 +125,12 @@ class WA_1000(Wavemeter):
         self.reload_needed = False
 
         # Disable broadcast mode and clear the buffer
-        self._inst.ask(_SET_QUERY)  # Use ask to dump the response
+        self._inst.query(_SET_QUERY)  # Use query to dump the response
         self._inst.clear()
 
     def _load_state(self):
         """Query the meter and set self.(disp_str, disp_leds, sys_leds)"""
-        response = self._inst.ask(_SET_QUERY)
+        response = self._inst.query(_SET_QUERY)
         self.disp_str, disp_leds, sys_leds = response.split(b',')
         self.disp_leds = int(disp_leds, 16)
         self.sys_leds = int(sys_leds, 16)

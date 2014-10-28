@@ -25,7 +25,7 @@ _volt_keys = ['vpp', 'vrms', 'dbm', 'offset', 'high', 'low']
 
 def _instrument(params):
     inst = _get_visa_instrument(params)
-    idn = inst.ask("*IDN?")
+    idn = inst.query("*IDN?")
     idn_list = idn.split(',')
 
     if len(idn_list) != 4:
@@ -178,15 +178,15 @@ class AFG_3000(FunctionGenerator):
         return self._get_amplitude('dbm', channel)
 
     def _get_amplitude(self, units, channel):
-        old_units = self.inst.ask('source{}:voltage:unit?'.format(channel))
+        old_units = self.inst.query('source{}:voltage:unit?'.format(channel))
 
         if old_units.lower() != units.lower():
             self.inst.write('source{}:voltage:unit {}'.format(channel, units))
-            resp = self.inst.ask('source{}:voltage:amplitude?'.format(channel))
+            resp = self.inst.query('source{}:voltage:amplitude?'.format(channel))
             self.inst.write('source{}:voltage:unit {}'.format(channel, old_units))
         else:
             # Don't need to switch units
-            resp = self.inst.ask('source{}:voltage:amplitude?'.format(channel))
+            resp = self.inst.query('source{}:voltage:amplitude?'.format(channel))
         return float(resp) * u.V
 
     def set_vpp(self, vpp, channel=1):
@@ -306,7 +306,7 @@ class AFG_3000(FunctionGenerator):
         bool
             Whether AM is enabled.
         """
-        resp = self.inst.ask('source{}:am:state?'.format(channel))
+        resp = self.inst.query('source{}:am:state?'.format(channel))
         return bool(int(resp))
 
     def enable_FM(self, enable=True, channel=1):
@@ -332,7 +332,7 @@ class AFG_3000(FunctionGenerator):
         bool
             Whether FM is enabled.
         """
-        resp = self.inst.ask('source{}:fm:state?'.format(channel))
+        resp = self.inst.query('source{}:fm:state?'.format(channel))
         return bool(int(resp))
 
     def enable_FSK(self, enable=True, channel=1):
@@ -358,7 +358,7 @@ class AFG_3000(FunctionGenerator):
         bool
             Whether FSK is enabled.
         """
-        resp = self.inst.ask('source{}:fskey:state?'.format(channel))
+        resp = self.inst.query('source{}:fskey:state?'.format(channel))
         return bool(int(resp))
 
     def enable_PWM(self, enable=True, channel=1):
@@ -384,7 +384,7 @@ class AFG_3000(FunctionGenerator):
         bool
             Whether PWM is enabled.
         """
-        resp = self.inst.ask('source{}:pwm:state?'.format(channel))
+        resp = self.inst.query('source{}:pwm:state?'.format(channel))
         return bool(int(resp))
 
     def enable_PM(self, enable=True, channel=1):
@@ -410,7 +410,7 @@ class AFG_3000(FunctionGenerator):
         bool
             Whether PM is enabled.
         """
-        resp = self.inst.ask('source{}:pm:state?'.format(channel))
+        resp = self.inst.query('source{}:pm:state?'.format(channel))
         return bool(int(resp))
 
     def enable_burst(self, enable=True, channel=1):
@@ -436,7 +436,7 @@ class AFG_3000(FunctionGenerator):
         bool
             Whether burst mode is enabled.
         """
-        resp = self.inst.ask('source{}:burst:state?'.format(channel))
+        resp = self.inst.query('source{}:burst:state?'.format(channel))
         return bool(int(resp))
 
     def set_frequency(self, freq, change_mode=True, channel=1):
@@ -456,7 +456,7 @@ class AFG_3000(FunctionGenerator):
 
     def get_frequency(self, channel=1):
         """ Get the frequency to be used in fixed frequency mode. """
-        resp = self.inst.ask('source{}:freq?'.format(channel))
+        resp = self.inst.query('source{}:freq?'.format(channel))
         return Q_(resp, 'Hz')
 
     def set_frequency_mode(self, mode, channel=1):
@@ -482,7 +482,7 @@ class AFG_3000(FunctionGenerator):
         'fixed' or 'sweep'
             The frequency mode
         """
-        resp = self.inst.ask('source{}:freq:mode?'.format(channel))
+        resp = self.inst.query('source{}:freq:mode?'.format(channel))
         return 'sweep' if 'sweep'.startswith(resp.lower()) else 'fixed'
 
     def sweep_enabled(self, channel=1):

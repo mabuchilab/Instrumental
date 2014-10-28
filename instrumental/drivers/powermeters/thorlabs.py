@@ -13,7 +13,7 @@ from ... import Q_
 
 def _instrument(params):
     inst = _get_visa_instrument(params)
-    idn = inst.ask("*IDN?")
+    idn = inst.query("*IDN?")
     idn_list = idn.split(',')
 
     if len(idn_list) != 4:
@@ -40,12 +40,12 @@ class PM100D(PowerMeter):
             the current power measurement
         """
         self._inst.write('power:dc:unit W')
-        val = float(self._inst.ask('measure:power?'))
+        val = float(self._inst.query('measure:power?'))
         return Q_(val, 'watts')
 
     def get_range(self):
         """Get the current input range's max power"""
-        val = float(self._inst.ask('power:dc:range?'))
+        val = float(self._inst.query('power:dc:range?'))
         return Q_(val, 'watts')
 
     def enable_auto_range(self, enable=True):
@@ -64,7 +64,7 @@ class PM100D(PowerMeter):
         -------
         bool : enabled
         """
-        val = int(self._inst.ask('power:dc:range:auto?'))
+        val = int(self._inst.query('power:dc:range:auto?'))
         return bool(val)
 
     def get_wavelength(self):
@@ -75,7 +75,7 @@ class PM100D(PowerMeter):
         wavelength : Quantity
             the input signal wavelength in units of [length]
         """
-        val = float(self._inst.ask('sense:correction:wav?'))
+        val = float(self._inst.query('sense:correction:wav?'))
         return Q_(val, 'nm')
 
     def set_wavelength(self, wavelength):
@@ -97,7 +97,7 @@ class PM100D(PowerMeter):
         num_averaged : int
             number of samples that are averaged
         """
-        val = int(self._inst.ask('sense:average:count?'))
+        val = int(self._inst.query('sense:average:count?'))
         return val
 
     def set_num_averaged(self, num_averaged):
