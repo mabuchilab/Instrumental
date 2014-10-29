@@ -34,5 +34,6 @@ User Guide
    install
    overview
    quickstart
+   instruments
    api
    developer

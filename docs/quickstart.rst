@@ -21,7 +21,8 @@ It can be even easier if you've already set up an alias in your
     >>> scope = instrument('myScopeAlias')
     <instrumental.drivers.scopes.tektronix.TDS_3000 object at 0x7f...>
 
-Now we can use our new scope object to grab some data::
+For more detailed info, see :doc:`instruments`. Now we can use our new scope
+object to grab some data::
 
     >>> x, y = scope.get_data()
     >>> x
