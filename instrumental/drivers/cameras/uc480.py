@@ -16,22 +16,33 @@ from ._uc480_structs import *
 HCAM = DWORD
 NULL = POINTER(HWND)()
 lib = WinDLL('uc480_64')
-from .. import InstrumentTypeError, InstrumentNotFoundError
+from .. import InstrumentTypeError, InstrumentNotFoundError, _ParamDict
 
 
 def _instrument(params):
     """ Possible params include 'ueye_cam_id', 'cam_serial', 'cam_model' """
     print("Checking uc480...")
     if 'ueye_cam_id' in params:
-        return get_camera(id=params['ueye_cam_id'])
+        return _get_camera(id=params['ueye_cam_id'])
     elif 'cam_serial' in params:
-        return get_camera(serial=params['cam_serial'])
+        return _get_camera(serial=params['cam_serial'])
     elif 'cam_model' in params:
-        return get_camera(model=params['cam_model'])
+        return _get_camera(model=params['cam_model'])
     raise InstrumentTypeError()
 
 
-def cameras():
+def list_instruments():
+    instruments = []
+    for cam in _cameras():
+        params = _ParamDict("<UC480_Camera '{}'>".format(cam.serial))
+        params.module = 'cameras.uc480'
+        params['cam_serial'] = cam.serial
+        params['cam_model'] = cam.model
+        instruments.append(params)
+    return instruments
+
+
+def _cameras():
     """
     Get a list of all cameras currently attached.
     """
@@ -53,7 +64,7 @@ def cameras():
 
                 if not repeated:
                     for info in cam_list.ci:
-                        cams.append(Camera(info))
+                        cams.append(UC480_Camera(info))
                 else:
                     print("Some cameras have duplicate IDs. Uniquifying IDs now...")
                     # Choose IDs that haven't been used yet
@@ -72,7 +83,7 @@ def cameras():
                                 print("Error setting the camera id")
                                 return None  # Avoid infinite recursion
                     # All IDs should be fixed now, let's retry
-                    cams = cameras()
+                    cams = _cameras()
             else:
                 print("Error getting camera list")
     else:
@@ -80,13 +91,13 @@ def cameras():
     return cams
 
 
-def get_camera(**kwargs):
+def _get_camera(**kwargs):
     """
     Get a camera by attribute. Returns the first attached camera that
     matches the ``\*\*kwargs``. E.g. passing serial='abc' will return a camera
     whose serial number is 'abc', or None if no such camera is connected.
     """
-    cams = cameras()
+    cams = _cameras()
     if not cams:
         raise InstrumentNotFoundError("No cameras attached")
     if not kwargs:
@@ -103,9 +114,10 @@ def get_camera(**kwargs):
     raise InstrumentNotFoundError("No camera found matching the given parameters")
 
 
-class Camera(Camera):
-    """
-    A uc480-supported Camera. Get access to a Camera using cameras() and
+class UC480_Camera(Camera):
+    """A uc480-supported Camera.
+
+    Get access to a Camera using _cameras() and
     get_camera(), not using the constructor directly.
     """
     def __init__(self, cam_info):
@@ -360,7 +372,7 @@ class Camera(Camera):
 
 
 if __name__ == '__main__':
-    cam = get_camera(serial='4002856484')
+    cam = _get_camera(serial='4002856484')
     cam.open()
     cam.save_frame('cool.jpg')
     cam.close()
