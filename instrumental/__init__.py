@@ -24,7 +24,7 @@ Q_ = u.Quantity
 # Import mapping to objects in other modules
 all_by_module = {
     'instrumental.fitting': ['guided_trace_fit', 'guided_ringdown_fit'],
-    'instrumental.drivers': ['instrument', 'list_visa_instruments'],
+    'instrumental.drivers': ['instrument', 'list_instruments', 'list_visa_instruments'],
     'instrumental.tools': ['fit_scan', 'fit_ringdown'],
     'instrumental.optics.beam_plotting': ['plot_profile'],
     'instrumental.optics.beam_tools': ['find_cavity_modes', 'get_zR',
