@@ -25,16 +25,16 @@ _acceptable_params = {
 }
 
 _visa_models = {
-    'funcgenerators.tektronix':(
+    'funcgenerators.tektronix': (
         'TEKTRONIX',
         ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102',
          'AFG3251', 'AFG3252']
     ),
-    'scopes.tektronix':(
+    'scopes.tektronix': (
         'TEKTRONIX',
         ['TDS 3032', 'TDS 3034B', 'MSO4034', 'DPO4034']
     ),
-    'powermeters.thorlabs':(
+    'powermeters.thorlabs': (
         'Thorlabs',
         ['PM100D']
     )
@@ -232,15 +232,15 @@ def instrument(inst=None, **kwargs):
         else:
             params = conf.instruments.get(alias, None)
             if params is None:
-                raise Exception("Instrument with alias `{}` not ".format(alias) +
-                                "found in config file")
+                raise Exception("Instrument with alias `{}` not ".format(alias)
+                                + "found in config file")
 
     if 'module' in params:
         # We've already been given the name of the module
         # SHOULD PROBABLY INTEGRATE THIS WITH THE OTHER CASE
         try:
             mod = import_module('.' + params['module'], __package__)
-        except Exception as e:
+        except Exception:
             raise Exception("Specified module '{}' could not be imported".format(params['module']))
 
         try:
@@ -258,7 +258,7 @@ def instrument(inst=None, **kwargs):
             # Try to import module, skip it if optional deps aren't met
             try:
                 mod = import_module('.' + mod_name, __package__)
-            except Exception as e:
+            except Exception:
                 #print(e.args)
                 #print("\tModule {} not supported, skipping".format(mod_name))
                 continue
@@ -277,7 +277,7 @@ def instrument(inst=None, **kwargs):
             except InstrumentNotFoundError:
                 #print("\tInstrument not found")
                 continue
-            
+
             return new_inst
 
     # If we reach this point, we haven't been able to create a valid instrument

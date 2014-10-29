@@ -12,7 +12,7 @@ import PyDAQmx as mx
 
 from instrumental import Q_
 from . import DAQ
-from .. import InstrumentTypeError, _ParamDict, _acceptable_params
+from .. import InstrumentTypeError, _ParamDict
 
 
 def _handle_timing_params(duration, freq, n_samples):
@@ -115,12 +115,13 @@ class Task(object):
         # Need to make sure we get data array for each output channel (AO, DO, CO...)
         for ch_name, ch in self.channels.items():
             if ch.type in ('AO', 'DO', 'CO') and ch_name not in write_data:
-                raise Exception('write_data missing an array for output channel {}'.format(ch_name))
+                raise Exception('write_data missing an array for output channel {}'
+                                .format(ch_name))
 
         # Then set up writes for each channel, don't auto-start
         self._write_AO_channels(write_data)
-        #self.write_DO_channels()
-        #self.write_CO_channels()
+        # self.write_DO_channels()
+        # self.write_CO_channels()
 
         # Then manually start. Do we need triggering to launch all tasks at the
         # same time? Do we only start the 'main' one? So many questions...
@@ -132,7 +133,6 @@ class Task(object):
         # Lastly, read the data (e.g. using ReadAnalogF64)
         read_data = self._read_AI_channels()
 
-        #import time; time.sleep(0.1)
         self._mxtasks[self.master_type].StopTask()  # Stop the master first
         for typ, mxtask in self._mxtasks.items():
             if typ != self.master_type:
@@ -165,7 +165,8 @@ class Task(object):
     def _write_AO_channels(self, data):
         task = self._mxtasks['AO']
         ao_names = [name for (name, ch) in self.channels.items() if ch.type == 'AO']
-        arr = np.concatenate([Q_(data[ao]).to('V').magnitude for ao in ao_names]).astype(np.float64)
+        arr = np.concatenate([Q_(data[ao]).to('V').magnitude for ao in ao_names])
+        arr = arr.astype(np.float64)
         samples = data.values()[0].magnitude.size
         samples_written = c_int32()
         task.WriteAnalogF64(samples, False, -1.0,
@@ -416,7 +417,7 @@ class _Task(object):
         num_samples_read = c_int32()
         self.t.ReadAnalogF64(samples, timeout, mx.DAQmx_Val_GroupByChannel,
                              data, len(data), byref(num_samples_read), None)
-        #data = data.reshape(len(self.AIs), -1)
+
         num_samples_read = num_samples_read.value
         res = {}
         for i, ch_name in enumerate(self.AIs):
@@ -590,7 +591,7 @@ class VirtualDigitalChannel(Channel):
 
     def _generate_name(self):
         # Fold up ranges. e.g. 1,2,3,4 -> 1:4
-        port_start, cur_port = None, None
+        port_start = None
         line_start, prev_line = None, None
         name = ''
         get_num = lambda s: int(s[4:])
@@ -701,9 +702,6 @@ class VirtualDigitalChannel(Channel):
         t.add_DO_channel(self._get_name())
         t.config_timing(freq, n_samples, clock='')
         t.write_DO_channels({self.name: data}, [self])
-        #t.t.WaitUntilTaskDone(-1)
-        #t.t.StopTask()
-        #t.t.ClearTask()
         return t
 
     def as_input(self):

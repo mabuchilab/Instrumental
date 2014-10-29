@@ -13,8 +13,10 @@ from . import u, Q_, conf, instrument
 from .drivers import scopes
 
 # Fix for Python 2
-try: input = raw_input
-except NameError: pass
+try:
+    input = raw_input
+except NameError:
+    pass
 
 prev_data_fname = ''
 
@@ -318,11 +320,11 @@ def _save_data(time, signal, full_filename, comment=''):
     full_dir = os.path.dirname(full_filename)
     if not os.path.exists(full_dir):
         os.makedirs(full_dir)
-    
+
     timestamp = "Data saved {}".format(datetime.now().isoformat(' '))
     labels = "Time ({}), Signal ({})".format(time.units, signal.units)
     header = '\n'.join([timestamp, comment, '', labels])
-    
+
     data = np.array((time.magnitude, signal.magnitude)).T
     np.savetxt(full_filename, data, header=header, delimiter=",")
 
@@ -331,11 +333,11 @@ def _save_ringdown(time, signal, full_filename):
     full_dir = os.path.dirname(full_filename)
     if not os.path.exists(full_dir):
         os.makedirs(full_dir)
-    
+
     timestamp = "Data saved{}".format(datetime.now().isoformat(' '))
     labels = "Time ({}), Signal ({})".format(time.units, signal.units)
     header = '\n'.join([timestamp, '', labels])
-    
+
     data = np.array((time.magnitude, signal.magnitude)).T
     np.savetxt(full_filename, data, header=header, delimiter=",")
 
@@ -344,7 +346,7 @@ def _save_summary(full_data_filename, FWHM):
     # Save directory must exist
     full_dir, data_fname = os.path.split(full_data_filename)
     summary_fname = os.path.join(full_dir, 'Summary.tsv')
-    
+
     if not os.path.exists(summary_fname):
         summary_file = open(summary_fname, 'w')
         summary_file.write('# FWHM (MHz)\tFilename')
@@ -364,7 +366,7 @@ def _ensure_photo_copied(full_photo_name):
     full_pics_dir = os.path.join(one_up_dir, 'pics')
     if not os.path.exists(full_pics_dir):
         os.makedirs(full_pics_dir)
-    
+
     full_newphoto_name = os.path.join(full_pics_dir, data_dir_basename + ext)
     if not os.path.exists(full_newphoto_name):
         shutil.copy(full_photo_name, full_newphoto_name)
@@ -373,7 +375,7 @@ def _ensure_photo_copied(full_photo_name):
 def fit_ringdown_save(subdir='', trace_num=0, base_dir=None):
     """
     Read a trace from the scope, save it and fit a ringdown curve.
-    
+
     Parameters
     ----------
     subdir : string
@@ -387,14 +389,15 @@ def fit_ringdown_save(subdir='', trace_num=0, base_dir=None):
         base_dir = conf.prefs['data_directory']
     scope = scopes.scope(scopes.SCOPE_A)
     x, y = scope.get_data(1)
-    
+
     filename = 'Ringdown {:02}.csv'.format(trace_num)
     full_filename = os.path.join(base_dir, date.today().isoformat(), subdir, filename)
     _save_data(x, y, full_filename)
-    
+
     FWHM = guided_ringdown_fit(x, y)
     _save_summary(full_filename, FWHM)
     print("FWHM = {}".format(FWHM))
+
 
 def fit_ringdown(scope, channel=1, FSR=None):
     scope = instrument(scope)
@@ -404,39 +407,43 @@ def fit_ringdown(scope, channel=1, FSR=None):
     if FSR:
         FSR = u.Quantity(FSR)
         print("Finesse = {:,.0F}".format(float(FSR/FWHM)))
-    
+
 
 def fit_scan_save(EOM_freq, subdir='', trace_num=0, base_dir=None):
     if base_dir is None:
         base_dir = conf.prefs['data_directory']
     scope = scopes.scope(scopes.SCOPE_A)
-    
+
     EOM_freq = u.Quantity(EOM_freq)
     x, y = scope.get_data(1)
     comment = "EOM frequency: {}".format(EOM_freq)
-    
+
     filename = 'Scan {:02}.csv'.format(trace_num)
     full_data_dir = os.path.join(base_dir, date.today().isoformat(), subdir)
     full_filename = os.path.join(full_data_dir, filename)
     _save_data(x, y, full_filename, comment)
-    
+
     params = guided_trace_fit(x, y, EOM_freq)
     _save_summary(full_filename, params['FWHM'])
     _ensure_photo_copied(os.path.join(full_data_dir, 'folder.jpg'))
     print("FWHM = {}".format(params['FWHM']))
 
+
 def fit_scan(EOM_freq, scope, channel=1):
-    scope = scopes.scope(scope) # This is absurd
+    scope = scopes.scope(scope)  # This is absurd
     EOM_freq = u.Quantity(EOM_freq)
     x, y = scope.get_data(channel)
     params = guided_trace_fit(x, y, EOM_freq)
     print("FWHM = {}".format(params['FWHM']))
 
+
 def diff(unitful_array):
     return Q_(np.diff(unitful_array.magnitude), unitful_array.units)
 
+
 def FSRs_from_mode_wavelengths(wavelengths):
     return np.abs(diff(u.c / wavelengths)).to('GHz')
+
 
 def find_FSR():
     wavelengths = []
@@ -453,6 +460,7 @@ def find_FSR():
 TOP_CAM_SERIAL = '4002856484'
 SIDE_CAM_SERIAL = '4002862589'
 
+
 def do_ringdown_set(set_name, base_dir=None):
     if base_dir is None:
         base_dir = conf.prefs['data_directory']
@@ -463,11 +471,11 @@ def do_ringdown_set(set_name, base_dir=None):
     # Block until light is turned on
     raw_input('Please turn on light then press [ENTER]: ')
 
-    from .drivers.cameras.uc480 import get_camera, cameras
+    from .drivers.cameras.uc480 import get_camera
     top_cam = get_camera(serial=TOP_CAM_SERIAL)
     side_cam = get_camera(serial=SIDE_CAM_SERIAL)
     top_cam.open()
-    #top_cam.load_stored_parameters(1)
+    # top_cam.load_stored_parameters(1)
     top_cam.load_stored_parameters(1)
     top_cam.save_frame(os.path.join(set_dir, 'Top.jpg'))
     top_cam.close()
@@ -496,6 +504,7 @@ def do_ringdown_set(set_name, base_dir=None):
         trace_num += 1
     print('Mean FWHM: {}'.format(cum_FWHM/trace_num))
 
+
 def get_photo_fnames():
     basedir = conf.prefs['data_directory']
     fnames = []
@@ -505,6 +514,7 @@ def get_photo_fnames():
         num_subdirs = len(dirs)
         for i in range(num_subdirs):
             root, dirs, files = w.next()
-            files = [os.path.join(root, f) for f in files if (f.lower() in ['top.jpg','folder.jpg'])]
+            files = [os.path.join(root, f) for f in files
+                     if (f.lower() in ['top.jpg', 'folder.jpg'])]
             fnames.extend(files)
     return fnames

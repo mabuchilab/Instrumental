@@ -13,7 +13,7 @@ from .. import _get_visa_instrument
 from .. import InstrumentTypeError
 
 AFG_3000_models = ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102',
-                  'AFG3251', 'AFG3252']
+                   'AFG3251', 'AFG3252']
 
 _shapes = ['sinusoid', 'square', 'pulse', 'ramp', 'prnoise', 'dc', 'sinc',
            'gaussian', 'lorentz', 'erise', 'edecay', 'haversine']
@@ -220,7 +220,7 @@ class AFG_3000(FunctionGenerator):
             The current waveform's dBm amplitude
         """
         self._set_amplitude(dbm, 'dbm', channel)
-    
+
     def _set_amplitude(self, val, units, channel):
         val = Q_(val)
         mag = val.to('V').magnitude
@@ -277,7 +277,7 @@ class AFG_3000(FunctionGenerator):
             The new low level in radian-compatible units. Unitless numbers are
             treated as radians.
         """
-        phase = Q_(phase) # This also accepts dimensionless numbers as rads
+        phase = Q_(phase)  # This also accepts dimensionless numbers as rads
         if phase < -u.pi or phase > +u.pi:
             raise Exception("Phase out of range. Must be between -pi and +pi")
         mag = phase.to('rad').magnitude
@@ -300,7 +300,7 @@ class AFG_3000(FunctionGenerator):
 
     def AM_enabled(self, channel=1):
         """ Returns whether amplitude modulation is enabled.
-        
+
         Returns
         -------
         bool
@@ -326,7 +326,7 @@ class AFG_3000(FunctionGenerator):
 
     def FM_enabled(self, channel=1):
         """ Returns whether frequency modulation is enabled.
-        
+
         Returns
         -------
         bool
@@ -352,7 +352,7 @@ class AFG_3000(FunctionGenerator):
 
     def FSK_enabled(self, channel=1):
         """ Returns whether frequency-shift keying modulation is enabled.
-        
+
         Returns
         -------
         bool
@@ -378,7 +378,7 @@ class AFG_3000(FunctionGenerator):
 
     def PWM_enabled(self, channel=1):
         """ Returns whether pulse width modulation is enabled.
-        
+
         Returns
         -------
         bool
@@ -404,7 +404,7 @@ class AFG_3000(FunctionGenerator):
 
     def PM_enabled(self, channel=1):
         """ Returns whether phase modulation is enabled.
-        
+
         Returns
         -------
         bool
@@ -414,7 +414,7 @@ class AFG_3000(FunctionGenerator):
         return bool(int(resp))
 
     def enable_burst(self, enable=True, channel=1):
-        """ Enable burst mode. 
+        """ Enable burst mode.
 
         Parameters
         ----------
@@ -430,7 +430,7 @@ class AFG_3000(FunctionGenerator):
 
     def burst_enabled(self, channel=1):
         """ Returns whether burst mode is enabled.
-        
+
         Returns
         -------
         bool
@@ -460,7 +460,7 @@ class AFG_3000(FunctionGenerator):
         return Q_(resp, 'Hz')
 
     def set_frequency_mode(self, mode, channel=1):
-        """ Set the frequency mode. 
+        """ Set the frequency mode.
 
         In fixed mode, the waveform's frequency is kept constant. In sweep mode,
         it is swept according to the sweep settings.
@@ -486,9 +486,9 @@ class AFG_3000(FunctionGenerator):
         return 'sweep' if 'sweep'.startswith(resp.lower()) else 'fixed'
 
     def sweep_enabled(self, channel=1):
-        """ Whether the frequency mode is sweep. 
+        """ Whether the frequency mode is sweep.
 
-        Just a convenience method to avoid writing 
+        Just a convenience method to avoid writing
         ``get_frequency_mode() == 'sweep'``.
 
         Returns
@@ -555,8 +555,8 @@ class AFG_3000(FunctionGenerator):
         self.inst.write('source{}:freq:center {}Hz'.format(channel, val))
 
     def set_sweep_time(self, time, channel=1):
-        """ Set the sweep time. 
-        
+        """ Set the sweep time.
+
         The sweep time does not include hold time or return time. Sweep time
         must be between 1 ms and 300 s.
 
@@ -573,7 +573,7 @@ class AFG_3000(FunctionGenerator):
 
     def set_sweep_hold_time(self, time, channel=1):
         """ Set the hold time of the sweep.
-        
+
         The hold time is the amount of time that the frequency is held constant
         after reaching the stop frequency.
 
@@ -587,7 +587,7 @@ class AFG_3000(FunctionGenerator):
 
     def set_sweep_return_time(self, time, channel=1):
         """ Set the return time of the sweep.
-        
+
         The return time is the amount of time that the frequency spends
         sweeping from the stop frequency back to the start frequency. This
         does not include hold time.
@@ -640,21 +640,21 @@ class AFG_3000(FunctionGenerator):
         _verify_sweep_args(kwargs)
         self.set_frequency_mode('sweep')
 
-        if kwargs.has_key('start'):
+        if 'start' in kwargs:
             self.set_sweep_start(kwargs['start'], channel)
-        if kwargs.has_key('stop'):
+        if 'stop' in kwargs:
             self.set_sweep_stop(kwargs['stop'], channel)
-        if kwargs.has_key('span'):
+        if 'span' in kwargs:
             self.set_sweep_span(kwargs['span'], channel)
-        if kwargs.has_key('center'):
+        if 'center' in kwargs:
             self.set_sweep_center(kwargs['center'], channel)
-        if kwargs.has_key('sweep_time'):
+        if 'sweep_time' in kwargs:
             self.set_sweep_time(kwargs['sweep_time'], channel)
-        if kwargs.has_key('hold_time'):
+        if 'hold_time' in kwargs:
             self.set_sweep_hold_time(kwargs['hold_time'], channel)
-        if kwargs.has_key('return_time'):
+        if 'return_time' in kwargs:
             self.set_sweep_return_time(kwargs['return_time'], channel)
-        if kwargs.has_key('spacing'):
+        if 'spacing' in kwargs:
             self.set_sweep_spacing(kwargs['spacing'], channel)
 
     def set_am_depth(self, depth, channel=1):
@@ -711,7 +711,7 @@ class AFG_3000(FunctionGenerator):
         min = data.min()
         max = data.max()
         data = (data-min)*(16382/(max-min))
-        data = data.astype('>u2') # Convert to big-endian 16-bit unsigned int
+        data = data.astype('>u2')  # Convert to big-endian 16-bit unsigned int
 
         bytes = data.tostring()
         num = len(bytes)

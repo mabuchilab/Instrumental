@@ -4,7 +4,7 @@
 import numpy as np
 from functools import reduce
 from numpy import sqrt, complex, sign, linspace, pi
-from scipy.special import erf, erfinv
+from scipy.special import erfinv
 from optical_elements import Space
 from .. import Q_
 
@@ -24,15 +24,15 @@ def _find_cavity_mode(M):
     Returns 1/q for a cavity eigenmode given the effective cavity matrix M.
     """
     A, B, C, D = M.elems()
-    
+
     # From Siegman: Lasers, Chapter 21.1
     term1 = (D-A)/(2*B)
     term2 = 1/B*sqrt(complex(((A+D)/2)**2 - 1))
     sgn = sign(_get_imag(term2))
-    
+
     # Choose transversely confined solution
     q_r = term1 - sgn*term2
-    
+
     # Check stability to perturbation
     if ((A+D)/2)**2 > 1:
         raise Exception('Resonator is unstable')
@@ -122,7 +122,7 @@ def get_profiles(q_r, lambda0, orientation, elements, clipping=None, zeroat=0):
     zs, profiles, RoCs = [], [], []
     cur_z = Q_(0, 'mm')
     z0 = Q_(0, 'mm')
-    
+
     rev_elems = list((elements))
     for i, el in enumerate(rev_elems):
         if i == zeroat % len(rev_elems):
@@ -130,12 +130,12 @@ def get_profiles(q_r, lambda0, orientation, elements, clipping=None, zeroat=0):
 
         # Get beam profile inside 'Space' elements
         if isinstance(el, Space):
-            z = linspace(cur_z, cur_z + el.d, 10000, endpoint=(i==len(rev_elems)-1))
+            z = linspace(cur_z, cur_z + el.d, 10000, endpoint=(i == len(rev_elems)-1))
             zs.append(z)
             profiles.append(beam_profile(q_r, cur_z, z, lambda0/el.n, clipping))
             RoCs.append(beam_roc(q_r, cur_z, z, el.n))
             cur_z += el.d
-        
+
         # Propagate q_r through the current element
         M = el.sag if orientation == 'sagittal' else el.tan
         A, B, C, D = M.elems()
@@ -143,5 +143,5 @@ def get_profiles(q_r, lambda0, orientation, elements, clipping=None, zeroat=0):
 
     for i, z in enumerate(zs):
         zs[i] = z-z0
-    
+
     return zs, profiles, RoCs

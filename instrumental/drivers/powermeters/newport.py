@@ -7,7 +7,7 @@ Driver module for Newport power meters. Supports:
 """
 
 from . import PowerMeter
-from .. import InstrumentTypeError, _get_visa_instrument
+from .. import _get_visa_instrument
 from ... import Q_
 
 

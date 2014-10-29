@@ -2,9 +2,9 @@
 # Copyright 2013-2014 Nate Bogdanowicz
 
 import numpy as np
-from scipy.interpolate import interp1d
 from matplotlib.pyplot import subplots
 from beam_tools import *
+
 
 def _flatten_list_of_lists(li):
     flattened = []
@@ -12,13 +12,14 @@ def _flatten_list_of_lists(li):
         flattened.extend(el)
     return flattened
 
+
 def _argrelmin(data):
     """ Finds indices of relative minima. Doesn't count first and last points
     as minima """
     args = []
-    curmin = data[0] # This keeps the first point from being included
+    curmin = data[0]  # This keeps the first point from being included
     curminarg = None
-    for i,num in enumerate(data):
+    for i, num in enumerate(data):
         if num < curmin:
             curmin = num
             curminarg = i
@@ -37,7 +38,7 @@ def plot_profile(q_start_t_r, q_start_s_r, lambda0, elems, cyclical=False,
                  names=tuple(), clipping=None, show_axis=False,
                  show_waists=False, zeroat=0, zunits='mm', runits='um'):
     """
-    Plot tangential and sagittal beam profiles. 
+    Plot tangential and sagittal beam profiles.
 
     Parameters
     ----------
@@ -81,18 +82,18 @@ def plot_profile(q_start_t_r, q_start_s_r, lambda0, elems, cyclical=False,
         to 'um'.
     """
     zs, profs_t, RoCs = get_profiles(q_start_t_r, lambda0, 'tangential', elems,
-                                    clipping, zeroat)
+                                     clipping, zeroat)
     zs, profs_s, RoCs = get_profiles(q_start_s_r, lambda0, 'sagittal', elems,
-                                    clipping, zeroat)
+                                     clipping, zeroat)
 
     # Convert lists of Quantity-arrays
     zs_mag = _magify(zs, zunits)
     profs_t_mag = _magify(profs_t, runits)
     profs_s_mag = _magify(profs_s, runits)
-    #RoC_mag = _magify(RoC, runits)
+    # RoC_mag = _magify(RoC, runits)
 
     fig_scale = 3
-    fig, ax = subplots(figsize=(4*fig_scale,3*fig_scale))
+    fig, ax = subplots(figsize=(4*fig_scale, 3*fig_scale))
     margin = .0002e3
     ax.set_xlim([zs_mag[0][0]-margin, zs_mag[-1][-1]+margin])
 
@@ -110,16 +111,16 @@ def plot_profile(q_start_t_r, q_start_s_r, lambda0, elems, cyclical=False,
         t_waist_indices = _argrelmin(prof_t_mag)
         s_waist_indices = _argrelmin(prof_s_mag)
         for i in t_waist_indices:
-            ax.annotate('{:.3f} {}'.format(prof_t_mag, runits),
+            ax.annotate('{:.3f} {}'.format(prof_t_mag[i], runits),
                         (z_mag[i], prof_t_mag[i]),
-                        xytext=(0,-30), textcoords='offset points',
+                        xytext=(0, 30), textcoords='offset points',
                         ha='center', arrowprops=dict(arrowstyle="->"))
         for i in s_waist_indices:
-            ax.annotate('{:.3f} {}'.format(prof_s_mag, runits),
-                        (z_mag[i], prof_s_mag[i]), xytext=(0,-30),
+            ax.annotate('{:.3f} {}'.format(prof_s_mag[i], runits),
+                        (z_mag[i], prof_s_mag[i]), xytext=(0, 30),
                         textcoords='offset points', ha='center',
-                        arrowprops={'arrowstyle':'->'})
-     
+                        arrowprops={'arrowstyle': '->'})
+
     ax.set_xlabel('Position ({})'.format(zunits))
     if clipping is not None:
         ylabel = ('Distance from beam axis for clipping of ' +
@@ -127,12 +128,12 @@ def plot_profile(q_start_t_r, q_start_s_r, lambda0, elems, cyclical=False,
     else:
         ylabel = 'Spot size ({})'.format(runits)
     ax.set_ylabel(ylabel)
-    #ax.legend()
+    # ax.legend()
 
     if show_axis:
         ax.set_ylim(bottom=0)
     ax.set_autoscaley_on(False)
-    
+
     # Pad out names and convert to a list
     names = [names[i] if i < len(names) else '' for i in range(len(zs_mag))]
 
@@ -146,7 +147,7 @@ def plot_profile(q_start_t_r, q_start_s_r, lambda0, elems, cyclical=False,
     for z_mag, prof_t_mag, prof_s_mag, name in zip(zs_mag, profs_t_mag,
                                                    profs_s_mag, names):
         ax.vlines([z_mag[0]], ax.get_ylim()[0], ax.get_ylim()[1],
-                  linestyle='dashed', linewidth=2, color=(.5,.5,.5),
+                  linestyle='dashed', linewidth=2, color=(.5, .5, .5),
                   antialiased=True)
 
         # Get relevant y boundaries
@@ -157,10 +158,10 @@ def plot_profile(q_start_t_r, q_start_s_r, lambda0, elems, cyclical=False,
             pmin, pmax = prof_s_mag[0], prof_t_mag[0]
 
         region = np.argmax([pmin-ylim0, pmax-pmin, ylim1-pmax])
-        if region==0:
+        if region == 0:
             margin = ylim0
             va = 'bottom'
-        elif region==1:
+        elif region == 1:
             margin = pmin + (pmax-pmin)*0.5
             va = 'center'
         else:

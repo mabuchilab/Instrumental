@@ -33,7 +33,7 @@ class PM100D(PowerMeter):
 
     def get_power(self):
         """Get the current power measurement
-        
+
         Returns
         -------
         power : Quantity
@@ -59,7 +59,7 @@ class PM100D(PowerMeter):
 
     def auto_range_enabled(self):
         """Whether auto-ranging is enabled
-        
+
         Returns
         -------
         bool : enabled
@@ -69,7 +69,7 @@ class PM100D(PowerMeter):
 
     def get_wavelength(self):
         """Get the input signal wavelength setting
-        
+
         Returns
         -------
         wavelength : Quantity
@@ -80,7 +80,7 @@ class PM100D(PowerMeter):
 
     def set_wavelength(self, wavelength):
         """Set the input signal wavelength setting
-        
+
         Parameters
         ----------
         wavelength : Quantity
@@ -91,7 +91,7 @@ class PM100D(PowerMeter):
 
     def get_num_averaged(self):
         """Get the number of samples to average
-        
+
         Returns
         -------
         num_averaged : int

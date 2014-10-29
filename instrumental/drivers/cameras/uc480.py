@@ -40,7 +40,7 @@ def cameras():
     if lib.is_GetNumberOfCameras(pointer(num)) == IS_SUCCESS:
         if num >= 1:
             cam_list = create_camera_list(num)()
-            cam_list.dwCount = ULONG(num.value) # This is stupid
+            cam_list.dwCount = ULONG(num.value)  # This is stupid
 
             if lib.is_GetCameraList(pointer(cam_list)) == IS_SUCCESS:
                 ids = []
@@ -57,7 +57,7 @@ def cameras():
                 else:
                     print("Some cameras have duplicate IDs. Uniquifying IDs now...")
                     # Choose IDs that haven't been used yet
-                    potential_ids = [i for i in range(1,len(ids)+1) if i not in ids]
+                    potential_ids = [i for i in range(1, len(ids)+1) if i not in ids]
                     for id in repeated:
                         new_id = potential_ids.pop(0)
                         print("Trying to set id from {} to {}".format(id, new_id))
@@ -65,12 +65,12 @@ def cameras():
                         ret = lib.is_InitCamera(pointer(_id), NULL)
                         if not ret == IS_SUCCESS:
                             print("Error connecting to camera {}".format(id))
-                            return None # Avoid infinite recursion
+                            return None  # Avoid infinite recursion
                         else:
                             ret = lib.is_SetCameraID(_id, INT(new_id))
                             if not ret == IS_SUCCESS:
                                 print("Error setting the camera id")
-                                return None # Avoid infinite recursion
+                                return None  # Avoid infinite recursion
                     # All IDs should be fixed now, let's retry
                     cams = cameras()
             else:
@@ -78,6 +78,7 @@ def cameras():
     else:
         print("Error getting number of attached cameras")
     return cams
+
 
 def get_camera(**kwargs):
     """
@@ -90,7 +91,7 @@ def get_camera(**kwargs):
         raise InstrumentNotFoundError("No cameras attached")
     if not kwargs:
         return cams[0]
-    
+
     kwarg = kwargs.items()[0]
     if kwarg[0] not in ['id', 'serial', 'model']:
         raise TypeError("Got an unexpected keyword argument '{}'".format(kwarg[0]))
@@ -115,14 +116,14 @@ class Camera(Camera):
         self._width, self._height = INT(), INT()
         self._color_depth = INT()
         self._color_mode = INT()
-        self._p_img_mem = POINTER(c_char)() # Never directly modify this pointer!
+        self._p_img_mem = POINTER(c_char)()  # Never directly modify this pointer!
         self._memid = INT()
         self._list_p_img_mem = None
         self._list_memid = None
 
     def __del__(self):
         if self._in_use:
-            self.close() # In case someone forgot to close()
+            self.close()  # In case someone forgot to close()
 
     def set_auto_exposure(self, enable=True):
         ret = lib.is_SetAutoParameter(self._id, IS_SET_ENABLE_AUTO_SHUTTER,
@@ -137,7 +138,8 @@ class Camera(Camera):
                 print("Failed to load internally stored parameters")
             else:
                 # Reset original display color mode
-                lib.is_GetColorDepth(self._id, pointer(self._color_depth), pointer(self._color_mode))
+                lib.is_GetColorDepth(self._id, pointer(self._color_depth),
+                                     pointer(self._color_mode))
                 lib.is_SetColorMode(self._id, self._color_mode)
         else:
             print("set_num must be either 1 or 2")
@@ -197,7 +199,7 @@ class Camera(Camera):
         # Set the save/display color depth to the current Windows setting
         lib.is_GetColorDepth(self._id, pointer(self._color_depth), pointer(self._color_mode))
         lib.is_SetColorMode(self._id, self._color_mode)
-        
+
         self._list_p_img_mem = []
         self._list_memid = []
         for i in range(num_bufs):
@@ -292,7 +294,7 @@ class Camera(Camera):
         elif not ext:
             ext = '.bmp'
 
-        fdict = {'.bmp':IS_IMG_BMP, '.jpg':IS_IMG_JPG, '.png':IS_IMG_PNG}
+        fdict = {'.bmp': IS_IMG_BMP, '.jpg': IS_IMG_JPG, '.png': IS_IMG_PNG}
         ftype_flag = fdict[ext.lower()]
         filename = filename + ext
 
@@ -305,7 +307,7 @@ class Camera(Camera):
         sInfo = SENSORINFO()
         lib.is_GetSensorInfo(self._id, pointer(sInfo))
         return sInfo.nMaxWidth, sInfo.nMaxHeight
-        
+
     def _value_getter(member_str):
         def getter(self):
             return getattr(self, member_str).value
@@ -322,7 +324,7 @@ class Camera(Camera):
         # Create a pointer to the data as a CHAR ARRAY so we can convert it to a buffer
         p_img_mem = self._last_img_mem()
         arr_ptr = cast(p_img_mem, POINTER(c_char * (bpl*self.height)))
-        return buffer(arr_ptr.contents) # buffer pointing to array of image data
+        return buffer(arr_ptr.contents)  # buffer pointing to array of image data
 
     def _last_img_mem(self):
         """ Returns a ctypes char-pointer to the starting address of the image memory
@@ -338,22 +340,22 @@ class Camera(Camera):
             lib.is_GetActSeqBuf(self._id, pointer(nNum), pointer(pcMem), pointer(pcMemLast))
             return pcMemLast
 
-    #: Camera ID number
-    id = property(lambda self: self._info.dwCameraID) # Read-only
+    # Camera ID number
+    id = property(lambda self: self._info.dwCameraID)  # Read-only
 
-    #: Camera serial number string
-    serial = property(lambda self: self._info.SerNo) # Read-only
+    # Camera serial number string
+    serial = property(lambda self: self._info.SerNo)  # Read-only
 
-    #: Camera model number string
-    model = property(lambda self: self._info.Model) # Read-only
+    # Camera model number string
+    model = property(lambda self: self._info.Model)  # Read-only
 
-    #: Number of bytes used by each line of the image
-    bytes_per_line = property(lambda self: self._bytes_per_line()) # Read-only
+    # Number of bytes used by each line of the image
+    bytes_per_line = property(lambda self: self._bytes_per_line())  # Read-only
 
-    #: Width of the camera image in pixels
+    # Width of the camera image in pixels
     width = property(_value_getter('_width'), _value_setter('_width'))
 
-    #: Height of the camera image in pixels
+    # Height of the camera image in pixels
     height = property(_value_getter('_height'), _value_setter('_height'))
 
 

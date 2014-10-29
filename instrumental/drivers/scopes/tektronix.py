@@ -53,7 +53,7 @@ class TekScope(Scope):
         else:
             rm = visa.ResourceManager()
             self.inst = rm.open_resource(name)
-            
+
         self.inst.write("header OFF")
 
     def get_data(self, channel=1):
@@ -180,9 +180,8 @@ class TekScope(Scope):
         units = raw_units.strip('"')
         return Q_(raw_value+units)
 
-
     def set_math_function(self, expr):
-        """Set the expression used by the MATH channel. 
+        """Set the expression used by the MATH channel.
 
         Parameters
         ----------
@@ -193,10 +192,8 @@ class TekScope(Scope):
         self.inst.write("math:type advanced")
         self.inst.write('math:define "{}"'.format(expr))
 
-
     def get_math_function(self):
         return self.inst.query("math:define?").strip('"')
-
 
     def run_acquire(self):
         """Sets the acquire state to 'run'"""
@@ -216,7 +213,7 @@ class TekScope(Scope):
 
         When enabled, measurement statistics are kept track of, including
         'mean', 'stddev', 'minimum', 'maximum', and 'nsamps'.
-        
+
         Parameters
         ----------
         enable : bool

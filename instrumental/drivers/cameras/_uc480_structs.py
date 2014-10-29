@@ -1,5 +1,6 @@
 from ctypes import Structure, c_char
-#from ctypes.wintypes import WORD, DWORD, ULONG, BOOL
+from ctypes.wintypes import WORD, DWORD, ULONG, BOOL
+
 
 class SENSORINFO(Structure):
     _fields_ = [('SensorID', WORD),
@@ -16,6 +17,7 @@ class SENSORINFO(Structure):
                 ('nUpperLeftBayerPixel', c_char),
                 ('Reserved', c_char*13)]
 
+
 class CAMERA_INFO(Structure):
     _fields_ = [('dwCameraID', DWORD),
                 ('dwDeviceID', DWORD),
@@ -26,9 +28,11 @@ class CAMERA_INFO(Structure):
                 ('dwStatus', DWORD),
                 ('dwReserved', DWORD*15)]
 
+
 class CAMERA_LIST(Structure):
     _fields_ = [('dwCount', ULONG),
                 ('ci', CAMERA_INFO*1)]
+
 
 def create_camera_list(length):
     """ Allows us to create a CAMERA_LIST with a settable number of CAMERA_INFO items """

@@ -410,7 +410,7 @@ class WA_1000(Wavemeter):
 
     def lock(self, lock=True):
         """Lock the front panel of the wavemeter, preventing manual input
-        
+
         When locked, the wavemeter can only be controlled remotely by a
         computer. To unlock, use `unlock()` or hit the 'Remote' button on the
         wavemeter's front panel.

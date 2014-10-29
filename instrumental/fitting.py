@@ -6,8 +6,8 @@ Module containing utilities related to fitting.
 Still very much a work in progress...
 """
 
-from numpy import square, extract, diff, sign, logical_and, \
-                  searchsorted, log, sum, exp, ma, pi
+from numpy import (square, extract, diff, sign, logical_and,
+                   searchsorted, log, sum, exp, ma, pi)
 import scipy.optimize
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Cursor
@@ -23,7 +23,6 @@ except ImportError:
         MatplotlibDeprecationWarning = None
 
 import warnings
-from exceptions import UserWarning
 
 from . import u, Q_
 
@@ -138,7 +137,8 @@ def _estimate_FWHM(nu, amp, half_max, left_limit, center, right_limit):
     all_points = extract(diff(sign(amp-half_max)), nu)
 
     # Filter out the crossings from the sidebands
-    middle_points = extract(logical_and(left_limit < all_points, all_points < right_limit), all_points)
+    middle_points = extract(logical_and(left_limit < all_points, all_points < right_limit),
+                            all_points)
     center_index = searchsorted(middle_points, center)
     FWHM = middle_points[center_index:].mean() - middle_points[:center_index].mean()
     return FWHM
@@ -258,7 +258,7 @@ def guided_trace_fit(data_x, data_y, EOM_freq):
     pts = _ginput(3)
     plt.close()
 
-    (x1,y1), (x2,y2), (x3,y3) = ((x*u.s, y*u.V) for (x,y) in pts)
+    (x1, y1), (x2, y2), (x3, y3) = ((x*u.s, y*u.V) for (x, y) in pts)
     scale_factor_x = 2*EOM_freq / (x3-x1)
     scale_factor_y = 1 / u.V
 
@@ -295,7 +295,8 @@ def guided_trace_fit(data_x, data_y, EOM_freq):
     plt.xlabel('Frequency (MHz)')
     plt.ylabel('Transmission (arb. units)')
     plt.legend(['Data Trace', 'Fitted Curve'])
-    plt.text(0, 1, 'FWHM = {:.2f}'.format(FWHM), ha='left', va='top', transform=plt.gca().transAxes)
+    plt.text(0, 1, 'FWHM = {:.2f}'.format(FWHM), ha='left', va='top',
+             transform=plt.gca().transAxes)
     plt.show()
 
     return params
