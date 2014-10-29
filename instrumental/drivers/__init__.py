@@ -106,7 +106,7 @@ def list_visa_instruments():
             except visa.VisaIOError:
                 # Could not create visa instrument object
                 skipped.append(addr)
-                print("Skipping {} due to VisaIOError".format(addr))
+                # print("Skipping {} due to VisaIOError".format(addr))
                 continue
             except socket.timeout:
                 skipped.append(addr)

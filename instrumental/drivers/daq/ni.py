@@ -718,7 +718,7 @@ class VirtualDigitalChannel(Channel):
 def list_instruments():
     data = create_string_buffer(1000)
     mx.DAQmxGetSysDevNames(data, 1000)
-    print(data.value)
+
     dev_names = data.value.split(b',')
     instruments = []
     for dev_name in dev_names:
