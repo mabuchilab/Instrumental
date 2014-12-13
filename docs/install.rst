@@ -69,28 +69,32 @@ Optional Driver Libraries
 VISA
 """"
 
-.. ATTENTION::
-    PyVISA is no longer required for talking to VISA devices if you have a
-    FakeVISA server set up. Instead you should add the server address to your
-    Instrumental config file. See details :ref:`here <fake-visa>`.
-
-To operate devices that communicate using VISA, e.g. Tektronix scopes, you will
+To operate devices that communicate using VISA (e.g. Tektronix scopes) you will
 need::
 
 1. an implementation of VISA, and
 2. a Python interface layer called PyVISA
   
 There are various implementations of VISA available, but two I know of are
-TekVISA (from Tektronix) and NI-VISA (from National Instruments). They *should*
-be compatible with each other, I believe the main difference is in the extra
-vendor-specific utilities provided by each--either one should work fine with
-PyVISA. Installers for each can be downloaded from the NI or Tektronix
-websites, though you'll have to create a free account.
+TekVISA (from Tektronix) and NI-VISA (from National Instruments). I would
+recommend NI-VISA, though either one should work fine. Installers for each can
+be downloaded from the NI or Tektronix websites, though you'll have to create a
+free account.
 
-Once you've installed VISA, install PyVISA by running ``pip install pyvisa`` on
-the command line. More info about PyVISA, including more detailed
-install-related information can be found `here
-<http://pyvisa.readthedocs.org/en/latest/>`_.
+Once you've installed VISA, install PyVISA by running::
+
+    $ pip install pyvisa
+
+on the command line. As a quick test PyVISA has installed correctly, open a
+python interpreter and run::
+
+    >>> import visa
+    >>> rm = visa.ResourceManager()
+    >>> rm.list_resources()
+
+More info about PyVISA, including more detailed install-related information can
+be found `here <http://pyvisa.readthedocs.org/en/latest/>`_.
+
 
 
 Thorlabs DCx Cameras

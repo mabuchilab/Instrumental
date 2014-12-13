@@ -41,7 +41,21 @@ Example
 FakeVISA
 --------
 
-FakeVISA acts as a drop-in replacement for PyVISA, so you can easily use it with existing code. Only a small subset of PyVISA's functions are currently implemented, though they're probably all you need for the most common use cases. FakeVISA is implemented as a client running on your local machine that talks with a server script running on another machine that has PyVISA installed. The client relays commands to the server, which communicates them to the device and replies back with its response. This is especially simple since the VISA protocol primarily uses ASCII-encoded command strings.
+.. WARNING::
+    As of a recent update to the PyVISA API that Instrumental uses, FakeVISA no
+    longer works. I've held off on fixing it for a few reasons, but mostly
+    because it's a bit fragile and mostly unused. Also, the 'right' way to do
+    it would be to write a new backend for PyVISA, though it's not clear that
+    that's worth the effort.
+
+FakeVISA acts as a drop-in replacement for PyVISA, so you can easily use it
+with existing code. Only a small subset of PyVISA's functions are currently
+implemented, though they're probably all you need for the most common use
+cases. FakeVISA is implemented as a client running on your local machine that
+talks with a server script running on another machine that has PyVISA
+installed. The client relays commands to the server, which communicates them to
+the device and replies back with its response. This is especially simple since
+the VISA protocol primarily uses ASCII-encoded command strings.
 
 FakeVISA works well, though it's still fairly experimental. Bug reports welcome! If demand exists, it could be possible to make a more general client-server protocol for communicating with all Instrumental-supported devices, rather than just those that are VISA-compatible.
 
@@ -67,7 +81,8 @@ Next, install PyVISA. If you have pip_ installed (you should)::
 To verify that everything's working, start up python and import PyVISA::
 
     >>> import visa
-    >>> lib = visa.VisaLibrary()
+    >>> rm = visa.ResourceManager()
+    >>> rm.list_resources()
 
 Make sure that Instrumental is installed. In the `tools` subdirectory, there's a file called `server.py`. Run the script in a terminal to start the server::
 
@@ -76,5 +91,3 @@ Make sure that Instrumental is installed. In the `tools` subdirectory, there's a
 TODO: Make the server script more robust and configurable (i.e. automatically get the ip address right). Also, let it run in the background and add instructions for running it on start-up, etc.
 
 .. _pip: http://www.pip-installer.org/
-
-
