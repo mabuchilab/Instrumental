@@ -32,6 +32,9 @@ class Mock(object):
 
     def __call__(self, *args, **kwargs):
         return Mock()
+    
+    def __mul__(self, other):
+        return self
 
     @classmethod
     def __getattr__(cls, name):
@@ -45,7 +48,8 @@ class Mock(object):
 MOCK_MODULES = ['numpy', 'scipy', 'scipy.special', 'scipy.interpolate',
                 'scipy.optimize', 'matplotlib', 'matplotlib.pyplot',
                 'matplotlib.widgets', 'matplotlib.transforms',
-                'matplotlib.cbook', 'pint', 'PyDAQmx', 'ctypes', 'visa']
+                'matplotlib.cbook', 'pint', 'PyDAQmx', 'ctypes',
+                'ctypes.wintypes', 'visa']
 
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = Mock()
