@@ -491,7 +491,7 @@ class AnalogIn(Channel):
         t = self.dev.create_task()
         t.add_AI_channel(self.name)
 
-        num_specified = int(duration is None) + int(freq is None) + int(n_samples is None)
+        num_specified = sum(int(arg is not None) for arg in (duration, freq, n_samples))
 
         if num_specified == 0:
             data = t.read_AI_scalar()
