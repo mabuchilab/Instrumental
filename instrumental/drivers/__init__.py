@@ -9,7 +9,7 @@ from .. import conf
 # Listing of acceptable parameters for each driver module
 _acceptable_params = {
     'cameras.uc480':
-        ['ueye_cam_id', 'cam_serial', 'cam_model'],
+        ['ueye_cam_id', 'cam_serial'],
     'daq.ni':
         ['nidaq_devname'],
     'funcgenerators.tektronix':
