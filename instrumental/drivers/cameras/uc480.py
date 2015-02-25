@@ -6,6 +6,7 @@ uEye software. Currently Windows-only, but Linux support should be
 possible to implement if desired.
 """
 
+import logging as log
 from ctypes import WinDLL, pointer, POINTER, c_char, c_char_p, cast
 from ctypes.wintypes import DWORD, INT, ULONG, DOUBLE, HWND
 import os.path
@@ -20,26 +21,21 @@ from .. import InstrumentTypeError, InstrumentNotFoundError, _ParamDict
 
 
 def _instrument(params):
-    """ Possible params include 'ueye_cam_id', 'cam_serial', 'cam_model' """
+    """ Possible params include 'ueye_cam_id', 'cam_serial'"""
     print("Checking uc480...")
+    d = {}
     if 'ueye_cam_id' in params:
-        return _get_camera(id=params['ueye_cam_id'])
-    elif 'cam_serial' in params:
-        return _get_camera(serial=params['cam_serial'])
-    elif 'cam_model' in params:
-        return _get_camera(model=params['cam_model'])
-    raise InstrumentTypeError()
+        d['id'] = 'ueye_cam_id'
+    if 'cam_serial' in params:
+        d['serial'] = 'cam_serial'
+    if not d:
+        raise InstrumentTypeError()
+    
+    return UC480_Camera(**d)
 
 
 def list_instruments():
-    instruments = []
-    for cam in _cameras():
-        params = _ParamDict("<UC480_Camera '{}'>".format(cam.serial))
-        params.module = 'cameras.uc480'
-        params['cam_serial'] = cam.serial
-        params['cam_model'] = cam.model
-        instruments.append(params)
-    return instruments
+    return _cameras()
 
 
 def _cameras():
@@ -64,7 +60,12 @@ def _cameras():
 
                 if not repeated:
                     for info in cam_list.ci:
-                        cams.append(UC480_Camera(info))
+                        params = _ParamDict("<UC480_Camera '{}'>".format(info.SerNo))
+                        params.module = 'cameras.uc480'
+                        params['cam_serial'] = info.SerNo
+                        params['cam_model'] = info.Model
+                        params['ueye_cam_id'] = int(info.dwCameraID)
+                        cams.append(params)
                 else:
                     print("Some cameras have duplicate IDs. Uniquifying IDs now...")
                     # Choose IDs that haven't been used yet
@@ -91,26 +92,20 @@ def _cameras():
     return cams
 
 
-def _get_camera(**kwargs):
+def _get_legit_params(params):
     """
-    Get a camera by attribute. Returns the first attached camera that
-    matches the ``\*\*kwargs``. E.g. passing serial='abc' will return a camera
-    whose serial number is 'abc', or None if no such camera is connected.
+    Get the ParamDict of the camera that matches params. Useful for e.g.
+    checking that a camera with the given id exists and for getting its serial
+    and model numbers.
     """
-    cams = _cameras()
-    if not cams:
+    param_list = _cameras()
+    if not param_list:
         raise InstrumentNotFoundError("No cameras attached")
-    if not kwargs:
-        return cams[0]
 
-    kwarg = kwargs.items()[0]
-    if kwarg[0] not in ['id', 'serial', 'model']:
-        raise TypeError("Got an unexpected keyword argument '{}'".format(kwarg[0]))
+    for cam_params in param_list:
+        if all(cam_params[k] == v for k,v in params.items()):
+            return cam_params
 
-    for cam in cams:
-        # TODO: Maybe cast to allow comparison of strings and ints, etc.
-        if getattr(cam, kwarg[0]) == kwarg[1]:
-            return cam
     raise InstrumentNotFoundError("No camera found matching the given parameters")
 
 
@@ -120,10 +115,19 @@ class UC480_Camera(Camera):
     Get access to a Camera using _cameras() and
     get_camera(), not using the constructor directly.
     """
-    def __init__(self, cam_info):
+    def __init__(self, id=None, serial=None):
         # Careful: cam_info will not update to reflect changes, it's a snapshot
-        self._info = cam_info
-        self._id = HCAM(cam_info.dwCameraID)
+        params = {}
+        if id is not None:
+            params['ueye_cam_id'] = id
+        if serial is not None:
+            params['serial'] = serial
+        params = _get_legit_params(params)
+
+        self._id = int(params['ueye_cam_id'])
+        self._serial = params['cam_serial']
+        self._model = params['cam_model']
+
         self._in_use = False
         self._width, self._height = INT(), INT()
         self._color_depth = INT()
@@ -173,7 +177,8 @@ class UC480_Camera(Camera):
         """
         Connect to the camera and set up the image memory.
         """
-        ret = lib.is_InitCamera(pointer(self._id), NULL)
+        id = HCAM(self._id)
+        ret = lib.is_InitCamera(pointer(id), NULL)
         if ret != IS_SUCCESS:
             print("Failed to open camera")
         else:
@@ -188,15 +193,18 @@ class UC480_Camera(Camera):
         Create and set the image memory.
         """
         self.width, self.height = self._get_max_img_size()
+        log.debug('image width=%d, height=%d', self.width, self.height)
 
         # Set the save/display color depth to the current Windows setting
         lib.is_GetColorDepth(self._id, pointer(self._color_depth), pointer(self._color_mode))
         lib.is_SetColorMode(self._id, self._color_mode)
+        log.debug('color_depth=%d, color_mode=%d', self._color_depth.value, self._color_mode.value)
 
         # Allocate and set memory
         lib.is_AllocImageMem(self._id, self._width, self._height, self._color_depth,
                              pointer(self._p_img_mem), pointer(self._memid))
         lib.is_SetImageMem(self._id, self._p_img_mem, self._memid)
+        log.debug("Image memory allocated and set")
 
         # Initialize display
         lib.is_SetImageSize(self._id, self._width, self._height)
@@ -238,9 +246,9 @@ class UC480_Camera(Camera):
         lib.is_ExitEvent(self._id, IS_SET_EVENT_FRAME)
 
     def close(self):
-        """
-        Close the camera and release associated image memory. Should be called
-        when you are done using the camera.
+        """Close the camera and release associated image memory.
+
+        Should be called when you are done using the camera.
         """
         ret = lib.is_ExitCamera(self._id)
         if ret != IS_SUCCESS:
@@ -251,6 +259,7 @@ class UC480_Camera(Camera):
     def _bytes_per_line(self):
         num = INT()
         if lib.is_GetImageMemPitch(self._id, pointer(num)) == IS_SUCCESS:
+            log.debug('bytes_per_line=%d', num.value)
             return num.value
         return None
 
@@ -260,12 +269,13 @@ class UC480_Camera(Camera):
         return (ret == win32event.WAIT_OBJECT_0)
 
     def freeze_frame(self):
+        """Acquire an image from the camera and store it in memory.
+
+        Can be used in conjunction with direct memory access to display an
+        image without saving it to file.
         """
-        Acquires a single image from the camera and stores it in memory. Can
-        be used in conjunction with direct memory access to display an image
-        without saving it to file.
-        """
-        lib.is_FreezeVideo(self._id, self._width, self._height)
+        ret = lib.is_FreezeVideo(self._id, self._width, self._height)
+        log.debug("FreezeVideo retval=%d", ret)
 
     def start_live_video(self, framerate=None):
         self._install_event_handler()
@@ -284,16 +294,17 @@ class UC480_Camera(Camera):
         lib.is_StopLiveVideo(self._id, IS_WAIT)
         self._uninstall_event_handler()
 
-    def save_frame(self, filename=NULL, filetype=None, live=False):
-        """
-        Saves the current video image to disk. If no filename is given,
-        this will display the 'Save as' dialog. If no filetype is given,
-        it will be determined by the extension of the filename, if available.
-        If neither exists, the image will be saved as a bitmap.
+    def save_frame(self, filename=None, filetype=None, live=False):
+        """Save the current video image to disk.
+
+        If no filename is given, this will display the 'Save as' dialog. If no
+        filetype is given, it will be determined by the extension of the
+        filename, if available.  If neither exists, the image will be saved as
+        a bitmap (BMP) file.
         """
 
         # Strip extension from filename, clear extension if it is invalid
-        if filename != NULL:
+        if filename is not None:
             filename, ext = os.path.splitext(filename)
             if ext.lower() not in ['.bmp', '.jpg', '.png']:
                 ext = ''
@@ -352,22 +363,22 @@ class UC480_Camera(Camera):
             lib.is_GetActSeqBuf(self._id, pointer(nNum), pointer(pcMem), pointer(pcMemLast))
             return pcMemLast
 
-    # Camera ID number
-    id = property(lambda self: self._info.dwCameraID)  # Read-only
+    #: uEye camera ID number. Read-only
+    id = property(lambda self: self._id)
 
-    # Camera serial number string
-    serial = property(lambda self: self._info.SerNo)  # Read-only
+    #: Camera serial number string. Read-only
+    serial = property(lambda self: self._serial)
 
-    # Camera model number string
-    model = property(lambda self: self._info.Model)  # Read-only
+    #: Camera model number string. Read-only
+    model = property(lambda self: self._model)
 
-    # Number of bytes used by each line of the image
-    bytes_per_line = property(lambda self: self._bytes_per_line())  # Read-only
+    #: Number of bytes used by each line of the image. Read-only
+    bytes_per_line = property(lambda self: self._bytes_per_line())
 
-    # Width of the camera image in pixels
+    #: Width of the camera image in pixels
     width = property(_value_getter('_width'), _value_setter('_width'))
 
-    # Height of the camera image in pixels
+    #: Height of the camera image in pixels
     height = property(_value_getter('_height'), _value_setter('_height'))
 
 
