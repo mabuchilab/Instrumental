@@ -20,7 +20,7 @@ def _handle_timing_params(duration, fsamp, n_samples):
         duration = Q_(duration).to('s')
         if fsamp:
             fsamp = Q_(fsamp).to('Hz')
-            n_samples = int((duration*fsamp).to('')) + 1  # Include endpoint
+            n_samples = int((duration*fsamp).to(''))  # Exclude endpoint
         else:
             n_samples = int(n_samples or 1000.)
             fsamp = n_samples / duration
