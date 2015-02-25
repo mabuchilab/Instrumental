@@ -40,7 +40,7 @@ def list_instruments():
 
 def _cameras():
     """
-    Get a list of all cameras currently attached.
+    Get a list of ParamDicts for all cameras currently attached.
     """
     cams = []
     num = INT()
@@ -110,19 +110,42 @@ def _get_legit_params(params):
 
 
 class UC480_Camera(Camera):
-    """A uc480-supported Camera.
+    """A uc480-supported Camera."""
 
-    Get access to a Camera using _cameras() and
-    get_camera(), not using the constructor directly.
-    """
     def __init__(self, id=None, serial=None):
-        # Careful: cam_info will not update to reflect changes, it's a snapshot
+        """Create a UC480_Camera object.
+
+        A camera can be identified by its id, serial number, or both. If no
+        arguments are given, returns the first camera it finds.
+
+        The constructor automatically opens a connection to the camera, and the
+        user is responsible for closing it. You can do this via ``close()`` or
+        by using the constructor as a context manager, e.g.
+
+            with UC480_Camera(id=1) as cam:
+                cam.save_frame('image.jpg')
+
+        Parameters
+        ----------
+        id : int, optional
+            The uEye camera ID
+        serial : str, optional
+            The serial number string of the camera.
+        """
         params = {}
         if id is not None:
             params['ueye_cam_id'] = id
         if serial is not None:
             params['serial'] = serial
-        params = _get_legit_params(params)
+
+        if params:
+            params = _get_legit_params(params)
+        else:
+            # If given no args, just choose the 'first' camera
+            param_list = _cameras()
+            if not param_list:
+                raise Exception("No uEye cameras attached!")
+            params = param_list[0]
 
         self._id = int(params['ueye_cam_id'])
         self._serial = params['cam_serial']
@@ -136,6 +159,8 @@ class UC480_Camera(Camera):
         self._memid = INT()
         self._list_p_img_mem = None
         self._list_memid = None
+
+        self._open()
 
     def __del__(self):
         if self._in_use:
@@ -173,7 +198,13 @@ class UC480_Camera(Camera):
             lib.is_GetColorDepth(self._id, pointer(self._color_depth), pointer(self._color_mode))
             lib.is_SetColorMode(self._id, self._color_mode)
 
-    def open(self, num_bufs=1):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
+
+    def _open(self, num_bufs=1):
         """
         Connect to the camera and set up the image memory.
         """
@@ -384,6 +415,5 @@ class UC480_Camera(Camera):
 
 if __name__ == '__main__':
     cam = _get_camera(serial='4002856484')
-    cam.open()
     cam.save_frame('cool.jpg')
     cam.close()
