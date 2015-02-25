@@ -15,19 +15,19 @@ from . import DAQ
 from .. import InstrumentTypeError, _ParamDict
 
 
-def _handle_timing_params(duration, freq, n_samples):
+def _handle_timing_params(duration, fsamp, n_samples):
     if duration:
         duration = Q_(duration).to('s')
-        if freq:
-            freq = Q_(freq).to('Hz')
-            n_samples = int((duration*freq).to('')) + 1  # Include endpoint
+        if fsamp:
+            fsamp = Q_(fsamp).to('Hz')
+            n_samples = int((duration*fsamp).to('')) + 1  # Include endpoint
         else:
             n_samples = int(n_samples or 1000.)
-            freq = n_samples / duration
-    elif freq:
-        freq = Q_(freq).to('Hz')
+            fsamp = n_samples / duration
+    elif fsamp:
+        fsamp = Q_(fsamp).to('Hz')
         n_samples = int(n_samples or 1000.)
-    return freq, n_samples
+    return fsamp, n_samples
 
 
 def _instrument(params):
@@ -71,11 +71,11 @@ class Task(object):
 
             TYPED_CHANNELS[channel.type].append(channel)
 
-    def set_timing(self, duration=None, freq=None, n_samples=None,
+    def set_timing(self, duration=None, fsamp=None, n_samples=None,
                    mode='finite', clock='', rising=True):
-        freq, n_samples = _handle_timing_params(duration, freq, n_samples)
-        freq = freq.to('Hz').magnitude
-        self.freq = freq
+        fsamp, n_samples = _handle_timing_params(duration, fsamp, n_samples)
+        fsamp = fsamp.to('Hz').magnitude
+        self.fsamp = fsamp
         edge = mx.DAQmx_Val_Rising if rising else mx.DAQmx_Val_Falling
         _sampleMode_map = {
             'finite': mx.DAQmx_Val_FiniteSamps,
@@ -105,7 +105,7 @@ class Task(object):
             else:
                 clock = bytes(master_clock)
 
-            task.CfgSampClkTiming(clock, freq, edge, sample_mode, n_samples)
+            task.CfgSampClkTiming(clock, fsamp, edge, sample_mode, n_samples)
 
         for typ, task in self._mxtasks.items():
             if typ != self.master_type:
@@ -159,7 +159,7 @@ class Task(object):
             start = i*num_samples_read
             stop = (i+1)*num_samples_read
             res[ch.name] = Q_(data[start:stop], 'V')
-        res['t'] = Q_(np.linspace(0, float(num_samples_read-1)/self.freq, num_samples_read), 's')
+        res['t'] = Q_(np.linspace(0, float(num_samples_read-1)/self.fsamp, num_samples_read), 's')
         return res
 
     def _write_AO_channels(self, data):
@@ -201,7 +201,7 @@ class _Task(object):
     def stop(self):
         self.t.StopTask()
 
-    def config_timing(self, freq, samples, mode='finite', clock='',
+    def config_timing(self, fsamp, samples, mode='finite', clock='',
                       rising=True):
         _sampleMode_map = {
             'finite': mx.DAQmx_Val_FiniteSamps,
@@ -209,14 +209,14 @@ class _Task(object):
             'hwtimed': mx.DAQmx_Val_HWTimedSinglePoint
         }
         edge = mx.DAQmx_Val_Rising if rising else mx.DAQmx_Val_Falling
-        freq = float(Q_(freq).to('Hz').magnitude)
+        fsamp = float(Q_(fsamp).to('Hz').magnitude)
         samples = int(samples)
         sample_mode = _sampleMode_map[mode]
         clock = bytes(clock)
-        self.t.CfgSampClkTiming(clock, freq, edge, sample_mode, samples)
+        self.t.CfgSampClkTiming(clock, fsamp, edge, sample_mode, samples)
         # Save for later
         self.samples = samples
-        self.freq = freq
+        self.fsamp = fsamp
 
     def config_analog_trigger(self, source, trig_level, rising=True, pretrig_samples=2):
         source_name = self._handle_ai(source)
@@ -335,15 +335,15 @@ class _Task(object):
                                    mx.DAQmx_Val_Volts, None)
         return ch_name
 
-    def add_AO_funcgen_channel(self, ao, name=None, func=None, freq=None, amp=None, offset='0V'):
+    def add_AO_funcgen_channel(self, ao, name=None, func=None, fsamp=None, amp=None, offset='0V'):
         """ Adds an analog output funcgen channel (or channels) to the task """
         ao_name = "{}/ao{}".format(self.dev.name, ao).encode('ascii')
         ch_name = 'ao{}'.format(ao) if name is None else name
         ch_name = ch_name.encode('ascii')
         self.AOs.append(ch_name)
-        if freq is None or amp is None:
-            raise Exception("Must include freq, and amp")
-        freq_mag = float(Q_(freq).to('Hz').magnitude)
+        if fsamp is None or amp is None:
+            raise Exception("Must include fsamp, and amp")
+        fsamp_mag = float(Q_(fsamp).to('Hz').magnitude)
         amp_mag = float(Q_(amp).to('V').magnitude)
         off_mag = float(Q_(offset).to('V').magnitude)
 
@@ -355,7 +355,7 @@ class _Task(object):
         }
         func = func_map[func]
         self.t.CreateAOFuncGenChan(ao_name, ch_name, func,
-                                   freq_mag, amp_mag, off_mag)
+                                   fsamp_mag, amp_mag, off_mag)
 
     def write_AO_channels(self, data, timeout=-1.0, autostart=True):
         if timeout != -1.0:
@@ -491,22 +491,22 @@ class AnalogIn(Channel):
                                     mx.DAQmx_Val_Cfg_Default, min_mag, max_mag,
                                     mx.DAQmx_Val_Volts, None)
 
-    def read(self, duration=None, freq=None, n_samples=None):
+    def read(self, duration=None, fsamp=None, n_samples=None):
         """Read one or more analog input samples.
 
-        By default, reads and returns a single sample. If two of `duration`, `freq`,
+        By default, reads and returns a single sample. If two of `duration`, `fsamp`,
         and `n_samples` are given, an array of samples is read and returned.
 
         Parameters
         ----------
         duration : Quantity
             How long to read from the analog input, specified as a Quantity.
-            Use with `freq` or `n_samples`.
-        freq : Quantity
+            Use with `fsamp` or `n_samples`.
+        fsamp : Quantity
             The sample frequency, specified as a Quantity. Use with `duration`
             or `n_samples`.
         n_samples : int
-            The number of samples to read. Use with `duration` or `freq`.
+            The number of samples to read. Use with `duration` or `fsamp`.
 
         Returns
         -------
@@ -516,16 +516,16 @@ class AnalogIn(Channel):
         with self.dev.create_task() as t:
             t.add_AI_channel(self.name)
 
-            num_specified = sum(int(arg is not None) for arg in (duration, freq, n_samples))
+            num_specified = sum(int(arg is not None) for arg in (duration, fsamp, n_samples))
 
             if num_specified == 0:
                 data = t.read_AI_scalar()
             elif num_specified == 2:
-                freq, n_samples = _handle_timing_params(duration, freq, n_samples)
-                t.config_timing(freq, n_samples)
+                fsamp, n_samples = _handle_timing_params(duration, fsamp, n_samples)
+                t.config_timing(fsamp, n_samples)
                 data = t.read_AI_channels()
             else:
-                raise Exception('Must specify either 0 or 2 of duration, freq, and n_samples')
+                raise Exception('Must specify either 0 or 2 of duration, fsamp, and n_samples')
         return data
 
 
@@ -547,13 +547,14 @@ class AnalogOut(Channel):
             t.add_AO_channel(self.name)
             t.write_AO_scalar(value)
 
-    def write(self, data, duration=None, freq=None, onboard=True):
+    def write(self, data, duration=None, reps=None, fsamp=None, freq=None, onboard=True):
         """Write a value or array to the analog output.
 
         If `data` is a scalar value, it is written to output and the function
         returns immediately. If `data` is an array of values, a buffered write
         is performed, writing each value in sequence at the rate determined by
-        `duration` or `freq`.
+        `duration` and `fsamp` or `freq`. You must specify either `fsamp` or
+        `freq`.
 
         When writing an array, this function blocks until the output sequence
         has completed.
@@ -563,29 +564,48 @@ class AnalogOut(Channel):
         data : scalar or array Quantity
             The value or values to output, passed in Volt-compatible units.
         duration : Quantity, optional
-            Used when writing arrays of data. This is a second-compatible
-            Quantity that says how long the entirety of the output lasts. Use
-            either this or `freq`, not both.
+            Used when writing arrays of data. This is how long the entirety of
+            the output lasts, specified as a second-compatible Quantity. If
+            `duration` is longer than a single period of data, the waveform
+            will repeat. Use either this or `reps`, not both. If neither is
+            given, waveform is output once.
+        reps : int or float, optional
+            Used when writing arrays of data. This is how many times the
+            waveform is repeated. Use either this or `duration`, not both. If
+            neither is given, waveform is output once.
+        fsamp: Quantity, optional
+            Used when writing arrays of data. This is the sample frequency,
+            specified as a Hz-compatible Quantity. Use either this or `freq`,
+            not both.
         freq : Quantity, optional
-            Used when writing arrays of data. This is a Hz-compatible Quantity
-            that specifies the sample frequency directly. Use either this or
-            `duration`, not both.
+            Used when writing arrays of data. This is the frequency of the
+            *overall waveform*, specified as a Hz-compatible Quantity. Use
+            either this or `fsamp`, not both.
         onboard : bool, optional
-            Whether we use only onboard memory. Defaults to True. If false, all
-            data will be continually buffered from the PC memory, even if it is
-            only repeating a small number of samples many times.
+            Use only onboard memory. Defaults to True. If False, all data will
+            be continually buffered from the PC memory, even if it is only
+            repeating a small number of samples many times.
         """
         if np.isscalar(data):
             return self._write_scalar(data)
 
-        if not duration and not freq:
-            raise Exception("Need one of 'duration' and 'freq' for array output")
-        freq, n_samples = _handle_timing_params(duration, freq, len(data))
+        if (fsamp is None) == (freq is None):
+            raise Exception("Need one and only one of 'fsamp' or 'freq'")
+        if fsamp is None:
+            fsamp = Q_(freq)*len(data)
+        else:
+            fsamp = Q_(fsamp)
+
+        if (duration is not None) and (reps is not None):
+            raise Exception("Can use at most one of `duration` or `reps`, not both")
+        if duration is None:
+            duration = (reps or 1)*len(data)/fsamp
+        fsamp, n_samples = _handle_timing_params(duration, fsamp, len(data))
 
         with self.dev.create_task() as t:
             t.add_AO_channel(self.name)
             t.set_AO_only_onboard_mem(self.name, onboard)
-            t.config_timing(freq, n_samples)
+            t.config_timing(fsamp, n_samples)
 
             t.write_AO_channels({self.name: data})
             t.t.WaitUntilTaskDone(-1)
@@ -716,16 +736,16 @@ class VirtualDigitalChannel(Channel):
             t.add_DO_channel(self._get_name())
             t.write_DO_scalar(self._create_DO_int(value))
 
-    def writearray(self, data, duration=None, freq=None):
+    def writearray(self, data, duration=None, fsamp=None):
         """Write an array of data to a digital output channel"""
-        if not duration and not freq:
-            raise Exception("Need one of 'duration' and 'freq'")
+        if not duration and not fsamp:
+            raise Exception("Need one of 'duration' and 'fsamp'")
 
-        freq, n_samples = _handle_timing_params(duration, freq, len(data))
-        print(freq, n_samples)
+        fsamp, n_samples = _handle_timing_params(duration, fsamp, len(data))
+        print(fsamp, n_samples)
         with self.dev.create_task() as t:
             t.add_DO_channel(self._get_name())
-            t.config_timing(freq, n_samples, clock='')
+            t.config_timing(fsamp, n_samples, clock='')
             t.write_DO_channels({self.name: data}, [self])
 
     def as_input(self):
