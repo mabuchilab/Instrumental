@@ -182,6 +182,22 @@ class _Task(object):
         self.AOs = []
         self.chans = []
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        """Cleanup method for use as a ContextManager"""
+        try:
+            self.t.StopTask()
+        except:
+            if value is None:
+                # Only raise new error from StopTask start with one
+                raise
+        finally:
+            # Always clean up our memory
+            self.t.ClearTask()
+            self.dev.tasks.remove(self)
+
     def stop(self):
         self.t.StopTask()
 
@@ -448,6 +464,15 @@ class _Task(object):
             timeout = float(Q_(timeout).to('s').magnitude)
         self.t.WriteDigitalScalarU32(True, timeout, value, None)
 
+    def get_AO_only_onboard_mem(self, channel):
+        data = c_uint32()
+        self.t.GetAOUseOnlyOnBrdMem(channel, byref(data))
+        return bool(data.value)
+
+    def set_AO_only_onboard_mem(self, channel, onboard_only):
+        data = c_uint32(onboard_only)
+        self.t.SetAOUseOnlyOnBrdMem(channel, data)
+
 
 class Channel(object):
     pass
@@ -488,21 +513,19 @@ class AnalogIn(Channel):
         data : scalar or array Quantity
             The data that was read from analog input.
         """
-        t = self.dev.create_task()
-        t.add_AI_channel(self.name)
+        with self.dev.create_task() as t:
+            t.add_AI_channel(self.name)
 
-        num_specified = sum(int(arg is not None) for arg in (duration, freq, n_samples))
+            num_specified = sum(int(arg is not None) for arg in (duration, freq, n_samples))
 
-        if num_specified == 0:
-            data = t.read_AI_scalar()
-        elif num_specified == 2:
-            freq, n_samples = _handle_timing_params(duration, freq, n_samples)
-            t.config_timing(freq, n_samples)
-            data = t.read_AI_channels()
-        else:
-            raise Exception('Must specify either 0 or 2 of duration, freq, and n_samples')
-
-        t.t.StopTask()
+            if num_specified == 0:
+                data = t.read_AI_scalar()
+            elif num_specified == 2:
+                freq, n_samples = _handle_timing_params(duration, freq, n_samples)
+                t.config_timing(freq, n_samples)
+                data = t.read_AI_channels()
+            else:
+                raise Exception('Must specify either 0 or 2 of duration, freq, and n_samples')
         return data
 
 
@@ -520,12 +543,11 @@ class AnalogOut(Channel):
                                     mx.DAQmx_Val_Volts, None)
 
     def _write_scalar(self, value):
-        t = self.dev.create_task()
-        t.add_AO_channel(self.name)
-        t.write_AO_scalar(value)
-        t.t.StopTask()
+        with self.dev.create_task() as t:
+            t.add_AO_channel(self.name)
+            t.write_AO_scalar(value)
 
-    def write(self, data, duration=None, freq=None):
+    def write(self, data, duration=None, freq=None, onboard=True):
         """Write a value or array to the analog output.
 
         If `data` is a scalar value, it is written to output and the function
@@ -548,6 +570,10 @@ class AnalogOut(Channel):
             Used when writing arrays of data. This is a Hz-compatible Quantity
             that specifies the sample frequency directly. Use either this or
             `duration`, not both.
+        onboard : bool, optional
+            Whether we use only onboard memory. Defaults to True. If false, all
+            data will be continually buffered from the PC memory, even if it is
+            only repeating a small number of samples many times.
         """
         if np.isscalar(data):
             return self._write_scalar(data)
@@ -556,13 +582,14 @@ class AnalogOut(Channel):
             raise Exception("Need one of 'duration' and 'freq' for array output")
         freq, n_samples = _handle_timing_params(duration, freq, len(data))
 
-        t = self.dev.create_task()
-        t.add_AO_channel(self.name)
-        t.config_timing(freq, n_samples)
-        t.write_AO_channels({self.name: data})
-        t.t.WaitUntilTaskDone(-1)
-        t.t.StopTask()
-        t.t.ClearTask()
+        with self.dev.create_task() as t:
+            t.add_AO_channel(self.name)
+            t.set_AO_only_onboard_mem(self.name, onboard)
+            t.config_timing(freq, n_samples)
+
+            t.write_AO_channels({self.name: data})
+            t.t.WaitUntilTaskDone(-1)
+            t.t.StopTask()
 
 
 class VirtualDigitalChannel(Channel):
@@ -679,17 +706,15 @@ class VirtualDigitalChannel(Channel):
             return out
 
     def read(self):
-        t = self.dev.create_task()
-        t.add_DI_channel(self._get_name())
-        data = t.read_DI_scalar()
-        t.t.StopTask()
+        with self.dev.create_task() as t:
+            t.add_DI_channel(self._get_name())
+            data = t.read_DI_scalar()
         return self._parse_DI_int(data)
 
     def write(self, value):
-        t = self.dev.create_task()
-        t.add_DO_channel(self._get_name())
-        t.write_DO_scalar(self._create_DO_int(value))
-        t.t.StopTask()
+        with self.dev.create_task() as t:
+            t.add_DO_channel(self._get_name())
+            t.write_DO_scalar(self._create_DO_int(value))
 
     def writearray(self, data, duration=None, freq=None):
         """Write an array of data to a digital output channel"""
@@ -698,11 +723,10 @@ class VirtualDigitalChannel(Channel):
 
         freq, n_samples = _handle_timing_params(duration, freq, len(data))
         print(freq, n_samples)
-        t = self.dev.create_task()
-        t.add_DO_channel(self._get_name())
-        t.config_timing(freq, n_samples, clock='')
-        t.write_DO_channels({self.name: data}, [self])
-        return t
+        with self.dev.create_task() as t:
+            t.add_DO_channel(self._get_name())
+            t.config_timing(freq, n_samples, clock='')
+            t.write_DO_channels({self.name: data}, [self])
 
     def as_input(self):
         copy = VirtualDigitalChannel(self.dev, self.line_pairs)
