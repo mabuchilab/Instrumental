@@ -7,9 +7,10 @@ possible to implement if desired.
 """
 
 import logging as log
-from ctypes import WinDLL, pointer, POINTER, c_char, c_char_p, cast
+from ctypes import WinDLL, byref, pointer, POINTER, c_char, c_char_p, cast
 from ctypes.wintypes import DWORD, INT, ULONG, DOUBLE, HWND
 import os.path
+import numpy as np
 from . import Camera
 from ._uc480_constants import *
 from ._uc480_structs import *
@@ -17,6 +18,12 @@ from ._uc480_structs import *
 HCAM = DWORD
 NULL = POINTER(HWND)()
 lib = WinDLL('uc480_64')
+def errcheck(res, func, args):
+    if res != IS_SUCCESS:
+        raise Exception("uEye Error: {}".format(ERR_CODE_NAME[res]))
+    return res
+lib.is_InitCamera.errcheck = errcheck
+lib.is_GetImageMemPitch.errcheck = errcheck
 from .. import InstrumentTypeError, InstrumentNotFoundError, _ParamDict
 
 
@@ -167,21 +174,21 @@ class UC480_Camera(Camera):
             self.close()  # In case someone forgot to close()
 
     def set_auto_exposure(self, enable=True):
-        ret = lib.is_SetAutoParameter(self._id, IS_SET_ENABLE_AUTO_SHUTTER,
+        ret = lib.is_SetAutoParameter(self._hcam, IS_SET_ENABLE_AUTO_SHUTTER,
                                       pointer(INT(enable)), NULL)
         if ret != IS_SUCCESS:
             print("Failed to set auto exposure property")
 
     def load_stored_parameters(self, set_num):
         if set_num in [1, 2]:
-            ret = lib.is_LoadParameters(self._id, c_char_p("/cam/set{}".format(set_num)))
+            ret = lib.is_LoadParameters(self._hcam, c_char_p("/cam/set{}".format(set_num)))
             if ret != IS_SUCCESS:
                 print("Failed to load internally stored parameters")
             else:
                 # Reset original display color mode
-                lib.is_GetColorDepth(self._id, pointer(self._color_depth),
+                lib.is_GetColorDepth(self._hcam, pointer(self._color_depth),
                                      pointer(self._color_mode))
-                lib.is_SetColorMode(self._id, self._color_mode)
+                lib.is_SetColorMode(self._hcam, self._color_mode)
         else:
             print("set_num must be either 1 or 2")
 
@@ -190,13 +197,13 @@ class UC480_Camera(Camera):
             ptr = NULL
         else:
             ptr = c_char_p(filename)
-        ret = lib.is_LoadParameters(self._id, ptr)
+        ret = lib.is_LoadParameters(self._hcam, ptr)
         if ret != IS_SUCCESS:
             print("Failed to load parameter file")
         else:
             # Reset original display color mode
-            lib.is_GetColorDepth(self._id, pointer(self._color_depth), pointer(self._color_mode))
-            lib.is_SetColorMode(self._id, self._color_mode)
+            lib.is_GetColorDepth(self._hcam, pointer(self._color_depth), pointer(self._color_mode))
+            lib.is_SetColorMode(self._hcam, self._color_mode)
 
     def __enter__(self):
         return self
@@ -208,8 +215,9 @@ class UC480_Camera(Camera):
         """
         Connect to the camera and set up the image memory.
         """
-        id = HCAM(self._id)
-        ret = lib.is_InitCamera(pointer(id), NULL)
+        self._hcam = HCAM(self._id)
+        ret = lib.is_InitCamera(byref(self._hcam), NULL)
+        print(self._hcam, self._id)
         if ret != IS_SUCCESS:
             print("Failed to open camera")
         else:
@@ -227,19 +235,19 @@ class UC480_Camera(Camera):
         log.debug('image width=%d, height=%d', self.width, self.height)
 
         # Set the save/display color depth to the current Windows setting
-        lib.is_GetColorDepth(self._id, pointer(self._color_depth), pointer(self._color_mode))
-        lib.is_SetColorMode(self._id, self._color_mode)
+        lib.is_GetColorDepth(self._hcam, pointer(self._color_depth), pointer(self._color_mode))
+        lib.is_SetColorMode(self._hcam, self._color_mode)
         log.debug('color_depth=%d, color_mode=%d', self._color_depth.value, self._color_mode.value)
 
         # Allocate and set memory
-        lib.is_AllocImageMem(self._id, self._width, self._height, self._color_depth,
+        lib.is_AllocImageMem(self._hcam, self._width, self._height, self._color_depth,
                              pointer(self._p_img_mem), pointer(self._memid))
-        lib.is_SetImageMem(self._id, self._p_img_mem, self._memid)
+        lib.is_SetImageMem(self._hcam, self._p_img_mem, self._memid)
         log.debug("Image memory allocated and set")
 
         # Initialize display
-        lib.is_SetImageSize(self._id, self._width, self._height)
-        lib.is_SetDisplayMode(self._id, IS_SET_DM_DIB)
+        lib.is_SetImageSize(self._hcam, self._width, self._height)
+        lib.is_SetDisplayMode(self._hcam, IS_SET_DM_DIB)
 
     def _allocate_mem_seq(self, num_bufs):
         """
@@ -248,40 +256,40 @@ class UC480_Camera(Camera):
         self.width, self.height = self._get_max_img_size()
 
         # Set the save/display color depth to the current Windows setting
-        lib.is_GetColorDepth(self._id, pointer(self._color_depth), pointer(self._color_mode))
-        lib.is_SetColorMode(self._id, self._color_mode)
+        lib.is_GetColorDepth(self._hcam, pointer(self._color_depth), pointer(self._color_mode))
+        lib.is_SetColorMode(self._hcam, self._color_mode)
 
         self._list_p_img_mem = []
         self._list_memid = []
         for i in range(num_bufs):
             p_img_mem = POINTER(c_char)()
             memid = INT()
-            lib.is_AllocImageMem(self._id, self._width, self._height, self._color_depth,
+            lib.is_AllocImageMem(self._hcam, self._width, self._height, self._color_depth,
                                  pointer(p_img_mem), pointer(memid))
-            lib.is_AddToSequence(self._id, p_img_mem, memid)
+            lib.is_AddToSequence(self._hcam, p_img_mem, memid)
             self._list_p_img_mem.append(p_img_mem)
             self._list_memid.append(memid)
 
         # Initialize display
-        lib.is_SetImageSize(self._id, self._width, self._height)
-        lib.is_SetDisplayMode(self._id, IS_SET_DM_DIB)
+        lib.is_SetImageSize(self._hcam, self._width, self._height)
+        lib.is_SetDisplayMode(self._hcam, IS_SET_DM_DIB)
 
     def _install_event_handler(self):
         import win32event
         self.hEvent = win32event.CreateEvent(None, False, False, '')
-        lib.is_InitEvent(self._id, self.hEvent.handle, IS_SET_EVENT_FRAME)
-        lib.is_EnableEvent(self._id, IS_SET_EVENT_FRAME)
+        lib.is_InitEvent(self._hcam, self.hEvent.handle, IS_SET_EVENT_FRAME)
+        lib.is_EnableEvent(self._hcam, IS_SET_EVENT_FRAME)
 
     def _uninstall_event_handler(self):
-        lib.is_DisableEvent(self._id, IS_SET_EVENT_FRAME)
-        lib.is_ExitEvent(self._id, IS_SET_EVENT_FRAME)
+        lib.is_DisableEvent(self._hcam, IS_SET_EVENT_FRAME)
+        lib.is_ExitEvent(self._hcam, IS_SET_EVENT_FRAME)
 
     def close(self):
         """Close the camera and release associated image memory.
 
         Should be called when you are done using the camera.
         """
-        ret = lib.is_ExitCamera(self._id)
+        ret = lib.is_ExitCamera(self._hcam)
         if ret != IS_SUCCESS:
             print("Failed to close camera")
         else:
@@ -289,10 +297,11 @@ class UC480_Camera(Camera):
 
     def _bytes_per_line(self):
         num = INT()
-        if lib.is_GetImageMemPitch(self._id, pointer(num)) == IS_SUCCESS:
+        ret = lib.is_GetImageMemPitch(self._hcam, pointer(num))
+        if ret == IS_SUCCESS:
             log.debug('bytes_per_line=%d', num.value)
             return num.value
-        return None
+        raise Exception("Return code {}".format(ret))
 
     def wait_for_frame(self, timeout=0):
         import win32event
@@ -305,7 +314,7 @@ class UC480_Camera(Camera):
         Can be used in conjunction with direct memory access to display an
         image without saving it to file.
         """
-        ret = lib.is_FreezeVideo(self._id, self._width, self._height)
+        ret = lib.is_FreezeVideo(self._hcam, self._width, self._height)
         log.debug("FreezeVideo retval=%d", ret)
 
     def start_live_video(self, framerate=None):
@@ -313,16 +322,16 @@ class UC480_Camera(Camera):
         if framerate is None:
             framerate = IS_GET_FRAMERATE
         newFPS = DOUBLE()
-        ret = lib.is_SetFrameRate(self._id, DOUBLE(framerate), pointer(newFPS))
+        ret = lib.is_SetFrameRate(self._hcam, DOUBLE(framerate), pointer(newFPS))
         if ret != IS_SUCCESS:
             print("Error: failed to set framerate")
         else:
             self.framerate = newFPS.value
 
-        lib.is_CaptureVideo(self._id, IS_WAIT)
+        lib.is_CaptureVideo(self._hcam, IS_WAIT)
 
     def stop_live_video(self):
-        lib.is_StopLiveVideo(self._id, IS_WAIT)
+        lib.is_StopLiveVideo(self._hcam, IS_WAIT)
         self._uninstall_event_handler()
 
     def save_frame(self, filename=None, filetype=None, live=False):
@@ -351,13 +360,13 @@ class UC480_Camera(Camera):
         filename = filename + ext if filename else None
 
         if not live:
-            lib.is_FreezeVideo(self._id, self._width, self._height)
-        lib.is_SaveImageEx(self._id, filename, ftype_flag, INT(0))
+            lib.is_FreezeVideo(self._hcam, self._width, self._height)
+        lib.is_SaveImageEx(self._hcam, filename, ftype_flag, INT(0))
 
     def _get_max_img_size(self):
         # TODO: Make this more robust
         sInfo = SENSORINFO()
-        lib.is_GetSensorInfo(self._id, pointer(sInfo))
+        lib.is_GetSensorInfo(self._hcam, pointer(sInfo))
         return sInfo.nMaxWidth, sInfo.nMaxHeight
 
     def _value_getter(member_str):
@@ -369,6 +378,14 @@ class UC480_Camera(Camera):
         def setter(self, value):
             getattr(self, member_str).value = value
         return setter
+
+    def get_ndarray(self):
+        # Currently only supports BGRA8_PACKED and 
+        h = self.height
+        arr = np.frombuffer(self.get_image_buffer(), np.uint8)
+        if self._color_mode.value == IS_CM_BGRA8_PACKED:
+            w = self.bytes_per_line/4
+            return arr.reshape((h,w,4), order='C')[:,:,2::-1]
 
     def get_image_buffer(self):
         bpl = self.bytes_per_line
@@ -389,7 +406,7 @@ class UC480_Camera(Camera):
             nNum = INT()
             pcMem = POINTER(c_char)()
             pcMemLast = POINTER(c_char)()
-            lib.is_GetActSeqBuf(self._id, pointer(nNum), pointer(pcMem), pointer(pcMemLast))
+            lib.is_GetActSeqBuf(self._hcam, pointer(nNum), pointer(pcMem), pointer(pcMemLast))
             return pcMemLast
 
     #: uEye camera ID number. Read-only

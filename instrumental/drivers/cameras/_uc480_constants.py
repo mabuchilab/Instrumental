@@ -198,6 +198,8 @@ IS_DR_DEVICE_CAPS_INSUFFICIENT = 194  # insufficient graphics adapter capabiliti
 IS_INCOMPATIBLE_SETTING = 195  # Operation is not possible because of another incompatible setting
 IS_DR_NOT_ALLOWED_WHILE_DC_IS_ACTIVE = 196  # user App still has DC handle.
 
+ERR_CODES = {k:v for k,v in locals().items() if k.startswith('IS_')}
+ERR_CODE_NAME = {v:k for k,v in ERR_CODES.items()}
 
 # ----------------------------------------------------------------------------
 # display mode selectors
