@@ -338,19 +338,17 @@ class UC480_Camera(Camera):
         if filename is not None:
             filename, ext = os.path.splitext(filename)
             if ext.lower() not in ['.bmp', '.jpg', '.png']:
-                ext = ''
+                ext = '.bmp'
         else:
-            filename, ext = '', ''
+            filename, ext = '', '.bmp'
 
         # 'filetype' flag overrides the extension. Default is .bmp
         if filetype:
             ext = '.' + filetype.lower()
-        elif not ext:
-            ext = '.bmp'
 
         fdict = {'.bmp': IS_IMG_BMP, '.jpg': IS_IMG_JPG, '.png': IS_IMG_PNG}
         ftype_flag = fdict[ext.lower()]
-        filename = filename + ext
+        filename = filename + ext if filename else None
 
         if not live:
             lib.is_FreezeVideo(self._id, self._width, self._height)
