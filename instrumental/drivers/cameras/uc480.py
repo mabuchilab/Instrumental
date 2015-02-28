@@ -7,7 +7,7 @@ possible to implement if desired.
 """
 
 import logging as log
-from ctypes import WinDLL, byref, pointer, POINTER, c_char, c_char_p, cast
+from ctypes import CDLL, WinDLL, byref, pointer, POINTER, c_char, c_char_p, c_wchar_p, cast
 from ctypes.wintypes import DWORD, INT, ULONG, DOUBLE, HWND
 import os.path
 import numpy as np
@@ -17,7 +17,13 @@ from ._uc480_structs import *
 
 HCAM = DWORD
 NULL = POINTER(HWND)()
-lib = WinDLL('uc480_64')
+
+import platform
+if platform.architecture()[0].startswith('64'):
+    lib = WinDLL('uc480_64')
+else:
+    lib = CDLL('uc480')
+
 def errcheck(res, func, args):
     if res != IS_SUCCESS:
         if func == lib.is_SetColorMode and args[1] == IS_GET_COLOR_MODE:
@@ -55,7 +61,7 @@ def _cameras():
     """
     cams = []
     num = INT()
-    if lib.is_GetNumberOfCameras(pointer(num)) == IS_SUCCESS:
+    if lib.is_GetNumberOfCameras(byref(num)) == IS_SUCCESS:
         if num >= 1:
             cam_list = create_camera_list(num)()
             cam_list.dwCount = ULONG(num.value)  # This is stupid
@@ -183,42 +189,38 @@ class UC480_Camera(Camera):
         if ret != IS_SUCCESS:
             print("Failed to set auto exposure property")
 
-    def load_stored_parameters(self, set_num):
-        if set_num in [1, 2]:
-            ret = lib.is_LoadParameters(self._hcam, c_char_p("/cam/set{}".format(set_num)))
-            if ret != IS_SUCCESS:
-                print("Failed to load internally stored parameters")
-            else:
-                # Make sure memory is set up for right color depth
-                depth_map = {
-                    IS_CM_MONO8: 8,
-                    IS_CM_RGBA8_PACKED: 32,
-                    IS_CM_BGRA8_PACKED: 32
-                }
-                mode = lib.is_SetColorMode(self._hcam, IS_GET_COLOR_MODE)
-                depth = depth_map[mode]
-                if depth != self._color_depth.value:
-                    log.debug("Color depth changed from %s to %s",
-                        self._color_depth.value, depth)
-                    self._free_image_mem()
-                    self._allocate_image_mem()
-                self._color_depth = depth
-                self._color_mode = mode
+    def load_params(self, filename=None):
+        if filename is None:
+            cmd = IS_PARAMETERSET_CMD_LOAD_EEPROM
+            param = c_char_p("/cam/set1")
+            size = len(param.value)
         else:
-            print("set_num must be either 1 or 2")
+            cmd = IS_PARAMETERSET_CMD_LOAD_FILE
+            param = c_wchar_p(filename)
+            size = len(param.value)
 
-    def load_parameter_file(self, filename=None):
-        if not filename:
-            ptr = NULL
+        ret = lib.is_ParameterSet(self._hcam, cmd, param, size)
+        if ret == IS_INVALID_CAMERA_TYPE:
+            raise Exception(".ini file does not match the camera model")
+        elif ret != IS_SUCCESS:
+            if filename != '':
+                raise Exception("Failed to load parameter file")
         else:
-            ptr = c_char_p(filename)
-        ret = lib.is_LoadParameters(self._hcam, ptr)
-        if ret != IS_SUCCESS:
-            print("Failed to load parameter file")
-        else:
-            # Reset original display color mode
-            lib.is_GetColorDepth(self._hcam, pointer(self._color_depth), pointer(self._color_mode))
-            lib.is_SetColorMode(self._hcam, self._color_mode)
+            # Make sure memory is set up for right color depth
+            depth_map = {
+                IS_CM_MONO8: 8,
+                IS_CM_RGBA8_PACKED: 32,
+                IS_CM_BGRA8_PACKED: 32
+            }
+            mode = lib.is_SetColorMode(self._hcam, IS_GET_COLOR_MODE)
+            depth = depth_map[mode]
+            if depth != self._color_depth.value:
+                log.debug("Color depth changed from %s to %s",
+                    self._color_depth.value, depth)
+                self._free_image_mem()
+                self._color_depth = INT(depth)
+                self._allocate_image_mem()
+            self._color_mode = INT(mode)
 
     def __enter__(self):
         return self
@@ -267,7 +269,7 @@ class UC480_Camera(Camera):
         """
         Create and set the image memory.
         """
-        log.debug("Allocating image memory")
+        log.debug("Allocating image memory with depth: {}".format(self._color_depth.value))
         self._p_img_mem = POINTER(c_char)()
         self._memid = INT()
 
