@@ -463,3 +463,13 @@ IS_GET_EXPOSURE_MIN_VALUE = 0x8002
 IS_GET_EXPOSURE_MAX_VALUE = 0x8003
 IS_GET_EXPOSURE_INCREMENT = 0x8004
 IS_GET_EXPOSURE_FINE_INCREMENT = 0x8005
+
+
+
+# ----------------------------------------------------------------------------
+# Color modes
+# ----------------------------------------------------------------------------
+IS_COLORMODE_INVALID = 0
+IS_COLORMODE_MONOCHROME = 1
+IS_COLORMODE_BAYER = 2
+IS_COLORMODE_CBYCRY = 4

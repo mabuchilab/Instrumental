@@ -20,10 +20,14 @@ NULL = POINTER(HWND)()
 lib = WinDLL('uc480_64')
 def errcheck(res, func, args):
     if res != IS_SUCCESS:
-        raise Exception("uEye Error: {}".format(ERR_CODE_NAME[res]))
+        if func == lib.is_SetColorMode and args[1] == IS_GET_COLOR_MODE:
+            pass
+        else:
+            raise Exception("uEye Error: {}".format(ERR_CODE_NAME[res]))
     return res
 lib.is_InitCamera.errcheck = errcheck
 lib.is_GetImageMemPitch.errcheck = errcheck
+lib.is_SetColorMode.errcheck = errcheck
 from .. import InstrumentTypeError, InstrumentNotFoundError, _ParamDict
 
 
@@ -37,7 +41,7 @@ def _instrument(params):
         d['serial'] = 'cam_serial'
     if not d:
         raise InstrumentTypeError()
-    
+
     return UC480_Camera(**d)
 
 
@@ -185,10 +189,21 @@ class UC480_Camera(Camera):
             if ret != IS_SUCCESS:
                 print("Failed to load internally stored parameters")
             else:
-                # Reset original display color mode
-                lib.is_GetColorDepth(self._hcam, pointer(self._color_depth),
-                                     pointer(self._color_mode))
-                lib.is_SetColorMode(self._hcam, self._color_mode)
+                # Make sure memory is set up for right color depth
+                depth_map = {
+                    IS_CM_MONO8: 8,
+                    IS_CM_RGBA8_PACKED: 32,
+                    IS_CM_BGRA8_PACKED: 32
+                }
+                mode = lib.is_SetColorMode(self._hcam, IS_GET_COLOR_MODE)
+                depth = depth_map[mode]
+                if depth != self._color_depth.value:
+                    log.debug("Color depth changed from %s to %s",
+                        self._color_depth.value, depth)
+                    self._free_image_mem()
+                    self._allocate_image_mem()
+                self._color_depth = depth
+                self._color_mode = mode
         else:
             print("set_num must be either 1 or 2")
 
@@ -217,27 +232,44 @@ class UC480_Camera(Camera):
         """
         self._hcam = HCAM(self._id)
         ret = lib.is_InitCamera(byref(self._hcam), NULL)
-        print(self._hcam, self._id)
         if ret != IS_SUCCESS:
             print("Failed to open camera")
         else:
             self._in_use = True
+            self.width, self.height = self._get_max_img_size()
+            log.debug('image width=%d, height=%d', self.width, self.height)
+
+            self._init_colormode()
+
             if num_bufs == 1:
                 self._allocate_image_mem()
             else:
                 self._allocate_mem_seq(num_bufs)
 
+    def _init_colormode(self):
+        log.debug("Initializing default color mode")
+        sensor_mode = self._get_sensor_color_mode()
+        mode_map = {
+            IS_COLORMODE_MONOCHROME: (IS_CM_MONO8, 8),
+            IS_COLORMODE_BAYER: (IS_CM_RGBA8_PACKED, 32)
+        }
+        try:
+            mode, depth = mode_map[sensor_mode]
+        except KeyError:
+            raise Exception("Currently unsupported sensor color mode!")
+
+        self._color_mode, self._color_depth = DWORD(mode), DWORD(depth)
+        log.debug('color_depth=%d, color_mode=%d', depth, mode)
+
+        lib.is_SetColorMode(self._hcam, self._color_mode)
+
     def _allocate_image_mem(self):
         """
         Create and set the image memory.
         """
-        self.width, self.height = self._get_max_img_size()
-        log.debug('image width=%d, height=%d', self.width, self.height)
-
-        # Set the save/display color depth to the current Windows setting
-        lib.is_GetColorDepth(self._hcam, pointer(self._color_depth), pointer(self._color_mode))
-        lib.is_SetColorMode(self._hcam, self._color_mode)
-        log.debug('color_depth=%d, color_mode=%d', self._color_depth.value, self._color_mode.value)
+        log.debug("Allocating image memory")
+        self._p_img_mem = POINTER(c_char)()
+        self._memid = INT()
 
         # Allocate and set memory
         lib.is_AllocImageMem(self._hcam, self._width, self._height, self._color_depth,
@@ -249,16 +281,23 @@ class UC480_Camera(Camera):
         lib.is_SetImageSize(self._hcam, self._width, self._height)
         lib.is_SetDisplayMode(self._hcam, IS_SET_DM_DIB)
 
+    def _free_image_mem(self):
+        log.debug("Freeing image memory")
+        lib.is_FreeImageMem(self._hcam, self._p_img_mem, self._memid)
+        self._p_img_mem = None
+        self._memid = None
+
+    def _free_image_mem_seq(self):
+        lib.is_ClearSequence(self._hcam)
+        for p_img_mem, memid in zip(self._list_p_img_mem, self._list_memid):
+            lib.is_FreeImageMem(self._hcam, p_img_Mem, memid)
+        self._list_p_img_mem = None
+        self._list_memid = None
+
     def _allocate_mem_seq(self, num_bufs):
         """
         Create and setup the image memory for live capture
         """
-        self.width, self.height = self._get_max_img_size()
-
-        # Set the save/display color depth to the current Windows setting
-        lib.is_GetColorDepth(self._hcam, pointer(self._color_depth), pointer(self._color_mode))
-        lib.is_SetColorMode(self._hcam, self._color_mode)
-
         self._list_p_img_mem = []
         self._list_memid = []
         for i in range(num_bufs):
@@ -366,8 +405,13 @@ class UC480_Camera(Camera):
     def _get_max_img_size(self):
         # TODO: Make this more robust
         sInfo = SENSORINFO()
-        lib.is_GetSensorInfo(self._hcam, pointer(sInfo))
+        lib.is_GetSensorInfo(self._hcam, byref(sInfo))
         return sInfo.nMaxWidth, sInfo.nMaxHeight
+
+    def _get_sensor_color_mode(self):
+        sInfo = SENSORINFO()
+        lib.is_GetSensorInfo(self._hcam, byref(sInfo))
+        return int(sInfo.nColorMode.encode('hex'), 16)
 
     def _value_getter(member_str):
         def getter(self):
@@ -380,12 +424,17 @@ class UC480_Camera(Camera):
         return setter
 
     def get_ndarray(self):
-        # Currently only supports BGRA8_PACKED and 
+        # Currently only supports MONO8 and RGBA8_PACKED
         h = self.height
         arr = np.frombuffer(self.get_image_buffer(), np.uint8)
-        if self._color_mode.value == IS_CM_BGRA8_PACKED:
+
+        if self._color_mode.value == IS_CM_RGBA8_PACKED:
             w = self.bytes_per_line/4
-            return arr.reshape((h,w,4), order='C')[:,:,2::-1]
+            arr = arr.reshape((h,w,4), order='C')[:,:,2::-1]
+        elif self._color_mode.value == IS_CM_MONO8:
+            w = self.bytes_per_line
+            arr = arr.reshape((h,w), order='C')
+        return arr
 
     def get_image_buffer(self):
         bpl = self.bytes_per_line
