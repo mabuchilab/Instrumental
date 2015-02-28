@@ -172,8 +172,6 @@ class UC480_Camera(Camera):
         self._width, self._height = INT(), INT()
         self._color_depth = INT()
         self._color_mode = INT()
-        self._p_img_mem = POINTER(c_char)()  # Never directly modify this pointer!
-        self._memid = INT()
         self._list_p_img_mem = None
         self._list_memid = None
 
@@ -217,9 +215,9 @@ class UC480_Camera(Camera):
             if depth != self._color_depth.value:
                 log.debug("Color depth changed from %s to %s",
                     self._color_depth.value, depth)
-                self._free_image_mem()
+                self._free_image_mem_seq()
                 self._color_depth = INT(depth)
-                self._allocate_image_mem()
+                self._allocate_image_mem_seq()
             self._color_mode = INT(mode)
 
     def __enter__(self):
@@ -242,11 +240,7 @@ class UC480_Camera(Camera):
             log.debug('image width=%d, height=%d', self.width, self.height)
 
             self._init_colormode()
-
-            if num_bufs == 1:
-                self._allocate_image_mem()
-            else:
-                self._allocate_mem_seq(num_bufs)
+            self._allocate_mem_seq(num_bufs)
 
     def _init_colormode(self):
         log.debug("Initializing default color mode")
@@ -264,30 +258,6 @@ class UC480_Camera(Camera):
         log.debug('color_depth=%d, color_mode=%d', depth, mode)
 
         lib.is_SetColorMode(self._hcam, self._color_mode)
-
-    def _allocate_image_mem(self):
-        """
-        Create and set the image memory.
-        """
-        log.debug("Allocating image memory with depth: {}".format(self._color_depth.value))
-        self._p_img_mem = POINTER(c_char)()
-        self._memid = INT()
-
-        # Allocate and set memory
-        lib.is_AllocImageMem(self._hcam, self._width, self._height, self._color_depth,
-                             pointer(self._p_img_mem), pointer(self._memid))
-        lib.is_SetImageMem(self._hcam, self._p_img_mem, self._memid)
-        log.debug("Image memory allocated and set")
-
-        # Initialize display
-        lib.is_SetImageSize(self._hcam, self._width, self._height)
-        lib.is_SetDisplayMode(self._hcam, IS_SET_DM_DIB)
-
-    def _free_image_mem(self):
-        log.debug("Freeing image memory")
-        lib.is_FreeImageMem(self._hcam, self._p_img_mem, self._memid)
-        self._p_img_mem = None
-        self._memid = None
 
     def _free_image_mem_seq(self):
         lib.is_ClearSequence(self._hcam)
@@ -449,16 +419,11 @@ class UC480_Camera(Camera):
     def _last_img_mem(self):
         """ Returns a ctypes char-pointer to the starting address of the image memory
         last used for image capturing """
-        if self._list_p_img_mem is None:
-            # Just using a single image buffer
-            return self._p_img_mem
-        else:
-            # Using a buffer sequence
-            nNum = INT()
-            pcMem = POINTER(c_char)()
-            pcMemLast = POINTER(c_char)()
-            lib.is_GetActSeqBuf(self._hcam, pointer(nNum), pointer(pcMem), pointer(pcMemLast))
-            return pcMemLast
+        nNum = INT()
+        pcMem = POINTER(c_char)()
+        pcMemLast = POINTER(c_char)()
+        lib.is_GetActSeqBuf(self._hcam, pointer(nNum), pointer(pcMem), pointer(pcMemLast))
+        return pcMemLast
 
     #: uEye camera ID number. Read-only
     id = property(lambda self: self._id)
