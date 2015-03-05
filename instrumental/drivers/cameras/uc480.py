@@ -39,12 +39,11 @@ from .. import InstrumentTypeError, InstrumentNotFoundError, _ParamDict
 
 def _instrument(params):
     """ Possible params include 'ueye_cam_id', 'cam_serial'"""
-    print("Checking uc480...")
     d = {}
     if 'ueye_cam_id' in params:
-        d['id'] = 'ueye_cam_id'
+        d['id'] = params['ueye_cam_id']
     if 'cam_serial' in params:
-        d['serial'] = 'cam_serial'
+        d['serial'] = params['cam_serial']
     if not d:
         raise InstrumentTypeError()
 
@@ -153,7 +152,7 @@ class UC480_Camera(Camera):
         if id is not None:
             params['ueye_cam_id'] = id
         if serial is not None:
-            params['serial'] = serial
+            params['cam_serial'] = serial
 
         if params:
             params = _get_legit_params(params)
@@ -426,7 +425,7 @@ class UC480_Camera(Camera):
         ftype_flag = fdict[ext.lower()]
         filename = filename + ext if filename else None
 
-        if not live:
+        if freeze:
             lib.is_FreezeVideo(self._hcam, self._width, self._height)
         lib.is_SaveImageEx(self._hcam, filename, ftype_flag, INT(0))
 
