@@ -140,7 +140,7 @@ class UC480_Camera(Camera):
         by using the constructor as a context manager, e.g.
 
             with UC480_Camera(id=1) as cam:
-                cam.save_frame('image.jpg')
+                cam.save_image('image.jpg')
 
         Parameters
         ----------
@@ -174,6 +174,7 @@ class UC480_Camera(Camera):
         self._color_mode = INT()
         self._list_p_img_mem = None
         self._list_memid = None
+        self.is_live = False
 
         self._open()
 
@@ -182,12 +183,22 @@ class UC480_Camera(Camera):
             self.close()  # In case someone forgot to close()
 
     def set_auto_exposure(self, enable=True):
+        """Enable or disable the auto exposure shutter."""
         ret = lib.is_SetAutoParameter(self._hcam, IS_SET_ENABLE_AUTO_SHUTTER,
                                       pointer(INT(enable)), NULL)
         if ret != IS_SUCCESS:
             print("Failed to set auto exposure property")
 
     def load_params(self, filename=None):
+        """Load camera parameters from file or EEPROM.
+
+        Parameters
+        ----------
+        filename : str, optional
+            By default, loads the parameters from the camera's EEPROM. Otherwise,
+            loads it from the specified parameter file. If filename is the empty
+            string '', will open a 'Load' dialog to select the file.
+        """
         if filename is None:
             cmd = IS_PARAMETERSET_CMD_LOAD_EEPROM
             param = c_char_p("/cam/set1")
@@ -286,7 +297,10 @@ class UC480_Camera(Camera):
         lib.is_SetDisplayMode(self._hcam, IS_SET_DM_DIB)
 
     def _install_event_handler(self):
-        import win32event
+        try:
+            import win32event
+        except ImportError:
+            raise ImportError("Live video events require the win32event module")
         self.hEvent = win32event.CreateEvent(None, False, False, '')
         lib.is_InitEvent(self._hcam, self.hEvent.handle, IS_SET_EVENT_FRAME)
         lib.is_EnableEvent(self._hcam, IS_SET_EVENT_FRAME)
@@ -298,7 +312,9 @@ class UC480_Camera(Camera):
     def close(self):
         """Close the camera and release associated image memory.
 
-        Should be called when you are done using the camera.
+        Should be called when you are done using the camera. Alternatively, you
+        can use the camera as a context manager--see the documentation for
+        __init__.
         """
         ret = lib.is_ExitCamera(self._hcam)
         if ret != IS_SUCCESS:
@@ -315,7 +331,23 @@ class UC480_Camera(Camera):
         raise Exception("Return code {}".format(ret))
 
     def wait_for_frame(self, timeout=0):
-        import win32event
+        """ Wait for FRAME event to be signaled. 
+            
+            Parameters
+            ----------
+            timeout : int, optional
+                How long to wait for event to be signaled. If timeout is 0,
+                this polls the event status and reterns immediately.
+
+            Returns
+            -------
+            bool
+                Whether FRAME event was signaled.
+        """
+        try:
+            import win32event
+        except ImportError:
+            raise ImportError("Live video events require the win32event module")
         ret = win32event.WaitForSingleObject(self.hEvent, timeout)
         return (ret == win32event.WAIT_OBJECT_0)
 
@@ -329,6 +361,14 @@ class UC480_Camera(Camera):
         log.debug("FreezeVideo retval=%d", ret)
 
     def start_live_video(self, framerate=None):
+        """Start live video capture.
+        
+        Parameters
+        ----------
+        framerate : float, optional
+            Desired framerate. The true framerate that results can be found in
+            the ``framerate`` attribute.
+        """
         self._install_event_handler()
         if framerate is None:
             framerate = IS_GET_FRAMERATE
@@ -340,19 +380,35 @@ class UC480_Camera(Camera):
             self.framerate = newFPS.value
 
         lib.is_CaptureVideo(self._hcam, IS_WAIT)
+        self.is_live = True
 
     def stop_live_video(self):
+        """Stop live video capture."""
         lib.is_StopLiveVideo(self._hcam, IS_WAIT)
         self._uninstall_event_handler()
+        self.is_live = False
 
-    def save_frame(self, filename=None, filetype=None, live=False):
+    def save_image(self, filename=None, filetype=None, freeze=None):
         """Save the current video image to disk.
 
         If no filename is given, this will display the 'Save as' dialog. If no
         filetype is given, it will be determined by the extension of the
         filename, if available.  If neither exists, the image will be saved as
         a bitmap (BMP) file.
+
+        Parameters
+        ----------
+        filename : str, optional
+            Filename to save image as. If not given, 'Save as' dialog will open.
+        filetype : str, optional
+            Filetype to save image as, e.g. 'bmp'. Useful for setting the
+            default filetype in the 'Save as' dialog.
+        freeze : bool, optional
+            Freeze a frame before copying data. By default, freezes when not in
+            live capture mode.
         """
+        if freeze is None:
+            freeze = not self.is_live
 
         # Strip extension from filename, clear extension if it is invalid
         if filename is not None:
@@ -395,20 +451,51 @@ class UC480_Camera(Camera):
             getattr(self, member_str).value = value
         return setter
 
-    def get_ndarray(self):
+    def image_ndarray(self, freeze=True):
+        """ Get an ndarray of the data in the active image memory.
+
+        The array's shape depends on the camera's color mode. Monochrome modes
+        return an array with shape (height, width), while camera modes return
+        an array with shape (height, width, 3) where the last axis contains the
+        RGB channels in that order.
+
+        This format is useful for sending to matplotlib's ``imshow()``
+        function::
+
+            >>> ...
+            >>> import matplotlib.pyplot as plt
+            >>> cam.freeze_frame()
+            >>> plt.imshow(cam.image_ndarray())
+            >>> plt.show()
+
+        Parameters
+        ----------
+        freeze : bool, optional
+            Freeze a frame before copying data. By default, freezes when not in
+            live capture mode.
+        """
         # Currently only supports MONO8 and RGBA8_PACKED
+        if (not self.is_live if freeze is None else freeze):
+            lib.is_FreezeVideo(self._hcam, self._width, self._height)
+
         h = self.height
-        arr = np.frombuffer(self.get_image_buffer(), np.uint8)
+        arr = np.frombuffer(self.image_buffer(), np.uint8)
 
         if self._color_mode.value == IS_CM_RGBA8_PACKED:
+            w = self.bytes_per_line/4
+            arr = arr.reshape((h,w,4), order='C')
+        elif self._color_mode.value == IS_CM_BGRA8_PACKED:
             w = self.bytes_per_line/4
             arr = arr.reshape((h,w,4), order='C')[:,:,2::-1]
         elif self._color_mode.value == IS_CM_MONO8:
             w = self.bytes_per_line
             arr = arr.reshape((h,w), order='C')
+        else:
+            raise Exception("Unsupported color mode!")
         return arr
 
-    def get_image_buffer(self):
+    def image_buffer(self):
+        """ Get a buffer of the active image memory's bytes. """
         bpl = self.bytes_per_line
 
         # Create a pointer to the data as a CHAR ARRAY so we can convert it to a buffer
@@ -445,6 +532,5 @@ class UC480_Camera(Camera):
 
 
 if __name__ == '__main__':
-    cam = _get_camera(serial='4002856484')
-    cam.save_frame('cool.jpg')
-    cam.close()
+    with UC480_Camera(serial='4002856484') as cam:
+        cam.save_image('cool.jpg')
