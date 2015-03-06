@@ -148,7 +148,15 @@ def list_instruments():
     [<NIDAQ 'Dev1'>, <TEKTRONIX 'TDS 3032'>, <TEKTRONIX 'AFG3021B'>]
     >>> inst = instrument(inst_list[0])
     """
-    inst_list = list_visa_instruments()
+    try:
+        from .. import visa
+        try:
+            inst_list = list_visa_instruments()
+        except visa.VisaIOError:
+            # Hide visa errors
+            inst_list = []
+    except ImportError:
+        pass
 
     for mod_name in _acceptable_params:
         try:
