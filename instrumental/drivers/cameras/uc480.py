@@ -1,5 +1,5 @@
-# -*- coding: utf-8  -*-
-# Copyright 2013-2014 Nate Bogdanowicz
+# -*- coding: utf-8 -*-
+# Copyright 2013-2015 Nate Bogdanowicz
 """
 Driver for Thorlabs DCx cameras. May be compatible with iDS cameras that use
 uEye software. Currently Windows-only, but Linux support should be
@@ -138,8 +138,8 @@ class UC480_Camera(Camera):
         user is responsible for closing it. You can do this via ``close()`` or
         by using the constructor as a context manager, e.g.
 
-            with UC480_Camera(id=1) as cam:
-                cam.save_image('image.jpg')
+            >>> with UC480_Camera(id=1) as cam:
+            >>>     cam.save_image('image.jpg')
 
         Parameters
         ----------
@@ -162,6 +162,11 @@ class UC480_Camera(Camera):
             if not param_list:
                 raise Exception("No uEye cameras attached!")
             params = param_list[0]
+
+        # For saving
+        self._param_dict = params
+        self._param_dict.module = 'cameras.uc480'
+        self._param_dict['module'] = 'cameras.uc480'
 
         self._id = int(params['ueye_cam_id'])
         self._serial = params['cam_serial']

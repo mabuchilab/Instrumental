@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014 Nate Bogdanowicz
+# Copyright 2015 Nate Bogdanowicz
 """
 Driver module for NI-DAQmx-supported hardware.
 """
@@ -788,6 +788,11 @@ class NIDAQ(DAQ):
         self._load_analog_channels()
         self._load_digital_ports()
         self.mx = mx
+
+        self._param_dict = _ParamDict("<NIDAQ '{}'>".format(dev_name))
+        self._param_dict.module = 'daq.ni'
+        self._param_dict['nidaq_devname'] = dev_name
+        self._param_dict['module'] = 'daq.ni'
 
     def _load_analog_channels(self):
         for ai_name in self.get_AI_channels():

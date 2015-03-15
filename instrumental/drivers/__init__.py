@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2014 Nate Bogdanowicz
+# Copyright 2013-2015 Nate Bogdanowicz
 
+import re
 import socket
 from importlib import import_module
 
@@ -54,6 +55,9 @@ class _ParamDict(dict):
     def __repr__(self):
         return self.__str__()
 
+    def to_ini(self, name):
+        return '{} = {}'.format(name, dict(self))
+
 
 class InstrumentTypeError(Exception):
     pass
@@ -67,7 +71,82 @@ class Instrument(object):
     """
     Base class for all instruments.
     """
-    pass
+    def save_instrument(self, name, force=False):
+        from datetime import datetime
+        import os
+        import os.path
+        conf.load_config_file() # Reload latest version
+
+        if name in conf.instruments.keys():
+            if not force:
+                raise Exception("An entry already exists for '{}'!".format(name))
+            else:
+                import warnings
+                warnings.warn("Commenting out existing entry for '{}'".format(name))
+
+        try:
+            pdict = self._param_dict
+        except AttributeError:
+            raise NotImplementedError("Class '{}' does not yet support saving")
+
+        date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        new_entry = '\n# Entry auto-created ' + date_str + '\n' + pdict.to_ini(name) + '\n'
+        old_fname = os.path.join(conf.data_dir, 'instrumental.conf')
+        new_fname = os.path.join(conf.data_dir, 'instrumental_new.conf')
+        bak_fname = os.path.join(conf.data_dir, 'instrumental.conf.bak')
+
+        with open(old_fname, 'r') as old, open(new_fname, 'w') as new:
+            in_section = False
+            num_trailing = 0
+            for line in old:
+                if in_section:
+                    if re.split(':|=', line)[0].strip() == name:
+                        # Comment out existing version of this entry
+                        line = '# [{} Auto-commented duplicate] '.format(date_str) + line
+
+                    if line.startswith('['):
+                        # We found the start of the *next* section
+                        in_section = False
+                        for l in lines[:len(lines)-num_trailing]:
+                            new.write(l)
+
+                        new.write(new_entry)
+
+                        # Write original trailing space and new section header
+                        for l in lines[len(lines)-num_trailing:]:
+                            new.write(l)
+                        new.write(line)
+                    else:
+                        lines.append(line)
+                        if not line.strip():
+                            num_trailing += 1
+                        else:
+                            num_trailing = 0
+                else:
+                    new.write(line)
+
+                if line.startswith('[instruments]'):
+                    in_section = True
+                    lines = []
+
+            if in_section:
+                # File ended before we saw a new section
+                for l in lines[:len(lines)-num_trailing]:
+                    new.write(l)
+
+                new.write(new_entry)
+
+                # Write original trailing space
+                for l in lines[len(lines)-num_trailing:]:
+                    new.write(l)
+        
+        if os.path.exists(bak_fname):
+            os.remove(bak_fname)
+        os.rename(old_fname, bak_fname)
+        os.rename(new_fname, old_fname)
+
+        # Reload newly modified file
+        conf.load_config_file()
 
 
 def _find_visa_inst_type(manufac, model):
@@ -171,6 +250,10 @@ def list_instruments():
             # Module doesn't have a list_instruments() function
             continue
     return inst_list
+
+
+def saved_instruments():
+    return conf.instruments.keys()
 
 
 def _get_visa_instrument(params):

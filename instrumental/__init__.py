@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2014 Nate Bogdanowicz
+# Copyright 2013-2015 Nate Bogdanowicz
 
 
 import sys
@@ -24,14 +24,16 @@ Q_ = u.Quantity
 # Import mapping to objects in other modules
 all_by_module = {
     'instrumental.fitting': ['guided_trace_fit', 'guided_ringdown_fit'],
-    'instrumental.drivers': ['instrument', 'list_instruments', 'list_visa_instruments'],
+    'instrumental.drivers': ['instrument', 'list_instruments',
+                             'list_visa_instruments', 'saved_instruments'],
     'instrumental.tools': ['fit_scan', 'fit_ringdown'],
     'instrumental.optics.beam_plotting': ['plot_profile'],
     'instrumental.optics.beam_tools': ['find_cavity_modes', 'get_zR',
                                        'get_w0', 'get_z0', 'beam_profile',
                                        'beam_roc', 'get_profiles'],
     'instrumental.optics.optical_elements': ['ABCD', 'Space', 'Lens',
-                                             'Mirror', 'Interface']
+                                             'Mirror', 'Interface'],
+    'instrumental.conf': ['load_config_file']
 }
 
 # Modules that should be imported when accessed as attributes of instrumental
