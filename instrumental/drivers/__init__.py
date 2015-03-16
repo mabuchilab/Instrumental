@@ -11,6 +11,8 @@ from .. import conf
 _acceptable_params = {
     'cameras.uc480':
         ['ueye_cam_id', 'cam_serial'],
+    'cameras.pvcam':
+        ['pvcam_name', 'module'],
     'daq.ni':
         ['nidaq_devname'],
     'funcgenerators.tektronix':
