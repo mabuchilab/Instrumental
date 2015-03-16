@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014 Nate Bogdanowicz
+# Copyright 2014-2015 Nate Bogdanowicz
 """
 Module that fakes a local VISA library and PyVISA by talking to a remote server.
 """
@@ -10,6 +10,7 @@ import socket
 import json
 
 from messenger import Messenger
+from ..errors import ConfigError
 from .. import conf
 
 # Create socket immediately upon module import
@@ -20,7 +21,7 @@ _connected = False
 try:
     host, port = conf.prefs['default_server'].split(':')
 except KeyError:
-    raise Exception("Error: No default fakevisa server specified in the instrumental.conf")
+    raise ConfigError("Error: No default fakevisa server specified in the instrumental.conf")
 
 messenger = Messenger(sock)
 

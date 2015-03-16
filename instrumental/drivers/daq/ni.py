@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015 Nate Bogdanowicz
+# Copyright 2014-2015 Nate Bogdanowicz
 """
 Driver module for NI-DAQmx-supported hardware.
 """
@@ -12,7 +12,8 @@ import PyDAQmx as mx
 
 from instrumental import Q_
 from . import DAQ
-from .. import InstrumentTypeError, _ParamDict
+from .. import _ParamDict
+from ...errors import InstrumentTypeError
 
 
 def _handle_timing_params(duration, fsamp, n_samples):

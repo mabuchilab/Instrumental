@@ -6,6 +6,7 @@ import socket
 from importlib import import_module
 
 from .. import conf
+from ..errors import InstrumentTypeError, InstrumentNotFoundError, ConfigError
 
 # Listing of acceptable parameters for each driver module
 _acceptable_params = {
@@ -59,14 +60,6 @@ class _ParamDict(dict):
 
     def to_ini(self, name):
         return '{} = {}'.format(name, dict(self))
-
-
-class InstrumentTypeError(Exception):
-    pass
-
-
-class InstrumentNotFoundError(Exception):
-    pass
 
 
 class Instrument(object):
@@ -234,10 +227,9 @@ def list_instruments():
         try:
             inst_list = list_visa_instruments()
         except visa.VisaIOError:
-            # Hide visa errors
-            inst_list = []
-    except ImportError:
-        pass
+            inst_list = []  # Hide visa errors
+    except (ImportError, ConfigError):
+        inst_list = []  # Ignore if (Fake)VISA not installed or configured
 
     for mod_name in _acceptable_params:
         try:
