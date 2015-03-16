@@ -8,6 +8,7 @@ import os.path
 import numpy as np
 from cffi import FFI
 import pvcam_headers
+from . import Camera
 from .. import InstrumentTypeError, InstrumentNotFoundError, _ParamDict
 
 __all__ = ['PVCam']
@@ -113,7 +114,7 @@ for func_name in pv_funcs:
     setattr(pv, func_name, err_wrap(func))
 
 
-class PVCam(object):
+class PVCam(Camera):
     num_cams_open = 0
 
     def __init__(self, name=''):
@@ -132,6 +133,12 @@ class PVCam(object):
         self.hcam = hcam_p[0]
         self.seq_is_set_up = False
         PVCam.num_cams_open += 1
+
+        # For saving
+        self._param_dict = _ParamDict("<PVCam '{}'>".format(name))
+        self._param_dict.module = 'cameras.pvcam'
+        self._param_dict['module'] = 'cameras.pvcam'
+        self._param_dict['pvcam_name'] = ffi.string(cam_name)
 
     def __enter__(self):
         return self
