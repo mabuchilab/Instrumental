@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014 Nate Bogdanowicz
+# Copyright 2014-2015 Nate Bogdanowicz
 """
 Driver module for Thorlabs power meters. Supports:
 
@@ -7,7 +7,8 @@ Driver module for Thorlabs power meters. Supports:
 """
 
 from . import PowerMeter
-from .. import InstrumentTypeError, _get_visa_instrument
+from .. import _get_visa_instrument
+from ...errors import InstrumentTypeError
 from ... import Q_
 
 

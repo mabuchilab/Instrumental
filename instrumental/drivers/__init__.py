@@ -6,6 +6,7 @@ import socket
 from importlib import import_module
 
 from .. import conf
+from ..errors import InstrumentTypeError, InstrumentNotFoundError
 
 # Listing of acceptable parameters for each driver module
 _acceptable_params = {
@@ -57,14 +58,6 @@ class _ParamDict(dict):
 
     def to_ini(self, name):
         return '{} = {}'.format(name, dict(self))
-
-
-class InstrumentTypeError(Exception):
-    pass
-
-
-class InstrumentNotFoundError(Exception):
-    pass
 
 
 class Instrument(object):

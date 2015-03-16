@@ -34,7 +34,8 @@ def errcheck(res, func, args):
 lib.is_InitCamera.errcheck = errcheck
 lib.is_GetImageMemPitch.errcheck = errcheck
 lib.is_SetColorMode.errcheck = errcheck
-from .. import InstrumentTypeError, InstrumentNotFoundError, _ParamDict
+from .. import _ParamDict
+from ...errors import InstrumentTypeError, InstrumentNotFoundError
 
 
 def _instrument(params):

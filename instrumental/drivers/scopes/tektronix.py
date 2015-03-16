@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2014 Nate Bogdanowicz
+# Copyright 2013-2015 Nate Bogdanowicz
 """
 Driver module for Tektronix oscilloscopes. Currently supports
 
@@ -11,8 +11,8 @@ import numpy as np
 from instrumental import u, Q_
 from . import Scope
 from .. import _get_visa_instrument
-from .. import InstrumentTypeError
 from ... import visa
+from ...errors import InstrumentTypeError
 
 _tds_3000_models = ['TDS 3032', 'TDS 3034B']
 _mso_dpo_4000_models = ['MSO4034', 'DPO4034']

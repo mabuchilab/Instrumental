@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014 Nate Bogdanowicz
+# Copyright 2014-2015 Nate Bogdanowicz
 """
 Driver module for Tektronix function generators. Currently supports:
 
@@ -10,7 +10,7 @@ import numpy as np
 from instrumental import u, Q_
 from . import FunctionGenerator
 from .. import _get_visa_instrument
-from .. import InstrumentTypeError
+from ...errors import InstrumentTypeError
 
 AFG_3000_models = ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102',
                    'AFG3251', 'AFG3252']
