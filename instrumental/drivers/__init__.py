@@ -67,6 +67,18 @@ class Instrument(object):
     Base class for all instruments.
     """
     def save_instrument(self, name, force=False):
+        """ Save an entry for this instrument in the config file.
+
+        Parameters
+        ----------
+        name : str
+            The name to give the instrument, e.g. 'myCam'
+        force : bool, optional
+            Force overwrite of the old entry for instrument `name`. By default,
+            Instrumental will raise an exception if you try to write to a name
+            that's already taken. If `force` is True, the old entry will be
+            commented out (with a warning given) and a new entry will be written.
+        """
         from datetime import datetime
         import os
         import os.path
