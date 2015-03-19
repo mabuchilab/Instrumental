@@ -7,14 +7,14 @@ Driver for Photometrics cameras.
 import os.path
 import numpy as np
 from cffi import FFI
-import pvcam_headers
+from ._pvcam import macros
 from . import Camera
 from .. import InstrumentTypeError, InstrumentNotFoundError, _ParamDict
 
 __all__ = ['PVCam']
 
 ffi = FFI()
-with open(os.path.join(os.path.dirname(__file__), 'pvcam_clean.h')) as f:
+with open(os.path.join(os.path.dirname(__file__), '_pvcam', 'pvcam_clean.h')) as f:
     ffi.cdef(f.read())
 lib = ffi.dlopen('Pvcam32')
 
@@ -83,9 +83,9 @@ pv_funcs = [
 ]
 
 # Include macro-constants from headers
-for name in dir(pvcam_headers):
+for name in dir(macros):
     if not name.startswith('__'):
-        setattr(pv, name, getattr(pvcam_headers, name))
+        setattr(pv, name, getattr(macros, name))
 
 # Include enums from CFFI library version of headers
 # for some reason, enums aren't available until after first dir()...
