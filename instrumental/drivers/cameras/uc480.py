@@ -12,8 +12,8 @@ from ctypes.wintypes import DWORD, INT, ULONG, DOUBLE, HWND
 import os.path
 import numpy as np
 from . import Camera
-from ._uc480_constants import *
-from ._uc480_structs import *
+from ._uc480.constants import *
+from ._uc480.structs import *
 
 HCAM = DWORD
 NULL = POINTER(HWND)()
