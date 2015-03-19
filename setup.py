@@ -10,6 +10,7 @@ if __name__ == '__main__':
         name = name,
         version = version,
         packages = find_packages(),
+        package_data = {'': ['*.h', '*/*.h']},
         author = author,
         author_email = "natezb@stanford.edu",
         description = description,

@@ -12,6 +12,8 @@ from ..errors import InstrumentTypeError, InstrumentNotFoundError, ConfigError
 _acceptable_params = {
     'cameras.uc480':
         ['ueye_cam_id', 'cam_serial'],
+    'cameras.pixelfly':
+        ['pixelfly_board_num', 'module'],
     'cameras.pvcam':
         ['pvcam_name', 'module'],
     'daq.ni':
