@@ -3,6 +3,7 @@
 
 import re
 import socket
+import logging as log
 from importlib import import_module
 
 from .. import conf
@@ -248,8 +249,9 @@ def list_instruments():
     for mod_name in _acceptable_params:
         try:
             mod = import_module('.' + mod_name, __package__)
-        except Exception:
+        except Exception as e:
             # Module not supported
+            log.info("Error when importing module %s: <<%s>>", mod_name, str(e))
             continue
 
         try:
