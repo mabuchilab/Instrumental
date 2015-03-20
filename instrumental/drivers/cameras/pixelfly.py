@@ -7,7 +7,7 @@ Driver for PCO Pixelfly cameras.
 import os.path
 import numpy as np
 from cffi import FFI
-from pixelfly_data import macros
+from ._pixelfly import macros
 from . import Camera
 from .. import InstrumentTypeError, _ParamDict
 from ... import Q_
@@ -16,7 +16,7 @@ __all__ = ['Pixelfly']
 
 
 ffi = FFI()
-with open(os.path.join(os.path.dirname(__file__), 'pixelfly_data', 'Pccam_clean.h')) as f:
+with open(os.path.join(os.path.dirname(__file__), '_pixelfly', 'Pccam_clean.h')) as f:
     ffi.cdef(f.read())
 lib = ffi.dlopen('pccam')
 
