@@ -441,7 +441,8 @@ class _Task(object):
             start = i*num_samples_read
             stop = (i+1)*num_samples_read
             res[ch_name] = Q_(data[start:stop], 'V')
-        res['t'] = Q_(np.linspace(0, num_samples_read/self.rate, num_samples_read), 's')
+        res['t'] = Q_(np.linspace(0, num_samples_read/self.fsamp,
+                                  num_samples_read, endpoint=False), 's')
         return res
 
     def read_AI_scalar(self, timeout=-1.0):
