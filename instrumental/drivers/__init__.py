@@ -222,7 +222,7 @@ def list_visa_instruments():
     return instruments
 
 
-def list_instruments():
+def list_instruments(server=None):
     """Returns a list of info about available instruments.
 
     May take a few seconds because it must poll hardware devices.
@@ -236,7 +236,19 @@ def list_instruments():
     >>> print(inst_list)
     [<NIDAQ 'Dev1'>, <TEKTRONIX 'TDS 3032'>, <TEKTRONIX 'AFG3021B'>]
     >>> inst = instrument(inst_list[0])
+
+    Parameters
+    ----------
+    server : str, optional
+        The remote Instrumental server to query. It can be an alias from your instrumental.conf
+        file, or a str of the form `(hostname|ip-address)[:port]`, e.g. '192.168.1.10:12345'. Is
+        None by default, meaning search on the local machine.
     """
+    if server is not None:
+        from . import remote
+        session = remote.client_session(server)
+        return session.list_instruments()
+
     try:
         from .. import visa
         try:
@@ -335,6 +347,12 @@ def instrument(inst=None, **kwargs):
             if params is None:
                 raise Exception("Instrument with alias `{}` not ".format(alias)
                                 + "found in config file")
+
+    if 'server' in params:
+        from . import remote
+        host = params['server']
+        session = remote.client_session(host)
+        return session.instrument(params)
 
     if 'module' in params:
         # We've already been given the name of the module
