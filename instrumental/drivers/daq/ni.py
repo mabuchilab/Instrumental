@@ -15,6 +15,11 @@ from . import DAQ
 from .. import _ParamDict
 from ...errors import InstrumentTypeError
 
+# Make PyDAQmx constants a bit less ridiculously long
+for attr in dir(mx):
+    if attr.startswith('DAQmx_Val_'):
+        setattr(mx, attr[10:], getattr(mx, attr))
+
 
 def _handle_timing_params(duration, fsamp, n_samples):
     if duration:
