@@ -385,7 +385,15 @@ class _Task(object):
                                byref(samples_written), None)
 
     def _make_DO_array(self, data, channels):
-        """ Get the port ordering in the final integer """
+        """ Get the port ordering in the final integer
+
+        Parameters
+        ----------
+        data: dict
+            Mapping from channel names to per-channel data arrays. Each array is a series of
+            integer samples. Each sample is an integer representation of the output state of the
+            corresponding channel.
+        """
         ports = []
         for ch in channels:
             for port_name, line_name in ch.line_pairs:
@@ -672,6 +680,7 @@ class VirtualDigitalChannel(Channel):
         return name[1:]
 
     def _get_name(self):
+        """Get DAQmx-style name of this channel"""
         line_strs = [self._get_line_name(lp) for lp in self.line_pairs]
         return ','.join(line_strs)
 
@@ -738,6 +747,15 @@ class VirtualDigitalChannel(Channel):
         return self._parse_DI_int(data)
 
     def write(self, value):
+        """Write a value to the digital output channel
+
+        Parameters
+        ----------
+        value : int or bool
+            An int representing the digital values to write. The lowest bit of
+            the int is written to the first digital line, the second to the
+            second, and so forth. For a single-line DO channel, can be a bool.
+        """
         with self.dev.create_task() as t:
             t.add_DO_channel(self._get_name())
             t.write_DO_scalar(self._create_DO_int(value))
