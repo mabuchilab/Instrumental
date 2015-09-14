@@ -480,6 +480,10 @@ class _Task(object):
         data = c_uint32(onboard_only)
         self.t.SetAOUseOnlyOnBrdMem(channel, data)
 
+    def set_DO_only_onboard_mem(self, channel, onboard_only):
+        data = c_uint32(onboard_only)
+        self.t.SetDOUseOnlyOnBrdMem(channel, data)
+
 
 class Channel(object):
     pass
@@ -743,17 +747,58 @@ class VirtualDigitalChannel(Channel):
             t.add_DO_channel(self._get_name())
             t.write_DO_scalar(self._create_DO_int(value))
 
-    def writearray(self, data, duration=None, fsamp=None):
-        """Write an array of data to a digital output channel"""
-        if not duration and not fsamp:
-            raise Exception("Need one of 'duration' and 'fsamp'")
+    def write_sequence(self, data, duration=None, reps=None, fsamp=None, freq=None, onboard=True):
+        """Write an array of samples to the digital output channel
 
+        Outputs a buffered digital waveform, writing each value in sequence at
+        the rate determined by `duration` and `fsamp` or `freq`. You must
+        specify either `fsamp` or `freq`.
+
+        This function blocks until the output sequence has completed.
+
+        Parameters
+        ----------
+        data : array or list of ints or bools
+            The sequence of samples to output. For a single-line DO channel,
+            samples can be bools.
+        duration : Quantity, optional
+            How long the entirety of the output lasts, specified as a
+            second-compatible Quantity. If `duration` is longer than a single
+            period of data, the waveform will repeat. Use either this or
+            `reps`, not both. If neither is given, waveform is output once.
+        reps : int or float, optional
+            How many times the waveform is repeated. Use either this or
+            `duration`, not both. If neither is given, waveform is output once.
+        fsamp: Quantity, optional
+            This is the sample frequency, specified as a Hz-compatible
+            Quantity. Use either this or `freq`, not both.
+        freq : Quantity, optional
+            This is the frequency of the *overall waveform*, specified as a
+            Hz-compatible Quantity. Use either this or `fsamp`, not both.
+        onboard : bool, optional
+            Use only onboard memory. Defaults to True. If False, all data will
+            be continually buffered from the PC memory, even if it is only
+            repeating a small number of samples many times.
+        """
+        if (fsamp is None) == (freq is None):
+            raise Exception("Need one and only one of 'fsamp' or 'freq'")
+        if fsamp is None:
+            fsamp = Q_(freq)*len(data)
+        else:
+            fsamp = Q_(fsamp)
+
+        if (duration is not None) and (reps is not None):
+            raise Exception("Can use at most one of `duration` or `reps`, not both")
+        if duration is None:
+            duration = (reps or 1)*len(data)/fsamp
         fsamp, n_samples = _handle_timing_params(duration, fsamp, len(data))
         print(fsamp, n_samples)
         with self.dev.create_task() as t:
             t.add_DO_channel(self._get_name())
+            t.set_DO_only_onboard_mem(self._get_name(), onboard)
             t.config_timing(fsamp, n_samples, clock='')
             t.write_DO_channels({self.name: data}, [self])
+            t.t.WaitUntilTaskDone(-1)
 
     def as_input(self):
         copy = VirtualDigitalChannel(self.dev, self.line_pairs)
