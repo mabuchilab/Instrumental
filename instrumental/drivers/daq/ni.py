@@ -380,14 +380,9 @@ class _Task(object):
         arr = self._make_DO_array(data, channels)
         samples = arr.size
         samples_written = c_int32()
-        print('samples', samples)
-        print('autostart', autostart)
-        print('timeout', timeout)
-        print('arr', arr)
         self.t.WriteDigitalU32(samples, autostart, timeout,
                                mx.DAQmx_Val_GroupByChannel, arr,
                                byref(samples_written), None)
-        print('sampleswritten', samples_written)
 
     def _make_DO_array(self, data, channels):
         """ Get the port ordering in the final integer """
@@ -792,7 +787,7 @@ class VirtualDigitalChannel(Channel):
         if duration is None:
             duration = (reps or 1)*len(data)/fsamp
         fsamp, n_samples = _handle_timing_params(duration, fsamp, len(data))
-        print(fsamp, n_samples)
+
         with self.dev.create_task() as t:
             t.add_DO_channel(self._get_name())
             t.set_DO_only_onboard_mem(self._get_name(), onboard)
