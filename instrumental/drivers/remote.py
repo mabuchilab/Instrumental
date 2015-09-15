@@ -295,6 +295,7 @@ class ServerSession(Session):
                 handler = self.command_handler.get(command, self.handle_none)
                 response = handler(request)
             except Exception as e:
+                log.exception(e)
                 response = e
 
             self.messenger.respond(self.serialize(response))
