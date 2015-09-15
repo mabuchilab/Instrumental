@@ -125,7 +125,7 @@ class PVCam(Camera):
         hcam_p = ffi.new('int16[1]')
 
         if PVCam.num_cams_open == 0:
-            pv.pvcam_init()
+            self._try_init()
             pv.buf_init()
 
         if not name:
@@ -155,14 +155,14 @@ class PVCam(Camera):
     def _total_cams(cls):
         """The total number of cameras on the system"""
         if cls.num_cams_open == 0:
-            pv.pvcam_init()
+            PVCam._try_init()
             pv.buf_init()
 
         total_cams_p = ffi.new('int16_ptr')
         pv.cam_get_total(total_cams_p)
 
         if cls.num_cams_open == 0:
-            pv.pvcam_uninit()
+            self._try_uninit()
             pv.buf_uninit()
         return total_cams_p[0]
 
@@ -170,7 +170,7 @@ class PVCam(Camera):
     def _cam_names(cls):
         """A list of the names of all cameras on the system"""
         if cls.num_cams_open == 0:
-            pv.pvcam_init()
+            PVCam._try_init()
             pv.buf_init()
         cls.num_cams_open += 1  # Fool _total_cams() so we don't have to reinit
 
@@ -184,10 +184,27 @@ class PVCam(Camera):
 
         cls.num_cams_open -= 1
         if cls.num_cams_open == 0:
-            pv.pvcam_uninit()
+            self._try_uninit()
             pv.buf_uninit()
 
         return names
+
+    @staticmethod
+    def _try_init():
+        try:
+            pv.pvcam_init()
+        except Exception as e:
+            if e.err_code != pv.C2_PVCAM_ALREADY_INITED:
+                raise e
+
+    @staticmethod
+    def _try_uninit():
+        try:
+            pv.pvcam_uninit()
+        except Exception as e:
+            if e.err_code not in (pv.C0_PVCAM_NOT_INITED,
+                                  pv.C2_PVCAM_NOT_INITED):
+                raise e
 
     def close(self):
         if self.seq_is_set_up:
@@ -199,7 +216,7 @@ class PVCam(Camera):
 
         PVCam.num_cams_open -= 1
         if PVCam.num_cams_open == 0:
-            pv.pvcam_uninit()
+            self._try_uninit()
             pv.buf_uninit()
 
     def start_live_video(self, framerate=1, exp_time=100):
