@@ -4,12 +4,15 @@
 Driver for Photometrics cameras.
 """
 
+import time
 import os.path
 import numpy as np
 from cffi import FFI
 from ._pvcam import macros
 from . import Camera
-from .. import InstrumentTypeError, InstrumentNotFoundError, _ParamDict
+from .. import _ParamDict
+from ...errors import InstrumentTypeError, InstrumentNotFoundError
+from ... import Q_
 
 __all__ = ['PVCam']
 
@@ -123,6 +126,7 @@ class PVCam(Camera):
 
         if PVCam.num_cams_open == 0:
             pv.pvcam_init()
+            pv.buf_init()
 
         if not name:
             pv.cam_get_name(0, cam_name)
@@ -132,6 +136,7 @@ class PVCam(Camera):
 
         self.hcam = hcam_p[0]
         self.seq_is_set_up = False
+        self.cont_is_set_up = False
         PVCam.num_cams_open += 1
 
         # For saving
@@ -151,12 +156,14 @@ class PVCam(Camera):
         """The total number of cameras on the system"""
         if cls.num_cams_open == 0:
             pv.pvcam_init()
+            pv.buf_init()
 
         total_cams_p = ffi.new('int16_ptr')
         pv.cam_get_total(total_cams_p)
 
         if cls.num_cams_open == 0:
             pv.pvcam_uninit()
+            pv.buf_uninit()
         return total_cams_p[0]
 
     @classmethod
@@ -164,6 +171,7 @@ class PVCam(Camera):
         """A list of the names of all cameras on the system"""
         if cls.num_cams_open == 0:
             pv.pvcam_init()
+            pv.buf_init()
         cls.num_cams_open += 1  # Fool _total_cams() so we don't have to reinit
 
         total = PVCam._total_cams()
@@ -177,19 +185,79 @@ class PVCam(Camera):
         cls.num_cams_open -= 1
         if cls.num_cams_open == 0:
             pv.pvcam_uninit()
+            pv.buf_uninit()
 
         return names
 
     def close(self):
         if self.seq_is_set_up:
             self._unsetup_sequence()
+        elif self.cont_is_set_up:
+            self.stop_live_video()
+            pv.exp_uninit_seq()
         pv.cam_close(self.hcam)
 
         PVCam.num_cams_open -= 1
         if PVCam.num_cams_open == 0:
             pv.pvcam_uninit()
+            pv.buf_uninit()
 
-    def setup_sequence(self, exp_time=100, nframes=1, mode='timed'):
+    def start_live_video(self, framerate=1, exp_time=100):
+        framerate = 1 if framerate is None else framerate  # TODO: Hack
+        self.framerate = framerate
+
+        if self.seq_is_set_up:
+            #self._unsetup_sequence()
+            pass
+        mode = pv.TIMED_MODE
+
+        w, h = self.width, self.height
+        region_p = ffi.new('rgn_type *', (0, w-1, 1, 0, h-1, 1))
+        frame_size_p = ffi.new('uns32 *')
+
+        n_exposures = 2  # Double buffering
+        n_regions = 1
+        pv.exp_setup_cont(self.hcam, n_regions, region_p, mode, exp_time,
+                          frame_size_p, pv.CIRC_OVERWRITE)
+
+        # frame_size_p[0] is the number of BYTES per frame
+        buffer_size = frame_size_p[0]*n_exposures
+        self.stream_buf = ffi.new('uns16[{}]'.format(buffer_size/ffi.sizeof('uns16')))
+        self.cont_is_set_up = True
+        self.nframes = n_exposures
+
+        pv.exp_start_cont(self.hcam, self.stream_buf, buffer_size)
+
+    def stop_live_video(self):
+        pv.exp_stop_cont(self.hcam, pv.CCS_HALT)
+        self.cont_is_set_up = False
+
+    def image_buffer(self):
+        frame_p = ffi.new('void **')
+        pv.exp_get_latest_frame(self.hcam, frame_p)
+
+        f_nbytes = self.width*self.height*2
+        return ffi.stream_buffer(frame_p[0], f_nbytes)
+
+    def wait_for_frame(self, timeout=0):
+        status_p = ffi.new('int16_ptr')
+        byte_cnt_p = ffi.new('uns32_ptr')
+        buffer_cnt_p = ffi.new('uns32_ptr')
+
+        t = time.clock()
+        tfinal = t + timeout/1000.
+        status = pv.READOUT_NOT_ACTIVE
+        while status != pv.READOUT_COMPLETE and status != pv.READOUT_FAILED and t <= tfinal:
+            pv.exp_check_cont_status(self.hcam, status_p, byte_cnt_p, buffer_cnt_p)
+            status = status_p[0]
+            t = time.clock()
+
+        if status == pv.READOUT_FAILED:
+            raise Exception("Data collection error: {}".format(pv.error_code()))
+
+        return status == pv.READOUT_COMPLETE
+
+    def setup_sequence(self, exp_time='100ms', nframes=1, mode='timed', regions=None):
         """
         Parameters
         ----------
@@ -202,7 +270,7 @@ class PVCam(Camera):
             'strobed', 'bulb', and 'flash'.
         """
         if self.seq_is_set_up:
-            pv.exp_finish_seq(self.hcam, self.frame, 0)
+            pv.exp_finish_seq(self.hcam, self.stream_buf, 0)
 
         mode_map = {
             'timed': pv.TIMED_MODE,
@@ -214,53 +282,125 @@ class PVCam(Camera):
         }
         mode = mode_map[mode]
 
-        w, h = self.width(), self.height()
-        region_p = ffi.new('rgn_type *', (0, w-1, 1, 0, h-1, 1))
-        size_p = ffi.new('uns32 *')
+        w, h = self.width, self.height
 
-        n_exposures = nframes
-        n_regions = 1
-        pv.exp_setup_seq(self.hcam, n_exposures, n_regions, region_p, mode,
-                         exp_time, size_p)
+        # Build region list
+        if regions is None:
+            self.regions = [(0, w-1, 1, 0, h-1, 1)]
+        else:
+            self.regions = []
+            for region in regions:
+                try:
+                    # Verify region has six items
+                    self.regions.append(tuple(region[0:6]))
+                except TypeError:
+                    # The tuple isn't nested yet, so nest it
+                    self.regions = [tuple(regions[0:6])]
+                    break
+
+        # Region sizes in pixels
+        self.region_sizes = []
+        for region in self.regions:
+            x0, x1, xbin, y0, y1, ybin = region
+            self.region_sizes.append((x1-x0+1)*(y1-y0+1)/(xbin*ybin))
+
+        region_p = ffi.new('rgn_type[]', self.regions)
+        size_p = ffi.new('uns32 *')
+        self.region_p = region_p
+
+        n_exposures = int(nframes)
+        exp_time = Q_(exp_time).to('ms').magnitude
+        pv.exp_setup_seq(self.hcam, n_exposures, len(self.regions), region_p,
+                         mode, exp_time, size_p)
+
+        # Create buffer
+        hbuf_p = ffi.new('int16_ptr')
+        pv.buf_alloc(hbuf_p, n_exposures, pv.PRECISION_UNS16,
+                     len(self.regions), region_p)
+        self.hbuf = hbuf_p[0]
 
         # size_p[0] is the number of BYTES in the pixel stream
-        self.frame = ffi.new('uns16[{}]'.format(size_p[0]/2))
+        # Do we need to worry about page-locking this memory?
+        self.stream_buf = ffi.new('uns16[{}]'.format(size_p[0]/2))
         self.seq_is_set_up = True
         self.nframes = nframes
 
     def _unsetup_sequence(self):
-        pv.exp_finish_seq(self.hcam, self.frame, 0)
+        pv.exp_finish_seq(self.hcam, self.stream_buf, 0)
         pv.exp_uninit_seq()
 
-    def grab_frame(self):
+    def start_capture(self):
+        pv.exp_start_seq(self.hcam, self.stream_buf)
+
+    def abort_sequence(self):
+        pv.exp_abort(self.hcam, pv.CCS_HALT)
+
+    def grab_frame(self, fresh_capture=True, force_list=False, timeout=-1):
         status_p = ffi.new('int16_ptr')
         byte_cnt_p = ffi.new('uns32_ptr')
-        pv.exp_start_seq(self.hcam, self.frame)
 
+        if fresh_capture:
+            pv.exp_start_seq(self.hcam, self.stream_buf)
+
+        t = time.clock()
+        tfinal = float('inf') if timeout == -1 else (t + timeout/1000.)
         status = pv.READOUT_NOT_ACTIVE
-        while status != pv.READOUT_COMPLETE and status != pv.READOUT_FAILED:
+        while status != pv.READOUT_COMPLETE and status != pv.READOUT_FAILED and t <= tfinal:
             pv.exp_check_status(self.hcam, status_p, byte_cnt_p)
             status = status_p[0]
+            t = time.clock()
 
         if status == pv.READOUT_FAILED:
             raise Exception("Data collection error: {}".format(pv.error_code()))
 
-        return self.frame
+        if status != pv.READOUT_COMPLETE:
+            return None
 
-    def grab_ndarray(self):
-        buf = ffi.buffer(self.grab_frame())
-        w, h = self.width(), self.height()
-        f_nbytes = w*h*2
+        # Dump images into the buffer
+        pv.exp_finish_seq(self.hcam, self.stream_buf, self.hbuf)
+        himg_p = ffi.new('int16_ptr')
+        img_addr_p = ffi.new('void_ptr_ptr')
+        w_p = ffi.new('int16_ptr')
+        h_p = ffi.new('int16_ptr')
 
         images = []
         for i in range(self.nframes):
-            arr = np.frombuffer(buf[i*f_nbytes:(i+1)*f_nbytes], np.uint16)
-            arr = arr.reshape((h, w))
-            images.append(arr)
+            image_regions = []
+            for j in range(len(self.regions)):
+                pv.buf_get_img_handle(self.hbuf, i, j, himg_p)
+                pv.buf_get_img_ptr(himg_p[0], img_addr_p)
+                pv.buf_get_img_size(himg_p[0], w_p, h_p)
+                img_addr = img_addr_p[0]
+                size = w_p[0]*h_p[0]
+                buf = ffi.buffer(img_addr, size*2)
+                image_regions.append(buf)
+            images.append(image_regions)
 
-        if len(images) == 1:
-            return images[0]
+        if not force_list and self.nframes == 1 and len(self.regions) == 1:
+            return images[0][0]
+
         return images
+
+    def grab_ndarray(self, fresh_capture=True, force_list=False, timeout=-1):
+        bufs = self.grab_frame(fresh_capture, force_list=True, timeout=timeout)
+
+        if bufs is None:
+            return None
+
+        arrays = []
+        for i, per_exposure_bufs in enumerate(bufs):
+            per_exposure_arrs = []
+            for buf, region in zip(per_exposure_bufs, self.regions):
+                x0, x1, xbin, y0, y1, ybin = region
+                w, h = (x1-x0+1)/xbin, (y1-y0+1)/ybin
+                per_exposure_arrs.append(np.frombuffer(buffer(buf), np.uint16, w*h).reshape((h, w)))
+            arrays.append(per_exposure_arrs)
+
+        if not force_list and self.nframes == 1 and len(self.regions) == 1:
+            return arrays[0][0]
+
+        return arrays
+
 
     def get_param(self, param_id, attrib):
         attr_type_map = {
@@ -310,14 +450,17 @@ class PVCam(Camera):
             result = param_value[0]
         return result
 
-    def width(self):
+    def _width(self):
         return self.get_param(pv.PARAM_SER_SIZE, pv.ATTR_CURRENT)
 
-    def height(self):
+    def _height(self):
         return self.get_param(pv.PARAM_PAR_SIZE, pv.ATTR_CURRENT)
 
     def bit_depth(self):
         return self.get_param(pv.PARAM_BIT_DEPTH, pv.ATTR_CURRENT)
+
+    width = property(_width)
+    height = property(_height)
 
 
 def list_instruments():
