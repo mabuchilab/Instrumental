@@ -626,6 +626,60 @@ class AnalogOut(Channel):
             t.t.StopTask()
 
 
+class Counter(Channel):
+    def __init__(self, dev, chan_name):
+        self.dev = dev
+        self.type = 'CIO'
+        self.name = chan_name
+        self.fullname = '{}/{}'.format(dev, chan_name)
+
+    def output_pulses(self, freq, duration=None, reps=None, idle_high=False, delay=None,
+                      duty_cycle=0.5):
+        """Generate digital pulses using the counter.
+
+        Outputs digital pulses with a given frequency and duty cycle.
+
+        This function blocks until the output sequence has completed.
+
+        Parameters
+        ----------
+        freq : Quantity
+            This is the frequency of the pulses, specified as a Hz-compatible Quantity.
+        duration : Quantity, optional
+            How long the entirety of the output lasts, specified as a second-compatible
+            Quantity. Use either this or `reps`, not both. If neither is given, only one pulse is
+            generated.
+        reps : int, optional
+            How many pulses to generate. Use either this or `duration`, not both. If neither is
+            given, only one pulse is generated.
+        idle_high : bool, optional
+            Whether the resting state is considered high or low. Idles low by default.
+        delay : Quantity, optional
+            How long to wait before generating the first pulse, specified as a second-compatible
+            Quantity. Defaults to zero.
+        duty_cycle : float, optional
+            The width of the pulse divided by the pulse period. The default is a 50% duty cycle.
+        """
+        idle_state = mx.High if idle_high else mx.Low
+        delay = 0 if delay is None else Q_(delay).to('s').magnitude
+        freq = Q_(freq).to('Hz').magnitude
+
+        if (duration is not None) and (reps is not None):
+            raise Exception("Can use at most one of `duration` or `reps`, not both")
+        if reps is None:
+            if duration is None:
+                reps = 1
+            else:
+                reps = int(Q_(duration).to('s').magnitude * freq)
+
+        with self.dev.create_task() as t:
+            t.t.CreateCOPulseChanFreq(self.fullname, None, mx.Hz, idle_state, delay, freq,
+                                      duty_cycle)
+            t.t.CfgImplicitTiming(mx.FiniteSamps, reps)
+            t.t.StartTask()
+            t.t.WaitUntilTaskDone(-1)
+
+
 class VirtualDigitalChannel(Channel):
     def __init__(self, dev, line_pairs):
         self.dev = dev
@@ -852,6 +906,7 @@ class NIDAQ(DAQ):
         self.tasks = []
         self._load_analog_channels()
         self._load_digital_ports()
+        self._load_counters()
         self.mx = mx
 
         self._param_dict = _ParamDict("<NIDAQ '{}'>".format(dev_name))
@@ -865,6 +920,10 @@ class NIDAQ(DAQ):
 
         for ao_name in self.get_AO_channels():
             setattr(self, ao_name, AnalogOut(self, ao_name))
+
+    def _load_counters(self):
+        for c_name in self.get_CI_channels():
+            setattr(self, c_name, Counter(self, c_name))
 
     def __str__(self):
         return self.name
