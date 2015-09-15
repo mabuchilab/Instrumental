@@ -377,9 +377,9 @@ def instrument(inst=None, **kwargs):
             # Try to import module, skip it if optional deps aren't met
             try:
                 mod = import_module('.' + mod_name, __package__)
-            except Exception:
+            except Exception as e:
                 #print(e.args)
-                #print("\tModule {} not supported, skipping".format(mod_name))
+                log.debug("Module {} not supported, skipping".format(mod_name), exc_info=e)
                 continue
 
             # Try to create an instance of this instrument type
@@ -387,14 +387,14 @@ def instrument(inst=None, **kwargs):
                 new_inst = mod._instrument(params)
             except AttributeError:
                 # Module doesn't define the required _instrument() function
-                #print("\tModule " + mod_name +
-                #      " missing _instrument(), skipping")
+                log.info("Module " + mod_name +
+                         " missing _instrument(), skipping")
                 continue
             except InstrumentTypeError:
-                #print("\tNot the right type")
+                log.debug("Not the right type")
                 continue
             except InstrumentNotFoundError:
-                #print("\tInstrument not found")
+                log.debug("Instrument not found")
                 continue
 
             return new_inst
