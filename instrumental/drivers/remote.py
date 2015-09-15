@@ -300,6 +300,14 @@ class ServerSession(Session):
 
             self.messenger.respond(self.serialize(response))
 
+        # Clean up before we exit
+        for obj in self.obj_table.values():
+            if isinstance(obj, Instrument):
+                try:
+                    obj.close()
+                except AttributeError:
+                    pass
+
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     def handle(self):
@@ -372,5 +380,4 @@ client_session.sessions = {}
 @atexit.register
 def _cleanup_sessions():
     for session in client_session.sessions.values():
-    for session in client_session.sessions:
         session.close()
