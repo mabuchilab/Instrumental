@@ -129,6 +129,12 @@ class Pixelfly(Camera):
         self.cam_started = False
         self.mode_set = False
         self.mem_set_up = False
+
+        # For saving
+        self._param_dict = _ParamDict("<Pixelfly '{}'>".format(board_num))
+        self._param_dict.module = 'cameras.pixelfly'
+        self._param_dict['module'] = 'cameras.pixelfly'
+        self._param_dict['pixelfly_board_num'] = board_num
         self.bufnr = -1  # Allocate a buffer the first time around
 
         self.set_mode()
