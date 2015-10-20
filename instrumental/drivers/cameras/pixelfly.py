@@ -4,9 +4,13 @@
 Driver for PCO Pixelfly cameras.
 """
 
+import atexit
 import os.path
 import numpy as np
 from cffi import FFI
+import win32event
+
+from . import _err
 from ._pixelfly import macros
 from . import Camera
 from .. import InstrumentTypeError, _ParamDict
@@ -18,7 +22,7 @@ __all__ = ['Pixelfly']
 ffi = FFI()
 with open(os.path.join(os.path.dirname(__file__), '_pixelfly', 'Pccam_clean.h')) as f:
     ffi.cdef(f.read())
-lib = ffi.dlopen('pccam')
+lib = ffi.dlopen('pf_cam')  # Developed using version 2.1.0.29 of pf_cam.dll
 
 
 # Here we create a proxy for 'lib' that includes some nicer features like
@@ -28,11 +32,10 @@ class PixelflyLib(object):
     pass
 px = PixelflyLib()
 
+
 px_funcs = [
     'INITBOARD',
-    'INITBOARDP',
     'CLOSEBOARD',
-    'RESETBOARD',
     'GETBOARDPAR',
     'GETBOARDVAL',
     'SETMODE',
@@ -46,15 +49,14 @@ px_funcs = [
     'READTEMPERATURE',
     'READVERSION',
     'GETBUFFER_STATUS',
-    'GETBUFFERVAL',
     'ADD_BUFFER_TO_LIST',
-    'ADD_PHYS_BUFFER_TO_LIST',
     'REMOVE_BUFFER_FROM_LIST',
+    'REMOVE_ALL_BUFFERS_FROM_LIST',
     'ALLOCATE_BUFFER',
+    'ALLOCATE_BUFFER_EX',
     'FREE_BUFFER',
     'SETBUFFER_EVENT',
     'MAP_BUFFER',
-    'MAP_BUFFER_EX',
     'UNMAP_BUFFER',
     'SETORIONINT',
     'GETORIONINT',
@@ -107,12 +109,15 @@ def err_wrap(func):
     def err_wrapped(*args):
         ret_code = func(*args)
         if ret_code != 0:
-            err_message = ERR_CODE_MAP.get(ret_code, '')
+            pbuf = _err.ffi.new('char[]', 1024)
+            _err.lib.PCO_GetErrorText(_err.ffi.cast('unsigned int', ret_code), pbuf, len(pbuf))
+            err_message = _err.ffi.string(pbuf)
             e = Exception('({}) {}'.format(ret_code, err_message))
             e.err_code = ret_code
             raise e
     err_wrapped.__name__ = str(func)
     return err_wrapped
+
 
 # Include (and wrap) functions from CFFI library
 for func_name in px_funcs:
@@ -121,6 +126,8 @@ for func_name in px_funcs:
 
 
 class Pixelfly(Camera):
+    open_cameras = []
+
     def __init__(self, board_num=0):
         hdriver_p = ffi.new('HANDLE *', ffi.NULL)
         px.INITBOARD(board_num, hdriver_p)
@@ -135,10 +142,16 @@ class Pixelfly(Camera):
         self._param_dict.module = 'cameras.pixelfly'
         self._param_dict['module'] = 'cameras.pixelfly'
         self._param_dict['pixelfly_board_num'] = board_num
-        self.bufnr = -1  # Allocate a buffer the first time around
+
+        self.bufsizes = []
+        self.bufnums = []
+        self.bufptrs = []
+        self.buf_events = []
+        self.nbufs = 0
+        self.buf_i = 0
 
         self.set_mode()
-        self._allocate_buffer()
+        self.open_cameras.append(self)
 
     @staticmethod
     def _list_boards():
@@ -159,9 +172,13 @@ class Pixelfly(Camera):
         """ Clean up memory and close the camera."""
         if self.cam_started:
             px.STOP_CAMERA(self.hdriver)
-        if self.mem_set_up:
-            px.UNMAP_BUFFER(self.hdriver, self.bufnr)
-            px.FREE_BUFFER(self.hdriver, self.bufnr)
+
+        px.REMOVE_ALL_BUFFERS_FROM_LIST(self.hdriver)
+        for bufnum in self.bufnums:
+            px.FREE_BUFFER(self.hdriver, bufnum)
+        self.bufsizes, self.bufnums, self.bufptrs = [], [], []
+        self.nbufs = 0
+
         px.CLOSEBOARD(self._hdriver_p)
 
     def __enter__(self):
@@ -194,11 +211,15 @@ class Pixelfly(Camera):
         # Normalize all the parameters
         shutter_map = {'single': 0x10, 'double': 0x20, 'video': 0x30}
         mode = shutter_map[shutter] + (1 if trig == 'software' else 0)
-        exptime = int(Q_(exposure).to('us').magnitude)
+        exp_units = 'ms' if shutter == 'video' else 'us'
+        exptime = int(Q_(exposure).to(exp_units).magnitude)
+
         hbin_val = 0 if hbin == 1 else 1
         vbin_val = 0 if vbin == 1 else 1
         gain_val = 0 if gain == 'low' else 1
         bit_pix = 12 if depth == 12 else 8
+
+        self.shutter = shutter
 
         # Camera must be stopped before SETMODE is called
         if self.cam_started:
@@ -207,41 +228,103 @@ class Pixelfly(Camera):
         px.SETMODE(self.hdriver, mode, 0, exptime, hbin_val, vbin_val,
                    gain_val, 0, bit_pix, 0)
 
-        if self.mem_set_up:
-            self._allocate_buffer()
-        elif self.cam_started:
-            # 'elif' b/c _allocate_buffer() starts the camera already
-            px.START_CAMERA(self.hdriver)
+        self._load_sizes()
+        self.bytes_per_line = self.width*2
+        self._allocate_buffers()
+        self.color_mode = 'mono16'
 
-    def _allocate_buffer(self):
-        _, _, act_w, act_h, bit_pix = self._get_sizes()
-        byte_per_pix = 1 if bit_pix == 8 else 2
-        size_p = ffi.new('int *', act_w*act_h*byte_per_pix)
-        bufnr_p = ffi.new('int *', self.bufnr)
-        linadr = ffi.new('DWORD *')
+    def start_live_video(self, framerate=10):
+        self.framerate = 100 if framerate is None else framerate
+        self.set_mode('video')
+        self._trigger()
 
-        if self.mem_set_up:
-            px.UNMAP_BUFFER(self.hdriver, self.bufnr)
+    def stop_live_video(self):
+        self.set_mode()
 
-        px.ALLOCATE_BUFFER(self.hdriver, bufnr_p, size_p)
-        px.MAP_BUFFER(self.hdriver, bufnr_p[0], size_p[0], 0, linadr)
+    def wait_for_frame(self, timeout=1000):
+        ptr = ffi.new('int[4]')
+        buf_i = self.buf_i  # Save before we trigger
+        ret = win32event.WaitForSingleObject(int(self.buf_events[buf_i]), timeout)
+
+        if ret != win32event.WAIT_OBJECT_0:
+            return False  # Object is not signaled
+
+        win32event.ResetEvent(int(self.buf_events[buf_i]))
+        px.PCC_RESETEVENT(self.hdriver, buf_i)
+        px.GETBUFFER_STATUS(self.hdriver, self.bufnums[buf_i], 0, ptr, ffi.sizeof('DWORD')*1)
+
+        if px.PCC_BUF_STAT_ERROR(ptr):
+            uptr = ffi.cast('DWORD *', ptr)
+            raise Exception("Buffer error 0x{:08X} 0x{:08X} 0x{:08X} 0x{:08X}".format(
+                                uptr[0], uptr[1], uptr[2], uptr[3]))
+
+        if self.shutter == 'video':
+            px.ADD_BUFFER_TO_LIST(self.hdriver, self.bufnums[self.buf_i], self._frame_size(), 0, 0)
+            self.buf_i = (self.buf_i + 1) % self.nbufs
+
+        return True
+
+    def _frame_size(self):
+        return self.width * self.height * (self.bit_depth/8 + 1)
+
+    def _allocate_buffers(self, nbufs=None):
+        if nbufs is None:
+            if self.nbufs > 1:
+                nbufs = self.nbufs
+            elif self.shutter == 'video':
+                nbufs = 2
+            else:
+                nbufs = 1
+
+        frame_size = self._frame_size()
+        bufnr_p = ffi.new('int *')
+
+        # Remove and free all existing buffers
+        px.REMOVE_ALL_BUFFERS_FROM_LIST(self.hdriver)
+        for bufnum in self.bufnums:
+            px.FREE_BUFFER(self.hdriver, bufnum)
+        self.bufnums = []
+        self.bufsizes = []
+        self.buf_events = []
+        self.bufptrs = []
+
+        # Create new buffers
+        for i in range(nbufs):
+            adr = ffi.new('void **')
+            bufnr_p[0] = -1  # Allocate new buffer
+            event_p = ffi.new('HANDLE *', ffi.NULL)
+
+            px.ALLOCATE_BUFFER_EX(self.hdriver, bufnr_p, frame_size, event_p, adr)
+
+            self.bufnums.append(bufnr_p[0])
+            self.bufsizes.append(frame_size)
+            self.buf_events.append(ffi.cast('unsigned int', event_p[0]))
+            self.bufptrs.append(ffi.cast('void *', adr[0]))
+        self.nbufs = nbufs
+
         px.START_CAMERA(self.hdriver)
         self.cam_started = True
 
-        self.bufsize = size_p[0]
-        self.bufnr = bufnr_p[0]
-        self.buf_p = ffi.cast('void *', linadr[0])  # This is so stupid
         self.mem_set_up = True
 
     def _trigger(self):
-        _, _, act_w, act_h, bit_pix = self._get_sizes()
-        byte_per_pix = 1 if bit_pix == 8 else 2
-        px.ADD_BUFFER_TO_LIST(self.hdriver, self.bufnr, act_w*act_h*byte_per_pix, 0, 0)
+        frame_size = self._frame_size()
+
+        if self.shutter == 'video':
+            for i in range(self.nbufs):
+                px.ADD_BUFFER_TO_LIST(self.hdriver, self.bufnums[i],
+                                      frame_size, 0, 0)
+            self.buf_i = 0
+        else:
+            px.ADD_BUFFER_TO_LIST(self.hdriver, self.bufnums[self.buf_i],
+                                  frame_size, 0, 0)
+            self.buf_i = (self.buf_i + 1) % self.nbufs
+
         px.TRIGGER_CAMERA(self.hdriver)
 
     def _buffer_status(self):
         ptr = ffi.new('DWORD[23]')
-        px.GETBUFFER_STATUS(self.hdriver, self.bufnr, 0,
+        px.GETBUFFER_STATUS(self.hdriver, self.bufnums[self.buf_i], 0,
                             ffi.cast('int *', ptr), ffi.sizeof('DWORD')*23)
         return ptr
 
@@ -249,6 +332,13 @@ class Pixelfly(Camera):
         ptr = ffi.new('DWORD[21]')
         px.GETBOARDPAR(self.hdriver, ptr, ffi.sizeof('DWORD'))
         return ptr
+
+    def image_buffer(self):
+        buf_i = (self.buf_i - 1) % self.nbufs
+        return buffer(ffi.buffer(self.bufptrs[buf_i], self._frame_size())[:])
+
+    def freeze_frame(self):
+        self.grab_frame()
 
     def grab_frame(self):
         """ Trigger a capture sequence and return a buffer to the image data.
@@ -263,21 +353,20 @@ class Pixelfly(Camera):
         cffi.buffer
             A cffi buffer that contains the bytes of the image(s).
         """
-        ptr = ffi.new('int *')
+        ptr = ffi.new('int[4]')
+        buf_i = self.buf_i  # Save before we trigger
         self._trigger()
 
-        # Spin until memory transfer is done
-        done = False
-        while not done:
-            px.GETBUFFER_STATUS(self.hdriver, self.bufnr, 0, ptr, ffi.sizeof('DWORD')*1)
-            done = px.PCC_BUF_STAT_WRITE_DONE(ffi.cast('DWORD *', ptr))
+        win32event.WaitForSingleObject(int(self.buf_events[buf_i]), 1000)
+        win32event.ResetEvent(int(self.buf_events[buf_i]))
+        px.GETBUFFER_STATUS(self.hdriver, self.bufnums[buf_i], 0, ptr, ffi.sizeof('int')*4)
 
         if px.PCC_BUF_STAT_ERROR(ptr):
-            raise Exception("Buffer error {}".format(px.PCC_BUF_STAT_ERROR(ptr)))
+            uptr = ffi.cast('DWORD *', ptr)
+            raise Exception("Buffer error 0x{:08X} 0x{:08X} 0x{:08X} 0x{:08X}".format(
+                                uptr[0], uptr[1], uptr[2], uptr[3]))
 
-        _, _, act_w, act_h, bit_pix = self._get_sizes()
-        byte_per_pix = 1 if bit_pix == 8 else 2
-        return ffi.buffer(self.buf_p, act_w*act_h*byte_per_pix)
+        return buffer(ffi.buffer(self.bufptrs[buf_i], self._frame_size())[:])
 
     def grab_ndarray(self):
         """ Trigger a capture sequence and return the image(s) as ndarray(s).
@@ -293,35 +382,45 @@ class Pixelfly(Camera):
             The grayscale image data in ndarray form. Uses a dtype of np.uint8
             for 8-bit data and np.uint16 for 12-bit data.
         """
-        ccd_w, ccd_h, act_w, act_h, bit_pix = self._get_sizes()
-        dtype = np.uint8 if bit_pix == 8 else np.uint16
-        byte_per_pix = 1 if bit_pix == 8 else 2
+        dtype = np.uint8 if self.bit_depth <= 8 else np.uint16
         buf = self.grab_frame()
 
-        if act_h/ccd_h == 1:
+        if self.height/self.ccd_height == 1:
             arr = np.frombuffer(buf, dtype)
-            return arr.reshape((act_h, act_w))
+            return arr.reshape((self.height, self.width))
         else:
             # act_h is combined height of both frames
-            pix_per_frame = act_w*act_h/2
-            arr1 = np.frombuffer(buf, dtype, pix_per_frame, 0)
-            arr2 = np.frombuffer(buf, dtype, pix_per_frame, pix_per_frame*byte_per_pix)
-            return arr1.reshape((act_h/2, act_w)), arr2.reshape((act_h/2, act_w))
+            px_per_frame = self.width*self.height/2
+            byte_per_px = self.bit_depth/8 + 1
+            arr1 = np.frombuffer(buf, dtype, px_per_frame, 0)
+            arr2 = np.frombuffer(buf, dtype, px_per_frame, px_per_frame*byte_per_px)
+            return (arr1.reshape((self.height/2, self.width)),
+                    arr2.reshape((self.height/2, self.width)))
 
-    def _get_sizes(self):
+    def _load_sizes(self):
         ccdx_p = ffi.new('int *')
         ccdy_p = ffi.new('int *')
         actualx_p = ffi.new('int *')
         actualy_p = ffi.new('int *')
         bit_pix_p = ffi.new('int *')
         px.GETSIZES(self.hdriver, ccdx_p, ccdy_p, actualx_p, actualy_p, bit_pix_p)
-        return ccdx_p[0], ccdy_p[0], actualx_p[0], actualy_p[0], bit_pix_p[0]
+        self._ccd_width = ccdx_p[0]
+        self._ccd_height = ccdy_p[0]
+        self._width = actualx_p[0]
+        self._height = actualy_p[0]
+        self._bit_depth = bit_pix_p[0]
 
     def temperature(self):
         """ The temperature of the CCD. """
         temp_p = ffi.new('int *')
         px.READTEMPERATURE(self.hdriver, temp_p)
         return Q_(temp_p[0], 'degC')
+
+    width = property(lambda self: self._width)
+    height = property(lambda self: self._height)
+    bit_depth = property(lambda self: self._bit_depth)
+    ccd_width = property(lambda self: self._ccd_width)
+    ccd_height = property(lambda self: self._ccd_height)
 
 
 def list_instruments():
@@ -344,3 +443,19 @@ def _instrument(params):
     else:
         raise InstrumentTypeError()
     return cam
+
+
+@atexit.register
+def _cleanup():
+    for cam in Pixelfly.open_cameras:
+        try:
+            cam.close()
+        except:
+            pass
+
+
+def close_all():
+    hdriver_p = ffi.new('HANDLE *', ffi.NULL)
+    px.INITBOARD(0, hdriver_p)
+    px.STOP_CAMERA(hdriver_p[0])
+    px.CLOSEBOARD(hdriver_p)
