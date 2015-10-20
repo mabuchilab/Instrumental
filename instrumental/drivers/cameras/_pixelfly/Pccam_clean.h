@@ -109,8 +109,8 @@ int ALLOCATE_BUFFER(HANDLE hdriver,int *bufnr,int *size);
 int FREE_BUFFER(HANDLE hdriver,int bufnr);
 
 
-
-
+int ALLOCATE_BUFFER_EX(HANDLE hdriver,int *bufnr,int size,HANDLE *hPicEvent,void** adr);
+int REMOVE_ALL_BUFFERS_FROM_LIST(HANDLE hdriver);
 
 
 int SETBUFFER_EVENT(HANDLE hdriver,int bufnr,HANDLE *hPicEvent);
