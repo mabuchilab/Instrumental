@@ -314,7 +314,7 @@ class ServerSession(Session):
             if isinstance(obj, Instrument):
                 try:
                     obj.close()
-                except AttributeError:
+                except:
                     pass
 
 
