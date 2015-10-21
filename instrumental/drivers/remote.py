@@ -232,7 +232,7 @@ class ServerSession(Session):
         self.messenger = ServerMessenger(socket)
         self.next_obj_id = 0
         self.obj_table = {}  # id -> object
-        self.remote_obj_table = {}  # object -> RemoteObject
+        self.remote_obj_pairs = []  # (object, RemoteObject)
 
     def handle_create(self, request):
         params = request['params'].copy()
@@ -241,7 +241,7 @@ class ServerSession(Session):
         id = self.new_obj_id()
         self.obj_table[id] = inst
         remote_obj = RemoteInstrument(request['params'], id, None, dir(inst), repr(inst))
-        self.remote_obj_table[inst] = remote_obj
+        self.remote_obj_pairs.append((inst, remote_obj))
         return remote_obj
 
     def handle_list(self, request):
@@ -273,8 +273,11 @@ class ServerSession(Session):
     def serialize(self, obj):
         parent_serialize = super(ServerSession, self).serialize
 
-        # Don't try to serialize objects already in remote_obj_table
-        obj = self.remote_obj_table.get(obj, obj)
+        # Don't try to serialize objects already in remote_obj_pairs
+        for local_obj, remote_obj in self.remote_obj_pairs:
+            if local_obj is obj:
+                obj = remote_obj
+                break
 
         try:
             bytes = parent_serialize(obj)
@@ -286,7 +289,7 @@ class ServerSession(Session):
         new_id = self.new_obj_id()
         self.obj_table[new_id] = obj
         remote_obj = RemoteObject(new_id, dir(obj), repr(obj))
-        self.remote_obj_table[obj] = remote_obj
+        self.remote_obj_pairs.append((obj, remote_obj))
         return remote_obj
 
     def handle_requests(self):
