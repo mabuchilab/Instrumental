@@ -336,6 +336,13 @@ class RemoteObject(object):
         self._session = session
         self._dirlist = dirlist
 
+    def __enter__(self):
+        return self.__getattr__('__enter__')()
+
+    def __exit__(self, type, value, traceback):
+        # Can't pickle a traceback object, so we don't send it, and hope for the best...
+        return self.__getattr__('__exit__')(type, value, None)
+
     def __dir__(self):
         return self._dirlist
 
