@@ -260,7 +260,7 @@ class PVCam(Camera):
         pv.exp_get_latest_frame(self.hcam, frame_p)
 
         f_nbytes = self.width*self.height*2
-        return ffi.stream_buffer(frame_p[0], f_nbytes)
+        return buffer(ffi.buffer(frame_p[0], f_nbytes)[:])
 
     def image_array(self):
         return self.grab_ndarray(fresh_capture=False)
