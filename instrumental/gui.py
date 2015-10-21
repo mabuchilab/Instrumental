@@ -12,6 +12,7 @@ def load_matplotlib():
     from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
     from matplotlib.figure import Figure
 
+
 class MPLFigure:
     """Convenience class for adding MPL figures to PySide GUIs"""
     def __init__(self):
@@ -23,6 +24,7 @@ class MPLFigure:
 
 class DrawableCameraView(QGraphicsView):
     overlay_changed = Signal()
+
     def __init__(self, camera=None, scene=None):
         super(DrawableCameraView, self).__init__()
         if scene is None:
@@ -41,7 +43,7 @@ class DrawableCameraView(QGraphicsView):
         if not self.overlay_images:
             self.overlay_filenames = filenames
             self.overlay_images = [None] * len(filenames)
-            self.overlay_index = len(filenames) # Start at live video
+            self.overlay_index = len(filenames)  # Start at live video
         else:
             old_fnames = self.overlay_filenames
             old_images = self.overlay_images
@@ -73,7 +75,7 @@ class DrawableCameraView(QGraphicsView):
             if key == Qt.Key_Left:
                 self.overlay_index -= 1
                 if self.overlay_index < 0:
-                    self.overlay_index = 0 # No wraparound
+                    self.overlay_index = 0  # No wraparound
                 else:
                     self.overlay_changed.emit()
                     if self.overlay_images[self.overlay_index] is None:
@@ -122,6 +124,7 @@ class DrawableCameraView(QGraphicsView):
                 self.pixmapitem = self.scene.addPixmap(QPixmap.fromImage(image))
             else:
                 self.pixmapitem.setPixmap(QPixmap.fromImage(image))
+
 
 class CameraView(QLabel):
     def __init__(self, camera=None):
