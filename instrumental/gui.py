@@ -1,5 +1,7 @@
-from PySide.QtCore import Qt, QLineF, QPointF, QTimer, Signal
-from PySide.QtGui import QLabel, QImage, QPixmap, QGraphicsView, QGraphicsScene, QGraphicsLineItem, QPen, QBrush, QColor
+import numpy as np
+import scipy.misc
+from PySide.QtCore import Qt, QLineF, QPointF, QTimer, Signal, QThread, QObject
+from PySide.QtGui import *
 
 class DrawableCameraView(QGraphicsView):
     overlay_changed = Signal()
@@ -94,7 +96,7 @@ class DrawableCameraView(QGraphicsView):
 
     def _wait_for_frame(self):
         if self.camera.wait_for_frame(0):
-            data = self.camera.get_image_buffer()
+            data = self.camera.image_buffer()
             bpl = self.camera.bytes_per_line
             format = QImage.Format_RGB32
             image = QImage(data, self.camera.width, self.camera.height, bpl, format)
@@ -114,24 +116,40 @@ class CameraView(QLabel):
 
     def start_video(self, framerate=None):
         timer = QTimer()
+        self.timer = timer
         timer.timeout.connect(self._wait_for_frame)
         self.camera.start_live_video(framerate)
-        timer.start(int(1000/self.camera.framerate))
-        self.timer = timer
+        timer.start(int(1000./self.camera.framerate))
 
     def stop_video(self):
-        self.camera.stop_live_video()
         self.timer.stop()
+        self.camera.stop_live_video()
 
     def _set_pixmap_from_camera(self):
-        data = self.camera.get_image_buffer()
         bpl = self.camera.bytes_per_line
-        format = QImage.Format_RGB32
-        image = QImage(data, self.camera.width, self.camera.height, bpl, format)
+        arr = self.camera.image_array()
+
+        if self.camera.color_mode == 'RGB32':
+            buf = self.camera.image_buffer()  # TODO: Fix to use image_array() instead
+            format = QImage.Format_RGB32
+            image = QImage(buf, self.camera.width, self.camera.height, bpl, format)
+        elif self.camera.color_mode == 'mono16':
+            pil_img = scipy.misc.toimage(arr)  # Normalize values to fit in uint8
+            format = QImage.Format_Indexed8
+            data = pil_img.tostring()
+            image = QImage(data, pil_img.size[0], pil_img.size[1], pil_img.size[0], format)
+            self._saved_img = data  # Save a reference to keep Qt from crashing
+        else:
+            raise Exception("Unsupported color mode '{}'".format(self.camera.color_mode))
+
         self.setPixmap(QPixmap.fromImage(image))
+        pixmap_size = self.pixmap().size()
+        if pixmap_size != self.size():
+            self.setMinimumSize(self.pixmap().size())
 
     def _wait_for_frame(self):
-        if self.camera.wait_for_frame(0):
+        frame_ready = self.camera.wait_for_frame(0)
+        if frame_ready:
             self._set_pixmap_from_camera()
 
     def set_height(self, h):
