@@ -365,6 +365,9 @@ class PVCam(Camera):
         status_p = ffi.new('int16_ptr')
         byte_cnt_p = ffi.new('uns32_ptr')
 
+        if not self.seq_is_set_up:
+            self.setup_sequence()
+
         if fresh_capture:
             pv.exp_start_seq(self.hcam, self.stream_buf)
 
