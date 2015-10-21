@@ -8,7 +8,7 @@ import logging as log
 from instrumental.drivers.remote import ThreadedTCPServer, ThreadedTCPRequestHandler, DEFAULT_PORT
 
 if __name__ == "__main__":
-    log.basicConfig(level=log.INFO, format='%(filename)s/%(funcName)s: %(message)s')
+    log.basicConfig(level=log.DEBUG, format='%(filename)s/%(funcName)s: %(message)s')
     HOST = ''  # Listen on all network interfaces
     server = ThreadedTCPServer((HOST, DEFAULT_PORT), ThreadedTCPRequestHandler)
     ip, port = server.server_address
