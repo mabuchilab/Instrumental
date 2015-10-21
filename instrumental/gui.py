@@ -1,7 +1,6 @@
-import numpy as np
 import scipy.misc
-from PySide.QtCore import Qt, QLineF, QPointF, QTimer, Signal, QThread, QObject
-from PySide.QtGui import *
+from PySide.QtCore import Qt, QTimer, Signal
+from PySide.QtGui import QGraphicsView, QGraphicsScene, QPixmap, QImage, QLabel
 
 mpl, FigureCanvas, Figure = None, None, None
 def load_matplotlib():
