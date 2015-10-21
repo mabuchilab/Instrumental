@@ -174,8 +174,8 @@ class ClientSession(Session):
 
     def instrument(self, params):
         response = self.request(command='create', params=params)
-        return RemoteInstrument(params, response['instr_id'], self, response['dir'],
-                                response['repr'])
+        response._session = self
+        return response
 
     def get_obj_attr(self, obj_id, attr):
         obj = self.request(command='attr', obj_id=obj_id, attr=attr)
@@ -231,14 +231,18 @@ class ServerSession(Session):
         }
         self.messenger = ServerMessenger(socket)
         self.next_obj_id = 0
-        self.obj_table = {}
+        self.obj_table = {}  # id -> object
+        self.remote_obj_table = {}  # object -> RemoteObject
 
     def handle_create(self, request):
-        request['params'].pop('server')  # Needed to force instrument() to look locally
-        inst = instrument(request['params'])
+        params = request['params'].copy()
+        params.pop('server')  # Needed to force instrument() to look locally
+        inst = instrument(params)
         id = self.new_obj_id()
         self.obj_table[id] = inst
-        return {'instr_id': id, 'dir': dir(inst), 'repr': repr(inst)}
+        remote_obj = RemoteInstrument(request['params'], id, None, dir(inst), repr(inst))
+        self.remote_obj_table[inst] = remote_obj
+        return remote_obj
 
     def handle_list(self, request):
         return list_instruments()
@@ -268,6 +272,10 @@ class ServerSession(Session):
 
     def serialize(self, obj):
         parent_serialize = super(ServerSession, self).serialize
+
+        # Don't try to serialize objects already in remote_obj_table
+        obj = self.remote_obj_table.get(obj, obj)
+
         try:
             bytes = parent_serialize(obj)
         except TypeError:
@@ -278,6 +286,7 @@ class ServerSession(Session):
         new_id = self.new_obj_id()
         self.obj_table[new_id] = obj
         remote_obj = RemoteObject(new_id, dir(obj), repr(obj))
+        self.remote_obj_table[obj] = remote_obj
         return remote_obj
 
     def handle_requests(self):
@@ -354,6 +363,11 @@ class RemoteInstrument(RemoteObject, Instrument):
     def __init__(self, params, id, session, dirlist, reprname):
         super(RemoteInstrument, self).__init__(id, dirlist, reprname, session)
         self._param_dict = params
+
+    def __getstate__(self):
+        dict = super(RemoteInstrument, self).__getstate__()
+        dict.update(_param_dict=self._param_dict)
+        return dict
 
 
 def client_session(server):
