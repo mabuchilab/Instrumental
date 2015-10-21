@@ -162,7 +162,7 @@ class PVCam(Camera):
         pv.cam_get_total(total_cams_p)
 
         if cls.num_cams_open == 0:
-            self._try_uninit()
+            cls._try_uninit()
             pv.buf_uninit()
         return total_cams_p[0]
 
@@ -184,7 +184,7 @@ class PVCam(Camera):
 
         cls.num_cams_open -= 1
         if cls.num_cams_open == 0:
-            self._try_uninit()
+            cls._try_uninit()
             pv.buf_uninit()
 
         return names
