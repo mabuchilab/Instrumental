@@ -3,6 +3,24 @@ import scipy.misc
 from PySide.QtCore import Qt, QLineF, QPointF, QTimer, Signal, QThread, QObject
 from PySide.QtGui import *
 
+mpl, FigureCanvas, Figure = None, None, None
+def load_matplotlib():
+    global mpl, FigureCanvas, Figure
+    import matplotlib as mpl
+    mpl.use('Qt4Agg')
+    mpl.rcParams['backend.qt4'] = 'PySide'
+    from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.figure import Figure
+
+class MPLFigure:
+    """Convenience class for adding MPL figures to PySide GUIs"""
+    def __init__(self):
+        if mpl is None:
+            load_matplotlib()
+        self.fig = Figure(tight_layout=True, frameon=False)
+        self.canvas = FigureCanvas(self.fig)
+
+
 class DrawableCameraView(QGraphicsView):
     overlay_changed = Signal()
     def __init__(self, camera=None, scene=None):
