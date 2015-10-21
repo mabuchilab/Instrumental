@@ -430,7 +430,6 @@ class PVCam(Camera):
 
         return arrays
 
-
     def get_param(self, param_id, attrib):
         attr_type_map = {
             pv.ATTR_ACCESS: 'uns16_ptr',
