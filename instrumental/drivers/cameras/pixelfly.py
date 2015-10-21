@@ -337,6 +337,22 @@ class Pixelfly(Camera):
         buf_i = (self.buf_i - 1) % self.nbufs
         return buffer(ffi.buffer(self.bufptrs[buf_i], self._frame_size())[:])
 
+    def image_array(self):
+        dtype = np.uint8 if self.bit_depth <= 8 else np.uint16
+        buf = self.image_buffer()
+
+        if self.height/self.ccd_height == 1:
+            arr = np.frombuffer(buf, dtype)
+            return arr.reshape((self.height, self.width))
+        else:
+            # act_h is combined height of both frames
+            px_per_frame = self.width*self.height/2
+            byte_per_px = self.bit_depth/8 + 1
+            arr1 = np.frombuffer(buf, dtype, px_per_frame, 0)
+            arr2 = np.frombuffer(buf, dtype, px_per_frame, px_per_frame*byte_per_px)
+            return (arr1.reshape((self.height/2, self.width)),
+                    arr2.reshape((self.height/2, self.width)))
+
     def freeze_frame(self):
         self.grab_frame()
 
