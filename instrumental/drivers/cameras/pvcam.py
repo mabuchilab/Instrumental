@@ -139,6 +139,9 @@ class PVCam(Camera):
         self.cont_is_set_up = False
         PVCam.num_cams_open += 1
 
+        self.bytes_per_line = self.width*2
+        self.color_mode = 'mono16'
+
         # For saving
         self._param_dict = _ParamDict("<PVCam '{}'>".format(name))
         self._param_dict.module = 'cameras.pvcam'
@@ -219,6 +222,9 @@ class PVCam(Camera):
             self._try_uninit()
             pv.buf_uninit()
 
+    def freeze_frame(self):
+        self.grab_frame()
+
     def start_live_video(self, framerate=1, exp_time=100):
         framerate = 1 if framerate is None else framerate  # TODO: Hack
         self.framerate = framerate
@@ -255,6 +261,9 @@ class PVCam(Camera):
 
         f_nbytes = self.width*self.height*2
         return ffi.stream_buffer(frame_p[0], f_nbytes)
+
+    def image_array(self):
+        return self.grab_ndarray(fresh_capture=False)
 
     def wait_for_frame(self, timeout=0):
         status_p = ffi.new('int16_ptr')
