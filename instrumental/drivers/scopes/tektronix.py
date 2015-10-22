@@ -7,11 +7,11 @@ Driver module for Tektronix oscilloscopes. Currently supports
 * MSO/DPO 4000 series
 """
 
+import visa
 import numpy as np
 from instrumental import u, Q_
 from . import Scope
 from .. import _get_visa_instrument
-from ... import visa
 from ...errors import InstrumentTypeError
 
 _tds_3000_models = ['TDS 3032', 'TDS 3034B']

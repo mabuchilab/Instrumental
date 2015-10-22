@@ -182,7 +182,7 @@ def list_visa_instruments():
     [<TEKTRONIX 'TDS 3032'>, <TEKTRONIX 'AFG3021B'>]
     >>> inst = instrument(inst_list[0])
     """
-    from .. import visa
+    import visa
     instruments, skipped = [], []
     prev_addr = 'START'
     rm = visa.ResourceManager()
@@ -250,13 +250,13 @@ def list_instruments(server=None):
         return session.list_instruments()
 
     try:
-        from .. import visa
+        import visa
         try:
             inst_list = list_visa_instruments()
         except visa.VisaIOError:
             inst_list = []  # Hide visa errors
     except (ImportError, ConfigError):
-        inst_list = []  # Ignore if (Fake)VISA not installed or configured
+        inst_list = []  # Ignore if PyVISA not installed or configured
 
     for mod_name in _acceptable_params:
         try:
@@ -283,7 +283,7 @@ def _get_visa_instrument(params):
     Returns the VISA instrument corresponding to 'visa_address'. Uses caching
     to avoid multiple network accesses.
     """
-    from .. import visa
+    import visa
 
     if 'visa_address' not in params:
         raise InstrumentTypeError()
