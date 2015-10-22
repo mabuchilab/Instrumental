@@ -28,7 +28,9 @@ _acceptable_params = {
     'powermeters.thorlabs':
         ['visa_address'],
     'wavemeters.burleigh':
-        ['visa_address', 'module']
+        ['visa_address', 'module'],
+    'spectrometers.bristol':
+        ['bristol_port', 'module']
 }
 
 _visa_models = {
