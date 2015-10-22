@@ -10,3 +10,7 @@
 
 /docs/_build
 /docs/_themes
+
+Release/
+errortext.c
+errortext.pyd

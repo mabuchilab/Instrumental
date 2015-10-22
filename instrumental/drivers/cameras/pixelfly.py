@@ -10,7 +10,7 @@ import numpy as np
 from cffi import FFI
 import win32event
 
-from . import _err
+from ._pixelfly import errortext
 from ._pixelfly import macros
 from . import Camera
 from .. import InstrumentTypeError, _ParamDict
@@ -109,9 +109,9 @@ def err_wrap(func):
     def err_wrapped(*args):
         ret_code = func(*args)
         if ret_code != 0:
-            pbuf = _err.ffi.new('char[]', 1024)
-            _err.lib.PCO_GetErrorText(_err.ffi.cast('unsigned int', ret_code), pbuf, len(pbuf))
-            err_message = _err.ffi.string(pbuf)
+            pbuf = errtext.ffi.new('char[]', 1024)
+            errtext.lib.PCO_GetErrorText(errtext.ffi.cast('unsigned int', ret_code), pbuf, len(pbuf))
+            err_message = errtext.ffi.string(pbuf)
             e = Exception('({}) {}'.format(ret_code, err_message))
             e.err_code = ret_code
             raise e
