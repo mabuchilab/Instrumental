@@ -51,14 +51,6 @@ def load_config_file():
         else:
             instruments[key] = d
 
-    try:
-        def_serv = prefs['default_server']
-        if def_serv in servers.keys():
-            prefs['default_server'] = servers[def_serv]
-    except KeyError:
-        # 'prefs' or 'servers' sections empty or nonexistent
-        pass
-
     if 'data_directory' in prefs:
         prefs['data_directory'] = os.path.expanduser(prefs['data_directory'])
 
