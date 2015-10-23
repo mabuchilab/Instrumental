@@ -153,6 +153,11 @@ class CameraView(QLabel):
             buf = self.camera.image_buffer()  # TODO: Fix to use image_array() instead
             format = QImage.Format_RGB32
             image = QImage(buf, self.camera.width, self.camera.height, bpl, format)
+        elif self.camera.color_mode == 'mono8':
+            # TODO: Somehow need to make sure data is ordered as I'm assuming
+            format = QImage.Format_Indexed8
+            image = QImage(arr.data, self.camera.width, self.camera.height, bpl, format)
+            self._saved_img = arr
         elif self.camera.color_mode == 'mono16':
             pil_img = scipy.misc.toimage(arr)  # Normalize values to fit in uint8
             format = QImage.Format_Indexed8

@@ -456,8 +456,8 @@ class UC480_Camera(Camera):
             getattr(self, member_str).value = value
         return setter
 
-    def image_ndarray(self, freeze=True):
-        """ Get an ndarray of the data in the active image memory.
+    def image_array(self, freeze=True):
+        """ Get an array of the data in the active image memory.
 
         The array's shape depends on the camera's color mode. Monochrome modes
         return an array with shape (height, width), while camera modes return
@@ -470,7 +470,7 @@ class UC480_Camera(Camera):
             >>> ...
             >>> import matplotlib.pyplot as plt
             >>> cam.freeze_frame()
-            >>> plt.imshow(cam.image_ndarray())
+            >>> plt.imshow(cam.image_array())
             >>> plt.show()
 
         Parameters
@@ -517,6 +517,13 @@ class UC480_Camera(Camera):
         lib.is_GetActSeqBuf(self._hcam, pointer(nNum), pointer(pcMem), pointer(pcMemLast))
         return pcMemLast
 
+    def _color_mode_string(self):
+        MAP = {
+            IS_CM_MONO8: 'mono8',
+            IS_CM_MONO16: 'mono16',
+        }
+        return MAP.get(self._color_mode.value)
+
     #: uEye camera ID number. Read-only
     id = property(lambda self: self._id)
 
@@ -534,6 +541,9 @@ class UC480_Camera(Camera):
 
     #: Height of the camera image in pixels
     height = property(_value_getter('_height'), _value_setter('_height'))
+
+    #: Color mode string. Read-only
+    color_mode = property(lambda self: self._color_mode_string())
 
 
 if __name__ == '__main__':
