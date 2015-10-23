@@ -342,13 +342,21 @@ def instrument(inst=None, **kwargs):
         alias = inst
 
         # Load parameters
-        if not alias:
+        if alias is None:
             params = kwargs
-        else:
+        elif isinstance(alias, basestring):
             params = conf.instruments.get(alias, None)
             if params is None:
-                raise Exception("Instrument with alias `{}` not ".format(alias)
-                                + "found in config file")
+                # Try looking for the string in the output of list_instruments()
+                test_str = alias.lower()
+                for inst_params in list_instruments():
+                    if test_str in str(inst_params).lower():
+                        params = inst_params
+                        break
+
+                if params is None:
+                    raise Exception("Instrument with alias `{}` not ".format(alias)
+                                    + "found in config file")
 
     if 'server' in params:
         from . import remote
