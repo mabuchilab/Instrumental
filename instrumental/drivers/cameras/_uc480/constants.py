@@ -480,3 +480,15 @@ IS_PARAMETERSET_CMD_LOAD_FILE = 2
 IS_PARAMETERSET_CMD_SAVE_EEPROM = 3
 IS_PARAMETERSET_CMD_SAVE_FILE = 4
 IS_PARAMETERSET_CMD_GET_NUMBER_SUPPORTED = 5
+
+# ----------------------------------------------------------------------------
+# Trigger modes
+# ----------------------------------------------------------------------------
+
+IS_SET_TRIGGER_MASK =              0x0100
+IS_SET_TRIGGER_CONTINUOUS =        0x1000
+IS_SET_TRIGGER_OFF =               0x0000
+IS_SET_TRIGGER_HI_LO = (IS_SET_TRIGGER_CONTINUOUS | 0x0001) 
+IS_SET_TRIGGER_LO_HI = (IS_SET_TRIGGER_CONTINUOUS | 0x0002) 
+IS_SET_TRIGGER_SOFTWARE = (IS_SET_TRIGGER_CONTINUOUS | 0x0008) 
+

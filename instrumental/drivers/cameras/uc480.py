@@ -20,7 +20,7 @@ NULL = POINTER(HWND)()
 
 import platform
 if platform.architecture()[0].startswith('64'):
-    lib = WinDLL('uc480_64')
+    lib = WinDLL('ueye_api_64') ###WinDLL('uc480_64')
 else:
     lib = CDLL('uc480')
 
@@ -356,13 +356,13 @@ class UC480_Camera(Camera):
         ret = win32event.WaitForSingleObject(self.hEvent, timeout)
         return (ret == win32event.WAIT_OBJECT_0)
 
-    def freeze_frame(self):
-        """Acquire an image from the camera and store it in memory.
+    def freeze_frame(self, wait_trigger=IS_WAIT):
+        """Acquire an image from the camera and store it in memory. wait_trigger in increments of 10ms.
 
         Can be used in conjunction with direct memory access to display an
         image without saving it to file.
         """
-        ret = lib.is_FreezeVideo(self._hcam, self._width, self._height)
+        ret = lib.is_FreezeVideo(self._hcam, wait_trigger)
         log.debug("FreezeVideo retval=%d", ret)
 
     def start_live_video(self, framerate=None):
@@ -386,13 +386,26 @@ class UC480_Camera(Camera):
 
         lib.is_CaptureVideo(self._hcam, IS_WAIT)
         self.is_live = True
-
+        
     def stop_live_video(self):
         """Stop live video capture."""
         lib.is_StopLiveVideo(self._hcam, IS_WAIT)
         self._uninstall_event_handler()
         self.is_live = False
+        
+    def set_trigger_delay(self,us):
+        '''set trigger delay in microseconds (us).'''
+        ret = lib.is_SetTriggerDelay(self._hcam, us)
+        if ret != IS_SUCCESS:
+            print("Error: failed to set trigger delay")
+            
+    def set_hardware_trigger(self, mode=IS_SET_TRIGGER_LO_HI):
+        '''use hardware trigger. Default to rising edge'''
+        ret = lib.is_SetExternalTrigger(self._hcam, mode)
+        if ret != IS_SUCCESS:
+            print("Error: failed to set external trigger")
 
+        
     def save_image(self, filename=None, filetype=None, freeze=None):
         """Save the current video image to disk.
 
