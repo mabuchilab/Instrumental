@@ -9,6 +9,8 @@ possible to implement if desired.
 import logging as log
 from ctypes import CDLL, WinDLL, byref, pointer, POINTER, c_char, c_char_p, c_wchar_p, cast
 from ctypes.wintypes import DWORD, INT, ULONG, DOUBLE, HWND
+from ctypes.util import find_library
+
 import os.path
 import numpy as np
 from . import Camera
@@ -20,7 +22,10 @@ NULL = POINTER(HWND)()
 
 import platform
 if platform.architecture()[0].startswith('64'):
-    lib = WinDLL('ueye_api_64') ###WinDLL('uc480_64')
+    lib_name = find_library('ueye_api_64')
+    if lib_name == None:
+        lib_name = find_library('uc480_64')
+    lib = WinDLL(lib_name)
 else:
     lib = CDLL('uc480')
 
