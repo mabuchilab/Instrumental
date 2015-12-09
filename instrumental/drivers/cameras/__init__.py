@@ -63,7 +63,7 @@ class Camera(Instrument):
         """
 
     @abc.abstractmethod
-    def captured_image(self, timeout='1s', copy=True):
+    def get_captured_image(self, timeout='1s', copy=True):
         """Get the image array(s) from the last capture sequence
 
         Returns an image numpy array (or tuple of arrays for a multi-exposure sequence). The array
