@@ -5,6 +5,11 @@ Package containing a driver module/class for each supported camera type.
 """
 import abc
 from .. import Instrument
+from ... import Q_
+
+
+DEFAULT_KWDS = dict(n_frames=1, vbin=1, hbin=1, exposure_time=Q_('10ms'), width=None, height=None,
+                    cx=None, cy=None, left=None, right=None, top=None, bot=None)
 
 
 class Camera(Instrument):
@@ -39,7 +44,7 @@ class Camera(Instrument):
     height = None
 
     @abc.abstractmethod
-    def start_capture(self, **kwargs):
+    def start_capture(self, **kwds):
         """Start a capture sequence and return immediately
 
         Depending on your camera-specific shutter/trigger settings, this will either start the
@@ -54,7 +59,7 @@ class Camera(Instrument):
             >>> do_other_useful_stuff()
             >>> arr = cam.image_array()
 
-        See `grab_image()` for the set of available kwargs.
+        See `grab_image()` for the set of available kwds.
         """
 
     @abc.abstractmethod
@@ -77,7 +82,7 @@ class Camera(Instrument):
         """
 
     @abc.abstractmethod
-    def grab_image(self, timeouts='1s', copy=True, **kwargs):
+    def grab_image(self, timeouts='1s', copy=True, **kwds):
         """Perform a capture and return the resulting image array(s)
 
         This is essentially a convenience function that calls `start_capture()` then
@@ -123,14 +128,14 @@ class Camera(Instrument):
         """
 
     @abc.abstractmethod
-    def start_live_video(self, **kwargs):
+    def start_live_video(self, **kwds):
         """Start live video mode
 
         Once live video mode has been started, images will automatically and continuously be
         acquired. You can check if the next frame is ready by using `wait_for_frame()`, and access
         the most recent image's data with `image_array()`.
 
-        See `grab_image()` for the set of available kwargs.
+        See `grab_image()` for the set of available kwds.
         """
 
     @abc.abstractmethod
@@ -168,3 +173,60 @@ class Camera(Instrument):
             Whether to copy the image memory or directly reference the underlying buffer. It is
             recommended to use *True* (the default) unless you know what you're doing.
         """
+
+    def _handle_kwds(self, kwds):
+        """Don't reimplement this, it's super-annoying"""
+        for k, v in DEFAULT_KWDS.items():
+            kwds.setdefault(k, v)
+
+        def fill_all_coords(kwds, names):
+            n_args = sum(kwds[n] is not None for n in names)
+            if n_args == 0:
+                kwds[names[0]] = getattr(self, 'max_' + names[0])  # max_width or max_height
+                kwds[names[2]] = 0  # left or top = 0
+            elif n_args == 1:
+                max_width = getattr(self, 'max_' + names[0])
+                if kwds[names[0]] is None:
+                    # Width wasn't given
+                    kwds[names[0]] = max_width
+                else:
+                    # Only width was given
+                    kwds[names[1]] = max_width/2  # Centered
+            elif n_args != 2:
+                raise ValueError("Only two of {} should be provided".format(names))
+
+            values = [kwds[n] for n in names]
+            width, cx, left, right = values
+
+            # NOTES
+            # For cx=1, width=1 -> left=1, right=2
+            # For cx=1, width=2 -> left=0, right=2
+            # So an odd rectangle always rounds to add a pixel at the right (bottom)
+            # i.e. cx rounds down
+            if left is not None:
+                if right is not None:
+                    width = right - left
+                    cx = left + width/2
+                elif cx is not None:
+                    # Assume an even width
+                    right = cx + (cx - left)
+                    width = right - left
+                elif width is not None:
+                    right = left + width
+                    cx = left + width/2
+            elif right is not None:
+                if cx is not None:
+                    # Assume an even width
+                    width = (right - cx) * 2
+                    left = right - width
+                elif width is not None:
+                    left = right - width
+                    cx = left + width/2
+            else:
+                left = cx - width/2
+                right = left + width
+
+            kwds.update(zip(names, (width, cx, left, right)))
+
+        fill_all_coords(kwds, ('width', 'cx', 'left', 'right'))
+        fill_all_coords(kwds, ('height', 'cy', 'top', 'bot'))
