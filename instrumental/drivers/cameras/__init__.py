@@ -35,7 +35,6 @@ class Camera(Instrument):
         >>>         do_stuff_with(arr)
         >>> cam.stop_live_video()
     """
-    __metaclass__ = abc.ABCMeta
 
     width = property(doc="Width of the camera image in pixels")
     height = property(doc="Height of the camera image in pixels")

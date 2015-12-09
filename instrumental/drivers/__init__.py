@@ -2,8 +2,10 @@
 # Copyright 2013-2015 Nate Bogdanowicz
 
 import re
+import abc
 import socket
 import logging as log
+from inspect import isfunction
 from importlib import import_module
 
 from .. import conf
@@ -67,10 +69,42 @@ class _ParamDict(dict):
         return '{} = {}'.format(name, dict(self))
 
 
+class InstrumentMeta(abc.ABCMeta):
+    """Instrument metaclass.
+
+    Implements inheritance of method and property docstrings for subclasses of Instrument. That way
+    e.g. you don't have to repeat the docstring of an abstract method, though you can provide a
+    docstring in case more specific documentation is useful.
+
+    If the child's docstring contains only a single-line function signature, it is prepended to its
+    parent's docstring rather than overriding it comopletely. This is useful for the explicitly
+    specifying signatures for methods that are wrapped by a decorator.
+    """
+    def __new__(metacls, clsname, bases, classdict):
+        for name, value in classdict.items():
+            if not name.startswith('_') and (isfunction(value) or isinstance(value, property)):
+                cur_doc = value.__doc__
+                if cur_doc is None or (cur_doc.startswith(name) and '\n' not in cur_doc):
+                    prefix = '' if cur_doc is None else cur_doc + '\n\n'
+                    for base in bases:
+                        if hasattr(base, name):
+                            doc = prefix + getattr(base, name).__doc__
+
+                            if isinstance(value, property):
+                                # Hack b/c __doc__ is readonly for a property...
+                                classdict[name] = property(value.fget, value.fset, value.fdel, doc)
+                            else:
+                                value.__doc__ = doc
+                            break
+        return super(InstrumentMeta, metacls).__new__(metacls, clsname, bases, classdict)
+
+
 class Instrument(object):
     """
     Base class for all instruments.
     """
+    __metaclass__ = InstrumentMeta
+
     def save_instrument(self, name, force=False):
         """ Save an entry for this instrument in the config file.
 
