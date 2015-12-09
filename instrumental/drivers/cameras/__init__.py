@@ -37,11 +37,8 @@ class Camera(Instrument):
     """
     __metaclass__ = abc.ABCMeta
 
-    #: Width of the camera image in pixels
-    width = None
-
-    #: Height of the camera image in pixels
-    height = None
+    width = property(doc="Width of the camera image in pixels")
+    height = property(doc="Height of the camera image in pixels")
 
     @abc.abstractmethod
     def start_capture(self, **kwds):
