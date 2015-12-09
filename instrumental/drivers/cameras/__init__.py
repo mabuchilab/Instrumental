@@ -39,6 +39,8 @@ class Camera(Instrument):
 
     width = property(doc="Width of the camera image in pixels")
     height = property(doc="Height of the camera image in pixels")
+    max_width = property(doc="Max settable width of the camera image, given current binning")
+    max_height = property(doc="Max settable height of the camera image, given current binning")
 
     @abc.abstractmethod
     def start_capture(self, **kwds):
