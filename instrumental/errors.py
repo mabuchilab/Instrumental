@@ -10,6 +10,10 @@ class ConfigError(Error):
     pass
 
 
+class TimeoutError(Error):
+    pass
+
+
 class InstrumentTypeError(Error):
     pass
 
