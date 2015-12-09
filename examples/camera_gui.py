@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
         def grab():
             if not ssbutton.running:
-                camview.grab_frame()
+                camview.grab_image()
         btn_grab.clicked.connect(grab)
 
         win.show()
