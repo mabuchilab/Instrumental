@@ -17,6 +17,8 @@ _acceptable_params = {
         ['ueye_cam_id', 'cam_serial'],
     'cameras.pixelfly':
         ['pixelfly_board_num', 'module'],
+    'cameras.pco':
+        ['pco_cam_num', 'module'],
     'cameras.pvcam':
         ['pvcam_name', 'module'],
     'daq.ni':
