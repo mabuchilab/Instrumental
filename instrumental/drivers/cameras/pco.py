@@ -9,6 +9,7 @@ from enum import Enum
 from time import clock
 import numpy as np
 from cffi import FFI
+from ._pixelfly import errortext
 from _pixelfly import errortext
 from . import Camera
 from ..util import NiceLib, check_enum, unit_mag, check_units
