@@ -24,7 +24,7 @@ __all__ = ['Pixelfly']
 ffi = FFI()
 with open(os.path.join(os.path.dirname(__file__), '_pixelfly', 'Pccam_clean.h')) as f:
     ffi.cdef(f.read())
-lib = ffi.dlopen('pf_cam')  # Developed using version 2.1.0.29 of pf_cam.dll
+lib = ffi.dlopen('pf_cam.dll')  # Developed using version 2.1.0.29 of pf_cam.dll
 
 
 # Here we create a proxy for 'lib' that includes some nicer features like
