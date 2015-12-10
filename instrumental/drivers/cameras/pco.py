@@ -479,9 +479,9 @@ class PCO_Camera(Camera):
         self._free_buffers()
         self.shutter = None
 
-    @unit_mag(timeout='ms')
-    def wait_for_frame(self, timeout='1s'):
-        """wait_for_frame(self, timeout='1s')"""
+    @unit_mag(timeout='?ms')
+    def wait_for_frame(self, timeout=None):
+        """wait_for_frame(self, timeout=None')"""
         if not self.queue:
             raise Exception("No queued buffers!")
 
