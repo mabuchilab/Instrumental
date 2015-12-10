@@ -14,6 +14,8 @@ from ._pixelfly import errortext
 from ._pixelfly import macros
 from . import Camera
 from .. import InstrumentTypeError, _ParamDict
+from ..util import check_units
+from ...errors import Error, TimeoutError
 from ... import Q_
 
 __all__ = ['Pixelfly']
@@ -109,9 +111,10 @@ def err_wrap(func):
     def err_wrapped(*args):
         ret_code = func(*args)
         if ret_code != 0:
-            pbuf = errtext.ffi.new('char[]', 1024)
-            errtext.lib.PCO_GetErrorText(errtext.ffi.cast('unsigned int', ret_code), pbuf, len(pbuf))
-            err_message = errtext.ffi.string(pbuf)
+            pbuf = errortext.ffi.new('char[]', 1024)
+            errortext.lib.PCO_GetErrorText(errortext.ffi.cast('unsigned int', ret_code), pbuf,
+                                           len(pbuf))
+            err_message = errortext.ffi.string(pbuf)
             e = Exception('({}) {}'.format(ret_code, err_message))
             e.err_code = ret_code
             raise e
@@ -233,18 +236,19 @@ class Pixelfly(Camera):
         self._allocate_buffers()
         self.color_mode = 'mono16'
 
-    def start_live_video(self, framerate=10):
-        self.framerate = 100 if framerate is None else framerate
+    def start_live_video(self, **kwds):
         self.set_mode('video')
         self._trigger()
 
     def stop_live_video(self):
         self.set_mode()
 
-    def wait_for_frame(self, timeout=1000):
+    @check_units(timeout='?ms')
+    def wait_for_frame(self, timeout=None):
+        """wait_for_frame(self, timeout=None')"""
         ptr = ffi.new('int[4]')
-        buf_i = self.buf_i  # Save before we trigger
-        ret = win32event.WaitForSingleObject(int(self.buf_events[buf_i]), timeout)
+        buf_i = (self.buf_i - 1) % self.nbufs  # Most recently triggered buffer
+        ret = win32event.WaitForSingleObject(int(self.buf_events[buf_i]), int(timeout.m_as('ms')))
 
         if ret != win32event.WAIT_OBJECT_0:
             return False  # Object is not signaled
@@ -333,85 +337,52 @@ class Pixelfly(Camera):
         px.GETBOARDPAR(self.hdriver, ptr, ffi.sizeof('DWORD'))
         return ptr
 
-    def image_buffer(self):
+    def latest_frame(self, copy=True):
         buf_i = (self.buf_i - 1) % self.nbufs
-        return buffer(ffi.buffer(self.bufptrs[buf_i], self._frame_size())[:])
-
-    def image_array(self):
-        dtype = np.uint8 if self.bit_depth <= 8 else np.uint16
-        buf = self.image_buffer()
-
-        if self.height/self.ccd_height == 1:
-            arr = np.frombuffer(buf, dtype)
-            return arr.reshape((self.height, self.width))
+        if copy:
+            buf = buffer(ffi.buffer(self.bufptrs[buf_i], self._frame_size())[:])
         else:
-            # act_h is combined height of both frames
-            px_per_frame = self.width*self.height/2
-            byte_per_px = self.bit_depth/8 + 1
-            arr1 = np.frombuffer(buf, dtype, px_per_frame, 0)
-            arr2 = np.frombuffer(buf, dtype, px_per_frame, px_per_frame*byte_per_px)
-            return (arr1.reshape((self.height/2, self.width)),
-                    arr2.reshape((self.height/2, self.width)))
+            buf = buffer(ffi.buffer(self.bufptrs[buf_i], self._frame_size()))
 
-    def freeze_frame(self):
-        self.grab_frame()
+        return self._array_from_buffer(buf)
 
-    def grab_frame(self):
-        """ Trigger a capture sequence and return a buffer to the image data.
+    def start_capture(self, **kwds):
+        self._handle_kwds(kwds)
 
-        To get the images in ndarray form instead, use ``grab_ndarray``.
+        if kwds['n_frames'] > 1:
+            raise Error("Pixelfly camera does not support multi-image capture sequences")
 
-        The type of capture sequence performed and its parameters can be
-        changed with ``set_mode``.
-
-        Returns
-        -------
-        cffi.buffer
-            A cffi buffer that contains the bytes of the image(s).
-        """
-        ptr = ffi.new('int[4]')
-        buf_i = self.buf_i  # Save before we trigger
+        self.set_mode(exposure=kwds['exposure_time'], hbin=kwds['hbin'], vbin=kwds['vbin'])
         self._trigger()
 
-        win32event.WaitForSingleObject(int(self.buf_events[buf_i]), 1000)
-        win32event.ResetEvent(int(self.buf_events[buf_i]))
-        px.GETBUFFER_STATUS(self.hdriver, self.bufnums[buf_i], 0, ptr, ffi.sizeof('int')*4)
+    @check_units(timeout='ms')
+    def get_captured_image(self, timeout='1s', copy=True):
+        """get_captured_image(timeout='1s', copy=True)"""
 
-        if px.PCC_BUF_STAT_ERROR(ptr):
-            uptr = ffi.cast('DWORD *', ptr)
-            raise Exception("Buffer error 0x{:08X} 0x{:08X} 0x{:08X} 0x{:08X}".format(
-                                uptr[0], uptr[1], uptr[2], uptr[3]))
+        # We can use wait_for_frame since the driver (currently) only supports capture sequences
+        # that use one buffer at a time (double shutter mode uses one double-large buffer)
+        ready = self.wait_for_frame(timeout=timeout)
+        if not ready:
+            raise TimeoutError("Image not ready")
 
-        return buffer(ffi.buffer(self.bufptrs[buf_i], self._frame_size())[:])
+        return self.latest_frame(copy=copy)
 
-    def grab_ndarray(self):
-        """ Trigger a capture sequence and return the image(s) as ndarray(s).
-
-        To get a buffer of raw bytes instead, use ``grab_frame``.
-
-        The type of capture sequence performed and its parameters can be
-        changed with ``set_mode``.
-
-        Returns
-        -------
-        numpy.ndarray or tuple of numpy.ndarrays
-            The grayscale image data in ndarray form. Uses a dtype of np.uint8
-            for 8-bit data and np.uint16 for 12-bit data.
-        """
+    def _array_from_buffer(self, buf):
         dtype = np.uint8 if self.bit_depth <= 8 else np.uint16
-        buf = self.grab_frame()
-
-        if self.height/self.ccd_height == 1:
+        if self.shutter != 'double':
             arr = np.frombuffer(buf, dtype)
             return arr.reshape((self.height, self.width))
         else:
-            # act_h is combined height of both frames
-            px_per_frame = self.width*self.height/2
+            px_per_frame = self.width*self.height
             byte_per_px = self.bit_depth/8 + 1
             arr1 = np.frombuffer(buf, dtype, px_per_frame, 0)
             arr2 = np.frombuffer(buf, dtype, px_per_frame, px_per_frame*byte_per_px)
-            return (arr1.reshape((self.height/2, self.width)),
-                    arr2.reshape((self.height/2, self.width)))
+            return (arr1.reshape((self.height, self.width)),
+                    arr2.reshape((self.height, self.width)))
+
+    def grab_image(self, timeout='1s', copy=True, **kwds):
+        self.start_capture(**kwds)
+        return self.get_captured_image(timeout=timeout, copy=copy)
 
     def _load_sizes(self):
         ccdx_p = ffi.new('int *')
@@ -420,12 +391,16 @@ class Pixelfly(Camera):
         actualy_p = ffi.new('int *')
         bit_pix_p = ffi.new('int *')
         px.GETSIZES(self.hdriver, ccdx_p, ccdy_p, actualx_p, actualy_p, bit_pix_p)
-        self._ccd_width = ccdx_p[0]
-        self._ccd_height = ccdy_p[0]
+        self._max_width = ccdx_p[0]
+        self._max_height = ccdy_p[0]
         self._width = actualx_p[0]
         self._height = actualy_p[0]
         self._bit_depth = bit_pix_p[0]
 
+        if self.shutter == 'double':
+            self._height = self._height / 2  # Give the height of *each* image individually
+
+    @property
     def temperature(self):
         """ The temperature of the CCD. """
         temp_p = ffi.new('int *')
@@ -434,9 +409,9 @@ class Pixelfly(Camera):
 
     width = property(lambda self: self._width)
     height = property(lambda self: self._height)
+    max_width = property(lambda self: self._max_width)
+    max_height = property(lambda self: self._max_height)
     bit_depth = property(lambda self: self._bit_depth)
-    ccd_width = property(lambda self: self._ccd_width)
-    ccd_height = property(lambda self: self._ccd_height)
 
 
 def list_instruments():
