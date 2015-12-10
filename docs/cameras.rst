@@ -11,6 +11,7 @@ Supported Models
     :maxdepth: 1
 
     pco-cameras
+    cameras-pixelfly
     uc480-cameras
 
 
