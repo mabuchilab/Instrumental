@@ -1,5 +1,5 @@
 from ctypes import Structure, c_char
-from ctypes.wintypes import WORD, DWORD, ULONG, BOOL
+from ctypes.wintypes import INT, WORD, DWORD, ULONG, BOOL
 
 
 class SENSORINFO(Structure):
@@ -32,6 +32,23 @@ class CAMERA_INFO(Structure):
 class CAMERA_LIST(Structure):
     _fields_ = [('dwCount', ULONG),
                 ('ci', CAMERA_INFO*1)]
+
+
+class IS_POINT_2D(Structure):
+    _fields_ = [('s32X', INT),
+                ('s32Y', INT)]
+
+
+class IS_SIZE_2D(Structure):
+    _fields_ = [('s32Width', INT),
+                ('s32Height', INT)]
+
+
+class IS_RECT(Structure):
+    _fields_ = [('s32X', INT),
+                ('s32Y', INT),
+                ('s32Width', INT),
+                ('s32Height', INT)]
 
 
 def create_camera_list(length):

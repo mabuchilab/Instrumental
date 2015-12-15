@@ -6,14 +6,18 @@ uEye software. Currently Windows-only, but Linux support should be
 possible to implement if desired.
 """
 
+import atexit
 import logging as log
-from ctypes import CDLL, WinDLL, byref, pointer, POINTER, c_char, c_char_p, c_wchar_p, cast
-from ctypes.wintypes import DWORD, INT, ULONG, DOUBLE, HWND
+from ctypes import CDLL, WinDLL, sizeof, byref, pointer, POINTER, c_char, c_char_p, c_wchar_p, cast
+from ctypes.wintypes import DWORD, INT, UINT, ULONG, DOUBLE, HWND
 import os.path
 import numpy as np
+import win32event
 from . import Camera
 from ._uc480.constants import *
 from ._uc480.structs import *
+from ..util import check_units
+from ... import Q_, u
 
 HCAM = DWORD
 NULL = POINTER(HWND)()
@@ -35,7 +39,7 @@ lib.is_InitCamera.errcheck = errcheck
 lib.is_GetImageMemPitch.errcheck = errcheck
 lib.is_SetColorMode.errcheck = errcheck
 from .. import _ParamDict
-from ...errors import InstrumentTypeError, InstrumentNotFoundError
+from ...errors import InstrumentTypeError, InstrumentNotFoundError, Error, TimeoutError
 
 
 def _instrument(params):
@@ -126,8 +130,15 @@ def _get_legit_params(params):
     raise InstrumentNotFoundError("No camera found matching the given parameters")
 
 
+class BufferInfo(object):
+    def __init__(self, ptr, id):
+        self.ptr = ptr
+        self.id = id
+
+
 class UC480_Camera(Camera):
     """A uc480-supported Camera."""
+    _open_cameras = []
 
     def __init__(self, id=None, serial=None):
         """Create a UC480_Camera object.
@@ -179,7 +190,9 @@ class UC480_Camera(Camera):
         self._color_mode = INT()
         self._list_p_img_mem = None
         self._list_memid = None
-        self.is_live = False
+
+        self._buffers = []
+        self._queue_enabled = False
 
         self._open()
 
@@ -249,14 +262,19 @@ class UC480_Camera(Camera):
         self._hcam = HCAM(self._id)
         ret = lib.is_InitCamera(byref(self._hcam), NULL)
         if ret != IS_SUCCESS:
-            print("Failed to open camera")
-        else:
-            self._in_use = True
-            self.width, self.height = self._get_max_img_size()
-            log.debug('image width=%d, height=%d', self.width, self.height)
+            raise Error("Failed to open camera")
 
-            self._init_colormode()
-            self._allocate_mem_seq(num_bufs)
+        self._in_use = True
+        self._refresh_sizes()
+        log.debug('image width=%d, height=%d', self.width, self.height)
+
+        self._init_colormode()
+        self._allocate_mem_seq(num_bufs)
+
+        self._seq_event = win32event.CreateEvent(None, False, False, '')
+        self._frame_event = win32event.CreateEvent(None, True, False, '')  # Don't auto-reset
+        lib.is_InitEvent(self._hcam, self._seq_event.handle, IS_SET_EVENT_SEQ)
+        lib.is_InitEvent(self._hcam, self._frame_event.handle, IS_SET_EVENT_FRAME)
 
     def _init_colormode(self):
         log.debug("Initializing default color mode")
@@ -277,42 +295,25 @@ class UC480_Camera(Camera):
 
     def _free_image_mem_seq(self):
         lib.is_ClearSequence(self._hcam)
-        for p_img_mem, memid in zip(self._list_p_img_mem, self._list_memid):
-            lib.is_FreeImageMem(self._hcam, p_img_Mem, memid)
-        self._list_p_img_mem = None
-        self._list_memid = None
+        for buf in self._buffers:
+            lib.is_FreeImageMem(self._hcam, buf.ptr, buf.id)
+        self._buffers = []
 
     def _allocate_mem_seq(self, num_bufs):
         """
         Create and setup the image memory for live capture
         """
-        self._list_p_img_mem = []
-        self._list_memid = []
         for i in range(num_bufs):
             p_img_mem = POINTER(c_char)()
             memid = INT()
             lib.is_AllocImageMem(self._hcam, self._width, self._height, self._color_depth,
                                  pointer(p_img_mem), pointer(memid))
             lib.is_AddToSequence(self._hcam, p_img_mem, memid)
-            self._list_p_img_mem.append(p_img_mem)
-            self._list_memid.append(memid)
+            self._buffers.append(BufferInfo(p_img_mem, memid))
 
         # Initialize display
         lib.is_SetImageSize(self._hcam, self._width, self._height)
         lib.is_SetDisplayMode(self._hcam, IS_SET_DM_DIB)
-
-    def _install_event_handler(self):
-        try:
-            import win32event
-        except ImportError:
-            raise ImportError("Live video events require the win32event module")
-        self.hEvent = win32event.CreateEvent(None, False, False, '')
-        lib.is_InitEvent(self._hcam, self.hEvent.handle, IS_SET_EVENT_FRAME)
-        lib.is_EnableEvent(self._hcam, IS_SET_EVENT_FRAME)
-
-    def _uninstall_event_handler(self):
-        lib.is_DisableEvent(self._hcam, IS_SET_EVENT_FRAME)
-        lib.is_ExitEvent(self._hcam, IS_SET_EVENT_FRAME)
 
     def close(self):
         """Close the camera and release associated image memory.
@@ -321,6 +322,9 @@ class UC480_Camera(Camera):
         can use the camera as a context manager--see the documentation for
         __init__.
         """
+        lib.is_ExitEvent(self._hcam, IS_SET_EVENT_SEQ)
+        lib.is_ExitEvent(self._hcam, IS_SET_EVENT_FRAME)
+
         ret = lib.is_ExitCamera(self._hcam)
         if ret != IS_SUCCESS:
             print("Failed to close camera")
@@ -335,111 +339,11 @@ class UC480_Camera(Camera):
             return num.value
         raise Exception("Return code {}".format(ret))
 
-    def wait_for_frame(self, timeout=0):
-        """ Wait for FRAME event to be signaled. 
-            
-            Parameters
-            ----------
-            timeout : int, optional
-                How long to wait for event to be signaled. If timeout is 0,
-                this polls the event status and reterns immediately.
-
-            Returns
-            -------
-            bool
-                Whether FRAME event was signaled.
-        """
-        try:
-            import win32event
-        except ImportError:
-            raise ImportError("Live video events require the win32event module")
-        ret = win32event.WaitForSingleObject(self.hEvent, timeout)
-        return (ret == win32event.WAIT_OBJECT_0)
-
-    def freeze_frame(self):
-        """Acquire an image from the camera and store it in memory.
-
-        Can be used in conjunction with direct memory access to display an
-        image without saving it to file.
-        """
-        ret = lib.is_FreezeVideo(self._hcam, self._width, self._height)
-        log.debug("FreezeVideo retval=%d", ret)
-
-    def start_live_video(self, framerate=None):
-        """Start live video capture.
-        
-        Parameters
-        ----------
-        framerate : float, optional
-            Desired framerate. The true framerate that results can be found in
-            the ``framerate`` attribute.
-        """
-        self._install_event_handler()
-        if framerate is None:
-            framerate = IS_GET_FRAMERATE
-        newFPS = DOUBLE()
-        ret = lib.is_SetFrameRate(self._hcam, DOUBLE(framerate), pointer(newFPS))
-        if ret != IS_SUCCESS:
-            print("Error: failed to set framerate")
-        else:
-            self.framerate = newFPS.value
-
-        lib.is_CaptureVideo(self._hcam, IS_WAIT)
-        self.is_live = True
-
-    def stop_live_video(self):
-        """Stop live video capture."""
-        lib.is_StopLiveVideo(self._hcam, IS_WAIT)
-        self._uninstall_event_handler()
-        self.is_live = False
-
-    def save_image(self, filename=None, filetype=None, freeze=None):
-        """Save the current video image to disk.
-
-        If no filename is given, this will display the 'Save as' dialog. If no
-        filetype is given, it will be determined by the extension of the
-        filename, if available.  If neither exists, the image will be saved as
-        a bitmap (BMP) file.
-
-        Parameters
-        ----------
-        filename : str, optional
-            Filename to save image as. If not given, 'Save as' dialog will open.
-        filetype : str, optional
-            Filetype to save image as, e.g. 'bmp'. Useful for setting the
-            default filetype in the 'Save as' dialog.
-        freeze : bool, optional
-            Freeze a frame before copying data. By default, freezes when not in
-            live capture mode.
-        """
-        if freeze is None:
-            freeze = not self.is_live
-
-        # Strip extension from filename, clear extension if it is invalid
-        if filename is not None:
-            filename, ext = os.path.splitext(filename)
-            if ext.lower() not in ['.bmp', '.jpg', '.png']:
-                ext = '.bmp'
-        else:
-            filename, ext = '', '.bmp'
-
-        # 'filetype' flag overrides the extension. Default is .bmp
-        if filetype:
-            ext = '.' + filetype.lower()
-
-        fdict = {'.bmp': IS_IMG_BMP, '.jpg': IS_IMG_JPG, '.png': IS_IMG_PNG}
-        ftype_flag = fdict[ext.lower()]
-        filename = filename + ext if filename else None
-
-        if freeze:
-            lib.is_FreezeVideo(self._hcam, self._width, self._height)
-        lib.is_SaveImageEx(self._hcam, filename, ftype_flag, INT(0))
-
     def _get_max_img_size(self):
         # TODO: Make this more robust
         sInfo = SENSORINFO()
         lib.is_GetSensorInfo(self._hcam, byref(sInfo))
-        return sInfo.nMaxWidth, sInfo.nMaxHeight
+        return int(sInfo.nMaxWidth), int(sInfo.nMaxHeight)
 
     def _get_sensor_color_mode(self):
         sInfo = SENSORINFO()
@@ -448,7 +352,7 @@ class UC480_Camera(Camera):
 
     def _value_getter(member_str):
         def getter(self):
-            return getattr(self, member_str).value
+            return getattr(self, member_str)
         return getter
 
     def _value_setter(member_str):
@@ -456,35 +360,9 @@ class UC480_Camera(Camera):
             getattr(self, member_str).value = value
         return setter
 
-    def image_array(self, freeze=True):
-        """ Get an array of the data in the active image memory.
-
-        The array's shape depends on the camera's color mode. Monochrome modes
-        return an array with shape (height, width), while camera modes return
-        an array with shape (height, width, 3) where the last axis contains the
-        RGB channels in that order.
-
-        This format is useful for sending to matplotlib's ``imshow()``
-        function::
-
-            >>> ...
-            >>> import matplotlib.pyplot as plt
-            >>> cam.freeze_frame()
-            >>> plt.imshow(cam.image_array())
-            >>> plt.show()
-
-        Parameters
-        ----------
-        freeze : bool, optional
-            Freeze a frame before copying data. By default, freezes when not in
-            live capture mode.
-        """
-        # Currently only supports MONO8 and RGBA8_PACKED
-        if (not self.is_live if freeze is None else freeze):
-            lib.is_FreezeVideo(self._hcam, self._width, self._height)
-
+    def _array_from_buffer(self, buf):
         h = self.height
-        arr = np.frombuffer(self.image_buffer(), np.uint8)
+        arr = np.frombuffer(buf, np.uint8)
 
         if self._color_mode.value == IS_CM_RGBA8_PACKED:
             w = self.bytes_per_line/4
@@ -499,14 +377,170 @@ class UC480_Camera(Camera):
             raise Exception("Unsupported color mode!")
         return arr
 
-    def image_buffer(self):
-        """ Get a buffer of the active image memory's bytes. """
-        bpl = self.bytes_per_line
+    def _set_queueing(self, enable):
+        if enable:
+            if not self._queue_enabled:
+                lib.is_InitImageQueue(self._hcam, 0)
+        else:
+            if self._queue_enabled:
+                lib.is_ExitImageQueue(self._hcam)
+        self._queue_enabled = enable
 
-        # Create a pointer to the data as a CHAR ARRAY so we can convert it to a buffer
-        p_img_mem = self._last_img_mem()
-        arr_ptr = cast(p_img_mem, POINTER(c_char * (bpl*self.height)))
-        return buffer(arr_ptr.contents)  # buffer pointing to array of image data
+    def _set_binning(self, vbin, hbin):
+        VMAP = {
+            1: IS_BINNING_DISABLE,
+            2: IS_BINNING_2X_VERTICAL,
+            3: IS_BINNING_3X_VERTICAL,
+            4: IS_BINNING_4X_VERTICAL,
+            5: IS_BINNING_5X_VERTICAL,
+            6: IS_BINNING_6X_VERTICAL,
+            8: IS_BINNING_8X_VERTICAL,
+            16: IS_BINNING_16X_VERTICAL
+        }
+        HMAP = {
+            1: IS_BINNING_DISABLE,
+            2: IS_BINNING_2X_HORIZONTAL,
+            3: IS_BINNING_3X_HORIZONTAL,
+            4: IS_BINNING_4X_HORIZONTAL,
+            5: IS_BINNING_5X_HORIZONTAL,
+            6: IS_BINNING_6X_HORIZONTAL,
+            8: IS_BINNING_8X_HORIZONTAL,
+            16: IS_BINNING_16X_HORIZONTAL
+        }
+
+        mode = VMAP[vbin] | HMAP[hbin]
+        ret = lib.is_SetBinning(self._hcam, mode)
+        
+        if ret == IS_NOT_SUPPORTED:
+            raise Error("Unsupported binning mode (h,v) = ({},{})".format(hbin, vbin))
+        elif ret != IS_SUCCESS:
+            raise Error("Failed to set binning: error code {}".format(ret))
+
+
+    def start_capture(self, **kwds):
+        self._handle_kwds(kwds)
+
+        self._set_binning(kwds['vbin'], kwds['hbin'])
+        self._set_AOI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
+        self._set_exposure(kwds['exposure_time'])
+
+        self._free_image_mem_seq()
+        self._allocate_mem_seq(kwds['n_frames'])
+
+        self._set_queueing(True)  # Use queue instead of ring buffer for finite sequence
+        lib.is_SetExternalTrigger(self._hcam, IS_SET_TRIGGER_SOFTWARE)
+        lib.is_EnableEvent(self._hcam, IS_SET_EVENT_SEQ)
+        lib.is_CaptureVideo(self._hcam, IS_DONT_WAIT)  # Trigger
+
+    @check_units(timeout='ms')
+    def get_captured_image(self, timeout='1s', copy=True):
+        ret = win32event.WaitForSingleObject(self._seq_event, int(timeout.m_as('ms')))
+        lib.is_DisableEvent(self._hcam, IS_SET_EVENT_SEQ)
+
+        if ret == win32event.WAIT_TIMEOUT:
+            raise TimeoutError
+        elif ret != win32event.WAIT_OBJECT_0:
+            raise Error("Failed to grab image")
+
+        # Assumes we have exactly as many images as buffers
+        mem_ptrs = [buf.ptr for buf in self._buffers]
+
+        arrays = []
+        for ptr in mem_ptrs:
+            buf_ptr = cast(ptr, POINTER(c_char * (self.bytes_per_line*self.height)))
+            array = self._array_from_buffer(buffer(buf_ptr.contents))
+            arrays.append(np.copy(array) if copy else array)
+
+        if len(arrays) == 1:
+            return arrays[0]
+        else:
+            return tuple(arrays)
+
+    def grab_image(self, timeout='1s', copy=True, **kwds):
+        self.start_capture(**kwds)
+        return self.get_captured_image(timeout=timeout, copy=copy)
+
+    def start_live_video(self, framerate=None):
+        self._handle_kwds(kwds)
+
+        self._set_binning(kwds['vbin'], kwds['hbin'])
+        self._set_AOI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
+        self._set_exposure(kwds['exposure_time'])
+
+        self._free_image_mem_seq()
+        self._allocate_mem_seq(num_bufs=2)
+        self._set_queueing(False)
+
+        if framerate is None:
+            framerate = IS_GET_FRAMERATE
+        newFPS = DOUBLE()
+        ret = lib.is_SetFrameRate(self._hcam, DOUBLE(framerate), pointer(newFPS))
+        if ret != IS_SUCCESS:
+            print("Error: failed to set framerate")
+        else:
+            self.framerate = newFPS.value
+
+        lib.is_SetExternalTrigger(self._hcam, IS_SET_TRIGGER_OFF)
+        lib.is_EnableEvent(self._hcam, IS_SET_EVENT_FRAME)
+        lib.is_CaptureVideo(self._hcam, IS_WAIT)
+
+    def stop_live_video(self):
+        """Stop live video capture."""
+        lib.is_StopLiveVideo(self._hcam, IS_WAIT)
+        lib.is_DisableEvent(self._hcam, IS_SET_EVENT_FRAME)
+
+    @check_units(timeout='?ms')
+    def wait_for_frame(self, timeout=None):
+        timeout_ms = win32event.INFINITE if timeout is None else int(timeout.m_as('ms'))
+        ret = win32event.WaitForSingleObject(self._frame_event, timeout_ms)
+        win32event.ResetEvent(self._frame_event)
+
+        if ret == win32event.WAIT_TIMEOUT:
+            return False
+        elif ret != win32event.WAIT_OBJECT_0:
+            raise Error("Failed to grab image: Windows event return code 0x{:x}".format(ret))
+
+        return True
+
+    def latest_frame(self, copy=True):
+        nNum = INT()
+        pcMem = POINTER(c_char)()
+        pcMemLast = POINTER(c_char)()
+        lib.is_GetActSeqBuf(self._hcam, pointer(nNum), pointer(pcMem), pointer(pcMemLast))
+        buf_ptr = cast(pcMemLast, POINTER(c_char * (self.bytes_per_line*self.height)))
+        array = self._array_from_buffer(buffer(buf_ptr.contents))
+        return np.copy(array) if copy else array
+
+    def _get_AOI(self):
+        rect = IS_RECT()
+        lib.is_AOI(self._hcam, IS_AOI_IMAGE_GET_AOI, byref(rect), sizeof(rect))
+        return rect.s32X, rect.s32Y, rect.s32Width, rect.s32Height
+
+    def _set_AOI(self, x0, y0, x1, y1):
+        rect = IS_RECT(x0, y0, x1-x0, y1-y0)
+        lib.is_AOI(self._hcam, IS_AOI_IMAGE_SET_AOI, byref(rect), sizeof(rect))
+        self._refresh_sizes()
+
+    def _refresh_sizes(self):
+        _, _, self._width, self._height = self._get_AOI()
+        self._max_width, self._max_height = self._get_max_img_size()
+
+    @check_units(exp_time='ms')
+    def _set_exposure(self, exp_time):
+        param = DOUBLE(exp_time.m_as('ms'))
+        cbSizeOfParam = UINT(8)
+        lib.is_Exposure(self._hcam, IS_EXPOSURE_CMD_SET_EXPOSURE, byref(param), cbSizeOfParam)
+        return param
+    
+    def _get_exposure(self):
+        param = DOUBLE()
+        lib.is_Exposure(self._hcam, IS_EXPOSURE_CMD_GET_EXPOSURE, byref(param), 8)
+        return Q_(param.value, 'ms')
+
+    def _get_exposure_inc(self):
+        param = DOUBLE()
+        lib.is_Exposure(self._hcam, IS_EXPOSURE_CMD_GET_EXPOSURE_RANGE_INC, byref(param), 8)
+        return Q_(param.value, 'ms')
 
     def _last_img_mem(self):
         """ Returns a ctypes char-pointer to the starting address of the image memory
@@ -537,15 +571,21 @@ class UC480_Camera(Camera):
     bytes_per_line = property(lambda self: self._bytes_per_line())
 
     #: Width of the camera image in pixels
-    width = property(_value_getter('_width'), _value_setter('_width'))
+    width = property(_value_getter('_width'))
+    max_width = property(_value_getter('_max_width'))
 
     #: Height of the camera image in pixels
-    height = property(_value_getter('_height'), _value_setter('_height'))
+    height = property(_value_getter('_height'))
+    max_height = property(_value_getter('_max_height'))
 
     #: Color mode string. Read-only
     color_mode = property(lambda self: self._color_mode_string())
 
 
-if __name__ == '__main__':
-    with UC480_Camera(serial='4002856484') as cam:
-        cam.save_image('cool.jpg')
+@atexit.register
+def _cleanup():
+    for cam in UC480_Camera._open_cameras:
+        try:
+            cam.close()
+        except:
+            pass
