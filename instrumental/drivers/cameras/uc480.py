@@ -460,7 +460,8 @@ class UC480_Camera(Camera):
         self.start_capture(**kwds)
         return self.get_captured_image(timeout=timeout, copy=copy)
 
-    def start_live_video(self, framerate=None):
+    @check_units(framerate='?Hz')
+    def start_live_video(self, framerate=None, **kwds):
         self._handle_kwds(kwds)
 
         self._set_binning(kwds['vbin'], kwds['hbin'])
@@ -473,6 +474,8 @@ class UC480_Camera(Camera):
 
         if framerate is None:
             framerate = IS_GET_FRAMERATE
+        else:
+            framerate = framerate.m_as('Hz')
         newFPS = DOUBLE()
         ret = lib.is_SetFrameRate(self._hcam, DOUBLE(framerate), pointer(newFPS))
         if ret != IS_SUCCESS:
