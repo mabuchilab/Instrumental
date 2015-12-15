@@ -36,8 +36,8 @@ class Mock(object):
     def __mul__(self, other):
         return self
 
-    def __eq__(self, other):
-        return True  # For Quantity.dimesionality equality assertions
+    def __cmp__(self, other):
+        return 0  # For Quantity.dimesionality equality assertions
 
     @classmethod
     def __getattr__(cls, name):
