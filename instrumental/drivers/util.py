@@ -5,7 +5,8 @@ Helpful utilities for wrapping libraries in Python
 """
 from inspect import getargspec, isfunction
 from functools import update_wrapper
-from instrumental import Q_
+import pint
+from .. import Q_
 
 
 def check_enum(enum_type, arg):
@@ -201,7 +202,7 @@ class NiceLib(object):
 def check_units(*pos, **named):
     """Decorator to enforce the dimensionality of input args and return values
     """
-    def inout_map(arg, unit_info):
+    def inout_map(arg, unit_info, name=None):
         if unit_info is None:
             return arg
 
@@ -210,7 +211,13 @@ def check_units(*pos, **named):
             return None
         else:
             q = Q_(arg)
-            assert q.dimensionality == units.dimensionality
+            if q.dimensionality != units.dimensionality:
+                if name is not None:
+                    raise pint.DimensionalityError(q.units, units.units,
+                                                   extra_msg=" for argument '{}'".format(name))
+                else:
+                    raise pint.DimensionalityError(q.units, units.units,
+                                                   extra_msg=" for return value")
             return q
 
     return _unit_decorator(inout_map, inout_map, pos, named)
@@ -219,7 +226,7 @@ def check_units(*pos, **named):
 def unit_mag(*pos, **named):
     """Decorator to extract the magnitudes of input args and return values
     """
-    def in_map(arg, unit_info):
+    def in_map(arg, unit_info, name):
         if unit_info is None:
             return arg
 
@@ -227,7 +234,12 @@ def unit_mag(*pos, **named):
         if optional and arg is None:
             return None
         else:
-            return Q_(arg).to(units).magnitude
+            q = Q_(arg)
+            try:
+                return q.to(units).magnitude
+            except pint.DimensionalityError:
+                raise pint.DimensionalityError(q.units, units.units,
+                                               extra_msg=" for argument '{}'".format(name))
 
     def out_map(res, unit_info):
         if unit_info is None:
@@ -237,7 +249,11 @@ def unit_mag(*pos, **named):
         if optional and res is None:
             return None
         else:
-            return Q_(res, units)
+            q = Q_(res)
+            try:
+                return q
+            except pint.DimensionalityError:
+                raise pint.DimensionalityError(q.units, units.units, extra_msg=" for return value")
 
     return _unit_decorator(in_map, out_map, pos, named)
 
@@ -318,12 +334,12 @@ def _unit_decorator(in_map, out_map, pos_args, named_args):
         new_defaults = {}
         ndefs = len(defaults)
         for d, u, n in zip(defaults, pos_units[-ndefs:], arg_names[-ndefs:]):
-            new_defaults[n] = d if u is None else in_map(d, u)
+            new_defaults[n] = d if u is None else in_map(d, u, n)
 
         def wrapper(*args, **kwargs):
             # Convert the input arguments
-            new_args = [in_map(a, u) for a, u in zip(args, pos_units)]
-            new_kwargs = {n: in_map(a, named_units.get(n, None)) for n, a in kwargs.items()}
+            new_args = [in_map(a, u, n) for a, u, n in zip(args, pos_units, arg_names)]
+            new_kwargs = {n: in_map(a, named_units.get(n, None), n) for n, a in kwargs.items()}
 
             # Fill in converted defaults
             for name in arg_names[max(len(args), len(arg_names)-len(defaults)):]:
