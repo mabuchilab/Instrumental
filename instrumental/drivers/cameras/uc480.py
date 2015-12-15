@@ -26,6 +26,8 @@ if platform.architecture()[0].startswith('64'):
 else:
     lib = CDLL('uc480')
 
+__all__ = ['UC480_Camera']
+
 
 def errcheck(res, func, args):
     if res != IS_SUCCESS:
