@@ -10,23 +10,22 @@ import atexit
 import logging as log
 from ctypes import CDLL, WinDLL, sizeof, byref, pointer, POINTER, c_char, c_char_p, c_wchar_p, cast
 from ctypes.wintypes import DWORD, INT, UINT, ULONG, DOUBLE, HWND
-import os.path
 import numpy as np
 import win32event
 from . import Camera
 from ._uc480.constants import *
 from ._uc480.structs import *
 from ..util import check_units
-from ... import Q_, u
-
-HCAM = DWORD
-NULL = POINTER(HWND)()
+from .. import _ParamDict
+from ...errors import InstrumentTypeError, InstrumentNotFoundError, Error, TimeoutError
+from ... import Q_
 
 import platform
 if platform.architecture()[0].startswith('64'):
     lib = WinDLL('uc480_64')
 else:
     lib = CDLL('uc480')
+
 
 def errcheck(res, func, args):
     if res != IS_SUCCESS:
@@ -38,8 +37,9 @@ def errcheck(res, func, args):
 lib.is_InitCamera.errcheck = errcheck
 lib.is_GetImageMemPitch.errcheck = errcheck
 lib.is_SetColorMode.errcheck = errcheck
-from .. import _ParamDict
-from ...errors import InstrumentTypeError, InstrumentNotFoundError, Error, TimeoutError
+
+HCAM = DWORD
+NULL = POINTER(HWND)()
 
 
 def _instrument(params):
@@ -124,7 +124,7 @@ def _get_legit_params(params):
         raise InstrumentNotFoundError("No cameras attached")
 
     for cam_params in param_list:
-        if all(cam_params[k] == v for k,v in params.items()):
+        if all(cam_params[k] == v for k, v in params.items()):
             return cam_params
 
     raise InstrumentNotFoundError("No camera found matching the given parameters")
@@ -243,7 +243,7 @@ class UC480_Camera(Camera):
             depth = depth_map[mode]
             if depth != self._color_depth.value:
                 log.debug("Color depth changed from %s to %s",
-                    self._color_depth.value, depth)
+                          self._color_depth.value, depth)
                 self._free_image_mem_seq()
                 self._color_depth = INT(depth)
                 self._allocate_image_mem_seq()
@@ -366,13 +366,13 @@ class UC480_Camera(Camera):
 
         if self._color_mode.value == IS_CM_RGBA8_PACKED:
             w = self.bytes_per_line/4
-            arr = arr.reshape((h,w,4), order='C')
+            arr = arr.reshape((h, w, 4), order='C')
         elif self._color_mode.value == IS_CM_BGRA8_PACKED:
             w = self.bytes_per_line/4
-            arr = arr.reshape((h,w,4), order='C')[:,:,2::-1]
+            arr = arr.reshape((h, w, 4), order='C')[:, :, 2::-1]
         elif self._color_mode.value == IS_CM_MONO8:
             w = self.bytes_per_line
-            arr = arr.reshape((h,w), order='C')
+            arr = arr.reshape((h, w), order='C')
         else:
             raise Exception("Unsupported color mode!")
         return arr
@@ -410,12 +410,11 @@ class UC480_Camera(Camera):
 
         mode = VMAP[vbin] | HMAP[hbin]
         ret = lib.is_SetBinning(self._hcam, mode)
-        
+
         if ret == IS_NOT_SUPPORTED:
             raise Error("Unsupported binning mode (h,v) = ({},{})".format(hbin, vbin))
         elif ret != IS_SUCCESS:
             raise Error("Failed to set binning: error code {}".format(ret))
-
 
     def start_capture(self, **kwds):
         self._handle_kwds(kwds)
@@ -534,7 +533,7 @@ class UC480_Camera(Camera):
         cbSizeOfParam = UINT(8)
         lib.is_Exposure(self._hcam, IS_EXPOSURE_CMD_SET_EXPOSURE, byref(param), cbSizeOfParam)
         return param
-    
+
     def _get_exposure(self):
         param = DOUBLE()
         lib.is_Exposure(self._hcam, IS_EXPOSURE_CMD_GET_EXPOSURE, byref(param), 8)
