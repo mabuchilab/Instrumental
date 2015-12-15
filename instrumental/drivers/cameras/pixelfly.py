@@ -354,10 +354,7 @@ class Pixelfly(Camera):
         self.set_mode(exposure=kwds['exposure_time'], hbin=kwds['hbin'], vbin=kwds['vbin'])
         self._trigger()
 
-    @check_units(timeout='ms')
     def get_captured_image(self, timeout='1s', copy=True):
-        """get_captured_image(timeout='1s', copy=True)"""
-
         # We can use wait_for_frame since the driver (currently) only supports capture sequences
         # that use one buffer at a time (double shutter mode uses one double-large buffer)
         ready = self.wait_for_frame(timeout=timeout)
