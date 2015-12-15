@@ -88,28 +88,28 @@ def _cameras():
                         params['ueye_cam_id'] = int(info.dwCameraID)
                         cams.append(params)
                 else:
-                    print("Some cameras have duplicate IDs. Uniquifying IDs now...")
+                    log.info("Some cameras have duplicate IDs. Uniquifying IDs now...")
                     # Choose IDs that haven't been used yet
                     potential_ids = [i for i in range(1, len(ids)+1) if i not in ids]
                     for id in repeated:
                         new_id = potential_ids.pop(0)
-                        print("Trying to set id from {} to {}".format(id, new_id))
+                        log.info("Trying to set id from {} to {}".format(id, new_id))
                         _id = HCAM(id)
                         ret = lib.is_InitCamera(pointer(_id), NULL)
                         if not ret == IS_SUCCESS:
-                            print("Error connecting to camera {}".format(id))
+                            log.error("Error connecting to camera {}".format(id))
                             return None  # Avoid infinite recursion
                         else:
                             ret = lib.is_SetCameraID(_id, INT(new_id))
                             if not ret == IS_SUCCESS:
-                                print("Error setting the camera id")
+                                log.error("Error setting the camera id")
                                 return None  # Avoid infinite recursion
                     # All IDs should be fixed now, let's retry
                     cams = _cameras()
             else:
-                print("Error getting camera list")
+                raise Error("Error getting camera list")
     else:
-        print("Error getting number of attached cameras")
+        raise Error("Error getting number of attached cameras")
     return cams
 
 
@@ -205,7 +205,7 @@ class UC480_Camera(Camera):
         ret = lib.is_SetAutoParameter(self._hcam, IS_SET_ENABLE_AUTO_SHUTTER,
                                       pointer(INT(enable)), NULL)
         if ret != IS_SUCCESS:
-            print("Failed to set auto exposure property")
+            raise Error("Failed to set auto exposure property")
 
     def load_params(self, filename=None):
         """Load camera parameters from file or EEPROM.
@@ -327,7 +327,7 @@ class UC480_Camera(Camera):
 
         ret = lib.is_ExitCamera(self._hcam)
         if ret != IS_SUCCESS:
-            print("Failed to close camera")
+            log.error("Failed to close camera")
         else:
             self._in_use = False
 
@@ -478,7 +478,7 @@ class UC480_Camera(Camera):
         newFPS = DOUBLE()
         ret = lib.is_SetFrameRate(self._hcam, DOUBLE(framerate), pointer(newFPS))
         if ret != IS_SUCCESS:
-            print("Error: failed to set framerate")
+            log.warn("Failed to set framerate")
         else:
             self.framerate = newFPS.value
 
