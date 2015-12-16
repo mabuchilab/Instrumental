@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 name = "Instrumental"
 description = "Instrumentation library from the Mabuchi Lab"
 author = "MabuchiLab"
-version = "0.2"
+version = "0.3dev"
 
 if __name__ == '__main__':
     setup(
