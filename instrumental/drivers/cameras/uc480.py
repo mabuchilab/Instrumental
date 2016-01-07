@@ -184,6 +184,8 @@ class UC480_Camera(Camera):
         self._color_mode = INT()
         self._list_p_img_mem = None
         self._list_memid = None
+        self._trigger_delay = INT(0)
+        self._trigger_level = INT(0)		
         self.is_live = False
 
         self._open()
@@ -403,14 +405,27 @@ class UC480_Camera(Camera):
         ret = lib.is_SetTriggerDelay(self._hcam, us)
         if ret != IS_SUCCESS:
             print("Error: failed to set trigger delay")
+			
+    def get_trigger_delay(self):
+        '''Get trigger delay in microseconds (us).'''
+        _trigger_delay = lib.is_SetTriggerDelay(self._hcam, IS_GET_TRIGGER_DELAY)
+        if _trigger_delay == IS_NO_SUCCESS:
+            print("Error: failed to GET trigger delay")
+        return _trigger_delay
             
     def set_hardware_trigger(self, mode=IS_SET_TRIGGER_LO_HI):
         '''use hardware trigger. Default to rising edge'''
         ret = lib.is_SetExternalTrigger(self._hcam, mode)
         if ret != IS_SUCCESS:
             print("Error: failed to set external trigger")
-
-        
+			
+    def get_trigger_level(self):
+        '''Get trigger level for external trigger'''
+        _trigger_level = lib.is_SetExternalTrigger(self._hcam, IS_GET_TRIGGER_STATUS)
+        if _trigger_level == IS_NO_SUCCESS:
+            print("Error: failed to GET trigger level")
+        return _trigger_level
+       
     def save_image(self, filename=None, filetype=None, freeze=None):
         """Save the current video image to disk.
 
