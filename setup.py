@@ -1,3 +1,4 @@
+import sys
 from setuptools import setup, find_packages
 
 name = "Instrumental"
@@ -15,5 +16,6 @@ if __name__ == '__main__':
         author_email = "natezb@stanford.edu",
         description = description,
     )
-    print("\nIf this is your first time installing Instrumental, now run "
-          "`python post_install.py` to install the config file")
+    if 'install' in sys.argv:
+        print("\nIf this is your first time installing Instrumental, now run "
+              "`python post_install.py` to install the config file")
