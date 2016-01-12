@@ -1,5 +1,5 @@
-![logo] Instrumental
-==========================
+|logo| Instrumental
+===================
 
 Instrumental is a Python-based library for controlling lab hardware like cameras, DAQs,
 oscilloscopes, spectrometers, and more. It has high-level drivers for instruments from NI,
@@ -25,9 +25,6 @@ Then you can simply open it by name::
 
     >>> daq = instrument('myDAQ')
 
-Check out :doc:`instruments` for more detailed info.
-
-
 Instrumental also bundles in some additional support code, including:
 
 * Plotting and curve fitting utilities
@@ -39,6 +36,7 @@ library. It optionally uses PyVISA/VISA and other drivers for interfacing with
 lab equipment.
 
 For install information, documentation, examples, and more, see our page on
-[ReadTheDocs](http://instrumental-lib.readthedocs.org/).
+`ReadTheDocs <http://instrumental-lib.readthedocs.org/>`_.
 
-[logo]: images/logo-small.png "Instrumental"
+.. |logo| image:: images/logo-small.png
+          :alt: Instrumental
