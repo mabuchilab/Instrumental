@@ -405,8 +405,11 @@ def instrument(inst=None, **kwargs):
         # SHOULD PROBABLY INTEGRATE THIS WITH THE OTHER CASE
         try:
             mod = import_module('.' + params['module'], __package__)
-        except Exception:
-            raise Exception("Specified module '{}' could not be imported".format(params['module']))
+        except Exception as e:
+            msg = ("\n\nSpecified module '{}' could not be imported. Make sure you have all of "
+                   "this driver module's dependencies installed.".format(params['module']))
+            e.args = (e.args[0] + msg,) + e.args[1:]
+            raise
 
         try:
             new_inst = mod._instrument(params)
