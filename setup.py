@@ -4,9 +4,18 @@ import sys
 from setuptools import setup, find_packages
 
 name = "Instrumental"
-description = "Instrumentation library from the Mabuchi Lab"
-author = "MabuchiLab"
-version = "0.3dev"
+description = "Library with high-level drivers for lab equipment"
+author = "Nate Bogdanowicz"
+url = 'https://github.com/mabuchilab/Instrumental'
+version = "0.3.dev0"
+license = "GPLv3"
+classifiers = [
+    'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+    'Intended Audience :: Science/Research',
+    'Programming Language :: Python :: 2',
+    'Programming Language :: Python :: 2.6',
+    'Programming Language :: Python :: 2.7',
+]
 
 # Check for cffi
 try:
@@ -36,6 +45,9 @@ if __name__ == '__main__':
         author = author,
         author_email = "natezb@stanford.edu",
         description = description,
+        url = url,
+        classifiers = classifiers,
+        install_requires = ['numpy', 'scipy', 'pint>=0.6'],
         **keywords
     )
 
