@@ -11,9 +11,9 @@ Unreleased
 Added
 """""
 - Everything, technically, but recent changes include:
-- `NiceLib`, a class to aid wrapping typical DLLs
+- ``NiceLib``, a class to aid wrapping typical DLLs
 - Unit-checking decorators
-- `RemoteInstrument` for using instruments controlled by a separate computer
+- ``RemoteInstrument`` for using instruments controlled by a separate computer
 
 Changed
 """""""
@@ -21,4 +21,4 @@ Changed
 
 Removed
 """""""
-- `FakeVISA` (in favor of `RemoteInstrument`)
+- ``FakeVISA`` (in favor of ``RemoteInstrument``)
