@@ -45,6 +45,7 @@ if __name__ == '__main__':
         author = author,
         author_email = "natezb@stanford.edu",
         description = description,
+        long_description = '\n'.join(open("README.rst").read().splitlines()[2:]),
         url = url,
         classifiers = classifiers,
         install_requires = ['numpy', 'scipy', 'pint>=0.6'],
