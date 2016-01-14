@@ -74,7 +74,7 @@ def load_config_file():
             instruments[key] = d
 
     if 'data_directory' in prefs:
-        prefs['data_directory'] = os.path.expanduser(prefs['data_directory'])
+        prefs['data_directory'] = os.path.normpath(os.path.expanduser(prefs['data_directory']))
 
 
 # Run on import
