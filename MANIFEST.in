@@ -1,0 +1,7 @@
+include *.rst *.txt AUTHORS LICENSE
+include docs/Makefile docs/make.bat docs/conf.py docs/*.rst
+recursive-include instrumental *.py
+recursive-include instrumental *.h
+graft examples
+graft tools
+prune images
