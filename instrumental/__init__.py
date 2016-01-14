@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2015 Nate Bogdanowicz
+# Copyright 2013-2016 Nate Bogdanowicz
 
 
 import sys
@@ -7,7 +7,8 @@ from types import ModuleType
 
 from pint import UnitRegistry
 
-__version__ = "0.1.0"
+from .__about__ import (__author__, __copyright__, __email__, __license__, __distname__, __url__,
+                        __version__)
 
 # Make a single UnitRegistry instance for the entire package
 u = UnitRegistry()

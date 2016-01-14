@@ -2,12 +2,7 @@ import os
 import os.path
 from setuptools import setup, find_packages
 
-name = "Instrumental-lib"
 description = "Library with high-level drivers for lab equipment"
-author = "Nate Bogdanowicz"
-url = 'https://github.com/mabuchilab/Instrumental'
-version = "0.2.1"
-license = "GPLv3"
 classifiers = [
     'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
     'Intended Audience :: Science/Research',
@@ -15,6 +10,12 @@ classifiers = [
     'Programming Language :: Python :: 2.6',
     'Programming Language :: Python :: 2.7',
 ]
+
+# Load metadata from __about__.py
+base_dir = os.path.dirname(__file__)
+about = {}
+with open(os.path.join(base_dir, 'instrumental', '__about__.py')) as f:
+    exec(f.read(), about)
 
 # Check for cffi
 try:
@@ -37,18 +38,19 @@ if build_cffi_modules:
 
 if __name__ == '__main__':
     setup(
-        name = name,
-        version = version,
+        name = about['__distname__'],
+        version = about['__version__'],
         packages = find_packages(exclude=['*._cffi_build']),
         package_data = {
             '': ['*.h', '*.pyd'],
             'instrumental': ['instrumental.conf.default']
         },
-        author = author,
-        author_email = "natezb@stanford.edu",
+        author = about['__author__'],
+        author_email = about['__email__'],
         description = description,
         long_description = '\n'.join(open("README.rst").read().splitlines()[2:]),
-        url = url,
+        url = about['__url__'],
+        license = about['__license__'],
         classifiers = classifiers,
         install_requires = ['numpy', 'scipy', 'pint>=0.6'],
         **keywords

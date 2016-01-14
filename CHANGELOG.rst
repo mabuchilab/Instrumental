@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+Unreleased
+----------
+
+Added
+"""""
+- Package metadata now (mostly) consolidated in ``__about__.py``
+
+
 (0.2.1) - 2016-01-13
 --------------------
 
