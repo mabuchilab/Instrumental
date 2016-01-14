@@ -1,8 +1,23 @@
 Change Log
 ==========
 
-Unreleased
-----------
+(0.2.1) - 2016-01-13
+--------------------
+
+Added
+"""""
+- Support for building cffi modules via setuptools
+- Packaging support
+
+Changed
+"""""""
+- instrumental.conf is now installed upon first-use. This allows us to eliminate the post_install
+  script. Hopefully there will be future support (via wheels) to do this upon install instead
+- slightly better error message for failure when importing a specified module in ``instrument()``
+
+Removed
+"""""""
+- Outdated example scripts
 
 
 (0.2) - 2015-12-15

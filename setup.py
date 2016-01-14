@@ -6,7 +6,7 @@ name = "Instrumental"
 description = "Library with high-level drivers for lab equipment"
 author = "Nate Bogdanowicz"
 url = 'https://github.com/mabuchilab/Instrumental'
-version = "0.3.dev0"
+version = "0.2.1"
 license = "GPLv3"
 classifiers = [
     'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
