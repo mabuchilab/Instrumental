@@ -2,7 +2,7 @@ import os
 import os.path
 from setuptools import setup, find_packages
 
-name = "Instrumental"
+name = "Instrumental-lib"
 description = "Library with high-level drivers for lab equipment"
 author = "Nate Bogdanowicz"
 url = 'https://github.com/mabuchilab/Instrumental'
