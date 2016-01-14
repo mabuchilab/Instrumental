@@ -10,18 +10,40 @@ import sys
 import os.path
 from warnings import warn
 from ast import literal_eval
-from .appdirs import user_data_dir
+from . import appdirs
 
 __all__ = ['servers', 'instruments', 'prefs']
 servers, instruments, prefs = {}, {}, {}
-data_dir = user_data_dir("Instrumental", "MabuchiLab")
+user_data_dir = appdirs.user_data_dir("Instrumental", "MabuchiLab")
+
+pkg_dir = os.path.abspath(os.path.dirname(__file__))
+user_conf_path = os.path.join(user_data_dir, 'instrumental.conf')
+pkg_conf_path = os.path.join(pkg_dir, 'instrumental.conf.default')
+
+
+def copy_file_text(from_path, to_path):
+    """Copies a text file, using platform-specific line endings"""
+    with open(from_path, 'rU') as from_file:
+        with open(to_path, 'w') as to_file:
+            to_file.writelines((line for line in from_file))
+
+
+def install_default_conf():
+    try:
+        os.makedirs(user_data_dir)
+    except OSError:
+        pass  # Data directory already exists
+    copy_file_text(pkg_conf_path, user_conf_path)
 
 
 def load_config_file():
     global servers, instruments, prefs # Not strictly necessary, but suggestive
     parser = configparser.RawConfigParser()
     parser.optionxform = str  # Re-enable case sensitivity
-    parser.read(os.path.join(data_dir, 'instrumental.conf'))
+
+    if not os.path.isfile(user_conf_path):
+        install_default_conf()
+    parser.read(user_conf_path)
 
     # Write settings into this module's __dict__
     this_module = sys.modules[__name__]

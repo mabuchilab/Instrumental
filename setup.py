@@ -1,6 +1,5 @@
 import os
 import os.path
-import sys
 from setuptools import setup, find_packages
 
 name = "Instrumental"
@@ -16,14 +15,6 @@ classifiers = [
     'Programming Language :: Python :: 2.6',
     'Programming Language :: Python :: 2.7',
 ]
-
-# Get user data directory without having to import appdirs submodule
-base_dir = os.path.dirname(__file__)
-appdirs_names = {}
-with open(os.path.join(base_dir, 'instrumental', 'appdirs.py')) as f:
-    exec(f.read(), appdirs_names)
-user_data_dir = appdirs_names['user_data_dir']
-
 
 # Check for cffi
 try:
@@ -49,9 +40,10 @@ if __name__ == '__main__':
         name = name,
         version = version,
         packages = find_packages(exclude=['*._cffi_build']),
-        package_data = {'': ['*.h', '*.pyd']},
-        data_files = [(user_data_dir(name, 'MabuchiLab'),
-                       [os.path.join('data', 'instrumental.conf')])],
+        package_data = {
+            '': ['*.h', '*.pyd'],
+            'instrumental': ['instrumental.conf.default']
+        },
         author = author,
         author_email = "natezb@stanford.edu",
         description = description,
