@@ -4,22 +4,24 @@ Installation
 Brief Install Instructions
 --------------------------
 
-If you already have NumPy/SciPy/Matplotlib/pip installed, installing
-Instrumental is simple. First install Pint::
+Starting with version 0.2.1, you can install Instrumental using pip::
 
-    $ pip install pint
+    $ pip install instrumental-lib
 
-Now download and extract a zip of Instrumental from the `Github page
-<https://github.com/mabuchilab/Instrumental>`_ or clone it using git. Now
-install::
+This will install the latest release version along with the core dependencies if they aren't
+already installed. However, it's recommended that you use the the Anaconda distribution so you
+don't have to compile numpy and scipy (see the detailed install instructions below).
+
+
+Installing the Development Version from GitHub
+----------------------------------------------
+
+Once you have the core dependencies installed (numpy, scipy, and pint), download and extract a zip
+of Instrumental from the `Github page <https://github.com/mabuchilab/Instrumental>`_ or clone it
+using git. Now install::
 
     $ cd /path/to/Instrumental
     $ python setup.py install
-    $ python post_install.py
-
-``post_install.py`` installs a config file, so you only have to run it the
-first time you install Instrumental.
-
 
 ------------------------------------------------------------------------------
 
@@ -54,12 +56,9 @@ right hand side of the `Instrumental Github page
 like, then open a command prompt to that directory and run::
 
     $ python setup.py install
-    $ python post_install.py
     
-to install Instrumental to your Python site-packages directory and add a
-default configuration to your config directory. You're all set! Now go check
-out some of the examples in the ``examples`` directory contained in the files
-you downloaded!
+to install Instrumental to your Python site-packages directory.  You're all set! Now go check out
+some of the examples in the ``examples`` directory contained in the files you downloaded!
 
 ------------------------------------------------------------------------------
 
