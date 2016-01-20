@@ -414,6 +414,18 @@ def instrument(inst=None, **kwargs):
             new_inst = mod._instrument(params)
         except InstrumentTypeError:
             raise Exception("Instrument is not compatible with the given module")
+
+        new_inst._alias = alias
+
+        # HACK to allow 'parent' modules to do special initialization of instruments
+        # We may get rid of this in the future by having each class's __init__ method directly
+        # handle params, getting rid of the _instrument() middleman.
+        parent_mod = import_module('.' + params['module'].rsplit('.', 1)[0], __package__)
+        try:
+            parent_mod._init_instrument(new_inst, params)
+        except AttributeError:
+            pass
+
         return new_inst
 
     # Find the right type of Instrument to create
@@ -444,6 +456,17 @@ def instrument(inst=None, **kwargs):
             except InstrumentNotFoundError:
                 log.debug("Instrument not found")
                 continue
+
+            new_inst._alias = alias
+
+            # HACK to allow 'parent' modules to do special initialization of instruments
+            # We may get rid of this in the future by having each class's __init__ method directly
+            # handle params, getting rid of the _instrument() middleman.
+            parent_mod = import_module('.' + mod_name.rsplit('.', 1)[0], __package__)
+            try:
+                parent_mod._init_instrument(new_inst, params)
+            except AttributeError:
+                pass
 
             return new_inst
 
