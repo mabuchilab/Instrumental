@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2015 Nate Bogdanowicz
+# Copyright 2013-2016 Nate Bogdanowicz
 
 import re
 import abc
@@ -139,9 +139,9 @@ class Instrument(object):
 
         date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         new_entry = '\n# Entry auto-created ' + date_str + '\n' + pdict.to_ini(name) + '\n'
-        old_fname = os.path.join(conf.data_dir, 'instrumental.conf')
-        new_fname = os.path.join(conf.data_dir, 'instrumental_new.conf')
-        bak_fname = os.path.join(conf.data_dir, 'instrumental.conf.bak')
+        old_fname = os.path.join(conf.user_conf_dir, 'instrumental.conf')
+        new_fname = os.path.join(conf.user_conf_dir, 'instrumental_new.conf')
+        bak_fname = os.path.join(conf.user_conf_dir, 'instrumental.conf.bak')
 
         with open(old_fname, 'r') as old, open(new_fname, 'w') as new:
             in_section = False
