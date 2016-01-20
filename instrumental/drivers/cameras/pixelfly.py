@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015 Nate Bogdanowicz
+# Copyright 2015-2016 Nate Bogdanowicz
 """
 Driver for PCO Pixelfly cameras.
 """
@@ -354,14 +354,20 @@ class Pixelfly(Camera):
         self.set_mode(exposure=kwds['exposure_time'], hbin=kwds['hbin'], vbin=kwds['vbin'])
         self._trigger()
 
-    def get_captured_image(self, timeout='1s', copy=True):
+    def get_captured_image(self, timeout='1s', copy=True, **kwds):
+        self._handle_kwds(kwds)  # Should get rid of this duplication somehow...
+
         # We can use wait_for_frame since the driver (currently) only supports capture sequences
         # that use one buffer at a time (double shutter mode uses one double-large buffer)
         ready = self.wait_for_frame(timeout=timeout)
         if not ready:
             raise TimeoutError("Image not ready")
 
-        return self.latest_frame(copy=copy)
+        image = self.latest_frame(copy=copy)
+        if kwds['fix_hotpixels']:
+            image = self._correct_hot_pixels(image)  # Makes a copy on success
+
+        return image
 
     def _array_from_buffer(self, buf):
         dtype = np.uint8 if self.bit_depth <= 8 else np.uint16
@@ -378,7 +384,7 @@ class Pixelfly(Camera):
 
     def grab_image(self, timeout='1s', copy=True, **kwds):
         self.start_capture(**kwds)
-        return self.get_captured_image(timeout=timeout, copy=copy)
+        return self.get_captured_image(timeout=timeout, copy=copy, **kwds)
 
     def _load_sizes(self):
         ccdx_p = ffi.new('int *')
