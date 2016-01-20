@@ -369,30 +369,29 @@ def instrument(inst=None, **kwargs):
     >>> inst3 = instrument({'visa_address': 'TCPIP:192.168.1.35::INSTR'})
     >>> inst4 = instrument(inst1)
     """
-    # Allow passthrough of existing instruments
+    alias = None
+    if inst is None:
+        params = kwargs
     if isinstance(inst, Instrument):
         return inst
     elif isinstance(inst, dict):
         params = inst
-    else:
-        alias = inst
+    elif isinstance(inst, basestring):
+        name = inst
+        params = conf.instruments.get(name, None)
+        if params is None:
+            # Try looking for the string in the output of list_instruments()
+            test_str = name.lower()
+            for inst_params in list_instruments():
+                if test_str in str(inst_params).lower():
+                    params = inst_params
+                    break
+        else:
+            alias = name
 
-        # Load parameters
-        if alias is None:
-            params = kwargs
-        elif isinstance(alias, basestring):
-            params = conf.instruments.get(alias, None)
-            if params is None:
-                # Try looking for the string in the output of list_instruments()
-                test_str = alias.lower()
-                for inst_params in list_instruments():
-                    if test_str in str(inst_params).lower():
-                        params = inst_params
-                        break
-
-                if params is None:
-                    raise Exception("Instrument with alias `{}` not ".format(alias)
-                                    + "found in config file")
+        if params is None:
+            raise Exception("Instrument with alias `{}` not ".format(name)
+                            + "found in config file")
 
     if 'server' in params:
         from . import remote
