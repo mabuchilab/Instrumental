@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2015 Nate Bogdanowicz
+# Copyright 2013-2016 Nate Bogdanowicz
 """
 Package containing a driver module/class for each supported camera type.
 """
 import abc
 from .. import Instrument
 from ... import Q_
+from ...errors import Error
 
 
 DEFAULT_KWDS = dict(n_frames=1, vbin=1, hbin=1, exposure_time=Q_('10ms'), width=None, height=None,
@@ -42,6 +43,7 @@ class Camera(Instrument):
                                      "given current binning")
     max_height = abc.abstractproperty(doc="Max settable height of the camera image, "
                                       "given current binning")
+    _defaults = None
 
     @abc.abstractmethod
     def start_capture(self, **kwds):
@@ -174,9 +176,21 @@ class Camera(Instrument):
             recommended to use *True* (the default) unless you know what you're doing.
         """
 
+    def set_defaults(self, **kwds):
+        if self._defaults is None:
+            self._defaults = DEFAULT_KWDS.copy()
+
+        for k in kwds:
+            if k not in self._defaults:
+                raise Error("Unknown parameter '{}'".format(k))
+        self._defaults.update(kwds)
+
     def _handle_kwds(self, kwds):
         """Don't reimplement this, it's super-annoying"""
-        for k, v in DEFAULT_KWDS.items():
+        if self._defaults is None:
+            self._defaults = DEFAULT_KWDS.copy()
+
+        for k, v in self._defaults.items():
             kwds.setdefault(k, v)
 
         def fill_all_coords(kwds, names):
