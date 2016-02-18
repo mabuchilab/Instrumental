@@ -10,6 +10,7 @@ import atexit
 import logging as log
 from ctypes import CDLL, WinDLL, sizeof, byref, pointer, POINTER, c_char, c_char_p, c_wchar_p, cast
 from ctypes.wintypes import DWORD, INT, UINT, ULONG, DOUBLE, HWND
+from ctypes.util import find_library
 import numpy as np
 import win32event
 from . import Camera
@@ -22,10 +23,17 @@ from ... import Q_
 
 import platform
 if platform.architecture()[0].startswith('64'):
-    lib = WinDLL('uc480_64')
+    lib_name = find_library('uc480_64')
+    if lib_name == None:
+        lib_name = find_library('ueye_api_64')
+    lib = WinDLL(lib_name)
+		
 else:
-    lib = CDLL('uc480')
-
+    lib_name = find_library('uc480')
+    if lib_name == None:
+        lib = find_library('ueye_api')
+    lib = CDLL(lib_name)
+		
 __all__ = ['UC480_Camera']
 
 
