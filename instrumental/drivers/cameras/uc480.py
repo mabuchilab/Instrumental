@@ -569,6 +569,12 @@ class UC480_Camera(Camera):
             IS_CM_MONO16: 'mono16',
         }
         return MAP.get(self._color_mode.value)
+		
+    def set_trigger(self, mode, edge='rising'):
+        pass
+
+    def set_trigger_delay(self, delay):
+	    pass
 
     #: uEye camera ID number. Read-only
     id = property(lambda self: self._id)
