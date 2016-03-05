@@ -7,51 +7,52 @@ import socket
 import logging as log
 from inspect import isfunction
 from importlib import import_module
+from collections import OrderedDict
 
 from .. import conf
 from ..errors import InstrumentTypeError, InstrumentNotFoundError, ConfigError
 
 # Listing of acceptable parameters for each driver module
-_acceptable_params = {
-    'cameras.uc480':
-        ['ueye_cam_id', 'cam_serial'],
-    'cameras.pixelfly':
-        ['pixelfly_board_num', 'module'],
-    'cameras.pco':
-        ['pco_cam_num', 'module'],
-    'cameras.pvcam':
-        ['pvcam_name', 'module'],
-    'daq.ni':
-        ['nidaq_devname'],
-    'funcgenerators.tektronix':
-        ['visa_address'],
-    'scopes.tektronix':
-        ['visa_address'],
-    'powermeters.newport':
-        ['visa_address', 'module'],
-    'powermeters.thorlabs':
-        ['visa_address'],
-    'wavemeters.burleigh':
-        ['visa_address', 'module'],
-    'spectrometers.bristol':
-        ['bristol_port', 'module']
-}
+_acceptable_params = OrderedDict((
+    ('cameras.uc480',
+        ['ueye_cam_id', 'cam_serial']),
+    ('cameras.pixelfly',
+        ['pixelfly_board_num', 'module']),
+    ('cameras.pco',
+        ['pco_cam_num', 'module']),
+    ('cameras.pvcam',
+        ['pvcam_name', 'module']),
+    ('daq.ni',
+        ['nidaq_devname']),
+    ('funcgenerators.tektronix',
+        ['visa_address']),
+    ('scopes.tektronix',
+        ['visa_address']),
+    ('powermeters.thorlabs',
+        ['visa_address']),
+    ('powermeters.newport',
+        ['visa_address', 'module']),
+    ('wavemeters.burleigh',
+        ['visa_address', 'module']),
+    ('spectrometers.bristol',
+        ['bristol_port', 'module'])
+))
 
-_visa_models = {
-    'funcgenerators.tektronix': (
+_visa_models = OrderedDict((
+    ('funcgenerators.tektronix', (
         'TEKTRONIX',
         ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102',
          'AFG3251', 'AFG3252']
-    ),
-    'scopes.tektronix': (
+    )),
+    ('scopes.tektronix', (
         'TEKTRONIX',
         ['TDS 3032', 'TDS 3034B', 'MSO4034', 'DPO4034']
-    ),
-    'powermeters.thorlabs': (
+    )),
+    ('powermeters.thorlabs', (
         'Thorlabs',
         ['PM100D']
-    )
-}
+    ))
+))
 
 
 class _ParamDict(dict):
