@@ -12,6 +12,7 @@ Changed
 """""""
 - Check for IDS library if Thorlabs uc480 dll isn't found
   (Issue #6, thanks Chris Timossi)
+- `u` refers to Pint's `_DEFAULT_REGISTRY`, making unpickling easier
 
 
 (0.2.1) - 2016-01-13
