@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2014 Nate Bogdanowicz
+# Copyright 2013-2016 Nate Bogdanowicz
 
 import numpy as np
 from functools import reduce
@@ -115,6 +115,13 @@ def beam_roc(q_r, z_meas, z, n):
     return R
 
 
+def _unitful_linspace(start, stop, *args, **kwds):
+    start, stop = Q_(start), Q_(stop)
+    units = start.units
+    raw_pts = linspace(start.m, stop.m_as(units), *args, **kwds)
+    return Q_(raw_pts, units)
+
+
 def get_profiles(q_r, lambda0, orientation, elements, clipping=None, zeroat=0):
     q_r = Q_(q_r).to('1/mm')
     lambda0 = Q_(lambda0).to('nm')
@@ -130,7 +137,7 @@ def get_profiles(q_r, lambda0, orientation, elements, clipping=None, zeroat=0):
 
         # Get beam profile inside 'Space' elements
         if isinstance(el, Space):
-            z = linspace(cur_z, cur_z + el.d, 10000, endpoint=(i == len(rev_elems)-1))
+            z = _unitful_linspace(cur_z, cur_z + el.d, 10000, endpoint=(i == len(rev_elems)-1))
             zs.append(z)
             profiles.append(beam_profile(q_r, cur_z, z, lambda0/el.n, clipping))
             RoCs.append(beam_roc(q_r, cur_z, z, el.n))
