@@ -570,11 +570,38 @@ class UC480_Camera(Camera):
         }
         return MAP.get(self._color_mode.value)
 		
-    def set_trigger(self, mode, edge='rising'):
-        pass
+    def set_trigger(self, mode='software', edge='rising'):
+        """Sets the camera trigger mode.
+		
+		mode -- either 'off', 'software'(default), or 'hardware'
+		edge -- hardware trigger is either on the 'rising'(default) or 'falling' edge	
+        """
+        if mode == 'off':
+            new_mode = IS_SET_TRIGGER_OFF
+        elif mode == 'software':
+            new_mode = IS_SET_TRIGGER_SOFTWARE
+        elif mode == 'hardware':
+		    if edge == 'rising':
+                new_mode = IS_SET_TRIGGER_LO_HI
+            elif edge == 'falling':
+                new_mode = IS_SET_TRIGGER_HI_LO:
+            else: 
+			    print("Error: trigger must be either on a rising or falling edge")
+			    return 
+		else:
+		    print("Error: unrecognized mode")
+		    return
+        ret = lib.is_SetExternalTrigger(self._hcam, new_mode)
+        if ret != IS_SUCCESS:
+            print("Error: failed to set external trigger")
 
-    def set_trigger_delay(self, delay):
-	    pass
+    @check_units(timeout='?us')
+	def set_trigger_delay(self, delay):
+	    """Sets the time to delay a hardware trigger (in microsseconds)"""
+	    delay_us = 0 if delay is None else int(delay.m_as('us'))
+		ret = lib.is_SetTriggerDelay(self._hcam, delay_us)
+        if ret != IS_SUCCESS:
+            print("Error: failed to set trigger delay")
 
     #: uEye camera ID number. Read-only
     id = property(lambda self: self._id)
