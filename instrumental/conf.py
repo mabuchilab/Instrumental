@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2015 Nate Bogdanowicz
+# Copyright 2014-2016 Nate Bogdanowicz
 
 try:
     import configparser  # Python 3
@@ -14,10 +14,10 @@ from . import appdirs
 
 __all__ = ['servers', 'instruments', 'prefs']
 servers, instruments, prefs = {}, {}, {}
-user_data_dir = appdirs.user_data_dir("Instrumental", "MabuchiLab")
+user_conf_dir = appdirs.user_data_dir("Instrumental", "MabuchiLab")
 
 pkg_dir = os.path.abspath(os.path.dirname(__file__))
-user_conf_path = os.path.join(user_data_dir, 'instrumental.conf')
+user_conf_path = os.path.join(user_conf_dir, 'instrumental.conf')
 pkg_conf_path = os.path.join(pkg_dir, 'instrumental.conf.default')
 
 
@@ -30,7 +30,7 @@ def copy_file_text(from_path, to_path):
 
 def install_default_conf():
     try:
-        os.makedirs(user_data_dir)
+        os.makedirs(user_conf_dir)
     except OSError:
         pass  # Data directory already exists
     copy_file_text(pkg_conf_path, user_conf_path)

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2015 Nate Bogdanowicz
+# Copyright 2013-2016 Nate Bogdanowicz
 
 import re
 import abc
@@ -7,51 +7,52 @@ import socket
 import logging as log
 from inspect import isfunction
 from importlib import import_module
+from collections import OrderedDict
 
 from .. import conf
 from ..errors import InstrumentTypeError, InstrumentNotFoundError, ConfigError
 
 # Listing of acceptable parameters for each driver module
-_acceptable_params = {
-    'cameras.uc480':
-        ['ueye_cam_id', 'cam_serial'],
-    'cameras.pixelfly':
-        ['pixelfly_board_num', 'module'],
-    'cameras.pco':
-        ['pco_cam_num', 'module'],
-    'cameras.pvcam':
-        ['pvcam_name', 'module'],
-    'daq.ni':
-        ['nidaq_devname'],
-    'funcgenerators.tektronix':
-        ['visa_address'],
-    'scopes.tektronix':
-        ['visa_address'],
-    'powermeters.newport':
-        ['visa_address', 'module'],
-    'powermeters.thorlabs':
-        ['visa_address'],
-    'wavemeters.burleigh':
-        ['visa_address', 'module'],
-    'spectrometers.bristol':
-        ['bristol_port', 'module']
-}
+_acceptable_params = OrderedDict((
+    ('cameras.uc480',
+        ['ueye_cam_id', 'cam_serial']),
+    ('cameras.pixelfly',
+        ['pixelfly_board_num', 'module']),
+    ('cameras.pco',
+        ['pco_cam_num', 'module']),
+    ('cameras.pvcam',
+        ['pvcam_name', 'module']),
+    ('daq.ni',
+        ['nidaq_devname']),
+    ('funcgenerators.tektronix',
+        ['visa_address']),
+    ('scopes.tektronix',
+        ['visa_address']),
+    ('powermeters.thorlabs',
+        ['visa_address']),
+    ('powermeters.newport',
+        ['visa_address', 'module']),
+    ('wavemeters.burleigh',
+        ['visa_address', 'module']),
+    ('spectrometers.bristol',
+        ['bristol_port', 'module'])
+))
 
-_visa_models = {
-    'funcgenerators.tektronix': (
+_visa_models = OrderedDict((
+    ('funcgenerators.tektronix', (
         'TEKTRONIX',
         ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102',
          'AFG3251', 'AFG3252']
-    ),
-    'scopes.tektronix': (
+    )),
+    ('scopes.tektronix', (
         'TEKTRONIX',
         ['TDS 3032', 'TDS 3034B', 'MSO4034', 'DPO4034']
-    ),
-    'powermeters.thorlabs': (
+    )),
+    ('powermeters.thorlabs', (
         'Thorlabs',
         ['PM100D']
-    )
-}
+    ))
+))
 
 
 class _ParamDict(dict):
@@ -139,9 +140,9 @@ class Instrument(object):
 
         date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         new_entry = '\n# Entry auto-created ' + date_str + '\n' + pdict.to_ini(name) + '\n'
-        old_fname = os.path.join(conf.data_dir, 'instrumental.conf')
-        new_fname = os.path.join(conf.data_dir, 'instrumental_new.conf')
-        bak_fname = os.path.join(conf.data_dir, 'instrumental.conf.bak')
+        old_fname = os.path.join(conf.user_conf_dir, 'instrumental.conf')
+        new_fname = os.path.join(conf.user_conf_dir, 'instrumental_new.conf')
+        bak_fname = os.path.join(conf.user_conf_dir, 'instrumental.conf.bak')
 
         with open(old_fname, 'r') as old, open(new_fname, 'w') as new:
             in_section = False
@@ -369,30 +370,29 @@ def instrument(inst=None, **kwargs):
     >>> inst3 = instrument({'visa_address': 'TCPIP:192.168.1.35::INSTR'})
     >>> inst4 = instrument(inst1)
     """
-    # Allow passthrough of existing instruments
+    alias = None
+    if inst is None:
+        params = kwargs
     if isinstance(inst, Instrument):
         return inst
     elif isinstance(inst, dict):
         params = inst
-    else:
-        alias = inst
+    elif isinstance(inst, basestring):
+        name = inst
+        params = conf.instruments.get(name, None)
+        if params is None:
+            # Try looking for the string in the output of list_instruments()
+            test_str = name.lower()
+            for inst_params in list_instruments():
+                if test_str in str(inst_params).lower():
+                    params = inst_params
+                    break
+        else:
+            alias = name
 
-        # Load parameters
-        if alias is None:
-            params = kwargs
-        elif isinstance(alias, basestring):
-            params = conf.instruments.get(alias, None)
-            if params is None:
-                # Try looking for the string in the output of list_instruments()
-                test_str = alias.lower()
-                for inst_params in list_instruments():
-                    if test_str in str(inst_params).lower():
-                        params = inst_params
-                        break
-
-                if params is None:
-                    raise Exception("Instrument with alias `{}` not ".format(alias)
-                                    + "found in config file")
+        if params is None:
+            raise Exception("Instrument with alias `{}` not ".format(name)
+                            + "found in config file")
 
     if 'server' in params:
         from . import remote
@@ -415,6 +415,18 @@ def instrument(inst=None, **kwargs):
             new_inst = mod._instrument(params)
         except InstrumentTypeError:
             raise Exception("Instrument is not compatible with the given module")
+
+        new_inst._alias = alias
+
+        # HACK to allow 'parent' modules to do special initialization of instruments
+        # We may get rid of this in the future by having each class's __init__ method directly
+        # handle params, getting rid of the _instrument() middleman.
+        parent_mod = import_module('.' + params['module'].rsplit('.', 1)[0], __package__)
+        try:
+            parent_mod._init_instrument(new_inst, params)
+        except AttributeError:
+            pass
+
         return new_inst
 
     # Find the right type of Instrument to create
@@ -445,6 +457,17 @@ def instrument(inst=None, **kwargs):
             except InstrumentNotFoundError:
                 log.debug("Instrument not found")
                 continue
+
+            new_inst._alias = alias
+
+            # HACK to allow 'parent' modules to do special initialization of instruments
+            # We may get rid of this in the future by having each class's __init__ method directly
+            # handle params, getting rid of the _instrument() middleman.
+            parent_mod = import_module('.' + mod_name.rsplit('.', 1)[0], __package__)
+            try:
+                parent_mod._init_instrument(new_inst, params)
+            except AttributeError:
+                pass
 
             return new_inst
 

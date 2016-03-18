@@ -5,13 +5,13 @@
 import sys
 from types import ModuleType
 
-from pint import UnitRegistry
+from pint import _DEFAULT_REGISTRY
 
 from .__about__ import (__author__, __copyright__, __email__, __license__, __distname__, __url__,
                         __version__)
 
-# Make a single UnitRegistry instance for the entire package
-u = UnitRegistry()
+# Use the default UnitRegistry instance for the entire package
+u = _DEFAULT_REGISTRY
 Q_ = u.Quantity
 
 # Monkey-patch Quantity to have convenience methods that will likely be provided in release 0.7

@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2015 Nate Bogdanowicz
+# Copyright 2013-2016 Nate Bogdanowicz
 """
 Package containing a driver module/class for each supported camera type.
 """
 import abc
+import json
+import os.path
+import numpy as np
 from .. import Instrument
-from ... import Q_
+from ... import Q_, conf
+from ...errors import Error
 
 
 DEFAULT_KWDS = dict(n_frames=1, vbin=1, hbin=1, exposure_time=Q_('10ms'), width=None, height=None,
-                    cx=None, cy=None, left=None, right=None, top=None, bot=None)
+                    cx=None, cy=None, left=None, right=None, top=None, bot=None,
+                    fix_hotpixels=False)
 
 
 class Camera(Instrument):
@@ -42,6 +47,8 @@ class Camera(Instrument):
                                      "given current binning")
     max_height = abc.abstractproperty(doc="Max settable height of the camera image, "
                                       "given current binning")
+    _hot_pixels = None
+    _defaults = None
 
     @abc.abstractmethod
     def start_capture(self, **kwds):
@@ -174,9 +181,21 @@ class Camera(Instrument):
             recommended to use *True* (the default) unless you know what you're doing.
         """
 
+    def set_defaults(self, **kwds):
+        if self._defaults is None:
+            self._defaults = DEFAULT_KWDS.copy()
+
+        for k in kwds:
+            if k not in self._defaults:
+                raise Error("Unknown parameter '{}'".format(k))
+        self._defaults.update(kwds)
+
     def _handle_kwds(self, kwds):
         """Don't reimplement this, it's super-annoying"""
-        for k, v in DEFAULT_KWDS.items():
+        if self._defaults is None:
+            self._defaults = DEFAULT_KWDS.copy()
+
+        for k, v in self._defaults.items():
             kwds.setdefault(k, v)
 
         def fill_all_coords(kwds, names):
@@ -230,3 +249,62 @@ class Camera(Instrument):
 
         fill_all_coords(kwds, ('width', 'cx', 'left', 'right'))
         fill_all_coords(kwds, ('height', 'cy', 'top', 'bot'))
+
+    def find_hot_pixels(self, stddevs=10, **kwds):
+        """Generate the list of hot pixels on the camera sensor"""
+        img = self.grab_image(**kwds)
+        avg = np.mean(img)
+        stddev = np.sqrt(np.var(img))
+
+        threshold = avg + stddevs*stddev
+        pixels = np.argwhere(img > threshold)
+
+        # Cast to avoid the indices being longs in Py2
+        self._hot_pixels = pixels.astype('int32', copy=False).tolist()
+
+    def save_hot_pixels(self, path=None):
+        """Save a file listing the hot pixels"""
+        if self._hot_pixels is None:
+            raise Error("No existing list of hot pixels to save. Generate one first by using "
+                        "`find_hot_pixels()`")
+
+        if not path:
+            if self._alias:
+                path = os.path.join(conf.user_conf_dir, 'hotpixel_{}.json'.format(self._alias))
+            else:
+                path = 'hotpixel.json'
+
+        with open(path, 'w') as f:
+            json.dump({'hot_pixels': self._hot_pixels}, f)
+
+        new_path = os.path.abspath(path)
+        if self._alias and self._param_dict.get('hotpixel_file', None) != new_path:
+            self._param_dict['hotpixel_file'] = new_path
+            self.save_instrument(self._alias, force=True)
+
+    def _correct_hot_pixels(self, img):
+        """Correct hot pixels by averaging their neighbors"""
+        if self._hot_pixels is None:
+            raise Error("Could not correct hot pixels because we have no existing list of hot "
+                        "pixels. Generate one first by using `find_hot_pixels()`")
+
+        if len(img.shape) != 2:
+            raise NotImplementedError("Hot pixel correction currently implemented only for "
+                                      "monochrome sensors")
+
+        # TODO: Probably shouldn't include adjacent hot pixels
+        img = img.copy()
+        for y, x in self._hot_pixels:
+            left = max(0, x-1)
+            right = min(img.shape[1], x+2)
+            top = max(0, y-1)
+            bot = min(img.shape[0], y+2)
+            img[y, x] = (img[top:bot, left:right].sum() - img[y, x])/((bot-top)*(right-left)-1)
+        return img
+
+
+def _init_instrument(cam, params):
+    if 'hotpixel_file' in params:
+        with open(params['hotpixel_file']) as f:
+            hotpixel_data = json.load(f)
+            cam._hot_pixels = hotpixel_data['hot_pixels']

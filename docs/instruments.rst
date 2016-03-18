@@ -127,8 +127,8 @@ above.
 When you do this, the instrument's info gets saved in your `instrumental.conf` config file. To find
 where the file is located on your system, run::
 
-    >>> from instrumental.conf import data_dir
-    >>> data_dir
+    >>> from instrumental.conf import user_conf_dir
+    >>> user_conf_dir
     u'C:\\Users\\Lab\\AppData\\Local\\MabuchiLab\\Instrumental'
 
 To save your instrument for repeated use, add its parameters to the ``[instruments]``
