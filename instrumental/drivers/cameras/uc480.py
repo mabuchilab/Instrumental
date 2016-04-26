@@ -203,6 +203,7 @@ class UC480_Camera(Camera):
 
         self._buffers = []
         self._queue_enabled = False
+        self._external_trigger_mode = IS_SET_TRIGGER_OFF
 
         self._open()
 
@@ -437,7 +438,9 @@ class UC480_Camera(Camera):
         self._allocate_mem_seq(kwds['n_frames'])
 
         self._set_queueing(True)  # Use queue instead of ring buffer for finite sequence
-        lib.is_SetExternalTrigger(self._hcam, IS_SET_TRIGGER_SOFTWARE)
+        self._external_trigger_mode = IS_SET_TRIGGER_SOFTWARE if self._external_trigger_mode == IS_SET_TRIGGER_OFF else self._external_trigger_mode
+            
+        lib.is_SetExternalTrigger(self._hcam, self._external_trigger_mode)          
         lib.is_EnableEvent(self._hcam, IS_SET_EVENT_SEQ)
         lib.is_CaptureVideo(self._hcam, IS_DONT_WAIT)  # Trigger
 
@@ -492,7 +495,8 @@ class UC480_Camera(Camera):
         else:
             self.framerate = newFPS.value
 
-        lib.is_SetExternalTrigger(self._hcam, IS_SET_TRIGGER_OFF)
+        self._external_trigger_mode = IS_SET_TRIGGER_OFF
+        lib.is_SetExternalTrigger(self._hcam, self._external_trigger_mode)
         lib.is_EnableEvent(self._hcam, IS_SET_EVENT_FRAME)
         lib.is_CaptureVideo(self._hcam, IS_WAIT)
 
@@ -581,27 +585,36 @@ class UC480_Camera(Camera):
         elif mode == 'software':
             new_mode = IS_SET_TRIGGER_SOFTWARE
         elif mode == 'hardware':
-		    if edge == 'rising':
+            if edge == 'rising':
                 new_mode = IS_SET_TRIGGER_LO_HI
             elif edge == 'falling':
-                new_mode = IS_SET_TRIGGER_HI_LO:
+                new_mode = IS_SET_TRIGGER_HI_LO
             else: 
-			    print("Error: trigger must be either on a rising or falling edge")
-			    return 
-		else:
-		    print("Error: unrecognized mode")
-		    return
+                print("Error: trigger must be either on a rising or falling edge")
+                return 
+        else:
+            print("Error: unrecognized trigger mode")
+            return
+
         ret = lib.is_SetExternalTrigger(self._hcam, new_mode)
         if ret != IS_SUCCESS:
             print("Error: failed to set external trigger")
-
-    @check_units(timeout='?us')
-	def set_trigger_delay(self, delay):
-	    """Sets the time to delay a hardware trigger (in microsseconds)"""
-	    delay_us = 0 if delay is None else int(delay.m_as('us'))
-		ret = lib.is_SetTriggerDelay(self._hcam, delay_us)
+        else:    
+            self._external_trigger_mode = new_mode
+        
+    @check_units(delay='?us')
+    def set_trigger_delay(self, delay):
+        """Sets the time to delay a hardware trigger (in microsseconds)
+        """
+        delay_us = 0 if delay is None else int(delay.m_as('us'))
+        ret = lib.is_SetTriggerDelay(self._hcam, delay_us)
         if ret != IS_SUCCESS:
             print("Error: failed to set trigger delay")
+            
+    def get_trigger_delay(self):
+        parm = INT()
+        param = lib.is_SetTriggerDelay(self._hcam, IS_GET_TRIGGER_DELAY)
+        return Q_(param, 'us')
 
     #: uEye camera ID number. Read-only
     id = property(lambda self: self._id)
