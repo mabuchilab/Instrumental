@@ -612,6 +612,8 @@ class UC480_Camera(Camera):
             print("Error: failed to set trigger delay")
             
     def get_trigger_delay(self):
+        """Returns the trigger delay in microseconds
+        """
         parm = INT()
         param = lib.is_SetTriggerDelay(self._hcam, IS_GET_TRIGGER_DELAY)
         return Q_(param, 'us')
