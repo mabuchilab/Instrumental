@@ -277,10 +277,7 @@ class _Task(object):
         return s.encode('ascii')
 
     def _handle_ch_name(self, ch_name, ai_name):
-        if ch_name:
-            return ch_name.encode('ascii')
-        else:
-            return ai_name.rsplit('/', 1)[-1].encode('ascii')
+        return ch_name.encode('ascii') if ch_name else b''
 
     def _handle_minmax_AI(self, min_val, max_val):
         if min_val is None or max_val is None:
@@ -895,6 +892,76 @@ def list_instruments():
     return instruments
 
 
+# Manually taken from NI's support docs since there doesn't seem to be a DAQmx function to do
+# this... This list should include all possible internal channels for each type of device, and some
+# of these channels will not exist on a given device.
+_internal_channels = {
+    mx.DAQmx_Val_MSeriesDAQ:
+        ['_aignd_vs_aignd', '_ao0_vs_aognd', '_ao1_vs_aognd', '_ao2_vs_aognd', '_ao3_vs_aognd',
+         '_calref_vs_aignd', '_aignd_vs_aisense', '_aignd_vs_aisense2', '_calSrcHi_vs_aignd',
+         '_calref_vs_calSrcHi', '_calSrcHi_vs_calSrcHi', '_aignd_vs_calSrcHi',
+         '_calSrcMid_vs_aignd', '_calSrcLo_vs_aignd', '_ai0_vs_calSrcHi', '_ai8_vs_calSrcHi',
+         '_boardTempSensor_vs_aignd', '_PXI_SCXIbackplane_vs_aignd'],
+    mx.DAQmx_Val_XSeriesDAQ:
+        ['_aignd_vs_aignd', '_ao0_vs_aognd', '_ao1_vs_aognd', '_ao2_vs_aognd', '_ao3_vs_aognd',
+         '_calref_vs_aignd', '_aignd_vs_aisense', '_aignd_vs_aisense2', '_calSrcHi_vs_aignd',
+         '_calref_vs_calSrcHi', '_calSrcHi_vs_calSrcHi', '_aignd_vs_calSrcHi',
+         '_calSrcMid_vs_aignd', '_calSrcLo_vs_aignd', '_ai0_vs_calSrcHi', '_ai8_vs_calSrcHi',
+         '_boardTempSensor_vs_aignd'],
+    mx.DAQmx_Val_ESeriesDAQ:
+        ['_aognd_vs_aognd', '_aognd_vs_aignd', '_ao0_vs_aognd', '_ao1_vs_aognd',
+         '_calref_vs_calref', '_calref_vs_aignd', '_ao0_vs_calref', '_ao1_vs_calref',
+         '_ao1_vs_ao0', '_boardTempSensor_vs_aignd', '_aignd_vs_aignd', '_caldac_vs_aignd',
+         '_caldac_vs_calref', '_PXI_SCXIbackplane_vs_aignd'],
+    mx.DAQmx_Val_SSeriesDAQ:
+        ['_external_channel', '_aignd_vs_aignd', '_aognd_vs_aognd', '_aognd_vs_aignd',
+         '_ao0_vs_aognd', '_ao1_vs_aognd', '_calref_vs_calref', '_calref_vs_aignd',
+         '_ao0_vs_calref', '_ao1_vs_calref', '_calSrcHi_vs_aignd', '_calref_vs_calSrcHi',
+         '_calSrcHi_vs_calSrcHi', '_aignd_vs_calSrcHi', '_calSrcMid_vs_aignd',
+         '_calSrcMid_vs_calSrcHi'],
+    mx.DAQmx_Val_SCSeriesDAQ:
+        ['_external_channel', '_aignd_vs_aignd', '_calref_vs_aignd', '_calSrcHi_vs_aignd',
+         '_aignd_vs_calSrcHi', '_calref_vs_calSrcHi', '_calSrcHi_vs_calSrcHi',
+         '_aipos_vs_calSrcHi', '_aineg_vs_calSrcHi', '_cjtemp0', '_cjtemp1', '_cjtemp2',
+         '_cjtemp3', '_cjtemp4', '_cjtemp5', '_cjtemp6', '_cjtemp7', '_aignd_vs_aignd0',
+         '_aignd_vs_aignd1'],
+    mx.DAQmx_Val_USBDAQ:
+        ['_cjtemp', '_cjtemp0', '_cjtemp1', '_cjtemp2', '_cjtemp3'],
+    mx.DAQmx_Val_DynamicSignalAcquisition:
+        ['_external_channel', '_5Vref_vs_aignd', '_ao0_vs_ao0neg', '_ao1_vs_ao1neg',
+         '_aignd_vs_aignd', '_ref_sqwv_vs_aignd'],
+    mx.DAQmx_Val_CSeriesModule:
+        ['_aignd_vs_aignd', '_calref_vs_aignd', '_cjtemp', '_cjtemp0', '_cjtemp1', '_cjtemp2',
+         '_aignd_vs_aisense', 'calSrcHi_vs_aignd', 'calref_vs_calSrcHi', '_calSrcHi_vs_calSrcHi',
+         '_aignd_vs_calSrcHi', '_calSrcMid_vs_aignd', '_boardTempSensor_vs_aignd',
+         '_ao0_vs_calSrcHi', '_ai8_vs_calSrcHi', '_cjtemp3', '_ctr0', '_ctr1', '_freqout', '_ctr2',
+         '_ctr3'],
+    mx.DAQmx_Val_SCXIModule:
+        ['_cjTemp', '_cjTemp0', '_cjTemp1', '_cjTemp2' , '_cjTemp3' , '_cjTemp4' , '_cjTemp5' ,
+         '_cjTemp6' , '_cjTemp7', '_pPos0', '_pPos1', '_pPos2', '_pPos3', '_pPos4', '_pPos5',
+         '_pPos6', '_pPos7', '_pNeg0', '_pNeg1',  '_pNeg2',  '_pNeg3',  '_pNeg4',  '_pNeg5',
+         '_pNeg6',  '_pNeg7', '_Vex0', '_Vex1', '_Vex2', '_Vex3', '_Vex4', '_Vex5', '_Vex6',
+         '_Vex7', '_Vex8', '_Vex9', '_Vex10', '_Vex11', '_Vex12', '_Vex13', '_Vex14', '_Vex15',
+         '_Vex16', '_Vex17', '_Vex18', '_Vex19', '_Vex20', '_Vex21', '_Vex22', '_Vex23',
+         '_IexNeg0', '_IexNeg1', '_IexNeg2', '_IexNeg3', '_IexNeg4', '_IexNeg5', '_IexNeg6',
+         '_IexNeg7', '_IexNeg8', '_IexNeg9', '_IexNeg10', '_IexNeg11', '_IexNeg12', '_IexNeg13',
+         '_IexNeg14', '_IexNeg15', '_IexNeg16', '_IexNeg17', '_IexNeg18', '_IexNeg19', '_IexNeg20',
+         '_IexNeg21', '_IexNeg22', '_IexNeg23', '_IexPos0', '_IexPos1', '_IexPos2', '_IexPos3',
+         '_IexPos4', '_IexPos5', '_IexPos6', '_IexPos7', '_IexPos8', '_IexPos9', '_IexPos10',
+         '_IexPos11', '_IexPos12', '_IexPos13', '_IexPos14', '_IexPos15', '_IexPos16', '_IexPos17',
+         '_IexPos18', '_IexPos19', '_IexPos20', '_IexPos21', '_IexPos22', '_IexPos23'],
+    mx.DAQmx_Val_NIELVIS:
+        ['_aignd_vs_aignd', '_ao0_vs_aognd', '_ao1_vs_aognd', '_calref_vs_aignd',
+         '_aignd_vs_aisense', '_aignd_vs_aisense2', '_calSrcHi_vs_aignd', '_calref_vs_calSrcHi',
+         '_calSrcHi_vs_calSrcHi', '_aignd_vs_calSrcHi', '_calSrcMid_vs_aignd',
+         '_calSrcLo_vs_aignd', '_ai0_vs_calSrcHi', '_ai8_vs_calSrcHi', '_boardTempSensor_vs_aignd',
+         '_ai16', '_ai17', '_ai18', '_ai19', '_ai20', '_ai21', '_ai22', '_ai23', '_ai24', '_ai25',
+         '_ai26', '_ai27', '_ai28', '_ai29', '_ai30', '_ai31', '_vpsPosCurrent', '_vpsNegCurrent',
+         '_vpsPos_vs_gnd', '_vpsNeg_vs_gnd', '_dutNeg', '_base', '_dutPos', '_fgenImpedance',
+         '_ao0Impedance'],
+}
+
+
 class NIDAQ(DAQ):
     def __init__(self, dev_name):
         """
@@ -905,6 +972,7 @@ class NIDAQ(DAQ):
         self.name = dev_name
         self.tasks = []
         self._load_analog_channels()
+        self._load_internal_channels()
         self._load_digital_ports()
         self._load_counters()
         self.mx = mx
@@ -920,6 +988,11 @@ class NIDAQ(DAQ):
 
         for ao_name in self.get_AO_channels():
             setattr(self, ao_name, AnalogOut(self, ao_name))
+
+    def _load_internal_channels(self):
+        ch_names = _internal_channels.get(self.get_product_category(), [])
+        for ch_name in ch_names:
+            setattr(self, ch_name, AnalogIn(self, ch_name))
 
     def _load_counters(self):
         for c_name in self.get_CI_channels():
@@ -957,6 +1030,11 @@ class NIDAQ(DAQ):
     def get_product_type(self):
         data = create_string_buffer(1000)
         mx.DAQmxGetDevProductType(self.name, data, 1000)
+        return data.value
+
+    def get_product_category(self):
+        data = c_int32()
+        mx.DAQmxGetDevProductCategory(self.name, byref(data))
         return data.value
 
     def get_serial(self):
