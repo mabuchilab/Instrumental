@@ -13,7 +13,7 @@ import PyDAQmx as mx
 from instrumental import Q_
 from . import DAQ
 from .. import _ParamDict
-from ...errors import InstrumentTypeError
+from ...errors import Error, InstrumentTypeError
 
 # Make PyDAQmx constants a bit less ridiculously long
 for attr in dir(mx):
@@ -41,6 +41,10 @@ def _instrument(params):
         raise InstrumentTypeError("NIDAQ requires 'nidaq_devname'")
     dev_name = params['nidaq_devname']
     return NIDAQ(dev_name)
+
+
+class NotSupportedError(Error):
+    pass
 
 
 class Task(object):
@@ -557,6 +561,53 @@ class AnalogOut(Channel):
         with self.dev.create_task() as t:
             t.add_AO_channel(self.name)
             t.write_AO_scalar(value)
+
+    def read(self, duration=None, fsamp=None, n_samples=None):
+        """Read one or more analog output samples.
+
+        Not supported by all DAQ models; requires the appropriate internal channel.
+
+        By default, reads and returns a single sample. If two of `duration`, `fsamp`,
+        and `n_samples` are given, an array of samples is read and returned.
+
+        Parameters
+        ----------
+        duration : Quantity
+            How long to read from the analog output, specified as a Quantity.
+            Use with `fsamp` or `n_samples`.
+        fsamp : Quantity
+            The sample frequency, specified as a Quantity. Use with `duration`
+            or `n_samples`.
+        n_samples : int
+            The number of samples to read. Use with `duration` or `fsamp`.
+
+        Returns
+        -------
+        data : scalar or array Quantity
+            The data that was read from analog output.
+        """
+        with self.dev.create_task() as t:
+            internal_channel_name = "_{}_vs_aognd".format(self.name)
+            try:
+                t.add_AI_channel(internal_channel_name)
+            except mx.DAQError as e:
+                if e.error != -200170:
+                    raise
+                raise NotSupportedError("DAQ model does not have the internal channel required "
+                                        "to sample the output voltage")
+
+            num_specified = sum(int(arg is not None) for arg in (duration, fsamp, n_samples))
+
+            if num_specified == 0:
+                data = t.read_AI_scalar()
+            elif num_specified == 2:
+                fsamp, n_samples = _handle_timing_params(duration, fsamp, n_samples)
+                t.config_timing(fsamp, n_samples)
+                data = t.read_AI_channels()
+            else:
+                raise Exception('Must specify either 0 or 2 of duration, fsamp, and n_samples')
+        return data
+
 
     def write(self, data, duration=None, reps=None, fsamp=None, freq=None, onboard=True):
         """Write a value or array to the analog output.
