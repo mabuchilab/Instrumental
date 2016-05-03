@@ -177,11 +177,11 @@ class Task(object):
         ao_names = [name for (name, ch) in self.channels.items() if ch.type == 'AO']
         arr = np.concatenate([Q_(data[ao]).to('V').magnitude for ao in ao_names])
         arr = arr.astype(np.float64)
-        samples = data.values()[0].magnitude.size
-        samples_written = c_int32()
-        task.WriteAnalogF64(samples, False, -1.0,
+        n_samples = data.values()[0].magnitude.size
+        n_samples_written = c_int32()
+        task.WriteAnalogF64(n_samples, False, -1.0,
                             mx.DAQmx_Val_GroupByChannel, arr,
-                            byref(samples_written), None)
+                            byref(n_samples_written), None)
 
 
 class _Task(object):
@@ -368,22 +368,22 @@ class _Task(object):
         if timeout != -1.0:
             timeout = float(Q_(timeout).to('s').magnitude)
         arr = np.concatenate([data[ao].to('V').magnitude for ao in self.AOs]).astype(np.float64)
-        samples = data.values()[0].magnitude.size
-        samples_written = c_int32()
-        self.t.WriteAnalogF64(samples, autostart, timeout,
+        n_samples = data.values()[0].magnitude.size
+        n_samples_written = c_int32()
+        self.t.WriteAnalogF64(n_samples, autostart, timeout,
                               mx.DAQmx_Val_GroupByChannel, arr,
-                              byref(samples_written), None)
+                              byref(n_samples_written), None)
 
     def write_DO_channels(self, data, channels, timeout=-1.0, autostart=True):
         if timeout != -1.0:
             timeout = float(Q_(timeout).to('s').magnitude)
 
         arr = self._make_DO_array(data, channels)
-        samples = arr.size
-        samples_written = c_int32()
-        self.t.WriteDigitalU32(samples, autostart, timeout,
+        n_samples = arr.size
+        n_samples_written = c_int32()
+        self.t.WriteDigitalU32(n_samples, autostart, timeout,
                                mx.DAQmx_Val_GroupByChannel, arr,
-                               byref(samples_written), None)
+                               byref(n_samples_written), None)
 
     def _make_DO_array(self, data, channels):
         """ Get the port ordering in the final integer
