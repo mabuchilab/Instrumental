@@ -6,6 +6,7 @@ Driver module for NI-DAQmx-supported hardware.
 
 from __future__ import print_function, division, unicode_literals
 
+from collections import OrderedDict
 from ctypes import create_string_buffer, c_double, c_int32, c_uint32, byref
 import numpy as np
 import PyDAQmx as mx
@@ -58,7 +59,7 @@ class Task(object):
 
         Each arg can either be a Channel or a tuple of (Channel, name_str)
         """
-        self.channels = {}
+        self.channels = OrderedDict()
         self._mxtasks = {}
         self.AOs, self.AIs, self.DOs, self.DIs, self.COs, self.CIs = [], [], [], [], [], []
         TYPED_CHANNELS = {'AO': self.AOs, 'AI': self.AIs, 'DO': self.DOs,
