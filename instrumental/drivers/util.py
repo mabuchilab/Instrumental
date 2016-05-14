@@ -138,7 +138,9 @@ class LibMeta(type):
         classdict['_lib_funcs'] = {}
 
         for name, value in classdict.items():
-            if not name.startswith('_') and not isfunction(value):
+            if (not name.startswith('_') and not isfunction(value) and
+                    not isinstance(value, NiceObject)):
+                sig_tup = value
 
                 if value and isinstance(value[-1], dict):
                     flags.update(value[-1])
@@ -146,23 +148,13 @@ class LibMeta(type):
                 func.__name__ = name
                 func.__str__ = lambda self: "func " + self.__name__
 
-                # Build func's repr string
-                argtypes = ffi.typeof(getattr(lib, prefix + name)).args
-                in_args = [a.cname for a, d in zip(argtypes, value) if 'in' in d]
-                out_args = [a.item.cname for a, d in zip(argtypes, value)
-                            if ('out' in d or 'buf' in d)]
-                if flags['first_arg']:
-                    in_args.pop(0)
-                if not out_args:
-                    out_args = ['None']
-                repr_str = "{}({}) -> {}".format(name, ', '.join(in_args), ', '.join(out_args))
-
-                # classdict[name] = func
-                del classdict[name]
-                classdict['_lib_funcs'][name] = (func, repr_str)  # HACK to get nice repr
                 sig_tup = value
                 func = _cffi_wrapper(ffi, ffi_func, name, sig_tup, err_wrap, struct_maker, buflen)
 
+
+                # HACK to get nice repr
+                repr_str = metacls._func_repr_str(ffi, func)
+                classdict[name] = LibFunction(func, repr_str)
         return super(LibMeta, metacls).__new__(metacls, clsname, bases, classdict)
 
 
@@ -183,6 +175,42 @@ class LibMeta(type):
                     pass
             raise KeyError(name)
         return lookup
+
+    @staticmethod
+    def _func_repr_str(ffi, func, n_handles=0):
+        argtypes = ffi.typeof(func._ffi_func).args
+
+        if n_handles > len(func._sig_tup):
+            raise ValueError("Signature for function '{}' is missing its required "
+                             "handle args".format(func.__name__))
+
+        in_args = [a.cname for a, d in zip(argtypes, func._sig_tup) if 'in' in d][n_handles:]
+        out_args = [a.item.cname for a, d in zip(argtypes, func._sig_tup)
+                    if ('out' in d or 'buf' in d)]
+
+        if not out_args:
+            out_args = ['None']
+
+        repr_str = "{}({}) -> {}".format(func.__name__, ', '.join(in_args), ', '.join(out_args))
+        return repr_str
+
+
+class LibFunction(object):
+    def __init__(self, func, repr_str, handles=()):
+        self.__name__ = func.__name__
+        self._func = func
+        self._repr = repr_str
+        self._handles = handles
+
+    def __call__(self, *args):
+        return self._func(*(self._handles + args))
+
+    def __str__(self):
+        return self._repr
+
+    def __repr__(self):
+        return self._repr
+
 
 class NiceLib(object):
     """Base class for mid-level library wrappers
@@ -219,25 +247,8 @@ class NiceLib(object):
     _struct_maker = None  # ffi.new
     _buflen = 512
 
-    def __init__(self, *args):
-        # HACK to get nice repr
-        class LibFunction(object):
-            def __init__(fself, name, func, repr_str):
-                fself._name = name
-                fself._func = func
-                fself._repr = repr_str
-
-            def __call__(fself, *args):
-                return fself._func(self, *args)
-
-            def __str__(fself):
-                return fself._repr
-
-            def __repr__(fself):
-                return fself._repr
-
-        for name, (func, repr_str) in type(self)._lib_funcs.items():
-            setattr(self, name, LibFunction(name, func, repr_str))
+    def __new__(cls):
+        raise Exception("Not allowed to instantiate {}".format(cls))
 
 
 def check_units(*pos, **named):
