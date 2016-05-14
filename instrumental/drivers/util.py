@@ -93,6 +93,36 @@ def _cffi_wrapper(ffi, func, fname, sig_tup, err_wrap, struct_maker, default_buf
     return wrapped
 
 
+# WARNING uses some stack frame hackery; should probably make use of this syntax optional
+class NiceObject(object):
+    def __init__(self, n_handles=1):
+        self.n_handles = n_handles
+        self.doc = None
+
+    def __enter__(self):
+        outer_vars = sys._getframe(1).f_locals
+        self.doc = outer_vars.pop('__doc__', None)
+        self._enter_names = outer_vars.keys()  # Not including __doc__
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        outer_vars = sys._getframe(1).f_locals
+        new_doc = outer_vars.pop('__doc__', None)
+
+        exit_names = outer_vars.keys()
+        self.names = set(exit_names).difference(set(self._enter_names))
+
+        if new_doc:
+            outer_vars['__doc__'] = self.doc  # Put old var back
+        self.doc = new_doc
+
+    def __str__(self):
+        return str(self.names)
+
+    def __repr__(self):
+        return repr(self.names)
+
+
 class LibMeta(type):
     def __new__(metacls, clsname, bases, classdict):
         err_wrap = classdict['_err_wrap']
