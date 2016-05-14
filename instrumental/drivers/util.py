@@ -125,11 +125,15 @@ class NiceObject(object):
 
 class LibMeta(type):
     def __new__(metacls, clsname, bases, classdict):
-        err_wrap = classdict['_err_wrap']
-        prefix = classdict['_prefix']
-        struct_maker = classdict['_struct_maker']
+        mro_lookup = metacls._create_mro_lookup(classdict, bases)
+
         ffi = classdict['_ffi']
         lib = classdict['_lib']
+        defs = mro_lookup('_defs')
+        prefixes = classdict['_prefix']
+        err_wrap = classdict['_err_wrap']
+        struct_maker = mro_lookup('_struct_maker') or (ffi.new if ffi else None)
+        buflen = mro_lookup('_buflen')
 
         classdict['_lib_funcs'] = {}
 
@@ -162,6 +166,24 @@ class LibMeta(type):
         return super(LibMeta, metacls).__new__(metacls, clsname, bases, classdict)
 
 
+    @staticmethod
+    def _create_mro_lookup(classdict, bases):
+        """Generate a lookup function that will search the base classes for an attribute. This
+        only searches the mro of the first base, which is OK since you should probably inherit only
+        from NiceLib anyway. If there's a use case where multiple inheritance becomes useful, we
+        can add the proper mro algorithm here, but that seems unlikely. In fact, even this seems
+        like overkill...
+        """
+        dicts = (classdict,) + tuple(C.__dict__ for C in bases[0].__mro__)
+        def lookup(name):
+            for d in dicts:
+                try:
+                    return d[name]
+                except KeyError:
+                    pass
+            raise KeyError(name)
+        return lookup
+
 class NiceLib(object):
     """Base class for mid-level library wrappers
 
@@ -178,12 +200,6 @@ class NiceLib(object):
     _prefix : str, optional
         Prefix to strip from the library function names. E.g. If the library has functions named
         like ``SDK_Func()``, you can set `_prefix` to ``'SDK_'``, and access them as `Func()`.
-    _first_arg : optional
-        Object that will be automatically passed as the first argument to all library functions.
-        Useful e.g. if you open a handle to an instrument, then need to pass that handle to all
-        other subsequent functions. If a specific function does not take this argument, you should
-        set its ``first_arg`` flag to *False*. In general, this first argument will only be
-        automatically filled in if `_first_arg` is *None*.
     _err_wrap : function, optional
         Wrapper function to handle error codes returned by each library function.
     _struct_maker : function, optional
@@ -195,12 +211,12 @@ class NiceLib(object):
         argument's spec string, e.g `'buf64'` will make a 64-byte buffer.
     """
     __metaclass__ = LibMeta
-    _err_wrap = None
-    _prefix = ''
     _ffi = None  # MUST be filled in by subclass
     _lib = None  # MUST be filled in by subclass
+    _defs = None
+    _prefix = ''
+    _err_wrap = None
     _struct_maker = None  # ffi.new
-    _first_arg = None
     _buflen = 512
 
     def __init__(self, *args):
