@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015 Nate Bogdanowicz
+# Copyright 2015-2016 Nate Bogdanowicz
 """
 Helpful utilities for wrapping libraries in Python
 """
@@ -14,14 +14,12 @@ def check_enum(enum_type, arg):
     return arg if isinstance(arg, enum_type) else enum_type[arg]
 
 
-def _cffi_wrapper(ffi, func, fname, arginfo, err_wrap, struct_maker, use_first_arg):
+def _cffi_wrapper(ffi, func, fname, sig_tup, err_wrap, struct_maker, default_buflen):
     argtypes = ffi.typeof(func).args
-    n_expected_inargs = sum('in' in a for a in arginfo)
+    n_expected_inargs = sum('in' in a for a in sig_tup)
 
-    def wrapped(self, *inargs):
+    def wrapped(*inargs):
         inargs = list(inargs)
-        if use_first_arg and self._first_arg is not None:
-            inargs.insert(0, self._first_arg)
 
         if len(inargs) != n_expected_inargs:
             message = '{}() takes '.format(fname)
@@ -39,7 +37,7 @@ def _cffi_wrapper(ffi, func, fname, arginfo, err_wrap, struct_maker, use_first_a
         outargs = []
         args = []
         buflen = None
-        for info, argtype in zip(arginfo, argtypes):
+        for info, argtype in zip(sig_tup, argtypes):
             if 'inout' in info:
                 inarg = inargs.pop(0)
                 try:
@@ -107,15 +105,10 @@ class LibMeta(type):
 
         for name, value in classdict.items():
             if not name.startswith('_') and not isfunction(value):
-                flags = {'first_arg': True}
-                if not isinstance(value, tuple):
-                    value = (value,)
 
                 if value and isinstance(value[-1], dict):
                     flags.update(value[-1])
                     value = value[:-1]
-                func = _cffi_wrapper(ffi, getattr(lib, prefix + name), name, value, err_wrap,
-                                     struct_maker, flags['first_arg'])
                 func.__name__ = name
                 func.__str__ = lambda self: "func " + self.__name__
 
@@ -133,6 +126,8 @@ class LibMeta(type):
                 # classdict[name] = func
                 del classdict[name]
                 classdict['_lib_funcs'][name] = (func, repr_str)  # HACK to get nice repr
+                sig_tup = value
+                func = _cffi_wrapper(ffi, ffi_func, name, sig_tup, err_wrap, struct_maker, buflen)
 
         return super(LibMeta, metacls).__new__(metacls, clsname, bases, classdict)
 
