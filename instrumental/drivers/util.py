@@ -135,6 +135,12 @@ class LibMeta(type):
         struct_maker = mro_lookup('_struct_maker') or (ffi.new if ffi else None)
         buflen = mro_lookup('_buflen')
 
+        # Add default empty prefix
+        if isinstance(prefixes, basestring):
+            prefixes = (prefixes, '')
+        else:
+            prefixes = tuple(prefixes) + ('',)
+
         classdict['_lib_funcs'] = {}
 
         for name, value in classdict.items():
@@ -147,6 +153,12 @@ class LibMeta(type):
                     value = value[:-1]
                 func.__name__ = name
                 func.__str__ = lambda self: "func " + self.__name__
+
+                # Try prefixes until we find the lib function
+                for prefix in prefixes:
+                    ffi_func = getattr(lib, prefix + name, None)
+                    if ffi_func is not None:
+                        break
 
                 sig_tup = value
                 func = _cffi_wrapper(ffi, ffi_func, name, sig_tup, err_wrap, struct_maker, buflen)
