@@ -4,6 +4,7 @@
 Helpful utilities for wrapping libraries in Python
 """
 import sys
+import warnings
 from inspect import getargspec, isfunction
 from functools import update_wrapper
 import pint
@@ -186,6 +187,19 @@ class LibMeta(type):
         for cls_name, niceobj in niceobjects.items():
             # Need to use a separate function so we have a per-class closure
             classdict[cls_name] = metacls._create_object_class(cls_name, niceobj, ffi, funcs)
+
+        # Add macro defs
+        if defs:
+            for name, attr in defs.__dict__.items():
+                for prefix in prefixes:
+                    if name.startswith(prefix):
+                        shortname = name[len(prefix):]
+                        if shortname in classdict:
+                            warnings.warn("Conflicting name {}, ignoring".format(shortname))
+                        else:
+                            classdict[shortname] = staticmethod(attr) if callable(attr) else attr
+                        break
+
         return super(LibMeta, metacls).__new__(metacls, clsname, bases, classdict)
 
     @classmethod
