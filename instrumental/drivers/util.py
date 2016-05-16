@@ -142,7 +142,13 @@ class LibMeta(type):
         else:
             prefixes = tuple(prefixes) + ('',)
 
-        classdict['_lib_funcs'] = {}
+        niceobjects = {}  # name: NiceObject
+        for name, value in classdict.items():
+            if isinstance(value, NiceObject):
+                value.names.remove(name)  # Remove self
+                niceobjects[name] = value
+
+        funcs = {}
 
         for name, value in classdict.items():
             if (not name.startswith('_') and not isfunction(value) and
@@ -166,12 +172,37 @@ class LibMeta(type):
 
                 func = _cffi_wrapper(ffi, ffi_func, name, sig_tup, err_wrap, struct_maker, buflen)
 
+                # Save for use by niceobjs
+                funcs[name] = func
 
                 # HACK to get nice repr
                 repr_str = metacls._func_repr_str(ffi, func)
                 classdict[name] = LibFunction(func, repr_str)
+
+        for cls_name, niceobj in niceobjects.items():
+            # Need to use a separate function so we have a per-class closure
+            classdict[cls_name] = metacls._create_object_class(cls_name, niceobj, ffi, funcs)
         return super(LibMeta, metacls).__new__(metacls, clsname, bases, classdict)
 
+    @classmethod
+    def _create_object_class(metacls, cls_name, niceobj, ffi, funcs):
+        repr_strs = {}
+        for func_name in niceobj.names:
+            repr_strs[func_name] = metacls._func_repr_str(ffi, funcs[func_name],
+                                                          niceobj.n_handles)
+
+        def __init__(self, *handles):
+            if len(handles) != niceobj.n_handles:
+                raise TypeError("__init__() takes exactly {} arguments "
+                                "({} given)".format(niceobj.n_handles, len(handles)))
+
+            # Generate "bound methods"
+            for func_name in niceobj.names:
+                lib_func = LibFunction(funcs[func_name], repr_strs[func_name], handles)
+                setattr(self, func_name, lib_func)
+
+        niceobj_dict = {'__init__': __init__, '__doc__': niceobj.doc}
+        return type(cls_name, (object,), niceobj_dict)
 
     @staticmethod
     def _create_mro_lookup(classdict, bases):
