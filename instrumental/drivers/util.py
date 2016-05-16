@@ -13,7 +13,12 @@ from .. import Q_, u
 
 def check_enum(enum_type, arg):
     """Checks if arg is an instance or key of enum_type, and returns that enum"""
-    return arg if isinstance(arg, enum_type) else enum_type[arg]
+    if isinstance(arg, enum_type):
+        return arg
+    try:
+        return enum_type[arg]
+    except KeyError:
+        raise ValueError("{} is not a valid {}".format(arg, enum_type.__name__))
 
 
 def _cffi_wrapper(ffi, func, fname, sig_tup, err_wrap, struct_maker, default_buflen):
