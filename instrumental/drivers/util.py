@@ -99,6 +99,8 @@ def _cffi_wrapper(ffi, func, fname, sig_tup, err_wrap, struct_maker, default_buf
             return tuple(out_vals)
 
     wrapped.__name__ = fname
+    wrapped._ffi_func = func
+    wrapped._sig_tup = sig_tup
     return wrapped
 
 
