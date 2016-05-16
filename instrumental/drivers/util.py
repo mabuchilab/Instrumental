@@ -3,6 +3,7 @@
 """
 Helpful utilities for wrapping libraries in Python
 """
+import sys
 from inspect import getargspec, isfunction
 from functools import update_wrapper
 import pint
@@ -147,12 +148,15 @@ class LibMeta(type):
             if (not name.startswith('_') and not isfunction(value) and
                     not isinstance(value, NiceObject)):
                 sig_tup = value
+                flags = {}
 
-                if value and isinstance(value[-1], dict):
-                    flags.update(value[-1])
-                    value = value[:-1]
-                func.__name__ = name
-                func.__str__ = lambda self: "func " + self.__name__
+                if not isinstance(sig_tup, tuple):
+                    sig_tup = (sig_tup,)
+
+                # Pop off the flags dict
+                if sig_tup and isinstance(sig_tup[-1], dict):
+                    flags.update(sig_tup[-1])
+                    sig_tup = sig_tup[:-1]
 
                 # Try prefixes until we find the lib function
                 for prefix in prefixes:
@@ -160,7 +164,6 @@ class LibMeta(type):
                     if ffi_func is not None:
                         break
 
-                sig_tup = value
                 func = _cffi_wrapper(ffi, ffi_func, name, sig_tup, err_wrap, struct_maker, buflen)
 
 
