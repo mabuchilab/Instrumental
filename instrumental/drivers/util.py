@@ -6,8 +6,8 @@ Helpful utilities for wrapping libraries in Python
 import sys
 import warnings
 from inspect import getargspec, isfunction
-from functools import update_wrapper
 import pint
+from . import decorator
 from .. import Q_, u
 
 
@@ -475,10 +475,10 @@ def _unit_decorator(in_map, out_map, pos_args, named_args):
         # Convert the defaults
         new_defaults = {}
         ndefs = len(defaults)
-        for d, u, n in zip(defaults, pos_units[-ndefs:], arg_names[-ndefs:]):
-            new_defaults[n] = d if u is None else in_map(d, u, n)
+        for d, unit, n in zip(defaults, pos_units[-ndefs:], arg_names[-ndefs:]):
+            new_defaults[n] = d if unit is None else in_map(d, unit, n)
 
-        def wrapper(*args, **kwargs):
+        def wrapper(func, *args, **kwargs):
             # Convert the input arguments
             new_args = [in_map(a, u, n) for a, u, n in zip(args, pos_units, arg_names)]
             new_kwargs = {n: in_map(a, named_units.get(n, None), n) for n, a in kwargs.items()}
@@ -495,6 +495,5 @@ def _unit_decorator(in_map, out_map, pos_args, named_args):
                 return tuple(map(out_map, result, ret_units))
             else:
                 return out_map(result, ret_units)
-        update_wrapper(wrapper, func)
-        return wrapper
+        return decorator.decorate(func, wrapper)
     return wrap
