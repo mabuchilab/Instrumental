@@ -67,15 +67,18 @@ def _cffi_wrapper(ffi, func, fname, sig_tup, err_wrap, struct_maker, default_buf
                     arg = ffi.new(argtype)
                 outargs.append((arg, lambda o: o[0]))
             elif info.startswith('buf'):
-                if len(info) > 3:
-                    buflen = int(info[3:])
-                else:
-                    buflen = self._buflen
+                buflen = int(info[3:]) if len(info) > 3 else default_buflen
                 arg = ffi.new('char[]', buflen)
                 outargs.append((arg, lambda o: ffi.string(o)))
+            elif info.startswith('arr'):
+                buflen = int(info[3:]) if len(info) > 3 else default_buflen
+                arg = ffi.new('{}[]'.format(argtype.item.cname), buflen)
+                outargs.append((arg, lambda o: o))
             elif info == 'len':
                 arg = buflen
                 buflen = None
+            elif info == 'ignore':
+                arg = ffi.new(argtype.cname + '*')[0]
             else:
                 raise Exception("Unrecognized arg info '{}'".format(info))
             args.append(arg)
