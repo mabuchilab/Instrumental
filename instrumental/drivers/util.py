@@ -20,6 +20,10 @@ def _cffi_wrapper(ffi, func, fname, sig_tup, err_wrap, struct_maker, default_buf
     argtypes = ffi.typeof(func).args
     n_expected_inargs = sum('in' in a for a in sig_tup)
 
+    if len(sig_tup) != len(argtypes):
+        raise TypeError("{}() takes {} args, but your signature specifies "
+                        "{}".format(fname, len(argtypes), len(sig_tup)))
+
     def wrapped(*inargs):
         inargs = list(inargs)
 
