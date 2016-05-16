@@ -400,6 +400,53 @@ def unit_mag(*pos, **named):
     return _unit_decorator(in_map, out_map, pos, named)
 
 
+def check_enums(**kw_args):
+    def checker_factory(enum_type, arg_name):
+        def checker(arg):
+            return arg if isinstance(arg, enum_type) else enum_type[arg]
+        return checker
+    return arg_decorator(checker_factory, (), kw_args)
+
+
+def arg_decorator(checker_factory, pos_args, kw_args):
+    def wrap(func):
+        arg_names, vargs, kwds, defaults = getargspec(func)
+        defaults = defaults or ()
+        pos_arg_names = {i: name for i, name in enumerate(arg_names)}
+
+        # Put everything in one dict
+        for arg, name in zip(pos_args, arg_names):
+            if name in kw_args:
+                raise TypeError("Argument specified twice, by both position and name")
+            kw_args[name] = arg
+
+        checkers = {}
+        new_defaults = {}
+        ndefs = len(defaults)
+        for default, name in zip(defaults, arg_names[-ndefs:]):
+            if name in kw_args:
+                checker = checker_factory(kw_args[name], name)
+                checkers[name] = checker
+                new_defaults[name] = checker(default)
+
+        for name in arg_names[:-ndefs]:
+            if name in kw_args:
+                checkers[name] = checker_factory(kw_args[name], name)
+
+        def wrapper(func, *args, **kwds):
+            checked = new_defaults.copy()
+            checked.update({name: (checkers[name](arg) if name in checkers else arg) for name, arg
+                            in kwds.items()})
+            for i, arg in enumerate(args):
+                name = pos_arg_names[i]
+                checked[name] = checkers[name](arg) if name in checkers else arg
+
+            result = func(**checked)
+            return result
+        return decorator.decorate(func, wrapper)
+    return wrap
+
+
 def _unit_decorator(in_map, out_map, pos_args, named_args):
     def wrap(func):
         ret = named_args.pop('ret', None)
