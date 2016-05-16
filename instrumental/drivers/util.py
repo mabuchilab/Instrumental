@@ -8,7 +8,7 @@ import warnings
 from inspect import getargspec, isfunction
 from functools import update_wrapper
 import pint
-from .. import Q_
+from .. import Q_, u
 
 
 def check_enum(enum_type, arg):
@@ -334,6 +334,18 @@ def check_units(*pos, **named):
         optional, units = unit_info
         if optional and arg is None:
             return None
+        elif arg == 0:
+            # Allow naked zeroes as long as we're using absolute units (e.g. not degF)
+            # It's a bit dicey using this private method; works in 0.6 at least
+            if units._ok_for_muldiv():
+                return Q_(arg, units)
+            else:
+                if name is not None:
+                    raise pint.DimensionalityError(u.dimensionless.units, units.units,
+                                                   extra_msg=" for argument '{}'".format(name))
+                else:
+                    raise pint.DimensionalityError(u.dimensionless.units, units.units,
+                                                   extra_msg=" for return value")
         else:
             q = Q_(arg)
             if q.dimensionality != units.dimensionality:
