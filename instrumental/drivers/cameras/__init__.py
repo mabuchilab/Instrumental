@@ -196,6 +196,11 @@ class Camera(Instrument):
         if self._defaults is None:
             self._defaults = self.DEFAULT_KWDS.copy()
 
+
+        bad_kwds = [k for k in kwds if k not in self._defaults]
+        if bad_kwds:
+            raise Error("Unknown parameters {}".format(bad_kwds))
+
         for k, v in self._defaults.items():
             kwds.setdefault(k, v)
 
