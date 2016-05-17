@@ -12,10 +12,6 @@ from ... import Q_, conf
 from ...errors import Error
 
 
-DEFAULT_KWDS = dict(n_frames=1, vbin=1, hbin=1, exposure_time=Q_('10ms'), width=None, height=None,
-                    cx=None, cy=None, left=None, right=None, top=None, bot=None,
-                    fix_hotpixels=False)
-
 
 class Camera(Instrument):
     """A generic camera device.
@@ -40,6 +36,11 @@ class Camera(Instrument):
         >>>         do_stuff_with(arr)
         >>> cam.stop_live_video()
     """
+
+    DEFAULT_KWDS = dict(n_frames=1, vbin=1, hbin=1, exposure_time=Q_('10ms'), width=None,
+                        height=None, cx=None, cy=None, left=None, right=None, top=None, bot=None,
+                        fix_hotpixels=False)
+
 
     width = abc.abstractproperty(doc="Width of the camera image in pixels")
     height = abc.abstractproperty(doc="Height of the camera image in pixels")
@@ -183,7 +184,7 @@ class Camera(Instrument):
 
     def set_defaults(self, **kwds):
         if self._defaults is None:
-            self._defaults = DEFAULT_KWDS.copy()
+            self._defaults = self.DEFAULT_KWDS.copy()
 
         for k in kwds:
             if k not in self._defaults:
@@ -193,7 +194,7 @@ class Camera(Instrument):
     def _handle_kwds(self, kwds):
         """Don't reimplement this, it's super-annoying"""
         if self._defaults is None:
-            self._defaults = DEFAULT_KWDS.copy()
+            self._defaults = self.DEFAULT_KWDS.copy()
 
         for k, v in self._defaults.items():
             kwds.setdefault(k, v)
