@@ -7,6 +7,7 @@ Driver for PCO Pixelfly cameras.
 import atexit
 import os.path
 import numpy as np
+from scipy.interpolate import interp1d
 from cffi import FFI
 import win32event
 
@@ -16,7 +17,7 @@ from . import Camera
 from .. import InstrumentTypeError, _ParamDict
 from ..util import check_units
 from ...errors import Error, TimeoutError
-from ... import Q_
+from ... import Q_, u
 
 __all__ = ['Pixelfly']
 
@@ -127,9 +128,20 @@ for func_name in px_funcs:
     func = getattr(lib, func_name)
     setattr(px, func_name, err_wrap(func))
 
+# Load QE curves
+data_dir = os.path.join(os.path.dirname(__file__), '_pixelfly')
+def load_qe_curve(fname):
+    data = np.loadtxt(os.path.join(data_dir, fname))
+    return interp1d(data[:, 0], data[:, 1]*0.01, bounds_error=False, fill_value=0.,
+                    assume_sorted=True)
+
 
 class Pixelfly(Camera):
     _open_cameras = []
+
+    _qe_high = load_qe_curve('QEHigh.tsv')
+    _qe_low = load_qe_curve('QELow.tsv')
+    _qe_vga = load_qe_curve('VGA.tsv')
 
     def __init__(self, board_num=0):
         hdriver_p = ffi.new('HANDLE *', ffi.NULL)
@@ -401,6 +413,20 @@ class Pixelfly(Camera):
 
         if self._shutter == 'double':
             self._height = self._height / 2  # Give the height of *each* image individually
+
+    @check_units(wavlen='nm')
+    def quantum_efficiency(self, wavlen, high_gain=False):
+        """quantum_efficiency(self, wavlen, high_gain=False)
+
+        Fractional quantum efficiency of the sensor at a given wavelength
+        """
+        if self.max_width == 640:
+            curve = self._qe_vga
+        elif self.max_width == 1392:
+            curve = self._qe_high if high_gain else self._qe_low
+        else:
+            raise Error("Unrecognized pixelfly model")
+        return float(curve(wavlen.m_as('nm')))
 
     @property
     def temperature(self):
