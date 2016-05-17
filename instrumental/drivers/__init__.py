@@ -136,7 +136,7 @@ class Instrument(object):
         try:
             pdict = self._param_dict
         except AttributeError:
-            raise NotImplementedError("Class '{}' does not yet support saving")
+            raise NotImplementedError("Class '{}' does not yet support saving".format(type(self)))
 
         date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         new_entry = '\n# Entry auto-created ' + date_str + '\n' + pdict.to_ini(name) + '\n'
