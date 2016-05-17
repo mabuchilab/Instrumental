@@ -254,32 +254,51 @@ class PCO_Camera(Camera):
         return Q_(framerate_mHz, 'mHz').to('Hz')
 
     def _set_ROI(self, x0, y0, x1, y1):
+        # Can't figure out how to get Soft ROI working properly, so here we implement it by hand
         desc = self._get_camera_description()
         hstep = desc.wRoiHorStepsDESC
         vstep = desc.wRoiVertStepsDESC
 
-        if x0 % hstep != 0 or x1 % hstep != 0:
-            raise Error("ROI x-coordinates must be a multiple of {}".format(hstep))
-        if y0 % vstep != 0 or y1 % vstep != 0:
-            raise Error("ROI y-coordinates must be a multiple of {}".format(vstep))
+        if x1 <= x0:
+            raise Error("ROI must have x1 > x0")
+        if y1 <= y0:
+            raise Error("ROI must have y1 > y0")
 
-        # For dual ADC mode
+        # Ensure coords are bounded properly
+        x0 = max(0, x0)
+        y0 = max(0, y0)
+        x1 = min(self.max_width, x1)
+        y1 = min(self.max_width, y1)
+
+        # Round and center x coords (must be symmetric in dual-ADC mode)
         cx = self.max_width / 2
-        if (cx - x0) != (x1 - cx):
-            raise Error("ROI x-coordinates must be symmetric when in dual-ADC mode")
+        xdiff = max(cx - x0, x1 - cx) - 1
+        xdiff = (xdiff // hstep + 1) * hstep
+        fx0 = cx - xdiff
+        fx1 = cx + xdiff
 
-        # For pco.edge
+        # Round and center y coords (must be symmetric for pco.edge)
         cy = self.max_height / 2
-        if (cy - y0) != (y1 - cy):
-            raise Error("ROI y-coordinates must be symmetric")
+        ydiff = max(cy - y0, y1 - cy) - 1
+        ydiff = (ydiff // vstep + 1) * vstep
+        fy0 = cy - ydiff
+        fy1 = cy + ydiff
+
+        # Save for later
+        self._soft_width = x1 - x0
+        self._soft_height = y1 - y0
+        self._roi_trim_left = x0 - fx0
+        self._roi_trim_top = y0 - fy0
 
         try:
-            self.plib.SetROI(x0+1, y0+1, x1, y1)
+            self._cam.SetROI(fx0+1, fy0+1, fx1, fy1)
         except Error as e:
             if e.code == 0xA00A3001:
-                raise Error("ROI coordinates out of range; given x0,y0 = {},{} and x1,y1 = {},{}"
-                            " x0 must be in the range [0, width-1], and x1 must be in the range"
-                            " [x0+1, width]; similarly for y0/y1".format(x0, y0, x1, y1))
+                raise Error("ROI coordinates out of range; asked for x0,y0 = {},{} and x1,y1 = {},{}.\n"
+                            "However, x0 must be in the range [0, {}], and x1 must be in the range"
+                            " [x0+1, {}]; y0 must be in [0, {}] and y1 must be in [y0+1, {}]".format(
+                                x0, y0, x1, y1, self.max_width-1, self.max_width,
+                                self.max_height-1, self.max_height))
             raise
         self._sizes_changed = True
 
@@ -528,7 +547,10 @@ class PCO_Camera(Camera):
         width, height, _, _ = self._get_sizes()
         array = np.frombuffer(buf, np.uint16)
         array = array.reshape((height, width))
-        return array
+
+        # Handle soft ROI
+        left, top = self._roi_trim_left, self._roi_trim_top
+        return array[top:top + self._soft_height, left:left + self._soft_width]
 
     def _color_mode(self):
         desc = self._get_camera_description()
@@ -537,16 +559,8 @@ class PCO_Camera(Camera):
         else:
             return 'mono' + str(self.bit_depth)
 
-    def _width(self):
-        width, _, _, _ = self._get_sizes()
-        return width
-
-    def _height(self):
-        _, height, _, _ = self._get_sizes()
-        return height
-
-    width = property(lambda self: self._width())
-    height = property(lambda self: self._height())
+    width = property(lambda self: self._soft_width)
+    height = property(lambda self: self._soft_height)
     max_width = property(lambda self: self._get_sizes()[2])
     max_height = property(lambda self: self._get_sizes()[3])
 
