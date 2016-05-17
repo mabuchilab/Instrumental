@@ -450,9 +450,10 @@ class PCO_Camera(Camera):
         self._cam.SetRecordingState(0)
         self._clear_queue()
 
-    @check_units(timeout='ms')
-    def get_captured_image(self, timeout='1s', copy=True):
-        """get_captured_image(timeout='1s', copy=True)"""
+    @check_units(timeout='?ms')
+    def get_captured_image(self, timeout='1s', copy=True, wait_for_all=True, **kwds):
+        """get_captured_image(timeout='1s', copy=True, **kwds)"""
+        self._handle_kwds(kwds)
         width, height, _, _ = self._get_sizes()
         frame_size = self._frame_size()
         image_arrs = []
@@ -488,7 +489,7 @@ class PCO_Camera(Camera):
 
     def grab_image(self, timeout='1s', copy=True, **kwds):
         self.start_capture(**kwds)
-        return self.get_captured_image(timeout=timeout, copy=copy)
+        return self.get_captured_image(timeout=timeout, copy=copy, **kwds)
 
     @check_units(framerate='Hz')
     def start_live_video(self, framerate='10Hz', **kwds):
