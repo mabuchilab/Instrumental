@@ -400,6 +400,10 @@ class Pixelfly(Camera):
 
         self._trigger()
 
+    def cancel_capture(self):
+        """Cancels a capture sequence, cleaning up and stopping the camera"""
+        pass
+
     @check_units(timeout='?ms')
     def get_captured_image(self, timeout='1s', copy=True, **kwds):
         self._handle_kwds(kwds)  # Should get rid of this duplication somehow...
