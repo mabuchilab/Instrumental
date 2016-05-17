@@ -135,6 +135,8 @@ class BufferInfo(object):
 
 
 class PCO_Camera(Camera):
+    DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
+    DEFAULT_KWDS.update(trig='software', rising=True)
     open_cameras = []
 
     def __init__(self, cam_num=0):
@@ -142,6 +144,7 @@ class PCO_Camera(Camera):
         self.queue = []
         self._buf_size = 0
         self.shutter = None
+        self._trig_mode = self.TriggerMode.software
 
         self.plib = NicePCO()
         self._open(cam_num)
@@ -181,7 +184,7 @@ class PCO_Camera(Camera):
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
-    def set_trigger_mode(self, mode):
+    def set_trigger_mode(self, mode, rising=True):
         """Set the trigger mode
 
         Parameters
@@ -192,8 +195,12 @@ class PCO_Camera(Camera):
             extern_edge - Software trigger or external hardware trigger on a signal's edge
             extern_pulse - Hardware trigger; delay and exposure are determined by the pulse length
         """
-        mode = check_enum(self.TriggerMode, mode)
-        self.plib.SetTriggerMode(mode.value)
+        self._trig_mode = as_enum(self.TriggerMode, mode)
+        self._cam.SetTriggerMode(self._trig_mode.value)
+
+        struct = self._cam.GetHWIOSignal(0)
+        struct.wPolarity = 0x04 if rising else 0x08
+        self._cam.SetHWIOSignal(0, ffi.addressof(struct))
 
     def _open(self, cam_num):
         openStruct_p = ffi.new('PCO_OpenStruct *')
@@ -420,6 +427,9 @@ class PCO_Camera(Camera):
         self._allocate_buffers(kwds['n_frames'])
         self._cam.ArmCamera()
 
+        if 'trig' in kwds:
+            self.set_trigger_mode(kwds['trig'], kwds.get('rising', True))
+
         # Prepare CameraLink interface
         width, height, _, _ = self._get_sizes()
         self._cam.SetTransferParametersAuto()
@@ -480,6 +490,7 @@ class PCO_Camera(Camera):
         """start_live_video(self, framerate='10Hz', **kwds)"""
         self._handle_kwds(kwds)
 
+        self.set_trigger_mode(self.TriggerMode.auto)
         self._set_binning(kwds['vbin'], kwds['hbin'])
         self._set_ROI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
         self._cam.ArmCamera()
