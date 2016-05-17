@@ -229,6 +229,16 @@ class Pixelfly(Camera):
         exp_units = 'ms' if shutter == 'video' else 'us'
         exptime = int(Q_(exposure).to(exp_units).magnitude)
 
+        # Check exptime bounds to avoid cryptic errors
+        if shutter == 'video':
+            if not (1 <= exptime <= 65535):
+                raise Error("Invalid exposure time {}. Exposure must be between 1 us and "
+                            "65.535 ms when in video shutter mode".format(exposure))
+        else:
+            if not (5 <= exptime <= 65535):
+                raise Error("Invalid exposure time {}. Exposure must be between 5 us and "
+                            "65.535 ms when in single shutter mode".format(exposure))
+
         hbin_val = 0 if hbin == 1 else 1
         vbin_val = 0 if vbin == 1 else 1
         gain_val = 0 if gain == 'low' else 1
