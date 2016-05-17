@@ -575,12 +575,13 @@ def list_instruments():
         openStruct.wOpenFlags[0] = 0
 
         hCam, _ = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p)  # This is reallllyyyy sloowwwww
+        _cam = NicePCO.Camera(hCam)
 
         if openStruct.wInterfaceType == 0xFFFF or hCam == prev_handle:
             # OpenCameraEx doesn't seem to return error upon not finding a camera, so if it didn't
             # set wInterfaceType, or the handle is the same as the previous handle, we assume it
             # found no camera
-            plib.CloseCamera(hCam)
+            _cam.CloseCamera()
             break
         else:
             param_dict = _ParamDict("<PCO '{}'>".format(openStruct.wCameraNumber))
@@ -590,7 +591,7 @@ def list_instruments():
             param_dict['pco_interface_type'] = openStruct.wInterfaceType
 
             cameras.append(param_dict)
-            plib.CloseCamera(hCam)
+            _cam.CloseCamera()
             prev_handle = hCam
 
         openStruct.wCameraNumber += 1
