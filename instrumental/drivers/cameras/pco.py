@@ -445,6 +445,11 @@ class PCO_Camera(Camera):
         if self._trig_mode == self.TriggerMode.software:
             self._cam.ForceTrigger()
 
+    def cancel_capture(self):
+        """Cancel a capture sequence, cleaning up and stopping the camera"""
+        self._cam.SetRecordingState(0)
+        self._clear_queue()
+
     @check_units(timeout='ms')
     def get_captured_image(self, timeout='1s', copy=True):
         """get_captured_image(timeout='1s', copy=True)"""
