@@ -488,6 +488,8 @@ class PCO_Camera(Camera):
             array = np.frombuffer(image_buf, np.uint16)
             array = array.reshape((height, width))
 
+            if kwds['fix_hotpixels']:
+                array = self._correct_hot_pixels(array)
 
             # Handle soft ROI
             left, top = self._roi_trim_left, self._roi_trim_top
