@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015 Nate Bogdanowicz
+# Copyright 2015-2016 Nate Bogdanowicz
 """
 Driver for PCO cameras that use the PCO.camera SDK.
 """
@@ -11,7 +11,7 @@ import numpy as np
 from cffi import FFI
 from ._pixelfly import errortext
 from . import Camera
-from ..util import NiceLib, check_enum, unit_mag, check_units
+from ..util import NiceLib, NiceObject, as_enum, unit_mag, check_units
 from .. import InstrumentTypeError, _ParamDict
 from ...errors import Error, TimeoutError
 from ... import Q_, u
@@ -73,50 +73,58 @@ class NicePCO(NiceLib):
     _lib = lib
     _prefix = 'PCO_'
 
-    # Special cases
-    def GetTransferParameter(self):
-        params_p = ffi.new('PCO_SC2_CL_TRANSFER_PARAM *')
-        void_p = ffi.cast('void *', params_p)
-        lib.PCO_GetTransferParameter(self._first_arg, void_p, ffi.sizeof(params_p[0]))
-        # Should do error checking...
-        return params_p[0]
+    OpenCamera = ('inout', 'in')
+    OpenCameraEx = ('inout', 'inout')
 
-    def SetTransferParametersAuto(self):
-        lib.PCO_SetTransferParametersAuto(self._first_arg, ffi.NULL, 0)
-        # Should do error checking...
+    with NiceObject() as Camera:
+        CloseCamera = ('in')
+        GetSizes = ('in', 'out', 'out', 'out', 'out')
+        SetROI = ('in', 'in', 'in', 'in', 'in')
+        GetROI = ('in', 'out', 'out', 'out', 'out')
+        GetInfoString = ('in', 'in', 'buf', 'len')
+        GetCameraName = ('in', 'buf40', 'len')
+        GetRecordingState = ('in', 'out')
+        SetRecordingState = ('in', 'in')
+        SetDelayExposureTime = ('in', 'in', 'in', 'in', 'in')
+        GetDelayExposureTime = ('in', 'out', 'out', 'out', 'out')
+        SetFrameRate = ('in', 'out', 'in', 'inout', 'inout')
+        GetFrameRate = ('in', 'out', 'out', 'out')
+        ArmCamera = ('in')
+        SetBinning = ('in', 'in', 'in')
+        GetBinning = ('in', 'out', 'out')
+        GetActiveLookupTable = ('in', 'out', 'out')
+        SetActiveLookupTable = ('in', 'inout', 'inout')
+        GetPixelRate = ('in', 'out')
+        # GetTransferParameter = ('in', 'buf', 'len')
+        GetTriggerMode = ('in', 'out')
+        SetTriggerMode = ('in', 'in')
+        ForceTrigger = ('in', 'out')
+        AllocateBuffer = ('in', 'inout', 'in', 'inout', 'inout')
+        CamLinkSetImageParameters = ('in', 'in', 'in')
+        FreeBuffer = ('in', 'in')
+        CancelImages = ('in')
+        AddBufferEx = ('in', 'in', 'in', 'in', 'in', 'in', 'in')
+        GetBufferStatus = ('in', 'in', 'out', 'out')
+        GetLookupTableInfo = ('in', 'in', 'out', 'buf20', 'len', 'out', 'out', 'out', 'out')
+        GetCameraDescription = ('in', 'out')
+        EnableSoftROI = ('in', 'in', 'in', 'in')
+        GetHWIOSignalDescriptor = ('in', 'in', 'out')
+        GetHWIOSignal = ('in', 'in', 'out')
+        SetHWIOSignal = ('in', 'in', 'in')
+        GetIRSensitivity = ('in', 'out')
+        SetIRSensitivity = ('in', 'in')
 
-    OpenCamera = ('inout', 'in', dict(first_arg=False))
-    OpenCameraEx = ('inout', 'inout', dict(first_arg=False))
-    CloseCamera = ('in')
-    GetSizes = ('in', 'out', 'out', 'out', 'out')
-    SetROI = ('in', 'in', 'in', 'in', 'in')
-    GetROI = ('in', 'out', 'out', 'out', 'out')
-    GetInfoString = ('in', 'in', 'buf', 'len')
-    GetCameraName = ('in', 'buf40', 'len')
-    GetRecordingState = ('in', 'out')
-    SetRecordingState = ('in', 'in')
-    SetDelayExposureTime = ('in', 'in', 'in', 'in', 'in')
-    GetDelayExposureTime = ('in', 'out', 'out', 'out', 'out')
-    SetFrameRate = ('in', 'out', 'in', 'inout', 'inout')
-    GetFrameRate = ('in', 'out', 'out', 'out')
-    ArmCamera = ('in')
-    SetBinning = ('in', 'in', 'in')
-    GetBinning = ('in', 'out', 'out')
-    GetActiveLookupTable = ('in', 'out', 'out')
-    SetActiveLookupTable = ('in', 'inout', 'inout')
-    GetPixelRate = ('in', 'out')
-    # GetTransferParameter = ('in', 'buf', 'len')
-    GetTriggerMode = ('in', 'out')
-    ForceTrigger = ('in', 'out')
-    AllocateBuffer = ('in', 'inout', 'in', 'inout', 'inout')
-    CamLinkSetImageParameters = ('in', 'in', 'in')
-    FreeBuffer = ('in', 'in')
-    CancelImages = ('in')
-    AddBufferEx = ('in', 'in', 'in', 'in', 'in', 'in', 'in')
-    GetBufferStatus = ('in', 'in', 'out', 'out')
-    GetLookupTableInfo = ('in', 'in', 'out', 'buf20', 'len', 'out', 'out', 'out', 'out')
-    GetCameraDescription = ('in', 'out')
-    EnableSoftROI = ('in', 'in', 'in', 'in')
+        # Special cases
+        def GetTransferParameter(hcam):
+            params_p = ffi.new('PCO_SC2_CL_TRANSFER_PARAM *')
+            void_p = ffi.cast('void *', params_p)
+            lib.PCO_GetTransferParameter(hcam, void_p, ffi.sizeof(params_p[0]))
+            # Should do error checking...
+            return params_p[0]
+
+        def SetTransferParametersAuto(hcam):
+            lib.PCO_SetTransferParametersAuto(hcam, ffi.NULL, 0)
+            # Should do error checking...
 
 
 class BufferInfo(object):
@@ -196,34 +204,35 @@ class PCO_Camera(Camera):
         openStruct.wCameraNumAtInterface = 0
         openStruct.wOpenFlags[0] = 0
 
-        self.plib._first_arg = self.plib.OpenCameraEx(ffi.NULL, openStruct_p[0])[0]
+        hcam = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p[0])[0]
+        self._cam = NicePCO.Camera(hcam)
 
         self.cam_num = openStruct.wCameraNumber
         self.interface_type = openStruct.wInterfaceType
 
     def close(self):
         """Close the camera"""
-        self.plib.SetRecordingState(0)
+        self._cam.SetRecordingState(0)
         self._clear_queue()
         self._free_buffers()
-        self.plib.CloseCamera()
+        self._cam.CloseCamera()
 
     def _enable_soft_roi(self, enable):
-        self.plib.EnableSoftROI(enable, ffi.NULL, 0)
+        self._cam.EnableSoftROI(enable, ffi.NULL, 0)
 
     def _get_camera_description(self):
         if not self._cached_cam_desc:
-            self._cached_cam_desc = self.plib.GetCameraDescription()
+            self._cached_cam_desc = self._cam.GetCameraDescription()
         return self._cached_cam_desc
 
     @unit_mag(delay='ns', exposure='ns')
     def _set_delay_exposure_time(self, delay, exposure):
         delay_ns = int(round(delay))
         exposure_ns = int(round(exposure))
-        self.plib.SetDelayExposureTime(delay_ns, exposure_ns, 0, 0)
+        self._cam.SetDelayExposureTime(delay_ns, exposure_ns, 0, 0)
 
     def _get_delay_exposure_time(self):
-        delay, exp, delay_timebase, exp_timebase = self.plib.GetDelayExposureTime()
+        delay, exp, delay_timebase, exp_timebase = self._cam.GetDelayExposureTime()
         TIME_MAP = {0: 'ns', 1: 'us', 2: 'ms'}
         delay = Q_(delay, TIME_MAP[delay_timebase])
         exp = Q_(exp, TIME_MAP[exp_timebase])
@@ -235,13 +244,13 @@ class PCO_Camera(Camera):
         framerate_mHz = int(round(framerate))
         mode = check_enum(self.FrameRateMode, priority)
 
-        self.plib.ArmCamera()
-        status, framerate_mHz, exposure_ns = self.plib.SetFrameRate(mode.value, framerate_mHz,
+        self._cam.ArmCamera()
+        status, framerate_mHz, exposure_ns = self._cam.SetFrameRate(mode.value, framerate_mHz,
                                                                     exposure_ns)
         return status, framerate_mHz, exposure_ns
 
     def _framerate(self):
-        status, framerate_mHz, exposure_ns = self.plib.GetFrameRate()
+        status, framerate_mHz, exposure_ns = self._cam.GetFrameRate()
         return Q_(framerate_mHz, 'mHz').to('Hz')
 
     def _set_ROI(self, x0, y0, x1, y1):
@@ -275,7 +284,7 @@ class PCO_Camera(Camera):
         self._sizes_changed = True
 
     def _get_ROI(self):
-        x0, y0, x1, y1 = self.plib.GetROI()
+        x0, y0, x1, y1 = self._cam.GetROI()
         return x0-1, y0-1, x1, y1
 
     def _set_centered_ROI(self, width, height):
@@ -289,7 +298,7 @@ class PCO_Camera(Camera):
         n_luts = 10
         info = []
         while i < n_luts:
-            n_luts, desc, id, in_width, out_width, format = self.plib.GetLookupTableInfo(i)
+            n_luts, desc, id, in_width, out_width, format = self._cam.GetLookupTableInfo(i)
             info.append((desc, id, in_width, out_width, format))
             i += 1
         return info
@@ -311,18 +320,18 @@ class PCO_Camera(Camera):
         return depth_map[dataformat]
 
     def _get_pixelrate(self):
-        pixelrate = self.plib.GetPixelRate()
+        pixelrate = self._cam.GetPixelRate()
         return Q_(pixelrate, 'Hz').to('MHz')
 
     def _get_transfer_parameter(self):
         if self._transfer_param_changed:
-            self._cached_transfer_param = self.plib.GetTransferParameter()
+            self._cached_transfer_param = self._cam.GetTransferParameter()
             self._transfer_param_changed = False
         return self._cached_transfer_param
 
     def _get_sizes(self):
         if self._sizes_changed:
-            x_act, y_act, x_max, y_max = self.plib.GetSizes()
+            x_act, y_act, x_max, y_max = self._cam.GetSizes()
             self._cached_sizes = x_act, y_act, x_max, y_max
             self._sizes_changed = False
         return self._cached_sizes
@@ -347,7 +356,7 @@ class PCO_Camera(Camera):
                 nbufs = 1
 
         # Clean up existing buffers
-        self.plib.SetRecordingState(0)
+        self._cam.SetRecordingState(0)
         self._clear_queue()
         self._free_buffers()
 
@@ -355,22 +364,22 @@ class PCO_Camera(Camera):
 
         # Allocate new buffers
         for i in range(nbufs):
-            bufnum, buf_p, event = self.plib.AllocateBuffer(-1, self._buf_size, ffi.NULL, ffi.NULL)
+            bufnum, buf_p, event = self._cam.AllocateBuffer(-1, self._buf_size, ffi.NULL, ffi.NULL)
             self.buffers.append(BufferInfo(bufnum, buf_p, event))
 
     def _free_buffers(self):
         for buf in self.buffers:
-            self.plib.FreeBuffer(buf.num)
+            self._cam.FreeBuffer(buf.num)
         self.buffers = []
 
     def _clear_queue(self):
         self.queue = []
-        self.plib.CancelImages()
+        self._cam.CancelImages()
 
     def _push_on_queue(self, buf):
         width, height, _, _ = self._get_sizes()
         depth = self._data_depth()
-        self.plib.AddBufferEx(0, 0, buf.num, width, height, depth)
+        self._cam.AddBufferEx(0, 0, buf.num, width, height, depth)
         self.queue.append(buf)
 
     def _frame_size(self):
@@ -380,7 +389,7 @@ class PCO_Camera(Camera):
         return (width * height * self._data_depth()) / 16 * 2
 
     def _set_binning(self, hbin, vbin):
-        self.plib.SetBinning(hbin, vbin)
+        self._cam.SetBinning(hbin, vbin)
 
     def start_capture(self, **kwds):
         self._handle_kwds(kwds)
@@ -388,21 +397,24 @@ class PCO_Camera(Camera):
         self._set_binning(kwds['vbin'], kwds['hbin'])
         self._set_ROI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
         self._set_delay_exposure_time(delay='0s', exposure=kwds['exposure_time'])
-        self.plib.ArmCamera()
+        self._cam.ArmCamera()
         self._allocate_buffers(kwds['n_frames'])
-        self.plib.ArmCamera()
+        self._cam.ArmCamera()
 
         # Prepare CameraLink interface
-        self.plib.SetTransferParametersAuto()
-        self.plib.ArmCamera()
-        self.plib.CamLinkSetImageParameters(self.width, self.height)
+        width, height, _, _ = self._get_sizes()
+        self._cam.SetTransferParametersAuto()
+        self._cam.ArmCamera()
+        self._cam.CamLinkSetImageParameters(width, height)
 
         # Add buffers to the queue
         for buf in self.buffers:
             self._push_on_queue(buf)
 
-        self.plib.SetRecordingState(1)
-        self.plib.ForceTrigger()
+        self._cam.SetRecordingState(1)
+
+        if self._trig_mode == self.TriggerMode.software:
+            self._cam.ForceTrigger()
 
     @check_units(timeout='ms')
     def get_captured_image(self, timeout='1s', copy=True):
@@ -432,7 +444,7 @@ class PCO_Camera(Camera):
                 image_arrs.append(array)
         finally:
             # Stop recording and clean up queue
-            self.plib.SetRecordingState(0)
+            self._cam.SetRecordingState(0)
             self._clear_queue()
 
         if len(image_arrs) == 1:
@@ -451,29 +463,29 @@ class PCO_Camera(Camera):
 
         self._set_binning(kwds['vbin'], kwds['hbin'])
         self._set_ROI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
-        self.plib.ArmCamera()
+        self._cam.ArmCamera()
 
         # Prepare CameraLink interface
         width, height, _, _ = self._get_sizes()
-        self.plib.SetTransferParametersAuto()
+        self._cam.SetTransferParametersAuto()
         self._set_framerate(framerate, kwds['exposure_time'])
-        self.plib.ArmCamera()
-        self.plib.CamLinkSetImageParameters(width, height)
+        self._cam.ArmCamera()
+        self._cam.CamLinkSetImageParameters(width, height)
 
         self.shutter = 'continuous'
         if self._frame_size() != self._buf_size or len(self.buffers) < 2:
             self._allocate_buffers(nbufs=2)
-        self.plib.ArmCamera()
+        self._cam.ArmCamera()
 
         # Add all the buffers to the queue
         for buf in self.buffers:
             self._push_on_queue(buf)
 
-        self.plib.SetRecordingState(1)
-        self.plib.ForceTrigger()
+        self._cam.SetRecordingState(1)
+        self._cam.ForceTrigger()
 
     def stop_live_video(self):
-        self.plib.SetRecordingState(0)
+        self._cam.SetRecordingState(0)
         self._clear_queue()
         self._free_buffers()
         self.shutter = None
@@ -490,7 +502,7 @@ class PCO_Camera(Camera):
         buf = self.queue[0]
         ret = winlib.WaitForSingleObject(buf.event, int(timeout))
         if ret == winlib.WAIT_OBJECT_0:
-            dll_status, drv_status = self.plib.GetBufferStatus(buf.num)
+            dll_status, drv_status = self._cam.GetBufferStatus(buf.num)
             if drv_status != 0:
                 raise Exception(get_error_text(drv_status))
             winlib.ResetEvent(buf.event)
@@ -549,8 +561,6 @@ class PCO_Camera(Camera):
 
 
 def list_instruments():
-    plib = NicePCO()
-
     openStruct_p = ffi.new('PCO_OpenStruct *')
     openStruct = openStruct_p[0]
     openStruct.wSize = ffi.sizeof('PCO_OpenStruct')
@@ -564,7 +574,7 @@ def list_instruments():
         openStruct.wCameraNumAtInterface = 0
         openStruct.wOpenFlags[0] = 0
 
-        hCam, _ = plib.OpenCameraEx(ffi.NULL, openStruct_p)  # This is reallllyyyy sloowwwww
+        hCam, _ = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p)  # This is reallllyyyy sloowwwww
 
         if openStruct.wInterfaceType == 0xFFFF or hCam == prev_handle:
             # OpenCameraEx doesn't seem to return error upon not finding a camera, so if it didn't
