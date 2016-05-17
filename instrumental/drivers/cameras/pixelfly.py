@@ -296,7 +296,7 @@ class Pixelfly(Camera):
         if px.PCC_BUF_STAT_ERROR(ptr):
             uptr = ffi.cast('DWORD *', ptr)
             raise Exception("Buffer error 0x{:08X} 0x{:08X} 0x{:08X} 0x{:08X}".format(
-                                uptr[0], uptr[1], uptr[2], uptr[3]))
+                            uptr[0], uptr[1], uptr[2], uptr[3]))
 
         if self._shutter == 'video':
             px.ADD_BUFFER_TO_LIST(self._hcam, self._bufnums[self._buf_i], self._frame_size(), 0, 0)
@@ -344,7 +344,6 @@ class Pixelfly(Camera):
 
         px.START_CAMERA(self._hcam)
         self._cam_started = True
-
         self._mem_set_up = True
 
     def _trigger(self):
