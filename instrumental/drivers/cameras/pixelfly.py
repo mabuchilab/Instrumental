@@ -84,7 +84,10 @@ px_funcs = [
 dir(lib)
 for name in dir(lib):
     if not name.startswith('__'):
-        setattr(px, name, getattr(lib, name))
+        try:
+            setattr(px, name, getattr(lib, name))
+        except AttributeError as e:
+            pass
 
 ERR_CODE_MAP = {
     -1: 'Initialization failed; no camera connected',
