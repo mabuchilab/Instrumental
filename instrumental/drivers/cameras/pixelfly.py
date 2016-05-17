@@ -305,7 +305,7 @@ class Pixelfly(Camera):
         return True
 
     def _frame_size(self):
-        return self.width * self.height * (self.bit_depth/8 + 1)
+        return self._binned_width * self._binned_height * (self.bit_depth/8 + 1)
 
     def _allocate_buffers(self, nbufs=None):
         if nbufs is None:
@@ -451,14 +451,14 @@ class Pixelfly(Camera):
         dtype = np.uint8 if self.bit_depth <= 8 else np.uint16
         if self._shutter != 'double':
             arr = np.frombuffer(buf, dtype)
-            return arr.reshape((self.height, self.width))
+            return arr.reshape((self._binned_height, self._binned_width))
         else:
-            px_per_frame = self.width*self.height
+            px_per_frame = self._binned_width*self._binned_height
             byte_per_px = self.bit_depth/8 + 1
             arr1 = np.frombuffer(buf, dtype, px_per_frame, 0)
             arr2 = np.frombuffer(buf, dtype, px_per_frame, px_per_frame*byte_per_px)
-            return (arr1.reshape((self.height, self.width)),
-                    arr2.reshape((self.height, self.width)))
+            return (arr1.reshape((self._binned_height, self._binned_width)),
+                    arr2.reshape((self._binned_height, self._binned_width)))
 
     def grab_image(self, timeout='1s', copy=True, **kwds):
         self.start_capture(**kwds)
@@ -473,9 +473,12 @@ class Pixelfly(Camera):
         px.GETSIZES(self._hcam, ccdx_p, ccdy_p, actualx_p, actualy_p, bit_pix_p)
         self._max_width = ccdx_p[0]
         self._max_height = ccdy_p[0]
-        self._width = actualx_p[0]
-        self._height = actualy_p[0]
+        self._binned_width = actualx_p[0]
+        self._binned_height = actualy_p[0]
         self._bit_depth = bit_pix_p[0]
+
+        self._width = self._binned_width
+        self._height = self._binned_height
 
         if self._shutter == 'double':
             self._height = self._height / 2  # Give the height of *each* image individually
