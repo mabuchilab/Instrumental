@@ -148,7 +148,6 @@ class PCO_Camera(Camera):
         self.shutter = None
         self._trig_mode = self.TriggerMode.software
 
-        self.plib = NicePCO()
         self._open(cam_num)
         self.open_cameras.append(self)
 
