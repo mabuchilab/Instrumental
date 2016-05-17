@@ -142,6 +142,7 @@ class PCO_Camera(Camera):
     def __init__(self, cam_num=0):
         self.buffers = []
         self.queue = []
+        self._partial_sequence = []
         self._buf_size = 0
         self.shutter = None
         self._trig_mode = self.TriggerMode.software
@@ -457,30 +458,49 @@ class PCO_Camera(Camera):
         width, height, _, _ = self._get_sizes()
         frame_size = self._frame_size()
         image_arrs = []
-        try:
-            start_time = clock() * u.s
-            # Can't loop directly through queue since wait_for_frame modifies it
-            while self.queue:
-                buf = self.queue[0]
+
+        if not self.queue:
+            raise Error("No capture initiated. You must first call start_capture()")
+
+        start_time = clock() * u.s
+        # Can't loop directly through queue since wait_for_frame modifies it
+        while self.queue:
+            buf = self.queue[0]
+            if timeout is None:
+                frame_ready = self.wait_for_frame(timeout=None)
+            else:
                 elapsed_time = clock() * u.s - start_time
                 frame_ready = self.wait_for_frame(timeout - elapsed_time)
 
-                if not frame_ready:
+            if not frame_ready:
+                if wait_for_all or not image_arrs:
+                    self._partial_sequence.extend(image_arrs)  # Save for later
                     raise TimeoutError
-
-                if copy:
-                    image_buf = buffer(ffi.buffer(buf.address, frame_size)[:])
                 else:
-                    image_buf = buffer(ffi.buffer(buf.address, frame_size))
+                    break
 
-                # Convert to array (currently assumes mono16)
-                array = np.frombuffer(image_buf, np.uint16)
-                array = array.reshape((height, width))
-                image_arrs.append(array)
-        finally:
+            if copy:
+                image_buf = buffer(ffi.buffer(buf.address, frame_size)[:])
+            else:
+                image_buf = buffer(ffi.buffer(buf.address, frame_size))
+
+            # Convert to array (currently assumes mono16)
+            array = np.frombuffer(image_buf, np.uint16)
+            array = array.reshape((height, width))
+
+
+            # Handle soft ROI
+            left, top = self._roi_trim_left, self._roi_trim_top
+            array = array[top:top + self._soft_height, left:left + self._soft_width]
+
+            image_arrs.append(array)
+        image_arrs = self._partial_sequence + image_arrs
+
+        if not self.queue:
             # Stop recording and clean up queue
             self._cam.SetRecordingState(0)
             self._clear_queue()
+            self._partial_sequence = []
 
         if len(image_arrs) == 1:
             return image_arrs[0]
