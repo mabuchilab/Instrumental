@@ -11,7 +11,7 @@ from . import decorator
 from .. import Q_, u
 
 
-def check_enum(enum_type, arg):
+def as_enum(enum_type, arg):
     """Checks if arg is an instance or key of enum_type, and returns that enum"""
     if isinstance(arg, enum_type):
         return arg

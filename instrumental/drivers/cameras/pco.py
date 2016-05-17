@@ -250,7 +250,7 @@ class PCO_Camera(Camera):
     def _set_framerate(self, framerate, exposure='10ms', priority='auto'):
         exposure_ns = int(round(exposure))
         framerate_mHz = int(round(framerate))
-        mode = check_enum(self.FrameRateMode, priority)
+        mode = as_enum(self.FrameRateMode, priority)
 
         self._cam.ArmCamera()
         status, framerate_mHz, exposure_ns = self._cam.SetFrameRate(mode.value, framerate_mHz,
