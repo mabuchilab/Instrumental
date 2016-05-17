@@ -59,13 +59,13 @@ class Camera(Instrument):
         exposure immediately or ready the camera to start on an explicit (hardware or software)
         trigger.
 
-        It can be useful to invoke ``capture()`` and ``image_array()`` explicitly if you expect the
-        capture sequence to take a long time and you'd like to perform some operations while you
-        wait for the camera::
+        It can be useful to invoke ``capture()`` and ``get_captured_image()`` explicitly if you
+        expect the capture sequence to take a long time and you'd like to perform some operations
+        while you wait for the camera::
 
             >>> cam.capture()
             >>> do_other_useful_stuff()
-            >>> arr = cam.image_array()
+            >>> arr = cam.get_captured_image()
 
         See `grab_image()` for the set of available kwds.
         """
@@ -94,7 +94,8 @@ class Camera(Instrument):
         """Perform a capture and return the resulting image array(s)
 
         This is essentially a convenience function that calls `start_capture()` then
-        `image_array()`. See `image_array()` for information about the returned array(s).
+        `get_captured_image()`. See `get_captured_image()` for information about the returned
+        array(s).
 
         Parameters
         ----------
@@ -141,7 +142,7 @@ class Camera(Instrument):
 
         Once live video mode has been started, images will automatically and continuously be
         acquired. You can check if the next frame is ready by using `wait_for_frame()`, and access
-        the most recent image's data with `image_array()`.
+        the most recent image's data with `get_captured_image()`.
 
         See `grab_image()` for the set of available kwds.
         """
