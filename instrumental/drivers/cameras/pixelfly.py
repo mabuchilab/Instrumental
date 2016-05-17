@@ -485,6 +485,11 @@ class Pixelfly(Camera):
         if self._shutter == 'double':
             self._height = self._height / 2  # Give the height of *each* image individually
 
+    def version(self, typ):
+        vers = ffi.new('char[64]')
+        px.READVERSION(self._hcam, typ, vers, len(vers))
+        return ffi.string(vers)
+
     @check_units(wavlen='nm')
     def quantum_efficiency(self, wavlen, high_gain=False):
         """quantum_efficiency(self, wavlen, high_gain=False)
