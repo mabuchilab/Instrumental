@@ -38,6 +38,7 @@ ffi.cdef("""
     #define WAIT_ABANDONED      0x80L
     #define WAIT_TIMEOUT        0x102L
     #define WAIT_FAILED         0xFFFFFFFF
+    #define INFINITE            0xFFFFFFFF
     DWORD WaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds);
     BOOL ResetEvent(HANDLE hEvent);
 """)
@@ -554,7 +555,7 @@ class PCO_Camera(Camera):
         if not self.queue:
             raise Exception("No queued buffers!")
 
-        timeout = max(0, timeout)  # Negative timeout is equivalent to 0
+        timeout = winlib.INFINITE if timeout is None else max(0, timeout)
 
         # Wait for the next buffer event to fire
         buf = self.queue[0]
