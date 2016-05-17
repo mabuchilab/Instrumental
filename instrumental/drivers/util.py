@@ -166,36 +166,40 @@ class LibMeta(type):
         funcs = {}
 
         for name, value in classdict.items():
-            if (not name.startswith('_') and not isfunction(value) and
-                    not isinstance(value, NiceObject)):
-                sig_tup = value
-                flags = {}
+            if (not name.startswith('_') and not isinstance(value, NiceObject)):
+                if isfunction(value):
+                    func = value
+                    repr_str = func.__doc__ or "{}(??) -> ??".format(name)
+                else:
+                    sig_tup = value
+                    flags = {}
 
-                if not isinstance(sig_tup, tuple):
-                    sig_tup = (sig_tup,)
+                    if not isinstance(sig_tup, tuple):
+                        sig_tup = (sig_tup,)
 
-                # Pop off the flags dict
-                if sig_tup and isinstance(sig_tup[-1], dict):
-                    flags.update(sig_tup[-1])
-                    sig_tup = sig_tup[:-1]
+                    # Pop off the flags dict
+                    if sig_tup and isinstance(sig_tup[-1], dict):
+                        flags.update(sig_tup[-1])
+                        sig_tup = sig_tup[:-1]
 
-                # Try prefixes until we find the lib function
-                for prefix in prefixes:
-                    ffi_func = getattr(lib, prefix + name, None)
-                    if ffi_func is not None:
-                        break
+                    # Try prefixes until we find the lib function
+                    for prefix in prefixes:
+                        ffi_func = getattr(lib, prefix + name, None)
+                        if ffi_func is not None:
+                            break
 
-                if ffi_func is None:
-                    raise AttributeError("No lib function found with a name ending in '{}', with "
-                                         "any of these prefixes: {}".format(name, prefixes))
+                    if ffi_func is None:
+                        raise AttributeError("No lib function found with a name ending in '{}', wi"
+                                             "th any of these prefixes: {}".format(name, prefixes))
 
-                func = _cffi_wrapper(ffi, ffi_func, name, sig_tup, err_wrap, struct_maker, buflen)
+                    func = _cffi_wrapper(ffi, ffi_func, name, sig_tup, err_wrap, struct_maker,
+                                         buflen)
+                    repr_str = metacls._func_repr_str(ffi, func)
 
                 # Save for use by niceobjs
                 funcs[name] = func
 
                 # HACK to get nice repr
-                repr_str = metacls._func_repr_str(ffi, func)
                 classdict[name] = LibFunction(func, repr_str)
 
         for cls_name, niceobj in niceobjects.items():
@@ -220,8 +224,12 @@ class LibMeta(type):
     def _create_object_class(metacls, cls_name, niceobj, ffi, funcs):
         repr_strs = {}
         for func_name in niceobj.names:
-            repr_strs[func_name] = metacls._func_repr_str(ffi, funcs[func_name],
-                                                          niceobj.n_handles)
+            func = funcs[func_name]
+            if hasattr(func, '_ffi_func'):
+                repr_str = metacls._func_repr_str(ffi, funcs[func_name], niceobj.n_handles)
+            else:
+                repr_str = func.__doc__ or '{}(??) -> ??'.format(func_name)
+            repr_strs[func_name] = repr_str
 
         def __init__(self, *handles):
             if len(handles) != niceobj.n_handles:
