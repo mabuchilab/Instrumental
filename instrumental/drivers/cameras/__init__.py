@@ -212,11 +212,16 @@ class Camera(Instrument):
                 kwds[names[2]] = 0  # left or top = 0
             elif n_args == 1:
                 max_width = getattr(self, 'max_' + names[0])
-                if kwds[names[0]] is None:
-                    # Width wasn't given
-                    kwds[names[0]] = max_width
-                else:
-                    # Only width was given
+                if kwds[names[2]] is not None:  # Left given
+                    kwds[names[3]] = max_width
+                elif kwds[names[3]] is not None:  # Right given
+                    kwds[names[2]] = 0
+                elif kwds[names[1]] is not None:  # Center given
+                    if kwds[names[1]] > max_width/2:
+                        kwds[names[3]] = max_width  # Bounded by the right
+                    else:
+                        kwds[names[2]] = 0  # Bounded by the left
+                else:  # Width given
                     kwds[names[1]] = max_width/2  # Centered
             elif n_args != 2:
                 raise ValueError("Only two of {} should be provided".format(names))
