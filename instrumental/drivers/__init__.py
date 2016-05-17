@@ -332,6 +332,8 @@ def _get_visa_instrument(params):
     if 'visa_address' not in params:
         raise InstrumentTypeError()
     addr = params['visa_address']
+    visa_attrs = ('baud_rate', 'timeout', 'read_termination', 'write_termination', 'parity')
+    kwds = {k: v for k, v in params.items() if k in visa_attrs}
 
     # Check cache to see if we've already found (or not found) the instrument
     if '**visa_instrument' in params:
@@ -342,7 +344,7 @@ def _get_visa_instrument(params):
     else:
         try:
             rm = visa.ResourceManager()
-            visa_inst = rm.open_resource(addr, open_timeout=50)
+            visa_inst = rm.open_resource(addr, open_timeout=50, **kwds)
             # Cache the instrument for possible later use
             params['**visa_instrument'] = visa_inst
         except visa.VisaIOError:
