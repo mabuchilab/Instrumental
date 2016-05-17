@@ -55,7 +55,7 @@ class NicePCO(NiceLib):
     def _err_wrap(code):
         if code != 0:
             e = Error(get_error_text(code))
-            e.code = code
+            e.code = code & 0xFFFFFFFF
             raise e
 
     def _struct_maker(*args):
