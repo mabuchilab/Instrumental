@@ -111,11 +111,18 @@ def _cffi_wrapper(ffi, func, fname, sig_tup, err_wrap, struct_maker, default_buf
 
 # WARNING uses some stack frame hackery; should probably make use of this syntax optional
 class NiceObject(object):
-    def __init__(self, n_handles=1):
+    def __init__(self, attrs=None, n_handles=1):
+        self.attrs = attrs
         self.n_handles = n_handles
         self.doc = None
 
+        if attrs is not None:
+            self.names = set(attrs.keys())
+
     def __enter__(self):
+        if self.attrs is not None:
+            raise Exception("NiceObject already constructed with an `attrs` dict, this is not "
+                            "compatible with the context manager syntax")
         outer_vars = sys._getframe(1).f_locals
         self.doc = outer_vars.pop('__doc__', None)
         self._enter_names = outer_vars.keys()  # Not including __doc__
@@ -160,7 +167,11 @@ class LibMeta(type):
         niceobjects = {}  # name: NiceObject
         for name, value in classdict.items():
             if isinstance(value, NiceObject):
-                value.names.remove(name)  # Remove self
+                if value.attrs is None:
+                    value.names.remove(name)  # Remove self
+                else:
+                    for attr_name, attr_val in value.attrs.items():
+                        classdict[attr_name] = attr_val
                 niceobjects[name] = value
 
         funcs = {}
