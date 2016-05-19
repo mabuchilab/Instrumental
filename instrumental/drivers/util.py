@@ -11,6 +11,35 @@ from . import decorator
 from .. import Q_, u
 
 
+
+def _wrap_ndarrays(ffi, argtype, arg):
+    import numpy as np
+    if isinstance(arg, np.ndarray):
+        if argtype.kind != 'pointer':
+            raise TypeError
+        elif argtype.item.kind != 'primitive':
+            raise TypeError
+
+        cname = argtype.item.cname
+        if cname.startswith('int'):
+            prefix = 'i'
+        elif cname.startswith('uint'):
+            prefix = 'u'
+        elif cname.startswith(('float', 'double')):
+            prefix = 'f'
+        else:
+            raise TypeError("Unknown type {}".format(cname))
+
+        dtype = np.dtype(prefix + str(ffi.sizeof(argtype.item)))
+
+        if arg.dtype != dtype:
+            raise TypeError
+
+        return ffi.cast(argtype, arg.ctypes.data)
+    else:
+        return arg
+
+
 def as_enum(enum_type, arg):
     """Checks if arg is an instance or key of enum_type, and returns that enum"""
     if isinstance(arg, enum_type):
@@ -113,6 +142,7 @@ def _cffi_wrapper(ffi, func, fname, sig_tup, err_wrap, struct_maker, default_buf
                 outargs.append((arg, lambda o: o[0]))
             elif info == 'in':
                 arg = inargs.pop(0)
+                arg = _wrap_ndarrays(ffi, argtype, arg)
             elif info == 'out':
                 if argtype.kind == 'pointer' and argtype.item.kind == 'struct':
                     arg = struct_maker(argtype)
