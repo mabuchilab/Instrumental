@@ -45,11 +45,50 @@ def _cffi_wrapper(ffi, func, fname, sig_tup, err_wrap, struct_maker, default_buf
 
             raise TypeError(message)
 
+        # First pass to get buf/arr info
+        buflens, lens, solo_buflens = [], [], []
+        n_paired_bufs = 0
+        inarg_idx = 0
+        for sig, argtype in zip(sig_tup, argtypes):
+            if sig.startswith(('buf', 'arr')):
+                if len(sig) > 3:
+                    try:
+                        assert sig[3] == '[' and sig[-1] == ']'
+                        num = int(sig[4:-1])
+                        assert num > 0
+                    except (AssertionError, ValueError):
+                        raise ValueError("Bad sig element '{}'".format(sig))
+                    solo_buflens.append(num)
+                else:
+                    n_paired_bufs += 1
+
+            elif sig.startswith('len'):
+                if len(sig) == 3:
+                    num = default_buflen
+                else:
+                    try:
+                        assert sig[3] == '='
+                        if sig[4:] == 'in':
+                            num = inargs[inarg_idx]
+                        else:
+                            num = int(sig[4:])
+                    except (AssertionError, ValueError):
+                        raise ValueError("Bad sig element '{}'".format(sig))
+                lens.append(num)
+                buflens.append(num)
+
+            if 'in' in sig:
+                inarg_idx += 1
+
+        if len(lens) != n_paired_bufs:
+            raise ValueError("Number of paired buf/arr sig elements does not match number of "
+                             "len sig elements")
+
         outargs = []
         args = []
-        buflen = None
+        bufs = []
         for info, argtype in zip(sig_tup, argtypes):
-            if 'inout' in info:
+            if info == 'inout':
                 inarg = inargs.pop(0)
                 try:
                     inarg_type = ffi.typeof(inarg)
@@ -63,25 +102,28 @@ def _cffi_wrapper(ffi, func, fname, sig_tup, err_wrap, struct_maker, default_buf
                 else:
                     arg = ffi.new(argtype, inarg)
                 outargs.append((arg, lambda o: o[0]))
-            elif 'in' in info:
+            elif info == 'in':
                 arg = inargs.pop(0)
-            elif 'out' in info:
+            elif info == 'out':
                 if argtype.kind == 'pointer' and argtype.item.kind == 'struct':
                     arg = struct_maker(argtype)
                 else:
                     arg = ffi.new(argtype)
                 outargs.append((arg, lambda o: o[0]))
             elif info.startswith('buf'):
-                buflen = int(info[3:]) if len(info) > 3 else default_buflen
+                buflen = (buflens if len(info) == 3 else solo_buflens).pop(0)
                 arg = ffi.new('char[]', buflen)
                 outargs.append((arg, lambda o: ffi.string(o)))
+                bufs.append(arg)
             elif info.startswith('arr'):
-                buflen = int(info[3:]) if len(info) > 3 else default_buflen
+                buflen = (buflens if len(info) == 3 else solo_buflens).pop(0)
                 arg = ffi.new('{}[]'.format(argtype.item.cname), buflen)
                 outargs.append((arg, lambda o: o))
-            elif info == 'len':
-                arg = buflen
-                buflen = None
+                bufs.append(arg)
+            elif info.startswith('len'):
+                if info == 'len=in':
+                    inargs.pop(0)  # We've already used this earlier
+                arg = lens.pop(0)
             elif info == 'ignore':
                 arg = ffi.new(argtype.cname + '*')[0]
             else:
@@ -283,7 +325,7 @@ class LibMeta(type):
 
         in_args = [a.cname for a, d in zip(argtypes, func._sig_tup) if 'in' in d][n_handles:]
         out_args = [a.item.cname for a, d in zip(argtypes, func._sig_tup)
-                    if ('out' in d or 'buf' in d)]
+                    if d.startswith(('out', 'buf', 'arr'))]
 
         if not out_args:
             out_args = ['None']
