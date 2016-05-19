@@ -87,6 +87,15 @@ def _cffi_wrapper(ffi, func, fname, sig_tup, err_wrap, struct_maker, default_buf
         outargs = []
         args = []
         bufs = []
+        # Possible sig entries:
+        # - in
+        # - out
+        # - inout
+        # - buf[n]  (c-string buffer)
+        # - arr[n]  (array)
+        # - len=n   (length of buf/arr)
+        # - retlen??(returned length)
+        # - ignore  (reserved arg, pass in 0/NULL)
         for info, argtype in zip(sig_tup, argtypes):
             if info == 'inout':
                 inarg = inargs.pop(0)
