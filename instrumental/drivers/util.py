@@ -137,6 +137,9 @@ def _cffi_wrapper(ffi, func, fname, sig_tup, err_wrap, struct_maker, default_buf
                 arg = ffi.new(argtype.cname + '*')[0]
             else:
                 raise Exception("Unrecognized arg info '{}'".format(info))
+
+            if isinstance(arg, unicode):
+                arg = arg.encode('ascii')
             args.append(arg)
 
         retval = func(*args)
