@@ -577,8 +577,12 @@ class UC480_Camera(Camera):
     def set_trigger(self, mode='software', edge='rising'):
         """Sets the camera trigger mode.
 		
-		mode -- either 'off', 'software'(default), or 'hardware'
-		edge -- hardware trigger is either on the 'rising'(default) or 'falling' edge	
+        Parameters
+        ----------
+		mode : string
+            Either 'off', 'software'(default), or 'hardware'.
+		edge : string
+            Hardware trigger is either on the 'rising'(default) or 'falling' edge.	
         """
         if mode == 'off':
             new_mode = IS_SET_TRIGGER_OFF
@@ -590,31 +594,68 @@ class UC480_Camera(Camera):
             elif edge == 'falling':
                 new_mode = IS_SET_TRIGGER_HI_LO
             else: 
-                print("Error: trigger must be either on a rising or falling edge")
-                return 
+                raise Error("Trigger edge value {} must be either 'rising' or 'falling'".format(edge))
+                return
         else:
-            print("Error: unrecognized trigger mode")
+            raise Error("Unrecognized trigger mode {}".format(mode))
             return
 
         ret = lib.is_SetExternalTrigger(self._hcam, new_mode)
         if ret != IS_SUCCESS:
-            print("Error: failed to set external trigger")
+            raise Error("Failed to set external trigger. Return code 0x{:x}".format(ret))
         else:    
             self._trigger_mode = new_mode
+
+    def _get_trigger(self):
+        """Get the current trigger settings
         
+        Returns
+        -------
+        string
+            off, hardware or software
+        """    
+        self._trigger_mode = lib.is_SetExternalTrigger(self._hcam, IS_GET_EXTERNALTRIGGER)
+        
+        if self._trigger_mode == IS_SET_TRIGGER_OFF:
+            return 'off'
+        if self._trigger_mode == IS_SET_TRIGGER_SOFTWARE:
+            return 'software'
+        else:
+            return 'hardware'
+      
+        
+    def get_trigger_level(self):
+        """Get the current hardware trigger level
+        
+        Returns
+        -------
+        int
+            A value of 0 indicates trigger signal is low (not triggered)
+        """    
+        return lib.is_SetExternalTrigger(self._hcam, IS_GET_TRIGGER_STATUS)
+ 
     @check_units(delay='?us')
     def set_trigger_delay(self, delay):
         """Sets the time to delay a hardware trigger (in microsseconds)
+        
+        Parameters
+        ----------
+		delay : string
+            The delay time (in microseconds 'us') after trigger signal is received to trigger the camera
         """
         delay_us = 0 if delay is None else int(delay.m_as('us'))
         ret = lib.is_SetTriggerDelay(self._hcam, delay_us)
         if ret != IS_SUCCESS:
-            print("Error: failed to set trigger delay")
+            raise Error("Failed to set trigger delay. Return code 0x{:x}".format(ret))
             
     def get_trigger_delay(self):
         """Returns the trigger delay in microseconds
+        
+        Returns
+        -------
+        string
+            Trigger delay
         """
-        parm = INT()
         param = lib.is_SetTriggerDelay(self._hcam, IS_GET_TRIGGER_DELAY)
         return Q_(param, 'us')
 
@@ -642,8 +683,7 @@ class UC480_Camera(Camera):
     color_mode = property(lambda self: self._color_mode_string())
     
     #: Trigger mode string. Read-only
-    trigger_mode = property(lambda self: self._trigger_mode)
-
+    trigger_mode = property(lambda self: self._get_trigger())
 
 @atexit.register
 def _cleanup():
