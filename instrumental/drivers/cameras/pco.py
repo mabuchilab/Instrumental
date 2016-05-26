@@ -9,9 +9,10 @@ from enum import Enum
 from time import clock
 import numpy as np
 from cffi import FFI
+from nicelib import NiceLib, NiceObject
 from ._pixelfly import errortext
 from . import Camera
-from ..util import NiceLib, NiceObject, as_enum, unit_mag, check_units
+from ..util import as_enum, unit_mag, check_units
 from .. import InstrumentTypeError, _ParamDict
 from ...errors import Error, TimeoutError
 from ... import Q_, u

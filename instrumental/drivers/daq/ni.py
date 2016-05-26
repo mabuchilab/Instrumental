@@ -3,9 +3,10 @@
 from enum import Enum
 from collections import OrderedDict
 import numpy as np
+from nicelib import NiceLib, NiceObject
 from ... import Q_, u
 from ...errors import Error, InstrumentTypeError
-from ..util import NiceLib, NiceObject, check_units, check_enums
+from ..util import check_units, check_enums
 from .. import _ParamDict
 from . import DAQ
 
