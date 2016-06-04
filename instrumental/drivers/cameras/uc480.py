@@ -24,16 +24,15 @@ from ... import Q_
 import platform
 if platform.architecture()[0].startswith('64'):
     lib_name = find_library('uc480_64')
-    if lib_name == None:
+    if lib_name is None:
         lib_name = find_library('ueye_api_64')
     lib = WinDLL(lib_name)
-		
 else:
     lib_name = find_library('uc480')
-    if lib_name == None:
+    if lib_name is None:
         lib = find_library('ueye_api')
     lib = CDLL(lib_name)
-		
+
 __all__ = ['UC480_Camera']
 
 
@@ -573,15 +572,15 @@ class UC480_Camera(Camera):
             IS_CM_MONO16: 'mono16',
         }
         return MAP.get(self._color_mode.value)
-		
+
     def set_trigger(self, mode='software', edge='rising'):
         """Sets the camera trigger mode.
-		
+
         Parameters
         ----------
-		mode : string
+        mode : string
             Either 'off', 'software'(default), or 'hardware'.
-		edge : string
+        edge : string
             Hardware trigger is either on the 'rising'(default) or 'falling' edge.	
         """
         if mode == 'off':
@@ -595,10 +594,8 @@ class UC480_Camera(Camera):
                 new_mode = IS_SET_TRIGGER_HI_LO
             else: 
                 raise Error("Trigger edge value {} must be either 'rising' or 'falling'".format(edge))
-                return
         else:
             raise Error("Unrecognized trigger mode {}".format(mode))
-            return
 
         ret = lib.is_SetExternalTrigger(self._hcam, new_mode)
         if ret != IS_SUCCESS:
@@ -622,8 +619,7 @@ class UC480_Camera(Camera):
             return 'software'
         else:
             return 'hardware'
-      
-        
+
     def get_trigger_level(self):
         """Get the current hardware trigger level
         
@@ -640,7 +636,7 @@ class UC480_Camera(Camera):
         
         Parameters
         ----------
-		delay : string
+        delay : string
             The delay time (in microseconds 'us') after trigger signal is received to trigger the camera
         """
         delay_us = 0 if delay is None else int(delay.m_as('us'))
@@ -684,6 +680,7 @@ class UC480_Camera(Camera):
     
     #: Trigger mode string. Read-only
     trigger_mode = property(lambda self: self._get_trigger())
+
 
 @atexit.register
 def _cleanup():
