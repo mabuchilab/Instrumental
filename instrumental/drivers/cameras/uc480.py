@@ -24,16 +24,15 @@ from ... import Q_
 import platform
 if platform.architecture()[0].startswith('64'):
     lib_name = find_library('uc480_64')
-    if lib_name == None:
+    if lib_name is None:
         lib_name = find_library('ueye_api_64')
     lib = WinDLL(lib_name)
-		
 else:
     lib_name = find_library('uc480')
-    if lib_name == None:
+    if lib_name is None:
         lib = find_library('ueye_api')
     lib = CDLL(lib_name)
-		
+
 __all__ = ['UC480_Camera']
 
 
@@ -203,6 +202,7 @@ class UC480_Camera(Camera):
 
         self._buffers = []
         self._queue_enabled = False
+        self._trigger_mode = IS_SET_TRIGGER_OFF
 
         self._open()
 
@@ -437,7 +437,9 @@ class UC480_Camera(Camera):
         self._allocate_mem_seq(kwds['n_frames'])
 
         self._set_queueing(True)  # Use queue instead of ring buffer for finite sequence
-        lib.is_SetExternalTrigger(self._hcam, IS_SET_TRIGGER_SOFTWARE)
+        self._trigger_mode = IS_SET_TRIGGER_SOFTWARE if self._trigger_mode == IS_SET_TRIGGER_OFF else self._trigger_mode
+            
+        lib.is_SetExternalTrigger(self._hcam, self._trigger_mode)          
         lib.is_EnableEvent(self._hcam, IS_SET_EVENT_SEQ)
         lib.is_CaptureVideo(self._hcam, IS_DONT_WAIT)  # Trigger
 
@@ -492,7 +494,8 @@ class UC480_Camera(Camera):
         else:
             self.framerate = newFPS.value
 
-        lib.is_SetExternalTrigger(self._hcam, IS_SET_TRIGGER_OFF)
+        self._trigger_mode = IS_SET_TRIGGER_OFF
+        lib.is_SetExternalTrigger(self._hcam, self._trigger_mode)
         lib.is_EnableEvent(self._hcam, IS_SET_EVENT_FRAME)
         lib.is_CaptureVideo(self._hcam, IS_WAIT)
 
@@ -570,6 +573,88 @@ class UC480_Camera(Camera):
         }
         return MAP.get(self._color_mode.value)
 
+    def set_trigger(self, mode='software', edge='rising'):
+        """Sets the camera trigger mode.
+
+        Parameters
+        ----------
+        mode : string
+            Either 'off', 'software'(default), or 'hardware'.
+        edge : string
+            Hardware trigger is either on the 'rising'(default) or 'falling' edge.	
+        """
+        if mode == 'off':
+            new_mode = IS_SET_TRIGGER_OFF
+        elif mode == 'software':
+            new_mode = IS_SET_TRIGGER_SOFTWARE
+        elif mode == 'hardware':
+            if edge == 'rising':
+                new_mode = IS_SET_TRIGGER_LO_HI
+            elif edge == 'falling':
+                new_mode = IS_SET_TRIGGER_HI_LO
+            else: 
+                raise Error("Trigger edge value {} must be either 'rising' or 'falling'".format(edge))
+        else:
+            raise Error("Unrecognized trigger mode {}".format(mode))
+
+        ret = lib.is_SetExternalTrigger(self._hcam, new_mode)
+        if ret != IS_SUCCESS:
+            raise Error("Failed to set external trigger. Return code 0x{:x}".format(ret))
+        else:    
+            self._trigger_mode = new_mode
+
+    def _get_trigger(self):
+        """Get the current trigger settings
+        
+        Returns
+        -------
+        string
+            off, hardware or software
+        """    
+        self._trigger_mode = lib.is_SetExternalTrigger(self._hcam, IS_GET_EXTERNALTRIGGER)
+        
+        if self._trigger_mode == IS_SET_TRIGGER_OFF:
+            return 'off'
+        if self._trigger_mode == IS_SET_TRIGGER_SOFTWARE:
+            return 'software'
+        else:
+            return 'hardware'
+
+    def get_trigger_level(self):
+        """Get the current hardware trigger level
+        
+        Returns
+        -------
+        int
+            A value of 0 indicates trigger signal is low (not triggered)
+        """    
+        return lib.is_SetExternalTrigger(self._hcam, IS_GET_TRIGGER_STATUS)
+ 
+    @check_units(delay='?us')
+    def set_trigger_delay(self, delay):
+        """Sets the time to delay a hardware trigger (in microsseconds)
+        
+        Parameters
+        ----------
+        delay : string
+            The delay time (in microseconds 'us') after trigger signal is received to trigger the camera
+        """
+        delay_us = 0 if delay is None else int(delay.m_as('us'))
+        ret = lib.is_SetTriggerDelay(self._hcam, delay_us)
+        if ret != IS_SUCCESS:
+            raise Error("Failed to set trigger delay. Return code 0x{:x}".format(ret))
+            
+    def get_trigger_delay(self):
+        """Returns the trigger delay in microseconds
+        
+        Returns
+        -------
+        string
+            Trigger delay
+        """
+        param = lib.is_SetTriggerDelay(self._hcam, IS_GET_TRIGGER_DELAY)
+        return Q_(param, 'us')
+
     #: uEye camera ID number. Read-only
     id = property(lambda self: self._id)
 
@@ -592,6 +677,9 @@ class UC480_Camera(Camera):
 
     #: Color mode string. Read-only
     color_mode = property(lambda self: self._color_mode_string())
+    
+    #: Trigger mode string. Read-only
+    trigger_mode = property(lambda self: self._get_trigger())
 
 
 @atexit.register
