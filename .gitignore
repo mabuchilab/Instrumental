@@ -3,6 +3,8 @@
 *.pyo
 *.swp
 
+_*lib.py
+
 /bin/
 /build/
 /dist/

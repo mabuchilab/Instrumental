@@ -6,7 +6,9 @@ Driver for PCO Pixelfly cameras.
 
 import atexit
 import os.path
+from time import clock
 import numpy as np
+from scipy.interpolate import interp1d
 from cffi import FFI
 import win32event
 
@@ -16,7 +18,7 @@ from . import Camera
 from .. import InstrumentTypeError, _ParamDict
 from ..util import check_units
 from ...errors import Error, TimeoutError
-from ... import Q_
+from ... import Q_, u
 
 __all__ = ['Pixelfly']
 
@@ -82,7 +84,10 @@ px_funcs = [
 dir(lib)
 for name in dir(lib):
     if not name.startswith('__'):
-        setattr(px, name, getattr(lib, name))
+        try:
+            setattr(px, name, getattr(lib, name))
+        except AttributeError as e:
+            pass
 
 ERR_CODE_MAP = {
     -1: 'Initialization failed; no camera connected',
@@ -127,9 +132,22 @@ for func_name in px_funcs:
     func = getattr(lib, func_name)
     setattr(px, func_name, err_wrap(func))
 
+# Load QE curves
+data_dir = os.path.join(os.path.dirname(__file__), '_pixelfly')
+def load_qe_curve(fname):
+    data = np.loadtxt(os.path.join(data_dir, fname))
+    return interp1d(data[:, 0], data[:, 1]*0.01, bounds_error=False, fill_value=0.,
+                    assume_sorted=True)
+
 
 class Pixelfly(Camera):
+    DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
+    DEFAULT_KWDS.update(trig='software', gain='low')
     _open_cameras = []
+
+    _qe_high = load_qe_curve('QEHigh.tsv')
+    _qe_low = load_qe_curve('QELow.tsv')
+    _qe_vga = load_qe_curve('VGA.tsv')
 
     def __init__(self, board_num=0):
         hdriver_p = ffi.new('HANDLE *', ffi.NULL)
@@ -139,6 +157,8 @@ class Pixelfly(Camera):
         self._cam_started = False
         self._mode_set = False
         self._mem_set_up = False
+        self._partial_sequence = []
+        self._capture_started = False
 
         # For saving
         self._param_dict = _ParamDict("<Pixelfly '{}'>".format(board_num))
@@ -155,6 +175,7 @@ class Pixelfly(Camera):
 
         self.set_mode()
         self._open_cameras.append(self)
+        self._last_kwds = {}
 
     @staticmethod
     def _list_boards():
@@ -217,6 +238,16 @@ class Pixelfly(Camera):
         exp_units = 'ms' if shutter == 'video' else 'us'
         exptime = int(Q_(exposure).to(exp_units).magnitude)
 
+        # Check exptime bounds to avoid cryptic errors
+        if shutter == 'video':
+            if not (1 <= exptime <= 65535):
+                raise Error("Invalid exposure time {}. Exposure must be between 1 us and "
+                            "65.535 ms when in video shutter mode".format(exposure))
+        else:
+            if not (5 <= exptime <= 65535):
+                raise Error("Invalid exposure time {}. Exposure must be between 5 us and "
+                            "65.535 ms when in single shutter mode".format(exposure))
+
         hbin_val = 0 if hbin == 1 else 1
         vbin_val = 0 if vbin == 1 else 1
         gain_val = 0 if gain == 'low' else 1
@@ -236,7 +267,18 @@ class Pixelfly(Camera):
         self.color_mode = 'mono16'
 
     def start_live_video(self, **kwds):
-        self.set_mode('video')
+        self._handle_kwds(kwds)
+        self._last_kwds = kwds
+
+        #self.set_mode('video')
+        self.set_mode(exposure=kwds['exposure_time'], hbin=kwds['hbin'], vbin=kwds['vbin'],
+                      shutter='video', trig=kwds.pop('trig', 'software'),
+                      gain=kwds['gain'])
+
+        # Set software ROI; must be after call to set_mode()
+        self._width = kwds['width']
+        self._height = kwds['height']
+
         self._trigger()
 
     def stop_live_video(self):
@@ -245,9 +287,11 @@ class Pixelfly(Camera):
     @check_units(timeout='?ms')
     def wait_for_frame(self, timeout=None):
         """wait_for_frame(self, timeout=None')"""
+        timeout = win32event.INFINITE if timeout is None else max(0, timeout.m_as('ms'))
+
         ptr = ffi.new('int[4]')
-        buf_i = (self._buf_i - 1) % self._nbufs  # Most recently triggered buffer
-        ret = win32event.WaitForSingleObject(int(self._buf_events[buf_i]), int(timeout.m_as('ms')))
+        buf_i = (self._buf_i) % self._nbufs  # Most recently triggered buffer
+        ret = win32event.WaitForSingleObject(int(self._buf_events[buf_i]), int(timeout))
 
         if ret != win32event.WAIT_OBJECT_0:
             return False  # Object is not signaled
@@ -259,16 +303,16 @@ class Pixelfly(Camera):
         if px.PCC_BUF_STAT_ERROR(ptr):
             uptr = ffi.cast('DWORD *', ptr)
             raise Exception("Buffer error 0x{:08X} 0x{:08X} 0x{:08X} 0x{:08X}".format(
-                                uptr[0], uptr[1], uptr[2], uptr[3]))
+                            uptr[0], uptr[1], uptr[2], uptr[3]))
 
         if self._shutter == 'video':
             px.ADD_BUFFER_TO_LIST(self._hcam, self._bufnums[self._buf_i], self._frame_size(), 0, 0)
-            self._buf_i = (self._buf_i + 1) % self._nbufs
+        self._buf_i = (self._buf_i + 1) % self._nbufs
 
         return True
 
     def _frame_size(self):
-        return self.width * self.height * (self.bit_depth/8 + 1)
+        return self._binned_width * self._binned_height * (self.bit_depth/8 + 1)
 
     def _allocate_buffers(self, nbufs=None):
         if nbufs is None:
@@ -307,21 +351,15 @@ class Pixelfly(Camera):
 
         px.START_CAMERA(self._hcam)
         self._cam_started = True
-
         self._mem_set_up = True
 
     def _trigger(self):
         frame_size = self._frame_size()
 
-        if self._shutter == 'video':
-            for i in range(self._nbufs):
-                px.ADD_BUFFER_TO_LIST(self._hcam, self._bufnums[i],
-                                      frame_size, 0, 0)
-            self._buf_i = 0
-        else:
-            px.ADD_BUFFER_TO_LIST(self._hcam, self._bufnums[self._buf_i],
-                                  frame_size, 0, 0)
-            self._buf_i = (self._buf_i + 1) % self._nbufs
+        for i in range(self._nbufs):
+            px.ADD_BUFFER_TO_LIST(self._hcam, self._bufnums[i], frame_size, 0, 0)
+        self._buf_i = 0
+        self._capture_started = True
 
         px.TRIGGER_CAMERA(self._hcam)
 
@@ -343,44 +381,95 @@ class Pixelfly(Camera):
         else:
             buf = buffer(ffi.buffer(self._bufptrs[buf_i], self._frame_size()))
 
-        return self._array_from_buffer(buf)
+        arr = self._array_from_buffer(buf)
+
+        # Software ROI
+        kwds = self._last_kwds
+        return arr[kwds['top']:kwds['bot'], kwds['left']:kwds['right']]
 
     def start_capture(self, **kwds):
         self._handle_kwds(kwds)
+        self._last_kwds = kwds
 
-        if kwds['n_frames'] > 1:
-            raise Error("Pixelfly camera does not support multi-image capture sequences")
+        #if kwds['n_frames'] > 1:
+        #    raise Error("Pixelfly camera does not support multi-image capture sequences")
+        self._nbufs = kwds.get('n_frames', 1)
 
-        self.set_mode(exposure=kwds['exposure_time'], hbin=kwds['hbin'], vbin=kwds['vbin'])
+        self.set_mode(exposure=kwds['exposure_time'], hbin=kwds['hbin'], vbin=kwds['vbin'],
+                      shutter=kwds.pop('shutter', 'single'), trig=kwds.pop('trig', 'software'),
+                      gain=kwds['gain'])
+
+        # Set software ROI; must be after call to set_mode()
+        self._width = kwds['width']
+        self._height = kwds['height']
+
         self._trigger()
 
+    def cancel_capture(self):
+        """Cancels a capture sequence, cleaning up and stopping the camera"""
+        pass
+
+    @check_units(timeout='?ms')
     def get_captured_image(self, timeout='1s', copy=True, **kwds):
         self._handle_kwds(kwds)  # Should get rid of this duplication somehow...
+        image_arrs = []
 
-        # We can use wait_for_frame since the driver (currently) only supports capture sequences
-        # that use one buffer at a time (double shutter mode uses one double-large buffer)
-        ready = self.wait_for_frame(timeout=timeout)
-        if not ready:
-            raise TimeoutError("Image not ready")
+        if not self._capture_started:
+            raise Error("No capture initiated. You must first call start_capture()")
 
-        image = self.latest_frame(copy=copy)
-        if kwds['fix_hotpixels']:
-            image = self._correct_hot_pixels(image)  # Makes a copy on success
+        start_time = clock() * u.s
+        while self._buf_i < self._nbufs:
+            if timeout is None:
+                frame_ready = self.wait_for_frame(timeout=None)
+            else:
+                elapsed_time = clock() * u.s - start_time
+                frame_ready = self.wait_for_frame(timeout - elapsed_time)
 
-        return image
+            if not frame_ready:
+                self._partial_sequence.extend(image_arrs)  # Save for later
+                raise TimeoutError
+
+            if copy:
+                buf = buffer(ffi.buffer(self._bufptrs[self._buf_i], self._frame_size())[:])
+            else:
+                buf = buffer(ffi.buffer(self._bufptrs[self._buf_i], self._frame_size()))
+
+            array = self._array_from_buffer(buf)
+
+            if kwds['fix_hotpixels']:
+                array = self._correct_hot_pixels(array)
+
+            # Software ROI
+            kwds = self._last_kwds
+            array = array[kwds['top']:kwds['bot'], kwds['left']:kwds['right']]
+
+            image_arrs.append(array)
+            self._buf_i += 1
+
+            # FIXME: HACK -- remove me
+            if self._buf_i < self._nbufs:
+                px.TRIGGER_CAMERA(self._hcam)
+
+        image_arrs = self._partial_sequence + image_arrs
+        self._partial_sequence = []
+
+        if len(image_arrs) == 1:
+            return image_arrs[0]
+        else:
+            return tuple(image_arrs)
 
     def _array_from_buffer(self, buf):
         dtype = np.uint8 if self.bit_depth <= 8 else np.uint16
         if self._shutter != 'double':
             arr = np.frombuffer(buf, dtype)
-            return arr.reshape((self.height, self.width))
+            return arr.reshape((self._binned_height, self._binned_width))
         else:
-            px_per_frame = self.width*self.height
+            px_per_frame = self._binned_width*self._binned_height
             byte_per_px = self.bit_depth/8 + 1
             arr1 = np.frombuffer(buf, dtype, px_per_frame, 0)
             arr2 = np.frombuffer(buf, dtype, px_per_frame, px_per_frame*byte_per_px)
-            return (arr1.reshape((self.height, self.width)),
-                    arr2.reshape((self.height, self.width)))
+            return (arr1.reshape((self._binned_height, self._binned_width)),
+                    arr2.reshape((self._binned_height, self._binned_width)))
 
     def grab_image(self, timeout='1s', copy=True, **kwds):
         self.start_capture(**kwds)
@@ -395,12 +484,34 @@ class Pixelfly(Camera):
         px.GETSIZES(self._hcam, ccdx_p, ccdy_p, actualx_p, actualy_p, bit_pix_p)
         self._max_width = ccdx_p[0]
         self._max_height = ccdy_p[0]
-        self._width = actualx_p[0]
-        self._height = actualy_p[0]
+        self._binned_width = actualx_p[0]
+        self._binned_height = actualy_p[0]
         self._bit_depth = bit_pix_p[0]
+
+        self._width = self._binned_width
+        self._height = self._binned_height
 
         if self._shutter == 'double':
             self._height = self._height / 2  # Give the height of *each* image individually
+
+    def version(self, typ):
+        vers = ffi.new('char[64]')
+        px.READVERSION(self._hcam, typ, vers, len(vers))
+        return ffi.string(vers)
+
+    @check_units(wavlen='nm')
+    def quantum_efficiency(self, wavlen, high_gain=False):
+        """quantum_efficiency(self, wavlen, high_gain=False)
+
+        Fractional quantum efficiency of the sensor at a given wavelength
+        """
+        if self.max_width == 640:
+            curve = self._qe_vga
+        elif self.max_width == 1392:
+            curve = self._qe_high if high_gain else self._qe_low
+        else:
+            raise Error("Unrecognized pixelfly model")
+        return float(curve(wavlen.m_as('nm')))
 
     @property
     def temperature(self):

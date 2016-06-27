@@ -136,7 +136,7 @@ class Instrument(object):
         try:
             pdict = self._param_dict
         except AttributeError:
-            raise NotImplementedError("Class '{}' does not yet support saving")
+            raise NotImplementedError("Class '{}' does not yet support saving".format(type(self)))
 
         date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         new_entry = '\n# Entry auto-created ' + date_str + '\n' + pdict.to_ini(name) + '\n'
@@ -230,19 +230,21 @@ def list_visa_instruments():
         if not addr.startswith(prev_addr):
             prev_addr = addr
             try:
-                i = rm.open_resource(addr, open_timeout=50, timeout=0.1)
+                log.info("Opening VISA resource '{}'".format(addr))
+                i = rm.open_resource(addr, open_timeout=50, timeout=200)
             except visa.VisaIOError:
                 # Could not create visa instrument object
                 skipped.append(addr)
-                # print("Skipping {} due to VisaIOError".format(addr))
+                log.info("Skipping this resource due to VisaIOError")
                 continue
             except socket.timeout:
                 skipped.append(addr)
-                print("Skipping {} due to socket.timeout".format(addr))
+                log.info("Skipping this resource due to socket.timeout")
                 continue
 
             try:
                 idn = i.ask("*IDN?")
+                log.info("*IDN? gives '{}'".format(idn.strip()))
                 manufac, model, rest = idn.split(',', 2)
                 module_name = _find_visa_inst_type(manufac, model)
                 params = _ParamDict("<{} '{}'>".format(manufac, model))
@@ -250,11 +252,14 @@ def list_visa_instruments():
                 if module_name:
                     params.module = module_name
                 instruments.append(params)
-            except visa.VisaIOError:
+            except visa.VisaIOError as e:
                 skipped.append(addr)
+                log.info("Getting IDN failed due to VisaIOError")
+                log.info(str(e))
                 continue
             except socket.timeout:
                 skipped.append(addr)
+                log.info("Getting IDN failed due to socket.timeout")
                 continue
             finally:
                 i.close()
@@ -327,6 +332,8 @@ def _get_visa_instrument(params):
     if 'visa_address' not in params:
         raise InstrumentTypeError()
     addr = params['visa_address']
+    visa_attrs = ('baud_rate', 'timeout', 'read_termination', 'write_termination', 'parity')
+    kwds = {k: v for k, v in params.items() if k in visa_attrs}
 
     # Check cache to see if we've already found (or not found) the instrument
     if '**visa_instrument' in params:
@@ -337,7 +344,7 @@ def _get_visa_instrument(params):
     else:
         try:
             rm = visa.ResourceManager()
-            visa_inst = rm.open_resource(addr, open_timeout=50)
+            visa_inst = rm.open_resource(addr, open_timeout=50, **kwds)
             # Cache the instrument for possible later use
             params['**visa_instrument'] = visa_inst
         except visa.VisaIOError:
@@ -437,14 +444,16 @@ def instrument(inst=None, **kwargs):
 
             # Try to import module, skip it if optional deps aren't met
             try:
+                log.info("Trying to import module '{}'".format(mod_name))
                 mod = import_module('.' + mod_name, __package__)
             except Exception as e:
                 #print(e.args)
-                log.debug("Module {} not supported, skipping".format(mod_name), exc_info=e)
+                log.info("Module {} not supported, skipping".format(mod_name), exc_info=e)
                 continue
 
             # Try to create an instance of this instrument type
             try:
+                log.info("Trying to create instrument using module '{}'".format(mod_name))
                 new_inst = mod._instrument(params)
             except AttributeError:
                 # Module doesn't define the required _instrument() function
@@ -452,10 +461,10 @@ def instrument(inst=None, **kwargs):
                          " missing _instrument(), skipping")
                 continue
             except InstrumentTypeError:
-                log.debug("Not the right type")
+                log.info("Not the right type")
                 continue
             except InstrumentNotFoundError:
-                log.debug("Instrument not found")
+                log.info("Instrument not found")
                 continue
 
             new_inst._alias = alias

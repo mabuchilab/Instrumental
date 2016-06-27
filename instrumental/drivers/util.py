@@ -1,202 +1,24 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015 Nate Bogdanowicz
+# Copyright 2015-2016 Nate Bogdanowicz
 """
 Helpful utilities for wrapping libraries in Python
 """
+import sys
+import warnings
 from inspect import getargspec, isfunction
-from functools import update_wrapper
 import pint
-from .. import Q_
+from . import decorator
+from .. import Q_, u
 
 
-def check_enum(enum_type, arg):
+def as_enum(enum_type, arg):
     """Checks if arg is an instance or key of enum_type, and returns that enum"""
-    return arg if isinstance(arg, enum_type) else enum_type[arg]
-
-
-def _cffi_wrapper(ffi, func, fname, arginfo, err_wrap, struct_maker, use_first_arg):
-    argtypes = ffi.typeof(func).args
-    n_expected_inargs = sum('in' in a for a in arginfo)
-
-    def wrapped(self, *inargs):
-        inargs = list(inargs)
-        if use_first_arg and self._first_arg is not None:
-            inargs.insert(0, self._first_arg)
-
-        if len(inargs) != n_expected_inargs:
-            message = '{}() takes '.format(fname)
-            if n_expected_inargs == 0:
-                message += 'no arguments'
-            elif n_expected_inargs == 1:
-                message += '1 argument'
-            else:
-                message += '{} arguments'.format(n_expected_inargs)
-
-            message += ' ({} given)'.format(len(inargs))
-
-            raise TypeError(message)
-
-        outargs = []
-        args = []
-        buflen = None
-        for info, argtype in zip(arginfo, argtypes):
-            if 'inout' in info:
-                inarg = inargs.pop(0)
-                try:
-                    inarg_type = ffi.typeof(inarg)
-                except TypeError:
-                    inarg_type = type(inarg)
-
-                if argtype == inarg_type:
-                    arg = inarg  # Pass straight through
-                elif argtype.kind == 'pointer' and argtype.item.kind == 'struct':
-                    arg = struct_maker(argtype, inarg)
-                else:
-                    arg = ffi.new(argtype, inarg)
-                outargs.append((arg, lambda o: o[0]))
-            elif 'in' in info:
-                arg = inargs.pop(0)
-            elif 'out' in info:
-                if argtype.kind == 'pointer' and argtype.item.kind == 'struct':
-                    arg = struct_maker(argtype)
-                else:
-                    arg = ffi.new(argtype)
-                outargs.append((arg, lambda o: o[0]))
-            elif info.startswith('buf'):
-                if len(info) > 3:
-                    buflen = int(info[3:])
-                else:
-                    buflen = self._buflen
-                arg = ffi.new('char[]', buflen)
-                outargs.append((arg, lambda o: ffi.string(o)))
-            elif info == 'len':
-                arg = buflen
-                buflen = None
-            else:
-                raise Exception("Unrecognized arg info '{}'".format(info))
-            args.append(arg)
-
-        retval = func(*args)
-        out_vals = [f(a) for a, f in outargs]
-
-        if err_wrap:
-            err_wrap(retval)
-        else:
-            out_vals.append(retval)
-
-        if not out_vals:
-            return None
-        elif len(out_vals) == 1:
-            return out_vals[0]
-        else:
-            return tuple(out_vals)
-
-    wrapped.__name__ = fname
-    return wrapped
-
-
-class LibMeta(type):
-    def __new__(metacls, clsname, bases, classdict):
-        err_wrap = classdict['_err_wrap']
-        prefix = classdict['_prefix']
-        struct_maker = classdict['_struct_maker']
-        ffi = classdict['_ffi']
-        lib = classdict['_lib']
-
-        classdict['_lib_funcs'] = {}
-
-        for name, value in classdict.items():
-            if not name.startswith('_') and not isfunction(value):
-                flags = {'first_arg': True}
-                if not isinstance(value, tuple):
-                    value = (value,)
-
-                if value and isinstance(value[-1], dict):
-                    flags.update(value[-1])
-                    value = value[:-1]
-                func = _cffi_wrapper(ffi, getattr(lib, prefix + name), name, value, err_wrap,
-                                     struct_maker, flags['first_arg'])
-                func.__name__ = name
-                func.__str__ = lambda self: "func " + self.__name__
-
-                # Build func's repr string
-                argtypes = ffi.typeof(getattr(lib, prefix + name)).args
-                in_args = [a.cname for a, d in zip(argtypes, value) if 'in' in d]
-                out_args = [a.item.cname for a, d in zip(argtypes, value)
-                            if ('out' in d or 'buf' in d)]
-                if flags['first_arg']:
-                    in_args.pop(0)
-                if not out_args:
-                    out_args = ['None']
-                repr_str = "{}({}) -> {}".format(name, ', '.join(in_args), ', '.join(out_args))
-
-                # classdict[name] = func
-                del classdict[name]
-                classdict['_lib_funcs'][name] = (func, repr_str)  # HACK to get nice repr
-
-        return super(LibMeta, metacls).__new__(metacls, clsname, bases, classdict)
-
-
-class NiceLib(object):
-    """Base class for mid-level library wrappers
-
-    Provides a nice interface for quickly defining mid-level library wrappers. You define your own
-    subclass for each specific library (DLL), then create an instance for each instance of your
-    Instrument subclass. See the examples in the developer docs for more info.
-
-    Attributes
-    ----------
-    _ffi
-        FFI instance variable. Required.
-    _lib
-        FFI library opened with `dlopen()`. Required.
-    _prefix : str, optional
-        Prefix to strip from the library function names. E.g. If the library has functions named
-        like ``SDK_Func()``, you can set `_prefix` to ``'SDK_'``, and access them as `Func()`.
-    _first_arg : optional
-        Object that will be automatically passed as the first argument to all library functions.
-        Useful e.g. if you open a handle to an instrument, then need to pass that handle to all
-        other subsequent functions. If a specific function does not take this argument, you should
-        set its ``first_arg`` flag to *False*. In general, this first argument will only be
-        automatically filled in if `_first_arg` is *None*.
-    _err_wrap : function, optional
-        Wrapper function to handle error codes returned by each library function.
-    _struct_maker : function, optional
-        Function that is called to create an FFI struct of the given type. Mainly useful for
-        odd libraries that require you to always fill out some field of the struct, like its size
-        in bytes (I'm looking at you PCO...)
-    _buflen : int, optional
-        The default length for buffers. This can be overridden on a per-argument basis in the
-        argument's spec string, e.g `'buf64'` will make a 64-byte buffer.
-    """
-    __metaclass__ = LibMeta
-    _err_wrap = None
-    _prefix = ''
-    _ffi = None  # MUST be filled in by subclass
-    _lib = None  # MUST be filled in by subclass
-    _struct_maker = None  # ffi.new
-    _first_arg = None
-    _buflen = 512
-
-    def __init__(self, *args):
-        # HACK to get nice repr
-        class LibFunction(object):
-            def __init__(fself, name, func, repr_str):
-                fself._name = name
-                fself._func = func
-                fself._repr = repr_str
-
-            def __call__(fself, *args):
-                return fself._func(self, *args)
-
-            def __str__(fself):
-                return fself._repr
-
-            def __repr__(fself):
-                return fself._repr
-
-        for name, (func, repr_str) in type(self)._lib_funcs.items():
-            setattr(self, name, LibFunction(name, func, repr_str))
+    if isinstance(arg, enum_type):
+        return arg
+    try:
+        return enum_type[arg]
+    except KeyError:
+        raise ValueError("{} is not a valid {}".format(arg, enum_type.__name__))
 
 
 def check_units(*pos, **named):
@@ -209,6 +31,18 @@ def check_units(*pos, **named):
         optional, units = unit_info
         if optional and arg is None:
             return None
+        elif arg == 0:
+            # Allow naked zeroes as long as we're using absolute units (e.g. not degF)
+            # It's a bit dicey using this private method; works in 0.6 at least
+            if units._ok_for_muldiv():
+                return Q_(arg, units)
+            else:
+                if name is not None:
+                    raise pint.DimensionalityError(u.dimensionless.units, units.units,
+                                                   extra_msg=" for argument '{}'".format(name))
+                else:
+                    raise pint.DimensionalityError(u.dimensionless.units, units.units,
+                                                   extra_msg=" for return value")
         else:
             q = Q_(arg)
             if q.dimensionality != units.dimensionality:
@@ -256,6 +90,53 @@ def unit_mag(*pos, **named):
                 raise pint.DimensionalityError(q.units, units.units, extra_msg=" for return value")
 
     return _unit_decorator(in_map, out_map, pos, named)
+
+
+def check_enums(**kw_args):
+    def checker_factory(enum_type, arg_name):
+        def checker(arg):
+            return arg if isinstance(arg, enum_type) else enum_type[arg]
+        return checker
+    return arg_decorator(checker_factory, (), kw_args)
+
+
+def arg_decorator(checker_factory, pos_args, kw_args):
+    def wrap(func):
+        arg_names, vargs, kwds, defaults = getargspec(func)
+        defaults = defaults or ()
+        pos_arg_names = {i: name for i, name in enumerate(arg_names)}
+
+        # Put everything in one dict
+        for arg, name in zip(pos_args, arg_names):
+            if name in kw_args:
+                raise TypeError("Argument specified twice, by both position and name")
+            kw_args[name] = arg
+
+        checkers = {}
+        new_defaults = {}
+        ndefs = len(defaults)
+        for default, name in zip(defaults, arg_names[-ndefs:]):
+            if name in kw_args:
+                checker = checker_factory(kw_args[name], name)
+                checkers[name] = checker
+                new_defaults[name] = checker(default)
+
+        for name in arg_names[:-ndefs]:
+            if name in kw_args:
+                checkers[name] = checker_factory(kw_args[name], name)
+
+        def wrapper(func, *args, **kwds):
+            checked = new_defaults.copy()
+            checked.update({name: (checkers[name](arg) if name in checkers else arg) for name, arg
+                            in kwds.items()})
+            for i, arg in enumerate(args):
+                name = pos_arg_names[i]
+                checked[name] = checkers[name](arg) if name in checkers else arg
+
+            result = func(**checked)
+            return result
+        return decorator.decorate(func, wrapper)
+    return wrap
 
 
 def _unit_decorator(in_map, out_map, pos_args, named_args):
@@ -333,10 +214,10 @@ def _unit_decorator(in_map, out_map, pos_args, named_args):
         # Convert the defaults
         new_defaults = {}
         ndefs = len(defaults)
-        for d, u, n in zip(defaults, pos_units[-ndefs:], arg_names[-ndefs:]):
-            new_defaults[n] = d if u is None else in_map(d, u, n)
+        for d, unit, n in zip(defaults, pos_units[-ndefs:], arg_names[-ndefs:]):
+            new_defaults[n] = d if unit is None else in_map(d, unit, n)
 
-        def wrapper(*args, **kwargs):
+        def wrapper(func, *args, **kwargs):
             # Convert the input arguments
             new_args = [in_map(a, u, n) for a, u, n in zip(args, pos_units, arg_names)]
             new_kwargs = {n: in_map(a, named_units.get(n, None), n) for n, a in kwargs.items()}
@@ -353,6 +234,5 @@ def _unit_decorator(in_map, out_map, pos_args, named_args):
                 return tuple(map(out_map, result, ret_units))
             else:
                 return out_map(result, ret_units)
-        update_wrapper(wrapper, func)
-        return wrapper
+        return decorator.decorate(func, wrapper)
     return wrap

@@ -12,10 +12,6 @@ from ... import Q_, conf
 from ...errors import Error
 
 
-DEFAULT_KWDS = dict(n_frames=1, vbin=1, hbin=1, exposure_time=Q_('10ms'), width=None, height=None,
-                    cx=None, cy=None, left=None, right=None, top=None, bot=None,
-                    fix_hotpixels=False)
-
 
 class Camera(Instrument):
     """A generic camera device.
@@ -41,6 +37,11 @@ class Camera(Instrument):
         >>> cam.stop_live_video()
     """
 
+    DEFAULT_KWDS = dict(n_frames=1, vbin=1, hbin=1, exposure_time=Q_('10ms'), width=None,
+                        height=None, cx=None, cy=None, left=None, right=None, top=None, bot=None,
+                        fix_hotpixels=False)
+
+
     width = abc.abstractproperty(doc="Width of the camera image in pixels")
     height = abc.abstractproperty(doc="Height of the camera image in pixels")
     max_width = abc.abstractproperty(doc="Max settable width of the camera image, "
@@ -58,13 +59,13 @@ class Camera(Instrument):
         exposure immediately or ready the camera to start on an explicit (hardware or software)
         trigger.
 
-        It can be useful to invoke ``capture()`` and ``image_array()`` explicitly if you expect the
-        capture sequence to take a long time and you'd like to perform some operations while you
-        wait for the camera::
+        It can be useful to invoke ``capture()`` and ``get_captured_image()`` explicitly if you
+        expect the capture sequence to take a long time and you'd like to perform some operations
+        while you wait for the camera::
 
             >>> cam.capture()
             >>> do_other_useful_stuff()
-            >>> arr = cam.image_array()
+            >>> arr = cam.get_captured_image()
 
         See `grab_image()` for the set of available kwds.
         """
@@ -93,7 +94,8 @@ class Camera(Instrument):
         """Perform a capture and return the resulting image array(s)
 
         This is essentially a convenience function that calls `start_capture()` then
-        `image_array()`. See `image_array()` for information about the returned array(s).
+        `get_captured_image()`. See `get_captured_image()` for information about the returned
+        array(s).
 
         Parameters
         ----------
@@ -140,7 +142,7 @@ class Camera(Instrument):
 
         Once live video mode has been started, images will automatically and continuously be
         acquired. You can check if the next frame is ready by using `wait_for_frame()`, and access
-        the most recent image's data with `image_array()`.
+        the most recent image's data with `get_captured_image()`.
 
         See `grab_image()` for the set of available kwds.
         """
@@ -183,7 +185,7 @@ class Camera(Instrument):
 
     def set_defaults(self, **kwds):
         if self._defaults is None:
-            self._defaults = DEFAULT_KWDS.copy()
+            self._defaults = self.DEFAULT_KWDS.copy()
 
         for k in kwds:
             if k not in self._defaults:
@@ -193,7 +195,12 @@ class Camera(Instrument):
     def _handle_kwds(self, kwds):
         """Don't reimplement this, it's super-annoying"""
         if self._defaults is None:
-            self._defaults = DEFAULT_KWDS.copy()
+            self._defaults = self.DEFAULT_KWDS.copy()
+
+
+        bad_kwds = [k for k in kwds if k not in self._defaults]
+        if bad_kwds:
+            raise Error("Unknown parameters {}".format(bad_kwds))
 
         for k, v in self._defaults.items():
             kwds.setdefault(k, v)
@@ -205,11 +212,16 @@ class Camera(Instrument):
                 kwds[names[2]] = 0  # left or top = 0
             elif n_args == 1:
                 max_width = getattr(self, 'max_' + names[0])
-                if kwds[names[0]] is None:
-                    # Width wasn't given
-                    kwds[names[0]] = max_width
-                else:
-                    # Only width was given
+                if kwds[names[2]] is not None:  # Left given
+                    kwds[names[3]] = max_width
+                elif kwds[names[3]] is not None:  # Right given
+                    kwds[names[2]] = 0
+                elif kwds[names[1]] is not None:  # Center given
+                    if kwds[names[1]] > max_width/2:
+                        kwds[names[3]] = max_width  # Bounded by the right
+                    else:
+                        kwds[names[2]] = 0  # Bounded by the left
+                else:  # Width given
                     kwds[names[1]] = max_width/2  # Centered
             elif n_args != 2:
                 raise ValueError("Only two of {} should be provided".format(names))
