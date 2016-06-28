@@ -7,12 +7,33 @@ Unreleased
 Added
 """""
 - Package metadata now (mostly) consolidated in ``__about__.py``
+- Support for DAQmx internal channels
+- New NI driver, written using NiceLib, no longer requires PyDAQmx
+- PCO:
+  - Software ROI
+  - Trigger mode support
+  - Hotpixel correction
+- Pixelfly:
+  - Software ROI
+  - Quantum efficiency functions
+  - Multi-buffer capture sequences
 
 Changed
 """""""
 - Check for IDS library if Thorlabs uc480 dll isn't found
   (Issue #6, thanks Chris Timossi)
-- `u` refers to Pint's `_DEFAULT_REGISTRY`, making unpickling easier
+- ``u`` refers to Pint's ``_DEFAULT_REGISTRY``, making unpickling easier
+- Fixed random assignment of DAQmx channels
+  (Issue #15)
+- Allow use of naked zeroes in ``check_units()``
+- Use ``decorator`` module to preserve function signatures for wrapped functions
+- Moved ``DEFAULT_KWDS`` into the Camera class
+- Renamed ``check_enum()`` to ``as_enum()``
+- PCO driver now uses the new NiceLib package
+
+Removed
+"""""""
+- The ``NiceLib`` framework grew significantly and was split off into its own separate project
 
 
 (0.2.1) - 2016-01-13
