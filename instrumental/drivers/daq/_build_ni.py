@@ -1,25 +1,30 @@
 # -*- coding: utf-8 -*-
 # Copyright 2016 Nate Bogdanowicz
-from instrumental.drivers.build_ffi_lib import build_lib
+from nicelib import build_lib
 
-header_paths = {
-    'win*': (
-        r"{PROGRAMFILES(X86)}\National Instruments\NI-DAQ\DAQmx ANSI C Dev\include\NIDAQmx.h",
-        r"{PROGRAMFILES}\National Instruments\NI-DAQ\DAQmx ANSI C Dev\include\NIDAQmx.h",
-    ),
-    'linux*': (
-        "/usr/local/natinst/nidaqmx/include/NIDAQmx.h",
-    ),
-    'darwin*': (
-        "/Applications/National Instruments/NI-DAQmx Base/includes/NIDAQmxBase.h",
-    ),
+header_info = {
+    'win*': {
+        'path': (
+            r"{PROGRAMFILES(X86)}\National Instruments\NI-DAQ\DAQmx ANSI C Dev\include",
+            r"{PROGRAMFILES}\National Instruments\NI-DAQ\DAQmx ANSI C Dev\include",
+        ),
+        'header': 'NIDAQmx.h'
+    },
+    'linux*': {
+        'path': '/usr/local/natinst/nidaqmx/include',
+        'header': 'NIDAQmx.h'
+    },
+    'darwin*': {
+        'path': '/Applications/National Instruments/NI-DAQmx Base/includes',
+        'header': 'NIDAQmxBase.h'
+    },
 }
 
 lib_names = {'win*': 'nicaiu', 'linux*': 'nidaqmx', 'darwin*': 'nidaqmxbase'}
 
 
 def build():
-    build_lib(header_paths, lib_names, '_nilib')
+    build_lib(header_info, lib_names, '_nilib')
 
 
 if __name__ == '__main__':
