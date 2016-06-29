@@ -68,39 +68,40 @@ class NiceNI(NiceLib):
     GetSysDevNames = ('buf', 'len')
     CreateTask = ('in', 'out')
 
-    with NiceObject() as Task:
-        __doc__ = """A Nice-wrapped NI Task"""
-        StartTask = ('in')
-        StopTask = ('in')
-        ClearTask = ('in')
-        WaitUntilTaskDone = ('in', 'in')
-        IsTaskDone = ('in', 'out')
-        CreateAIVoltageChan = ('in', 'in', 'in', 'in', 'in', 'in', 'in', 'in')
-        CreateAOVoltageChan = ('in', 'in', 'in', 'in', 'in', 'in', 'in')
-        CreateDIChan = ('in', 'in', 'in', 'in')
-        CreateDOChan = ('in', 'in', 'in', 'in')
-        ReadAnalogF64 = ('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'ignore')
-        ReadAnalogScalarF64 = ('in', 'in', 'out', 'ignore')
-        ReadDigitalScalarU32 = ('in', 'in', 'out', 'ignore')
-        WriteAnalogF64 = ('in', 'in', 'in', 'in', 'in', 'in', 'out', 'ignore')
-        WriteAnalogScalarF64 = ('in', 'in', 'in', 'in', 'ignore')
-        WriteDigitalScalarU32 = ('in', 'in', 'in', 'in', 'ignore')
-        GetBufInputBufSize = ('in', 'out')
-        CfgSampClkTiming = ('in', 'in', 'in', 'in', 'in', 'in')
-        CfgDigEdgeStartTrig = ('in', 'in', 'in')
+    Task = NiceObject(doc="A Nice-wrapped NI Task", attrs={
+        'StartTask': ('in'),
+        'StopTask': ('in'),
+        'ClearTask': ('in'),
+        'WaitUntilTaskDone': ('in', 'in'),
+        'IsTaskDone': ('in', 'out'),
+        'CreateAIVoltageChan': ('in', 'in', 'in', 'in', 'in', 'in', 'in', 'in'),
+        'CreateAOVoltageChan': ('in', 'in', 'in', 'in', 'in', 'in', 'in'),
+        'CreateDIChan': ('in', 'in', 'in', 'in'),
+        'CreateDOChan': ('in', 'in', 'in', 'in'),
+        'ReadAnalogF64': ('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'ignore'),
+        'ReadAnalogScalarF64': ('in', 'in', 'out', 'ignore'),
+        'ReadDigitalScalarU32': ('in', 'in', 'out', 'ignore'),
+        'WriteAnalogF64': ('in', 'in', 'in', 'in', 'in', 'in', 'out', 'ignore'),
+        'WriteAnalogScalarF64': ('in', 'in', 'in', 'in', 'ignore'),
+        'WriteDigitalScalarU32': ('in', 'in', 'in', 'in', 'ignore'),
+        'GetBufInputBufSize': ('in', 'out'),
+        'CfgSampClkTiming': ('in', 'in', 'in', 'in', 'in', 'in'),
+        'CfgDigEdgeStartTrig': ('in', 'in', 'in'),
+    })
 
-    with NiceObject() as Device:
-        GetDevProductType = ('in', 'buf', 'len')
-        GetDevAIPhysicalChans = ('in', 'buf', 'len')
-        GetDevAOPhysicalChans = ('in', 'buf', 'len')
-        GetDevCIPhysicalChans = ('in', 'buf', 'len')
-        GetDevCOPhysicalChans = ('in', 'buf', 'len')
-        GetDevAIVoltageRngs = ('in', 'arr', 'len=20')
-        GetDevAOVoltageRngs = ('in', 'arr', 'len=20')
-        GetDevDILines = ('in', 'buf', 'len')
-        GetDevDOLines = ('in', 'buf', 'len')
-        GetDevProductCategory = ('in', 'out')
-        GetDevSerialNum = ('in', 'out')
+    Device = NiceObject({
+        'GetDevProductType': ('in', 'buf', 'len'),
+        'GetDevAIPhysicalChans': ('in', 'buf', 'len'),
+        'GetDevAOPhysicalChans': ('in', 'buf', 'len'),
+        'GetDevCIPhysicalChans': ('in', 'buf', 'len'),
+        'GetDevCOPhysicalChans': ('in', 'buf', 'len'),
+        'GetDevAIVoltageRngs': ('in', 'arr', 'len=20'),
+        'GetDevAOVoltageRngs': ('in', 'arr', 'len=20'),
+        'GetDevDILines': ('in', 'buf', 'len'),
+        'GetDevDOLines': ('in', 'buf', 'len'),
+        'GetDevProductCategory': ('in', 'out'),
+        'GetDevSerialNum': ('in', 'out'),
+    })
 
     #Device = NiceObject({
     #    'GetDevProductType': ('in', 'buf', 'len'),
