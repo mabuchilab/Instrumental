@@ -100,30 +100,47 @@ def check_enums(**kw_args):
     return arg_decorator(checker_factory, (), kw_args)
 
 
-def arg_decorator(checker_factory, pos_args, kw_args):
+def arg_decorator(checker_factory, dec_pos_args, dec_kw_args):
+    """Produces a decorator that checks the arguments to the function in wraps.
+
+    Parameters
+    ----------
+    checker_factory : function
+        Takes the args (decorator_arg_val, arg_name) and produces a 'checker' function, which takes
+        and returns a single value. When acting simply as a checker, it takes the arg, checks that
+        it is valid (using the ``decorator_arg_val`` and/or ``arg_name``), raises an Exception if
+        it is not, and returns the value unchanged if it is. Additionally, the checker may return a
+        different value, e.g. a ``str`` which has been converted to a ``Quantity`` as in
+        ``check_units()``.
+    dec_pos_args : tuple
+        The positional args (i.e. *args) passed to the decorator constructor
+    dec_kw_args : dict
+        The keyword args (i.e. **kwargs) passed to the decorator constructor
+    """
     def wrap(func):
-        arg_names, vargs, kwds, defaults = getargspec(func)
-        defaults = defaults or ()
+        """Function that actually wraps the function to be decorated"""
+        arg_names, vargs, kwds, default_vals = getargspec(func)
+        default_vals = default_vals or ()
         pos_arg_names = {i: name for i, name in enumerate(arg_names)}
 
         # Put everything in one dict
-        for arg, name in zip(pos_args, arg_names):
-            if name in kw_args:
+        for dec_arg_val, arg_name in zip(dec_pos_args, arg_names):
+            if arg_name in dec_kw_args:
                 raise TypeError("Argument specified twice, by both position and name")
-            kw_args[name] = arg
+            dec_kw_args[arg_name] = dec_arg_val
 
         checkers = {}
         new_defaults = {}
-        ndefs = len(defaults)
-        for default, name in zip(defaults, arg_names[-ndefs:]):
-            if name in kw_args:
-                checker = checker_factory(kw_args[name], name)
-                checkers[name] = checker
-                new_defaults[name] = checker(default)
+        ndefs = len(default_vals)
+        for default_val, arg_name in zip(default_vals, arg_names[-ndefs:]):
+            if arg_name in dec_kw_args:
+                checker = checker_factory(dec_kw_args[arg_name], arg_name)
+                checkers[arg_name] = checker
+                new_defaults[arg_name] = checker(default_val)
 
-        for name in arg_names[:-ndefs]:
-            if name in kw_args:
-                checkers[name] = checker_factory(kw_args[name], name)
+        for arg_name in arg_names[:ndefs]:
+            if arg_name in dec_kw_args:
+                checkers[arg_name] = checker_factory(dec_kw_args[arg_name], arg_name)
 
         def wrapper(func, *args, **kwds):
             checked = new_defaults.copy()
