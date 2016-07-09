@@ -131,14 +131,14 @@ def arg_decorator(checker_factory, dec_pos_args, dec_kw_args):
 
         checkers = {}
         new_defaults = {}
-        ndefs = len(default_vals)
-        for default_val, arg_name in zip(default_vals, arg_names[-ndefs:]):
+        num_nondefs = len(arg_names) - len(default_vals)
+        for default_val, arg_name in zip(default_vals, arg_names[num_nondefs:]):
             if arg_name in dec_kw_args:
                 checker = checker_factory(dec_kw_args[arg_name], arg_name)
                 checkers[arg_name] = checker
                 new_defaults[arg_name] = checker(default_val)
 
-        for arg_name in arg_names[:ndefs]:
+        for arg_name in arg_names[:num_nondefs]:
             if arg_name in dec_kw_args:
                 checkers[arg_name] = checker_factory(dec_kw_args[arg_name], arg_name)
 
