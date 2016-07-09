@@ -18,7 +18,7 @@ def as_enum(enum_type, arg):
     try:
         return enum_type[arg]
     except KeyError:
-        raise ValueError("{} is not a valid {}".format(arg, enum_type.__name__))
+        raise ValueError("{} is not a valid {} enum".format(arg, enum_type.__name__))
 
 
 def check_units(*pos, **named):
@@ -95,7 +95,7 @@ def unit_mag(*pos, **named):
 def check_enums(**kw_args):
     def checker_factory(enum_type, arg_name):
         def checker(arg):
-            return arg if isinstance(arg, enum_type) else enum_type[arg]
+            return as_enum(enum_type, arg)
         return checker
     return arg_decorator(checker_factory, (), kw_args)
 
