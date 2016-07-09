@@ -1,4 +1,4 @@
-pint==0.5.1
+pint
 numpy
 scipy
 numpydoc
