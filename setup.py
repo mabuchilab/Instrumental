@@ -1,6 +1,8 @@
 import os
 import os.path
 from setuptools import setup, find_packages
+from distutils.errors import DistutilsPlatformError
+from distutils.ccompiler import new_compiler
 
 description = "Library with high-level drivers for lab equipment"
 classifiers = [
@@ -20,8 +22,9 @@ with open(os.path.join(base_dir, 'instrumental', '__about__.py')) as f:
 # Check for cffi
 try:
     import cffi
+    new_compiler().compile(b'')
     build_cffi_modules = True
-except ImportError:
+except (ImportError, DistutilsPlatformError):
     build_cffi_modules = False
 
 # Find all cffi build scripts
