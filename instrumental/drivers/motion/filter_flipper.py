@@ -144,10 +144,12 @@ class Filter_Flipper(Motion):
         serial_number: str
         
         polling_period: pint quantity with units of time """
+        self.Position = Position
         self._NiceFF = NiceFilterFlipper.Flipper(serial);
         self.serial = serial
         
         self._open()
+        self._NiceFF.LoadSettings()
         self._start_polling(polling_period)
     
     def _open(self):
