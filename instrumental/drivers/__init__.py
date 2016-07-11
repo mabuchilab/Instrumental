@@ -37,7 +37,9 @@ _acceptable_params = OrderedDict((
     ('spectrometers.bristol',
         ['bristol_port', 'module']),
     ('motion.filter_flipper',
-         ['ff_serial'])
+         ['ff_serial']),
+    ('motion.tdc_001',
+         ['tdc_serial'])
 ))
 
 _visa_models = OrderedDict((
