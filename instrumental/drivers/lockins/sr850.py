@@ -20,12 +20,8 @@ def _instrument(params):
         rs232_interface = params['rs232_interface']
     else:
         rs232_interface = True
-    
-    inst = _get_visa_instrument(params)
-    
-    #inst.read_termination = '\r'
-    #inst.write_termination = '\r'
 
+    inst = _get_visa_instrument(params)
     return SR850(inst, rs232_interface)
 
 BYTES_PER_POINT = 4
