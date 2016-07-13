@@ -11,14 +11,16 @@ supports:
 * Tektronix AFG3000 series arbitrary function generators
 * Thorlabs DCx class USB cameras
 * NI DAQmx compatible DAQ devices
-* Attocube ECC100 controller and associated translation stages and
-  goniometers
+* Thorlabs PM100x series optical power meters
+* Newport 1830-C optical power meter
+* Thorlabs Kinesis motion control systems (e.g. T-Cube motor controllers)
 
 Drivers are planned for:
 
-* Thorlabs PM100x series optical power meters
-* Newport 1830-C optical power meter
-* Thorlabs APT motion control systems (e.g. T-Cube motor controllers)
+* Princeton Instruments Cameras
+* Newport ESP300 controller
+* Attocube ECC100 controller and associated translation stages and
+  goniometers
 
 It should be pretty easy to write drivers for other VISA-compatible devices via PyVISA. Driver submissions are greatly appreciated!
 
