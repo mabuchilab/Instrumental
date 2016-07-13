@@ -41,7 +41,9 @@ _acceptable_params = OrderedDict((
     ('motion.filter_flipper',
          ['ff_serial']),
     ('motion.tdc_001',
-         ['tdc_serial'])
+         ['tdc_serial']),
+    ('lasers.femto_ferb',
+         ['femto_ferb_port'])
 ))
 
 _visa_models = OrderedDict((
