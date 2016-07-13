@@ -14,6 +14,7 @@ supports:
 * Thorlabs PM100x series optical power meters
 * Newport 1830-C optical power meter
 * Thorlabs Kinesis motion control systems (e.g. T-Cube motor controllers)
+* Toptica FemtoFerb 1560 Laser
 
 Drivers are planned for:
 

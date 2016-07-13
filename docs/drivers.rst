@@ -20,6 +20,7 @@ NI-VISA) to interface with connected devices.
     powermeters
     wavemeters
     motion
+    lasers
 
 
 -------------------------------------------------------------------------------

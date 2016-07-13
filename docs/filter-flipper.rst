@@ -1,4 +1,4 @@
-Thorlabs Motorized Filter Flip Mount
+Thorlabs Motorized Filter Flip Mount (MFF10X)
 =====================
 
 .. toctree::
