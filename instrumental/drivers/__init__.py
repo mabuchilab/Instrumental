@@ -437,51 +437,51 @@ def instrument(inst=None, **kwargs):
         return new_inst
 
     # Find the right type of Instrument to create
-    has_valid_params = False
-    for mod_name, acceptable in _acceptable_params.items():
-        if _has_acceptable_params(acceptable, params):
-            has_valid_params = True
+    acceptable_modules = [mod_name for mod_name, acc_params in _acceptable_params.items()
+                          if _has_acceptable_params(acc_params, params)]
 
-            # Try to import module, skip it if optional deps aren't met
-            try:
-                log.info("Trying to import module '{}'".format(mod_name))
-                mod = import_module('.' + mod_name, __package__)
-            except Exception as e:
-                #print(e.args)
-                log.info("Module {} not supported, skipping".format(mod_name), exc_info=e)
-                continue
+    for mod_name in acceptable_modules:
+        # Try to import module, skip it if optional deps aren't met
+        try:
+            log.info("Trying to import module '{}'".format(mod_name))
+            mod = import_module('.' + mod_name, __package__)
+        except Exception as e:
+            if len(acceptable_modules) == 1: raise
+            log.info("Module {} not supported, skipping".format(mod_name), exc_info=e)
+            continue
 
-            # Try to create an instance of this instrument type
-            try:
-                log.info("Trying to create instrument using module '{}'".format(mod_name))
-                new_inst = mod._instrument(params)
-            except AttributeError:
-                # Module doesn't define the required _instrument() function
-                log.info("Module " + mod_name +
-                         " missing _instrument(), skipping")
-                continue
-            except InstrumentTypeError:
-                log.info("Not the right type")
-                continue
-            except InstrumentNotFoundError:
-                log.info("Instrument not found")
-                continue
+        # Try to create an instance of this instrument type
+        try:
+            log.info("Trying to create instrument using module '{}'".format(mod_name))
+            new_inst = mod._instrument(params)
+        except AttributeError:
+            if len(acceptable_modules) == 1: raise
+            log.info("Module {} missing _instrument(), skipping".format(mod_name))
+            continue
+        except InstrumentTypeError:
+            if len(acceptable_modules) == 1: raise
+            log.info("Not the right type")
+            continue
+        except InstrumentNotFoundError:
+            if len(acceptable_modules) == 1: raise
+            log.info("Instrument not found")
+            continue
 
-            new_inst._alias = alias
+        new_inst._alias = alias
 
-            # HACK to allow 'parent' modules to do special initialization of instruments
-            # We may get rid of this in the future by having each class's __init__ method directly
-            # handle params, getting rid of the _instrument() middleman.
-            parent_mod = import_module('.' + mod_name.rsplit('.', 1)[0], __package__)
-            try:
-                parent_mod._init_instrument(new_inst, params)
-            except AttributeError:
-                pass
+        # HACK to allow 'parent' modules to do special initialization of instruments
+        # We may get rid of this in the future by having each class's __init__ method directly
+        # handle params, getting rid of the _instrument() middleman.
+        parent_mod = import_module('.' + mod_name.rsplit('.', 1)[0], __package__)
+        try:
+            parent_mod._init_instrument(new_inst, params)
+        except AttributeError:
+            pass
 
-            return new_inst
+        return new_inst
 
     # If we reach this point, we haven't been able to create a valid instrument
-    if not has_valid_params:
+    if not acceptable_modules:
         raise Exception("Parameters {} match no existing driver module".format(params))
     else:
         raise Exception("No instrument matching {} was found".format(params))
