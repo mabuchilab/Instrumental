@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Christopher Rogers
+
 """
-This script contains classes for controlling Thorlabs TDC001 T-Cube DC Servo
-Motor Controllers.
+Driver for controlling Thorlabs TDC001 T-Cube DC Servo Motor Controllers using
+the Kinesis SDK.
 
 One must place Thorlabs.MotionControl.DeviceManager.dll and Thorlabs.MotionControl.FilterFlipper.dll
 in the path.
-
-Copyright 2016 Christopher Rogers
 """
 
 from enum import Enum
