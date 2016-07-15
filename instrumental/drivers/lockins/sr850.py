@@ -1,8 +1,6 @@
+# Copyright Christopher Rogers (2016)
 """
-Created on Jan 26th 2016
-Copyright Christopher Rogers (2016)
-
-@author: Lab
+Driver for SRS model SR850 lock-in amplifier.
 """
 from numpy import fromstring, float32
 from enum import Enum

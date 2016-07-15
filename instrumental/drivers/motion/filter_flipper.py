@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Christopher Rogers
 """
-This driver interfaces with Thorlabs Flipper Filters.
+Driver for controlling Thorlabs Flipper Filters using the Kinesis SDK.
 
 One must place Thorlabs.MotionControl.DeviceManager.dll and Thorlabs.MotionControl.FilterFlipper.dll
 in the path
 
-Copyright 2016 Christopher Rogers
 """
 
 from enum import Enum
@@ -199,8 +199,9 @@ class Filter_Flipper(Motion):
         position = position.value
         return self._NiceFF.MoveToPosition(position)        
 
+    @check_units(delay='ms')
     @check_enums(position=Position)
-    def move_and_wait(self, position, delay=Q_('100ms')):
+    def move_and_wait(self, position, delay='100ms'):
         """ Commands the flipper to move to the indicated position and returns
         only once the flipper has reached that position.
 
