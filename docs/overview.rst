@@ -15,13 +15,13 @@ supports:
 * Newport 1830-C optical power meter
 * Thorlabs Kinesis motion control systems (e.g. T-Cube motor controllers)
 * Toptica FemtoFerb 1560 Laser
+* Attocube ECC100 controller and associated translation stages and
+  goniometers
 
 Drivers are planned for:
 
 * Princeton Instruments Cameras
 * Newport ESP300 controller
-* Attocube ECC100 controller and associated translation stages and
-  goniometers
 
 It should be pretty easy to write drivers for other VISA-compatible devices via PyVISA. Driver submissions are greatly appreciated!
 

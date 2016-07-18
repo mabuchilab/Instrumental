@@ -12,3 +12,4 @@ Supported Models
 
     filter-flipper
     tdc-001
+    ecc100
