@@ -42,6 +42,8 @@ _acceptable_params = OrderedDict((
          ['ff_serial']),
     ('motion.tdc_001',
          ['tdc_serial']),
+    ('motion.ecc100',
+         ['ecc100_id', 'module']),
     ('lasers.femto_ferb',
          ['femto_ferb_port'])
 ))
