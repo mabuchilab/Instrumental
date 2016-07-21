@@ -330,6 +330,9 @@ class ECC100(Motion):
         """
 
         self._lib = lib
+        self.ActorType = ActorType
+        self.Status = Status
+        self.Axis = Axis
 
         num, info = self._Check()
         if num < 1:
