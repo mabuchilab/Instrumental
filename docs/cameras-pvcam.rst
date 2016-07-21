@@ -1,4 +1,4 @@
-Pixelfly Cameras
+Photometrics Cameras
 ================
 
 .. toctree::
