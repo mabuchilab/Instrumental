@@ -13,6 +13,7 @@ Supported Models
     pco-cameras
     cameras-pixelfly
     uc480-cameras
+    cameras-pvcam
 
 
 Generic Camera Interface
