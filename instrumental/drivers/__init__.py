@@ -45,7 +45,9 @@ _acceptable_params = OrderedDict((
     ('motion.ecc100',
          ['ecc100_id', 'module']),
     ('lasers.femto_ferb',
-         ['femto_ferb_port'])
+         ['femto_ferb_port']),
+    ('motion.esp300',
+         ['esp300_port'])
 ))
 
 _visa_models = OrderedDict((
