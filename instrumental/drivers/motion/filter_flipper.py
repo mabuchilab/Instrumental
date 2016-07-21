@@ -70,7 +70,7 @@ def list_instruments():
 
 
 class NiceFilterFlipper(NiceLib):
-    """ This class provides a convenient low-level wrapper for the library
+    """ Provides a convenient low-level wrapper for the library
     Thorlabs.MotionControl.FilterFlipper.dll"""
     _ret_wrap = None
     _struct_maker = None
@@ -122,7 +122,7 @@ class NiceFilterFlipper(NiceLib):
 
 
 class Position(Enum):
-        """ Represents the position of the flipper. """
+        """ The position of the flipper. """
         one = 1
         two = 2
         moving = 0
@@ -160,8 +160,7 @@ class Filter_Flipper(Motion):
 
     @check_units(polling_period='ms')
     def _start_polling(self, polling_period='200ms'):
-        """Starts polling the device to update its status with the given period
-        provided, rounded to the nearest millisecond 
+        """Starts polling to periodically update the device status. 
         
         Parameters
         ----------
@@ -170,13 +169,16 @@ class Filter_Flipper(Motion):
         return self._NiceFF.StartPolling(self.polling_period)
 
     def get_position(self):
-        """ Returns an instance of the Position enumerator indicating the
-        position of the flipper at the most recent polling event. """
+        """ Get the position of the flipper.
+        
+        Returns an instance of Position.
+        Note that this represents the position at the most recent polling
+        event."""
         position =  self._NiceFF.GetPosition()
         return Position(position)
 
     def flip(self):
-        """ Flips from one position to the other.  """
+        """ Flips the position of the filter.  """
         position = self.get_position()
         if position == Position.one:
             return self.move_to(Position.two)
@@ -187,8 +189,9 @@ class Filter_Flipper(Motion):
 
     @check_enums(position=Position)
     def move_to(self, position):
-        """ Commands the flipper to move to the indicated position and then returns
-        immediately.
+        """ Moves the flipper to the indicated position.
+        
+        Returns immediatley.
         
         Parameters
         ----------
@@ -202,8 +205,8 @@ class Filter_Flipper(Motion):
     @check_units(delay='ms')
     @check_enums(position=Position)
     def move_and_wait(self, position, delay='100ms'):
-        """ Commands the flipper to move to the indicated position and returns
-        only once the flipper has reached that position.
+        """ Moves to the indicated position and waits until that position is
+        reached.
 
         Parameters
         ----------
@@ -223,8 +226,7 @@ class Filter_Flipper(Motion):
 
     @check_enums(position=Position)
     def isValidPosition(self, position):
-        """ Returns True if the given position is a valid position to move to,
-        and returns false otherwise
+        """ Indicates if it is possible to move to the given position.
         
         Parameters
         ----------
@@ -237,19 +239,23 @@ class Filter_Flipper(Motion):
             return True
 
     def home(self):
-        """ Performs the homing function """
+        """ Homes the device """
         return self._NiceFF.Home()
 
     def get_transit_time(self):
-        """ Returns the transit time, which is the time to transition from
+        """ Returns the transit time.
+        
+        The transit time is the time to transition from
         one filter position to the next."""
         transit_time = self._NiceFF.GetTransitTime()
         return Q_(transit_time, 'ms')
 
     @check_units(transit_time='ms')
     def set_transit_time(self, transit_time='500ms'):
-        """ Sets the transit time, which is the time to transition from
+        """ Sets the transit time.
+        The transit time is the time to transition from
         one filter position to the next.
+        
         Parameters
         ----------
         transit_time: pint quantity with units of time """
