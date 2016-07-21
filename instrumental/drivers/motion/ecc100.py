@@ -70,7 +70,7 @@ def list_instruments():
 
 
 def check_for_devices():
-    """ Checks for devices and returns their info and how many there are.
+    """ Checks for devices, returns their info and how many there are.
 
     Returns
     -------
@@ -142,8 +142,9 @@ class Actor(Motion):
 
     @check_units(frequency='Hz')
     def set_frequency(self, frequency):
-        """ Sets the frequency of the voltage signal applied to the stage. The
-        frequency is proportional to the travel speed of the positioner.
+        """ Sets the frequency of the actuation voltage applied to the stage.
+        
+        The frequency is proportional to the travel speed of the positioner.
 
         Parameters
         ----------
@@ -167,8 +168,9 @@ class Actor(Motion):
 
     def start_stepping(self, backward=False):
         """
-        Step continously until stopped. This will stop any ongoing motion in
-        the opposite direction.
+        Step continously until stopped.
+        
+        This will stop any ongoing motion in the opposite direction.
         """
         if backward:
             self._c._controlContinuousBkwd(self.axis, enable=True, set=True)
@@ -189,15 +191,17 @@ class Actor(Motion):
         return self._c._controlContinuousFwd(self.axis, set=False)
 
     def get_position(self):
+        """ Returns the current postion"""
         pos = self._c._getPosition(self.axis)
         return Q_(pos, self._pos_units)
 
     def get_ref_position(self):
+        """ Returns the current reference positoin"""
         pos = self._c._getReferencePosition(self.axis)
         return Q_(pos, self._pos_units)
 
     def enable_feedback(self, enable=True):
-        """ Turn on and off the positioning feedback-control loop
+        """ Control the positioning feedback-control loop
 
         enable: bool, where False corresponds to OFF and True corresponds to ON
         """
@@ -205,10 +209,10 @@ class Actor(Motion):
 
     @check_units(duration='s')
     def timed_move(self, direction, duration):
-        """ Initiates motion in the specified direction for the specified
-        duration
+        """ Moves in the specified direction for the specified
+        duration.
 
-        direction: bool controlling the direciton of movement.  A value of True
+        direction: bool controlling the direciton of movement.  True
         corresponds to the positive direction for linear stages and the
         negative direction for goniometers
 
@@ -219,14 +223,14 @@ class Actor(Motion):
         self._c._setContinuous(self.axis, direction, control=False)
 
     def is_feedback_on(self):
-        """ Returns a boolean indicating if the feedback-control loop is ON
+        """ Indicates if the feedback-control loop is ON
         (True) or OFF (False)
         """
         enable = self._c._controlMove(self.axis, set=False)
         return enable
 
     def set_target(self, target):
-        """ Set the target position of the feedback control loop
+        """ Sets the target position of the feedback control loop.
 
         target: target position, in nm for linear stages, in micro radians for
         goniometers
@@ -235,14 +239,12 @@ class Actor(Motion):
         self._c._controlTargetPosition(self.axis, target_mag, set=True)
 
     def get_target(self):
-        """ Returns the target position of the feedback control loop for the
-        specified axis
-        """
+        """ Returns the target position of the feedback control loop."""
         targetPosition = self._c._controlTargetPosition(self.axis, set=False)
         return Q_(targetPosition, self._pos_units)
 
     def move_to(self, pos, wait=False):
-        """ Move to a location using closed loop control. """
+        """ Moves to a location using closed loop control. """
         self.set_target(pos)
         self.enable_feedback(True)
 
@@ -264,7 +266,7 @@ class Actor(Motion):
                 return
 
     def at_target(self, delta_pos=None):
-        """ Indicates whether the stage is at the target position
+        """ Indicates whether the stage is at the target position.
         
         delta_pos is the tolerance within which the stage is considered
         'at position'
@@ -321,7 +323,7 @@ class Axis(Enum):
 
 class ECC100(Motion):
     """
-    Class for interfacing with the Attocube ECC100 controller. Windows-only.
+    Interfaces with the Attocube ECC100 controller. Windows-only.
     """
     def __init__(self, device_id=None):
         """ Connects to the attocube controller.
@@ -348,9 +350,7 @@ class ECC100(Motion):
         self._default_actors = self.actors
 
     def _handle_err(self, retval, message=None, func=None):
-        """ This function prints the error code corresponding to 'retval', as
-        returned by functions from the ecc.dll library.
-        """
+        """ Handles the error codes returned from the functions in ecc.dll. """
         if retval == 0:
             return
         lines = []
@@ -409,7 +409,9 @@ class ECC100(Motion):
 
     def _Connect(self):
         """
-        Attempts to open a connection to the controller. If successful, sets
+        Attempts to open a connection to the controller.
+        
+        If successful, sets
         the device handle self._dev_handle. Reads from self._dev_num.
         """
         handle = c_int32()
@@ -438,7 +440,7 @@ class ECC100(Motion):
     @check_units(amplitude='mV')
     @check_enums(axis=Axis)
     def _controlAmplitude(self, axis, amplitude='0 mV', set=False):
-        """ Controls the amplitude (in mV) of the specified axis. """
+        """ Controls the applied voltage for the specified axis. """
         amplitude = c_int32(int(amplitude.to('mV').magnitude))
         ret = self._lib.ECC_controlAmplitude(self._dev_handle, axis.value,
                                              byref(amplitude), set)
@@ -784,11 +786,11 @@ class ECC100(Motion):
         self._default_actors = actors
     
     def wait_until_at_position(self, actors=None, delta_pos=None):
-        """Waits to return until all actors in the list actor are at the target
+        """Waits to return until all actors are at the target
         position
         
         If actors is None, then the default actors are used.  The default actors
-        set using set_default_actors
+        are set using set_default_actors
         """
         if actors is None:
             actors = self._default_actors
@@ -798,7 +800,7 @@ class ECC100(Motion):
             actor.wait_until_at_position(delta_pos=delta)
 
     def move_to(self, positions, actors=None, wait=False):
-        """ Move to the positions in the list positions
+        """ Moves to the positions in the list positions.
         
         actors is a list of type Actor, or one can use the default actors, set
         by set_default_actors
@@ -813,7 +815,9 @@ class ECC100(Motion):
             self.wait_until_at_position(actors)
 
     def get_target(self, actors=None):
-        """ Gets the target positions of the actors in the list actors
+        """ Gets the target positions of the actors in the list actors.
+        
+        Returns a list of target positions.
         
         actors is a list of type Actor, or one can use the default actors, set
         by set_default_actors
@@ -826,7 +830,7 @@ class ECC100(Motion):
         return targets
         
     def set_target(self, target, actors=None):
-        """ Sets the target positions of the actors in the list actors
+        """ Sets the target positions of the actors in the list actors.
         
         target is a list of position that are unitful pint quantities
         
@@ -839,7 +843,7 @@ class ECC100(Motion):
             actor.set_target(pos)
 
     def get_position(self, actors=None):
-        """ Gets the positions of the actors in the list actors
+        """ Gets the positions of the actors in the list actors.
         
         actors is a list of type Actor, or one can use the default actors, set
         by set_default_actors
