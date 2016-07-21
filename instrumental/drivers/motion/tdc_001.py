@@ -5,7 +5,7 @@
 Driver for controlling Thorlabs TDC001 T-Cube DC Servo Motor Controllers using
 the Kinesis SDK.
 
-One must place Thorlabs.MotionControl.DeviceManager.dll and Thorlabs.MotionControl.FilterFlipper.dll
+One must place Thorlabs.MotionControl.DeviceManager.dll and Thorlabs.MotionControl.TCube.DCServo.dll
 in the path.
 """
 
@@ -84,7 +84,7 @@ class SoftwareApproachPolicy(Enum):
 
 
 class TDC001(Motion):
-    """ Class for controlling Thorlabs TDC001 T-Cube DC Servo Motor Controllers
+    """ Controlling Thorlabs TDC001 T-Cube DC Servo Motor Controllers
     
     Takes the serial number of the device as a string.
     
@@ -126,12 +126,12 @@ class TDC001(Motion):
         return self._NiceTDC.Open()
 
     def close(self):
+        """Closes the connectin to the device"""
         return self._NiceTDC.Close()
 
     @check_units(polling_period = 'ms')
     def _start_polling(self, polling_period='200ms'):
-        """Starts polling the device to update its status with the given period
-        provided, rounded to the nearest millisecond 
+        """Starts polling to periodically update the device status. 
         
         Parameters
         ----------
@@ -151,6 +151,7 @@ class TDC001(Motion):
         return
 
     def get_status(self):
+        """ Returns the status registry bits from the device."""
         self._NiceTDC.RequestStatusBits()
         status_bits = self._NiceTDC.GetStatusBits()
         return self.Status(status_bits)
@@ -182,15 +183,19 @@ class TDC001(Motion):
         return int(steps_per_rev), int(gearbox_ratio), float(pitch)
 
     def get_position(self):
-        """ Returns an instance of the Position enumerator indicating the
-        position of the flipper at the most recent polling event. """
+        """ Returns the position of the motor.
+        
+        Note that this represents the position at the most recent polling
+        event."""
         self._NiceTDC.RequestPosition()
         position =  self._NiceTDC.GetPosition()
         return position*self.encoder_to_real_world_units_conversion_factor
 
     def move_to(self, position):
-        """ Commands the motor to move to the indicated position and then returns
-        immediately.
+        """ Moves to the indicated position
+        
+        
+        Returns immediately.
         
         Parameters
         ----------
@@ -206,8 +211,8 @@ class TDC001(Motion):
 
     @check_units(delay='ms')
     def move_and_wait(self, position, delay='100ms', tol=1):
-        """ Commands the flipper to move to the indicated position and returns
-        only once the flipper has reached that position.
+        """ Moves to the indicated position and waits until that position is
+        reached.
 
         Parameters
         ----------
@@ -222,35 +227,41 @@ class TDC001(Motion):
             sleep(delay.to('s').magnitude)
 
     def at_position(self, position, tol=1):
-        """Returns true if the motor is at the specified position.
+        """Indicates whether the motor is at the given position.
+        
+        
 
         Parameters
         ----------
-        position: pint quantity of units self.real_world_units """
+        position: pint quantity of units self.real_world_units
+        tol: int representing the number of encoder counts within which the
+        motor is considered to be at position"""
         self._NiceTDC.RequestPosition()
         enc_position = self._get_encoder_value(position)
         at_pos = abs(self._NiceTDC.GetPosition() - enc_position) <= tol
         return at_pos
 
     def home(self):
-        """ Performs the homing function """
+        """ Homes the device """
         return self._NiceTDC.Home()
 
     @check_enums(software_approach_policy=SoftwareApproachPolicy)
     def _set_software_approach_policy(self, software_approach_policy):
-        """ Sets the the 'software approach policy', which controls over what
-        range of values the motor is allowed to move to.   This is done using
-        the SoftwareApproachPolicy enumerator """
+        """ Controls what range of values the motor is allowed to move to.
+        
+        This is done using the SoftwareApproachPolicy enumerator """
         self._NiceTDC.SetLimitsSoftwareApproachPolicy(software_approach_policy.value)
 
     def _get_software_approach_policy(self):
-        """ Gets the the 'software approach policy', which controls over what
-        range of values the motor is allowed to move to.   This is done using
-        the SoftwareApproachPolicy enumerator """
+        """ Gets the range of values the motor is allowed to move to.
+        
+        Returns an instance of SoftwareApproachPolicy enumerator """
         software_approach_policy = self._NiceTDC.GetSoftLimitMode()
         return self.SoftwareApproachPolicy(software_approach_policy)
 
     class Status():
+        """ Stores information about the status of the device from the status
+        bits. """
         def __init__(self, status_bits):
             nbits=32
             self._status_bits = status_bits
@@ -273,7 +284,7 @@ class TDC001(Motion):
 
 
 class NiceTDC001(NiceLib):
-    """ This class provides a convenient low-level wrapper for the library
+    """ Provides a convenient low-level wrapper for the library
     Thorlabs.MotionControl.TCube.DCServo.dll"""
     _ret_wrap = None
     _struct_maker = None
