@@ -13,7 +13,7 @@ from enum import Enum
 from time import sleep
 from numpy import zeros
 import os.path
-from nicelib import NiceLib, NiceObject
+from nicelib import NiceLib, NiceObjectDef
 from cffi import FFI
 from . import Motion
 from .. import _ParamDict
@@ -275,7 +275,7 @@ class TDC001(Motion):
 class NiceTDC001(NiceLib):
     """ This class provides a convenient low-level wrapper for the library
     Thorlabs.MotionControl.TCube.DCServo.dll"""
-    _err_wrap = None
+    _ret_wrap = None
     _struct_maker = None
     _ffi = ffi
     _lib = lib
@@ -291,7 +291,7 @@ class NiceTDC001(NiceLib):
     GetDeviceListByTypeExt = ('buf', 'len', 'in')
     GetDeviceListByTypesExt = ('buf', 'len', 'in', 'in')
 
-    TDC001 = NiceObject({
+    TDC001 = NiceObjectDef({
         'GetDeviceInfo': ('in', 'out'),
         'Open': ('in'),
         'Close': ('in'),

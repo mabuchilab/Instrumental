@@ -12,7 +12,7 @@ from enum import Enum
 from time import sleep
 import os.path
 from cffi import FFI
-from nicelib import NiceLib, NiceObject
+from nicelib import NiceLib, NiceObjectDef
 from . import Motion
 from .. import _ParamDict
 from ... import Q_
@@ -72,7 +72,7 @@ def list_instruments():
 class NiceFilterFlipper(NiceLib):
     """ This class provides a convenient low-level wrapper for the library
     Thorlabs.MotionControl.FilterFlipper.dll"""
-    _err_wrap = None
+    _ret_wrap = None
     _struct_maker = None
     _ffi = ffi
     _lib = lib
@@ -89,7 +89,7 @@ class NiceFilterFlipper(NiceLib):
     GetDeviceListByTypeExt = ('buf', 'len', 'in')
     GetDeviceListByTypesExt = ('buf', 'len', 'in', 'in')
     
-    Flipper = NiceObject({
+    Flipper = NiceObjectDef({
         'GetDeviceInfo' : ('in', 'out'),
         'Open' : ('in'),
         'Close' : ('in'),
