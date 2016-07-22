@@ -1,0 +1,8 @@
+Attocube ECC100 Motion Controller
+=====================
+
+.. toctree::
+
+.. automodule:: instrumental.drivers.motion.ecc100
+    :members:
+    :undoc-members:

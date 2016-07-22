@@ -1,0 +1,8 @@
+T-Cube DC Servo Motor Controller (TDC001)
+=====================
+
+.. toctree::
+
+.. automodule:: instrumental.drivers.motion.tdc_001
+    :members:
+    :undoc-members:
