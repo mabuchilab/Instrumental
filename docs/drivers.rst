@@ -19,6 +19,9 @@ NI-VISA) to interface with connected devices.
     funcgenerators
     powermeters
     wavemeters
+    lockins
+    motion
+    lasers
 
 
 -------------------------------------------------------------------------------
