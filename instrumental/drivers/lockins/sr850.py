@@ -281,7 +281,7 @@ class StatusByte(Enum):
     service_request = 6
 
 class SR850:
-    """ This class interfaces with the SRS model SR850 Lock-in Amplifier
+    """ Interfaces with the SRS model SR850 Lock-in Amplifier
     """
     
     def __init__(self, inst, rs232_interface=True):
@@ -339,194 +339,258 @@ class SR850:
     
     @check_units(frequency='Hz')
     def set_reference_frequency(self, frequency):
+        """ Sets the freqeuncy of the reference source"""
         return self._set('FREQ', 'Hz', frequency)   
 
     def get_reference_frequency(self):
+        """Returns the frequency of the reference source"""
         return self._get('FREQ', 'Hz')
     
     @check_units(phase = 'degrees')
     def set_reference_phase(self, phase):
+        """ Sets the phase shift of the reference source"""
         return self._set('PHAS', 'degrees', phase)   
 
     def get_reference_phase(self):
+        """Returns the phase shift of the reference source"""
         return self._get('PHAS', 'degrees')
 
     @check_enums(reference_source=ReferenceSource)
     def set_reference_source(self, reference_source):
+        """ Sets the source used for the reference frequency.
+        
+        reference_source should be of type ReferenceSource
+        """
         return self._set_enum('FMOD', reference_source)
 
     def get_reference_source(self):
+        """ Returns the source used for the reference frequency.
+        
+        Returns type ReferenceSource
+        """
         return self._get_enum('FMOD', ReferenceSource)
 
     @check_enums(sweep_type=SweepType)
     def set_frequency_sweep_type(self, sweep_type):
+        """ Sets whether a sweep is linear or logarithmic.
+        
+        sweep_type should be of type SweepType
+        """
         return self._set_enum('SWPT', sweep_type)
 
     def get_frequency_sweep_type(self):
+        """ Returns whether a sweep is linear or logarithmic.
+        
+        Returns type SweepType"""
         return self._get_enum('SWPT', SweepType)
 
     @check_units(frequency='Hz')
     def set_start_frequency(self, frequency):
+        " Sets the frequency a sweep starts at"""
         return self._set('SLLM', 'Hz', frequency)   
 
     def get_start_frequency(self):
+        """ Returns the freqeuncy that a sweep starts at"""
         return self._get('SLLM', 'Hz')
 
     @check_units(frequency='Hz')
     def set_stop_frequency(self, frequency):
+        """Sets the frequency that a sweep stops at"""
         return self._set('SULM', 'Hz', frequency)   
 
     @check_units(frequency='Hz')
     def get_stop_frequency(self):
+        """Returns the frequency that a sweep stops at"""
         return self._get('SULM', 'Hz')
 
     @check_enums(reference_slope=ReferenceSlope)
     def set_reference_slope(self, reference_slope):
+        """ Sets the mode with wich the reference source is discriminated.
+        
+        This is only relevant when an external source is used.
+        
+        reference_slope should be of type ReferenceSlope"""
         return self._set_enum('RSLP', reference_slope)
 
     def get_reference_slope(self):
+        """Returns the mode with wich the reference source is discriminated."""
         return self._get_enum('RSLP', ReferenceSlope)
 
     def set_detection_harmonic(self, harmonic):
+        """ Sets the detection harmonic """
         return self._set('HARM', None, harmonic)   
 
     def get_detection_harmonic(self):
+        """ Returns the detection harmonic """
         return self._get('HARM', None)
 
     @check_units(amplitude='V')
     def set_sine_amplitude(self, amplitude):
        """  Sets the amplitude of the sine output.
+       
        Must be between 0.004 and 5V.
-       (Rounds to 0.002 V) 
+       (Rounds to nearest 0.002 V) 
        """
        return self._set('SLVL', 'V', amplitude)   
 
     def get_sine_amplitude(self):
+        """ Returns the amplitude of the sine output, in Volts."""
         return self._get('SLVL', 'V') 
 
     @check_enums(input_configuration=InputConfiguration)
     def set_input_configuration(self, input_configuration):
-        """ Sets the input configuration using the InputConfiguration
-        enumerator """
+        """ Sets the input configuration.
+        
+        input_conusing should be of type InputConfiguration
+        """
         return self._set_enum('ISRC', input_configuration)
 
     def get_input_configuration(self):
+        """ Returns the input configuration."""
         return self._get_enum('ISRC', InputConfiguration)
 
     @check_enums(current_gain=CurrentGain)
     def set_current_gain(self, current_gain):
-        """ Sets the conversion gain of the current input using the enumerator
-        CurrentGain """
+        """ Sets the conversion gain of the input current.
+        
+        Use the enumerator CurrentGain """
         return self._set_enum('IGAN', current_gain)
 
     def get_current_gain(self):
+        """Returns the conversion gain of the input current """
         return self._get_enum('IGAN', CurrentGain)
 
     @check_enums(input_ground=InputGround)
     def set_input_ground(self, input_ground):
-        """ Sets the input shield grounding using the enumerator InputGround"""
+        """ Sets the input shield grounding mode.
+        
+        Use the enumerator InputGround"""
         return self._set_enum('IGND', input_ground)
 
     def get_input_ground(self):
+        """ Returns the input shield grounding mode."""
         return self._get_enum('IGND', InputGround)
 
     @check_enums(input_coupling=InputCoupling)
     def set_input_coupling(self, input_coupling):
-        """ Sets the input coupling to AC or DC using the enumerator
-        InputCoupling"""
+        """ Sets the input coupling mode
+        Use the enumerator InputCoupling"""
         return self._set_enum('ICPL', input_coupling)
 
     def get_input_coupling(self):
+        """ Returns the input couplig mode"""
         return self._get_enum('ICPL', InputCoupling)
 
     @check_enums(line_filter=LineFilter)
     def set_line_filter_status(self, line_filter):
-        """ Sets the configuration of the line filters using the enumerator
-        LineFilter"""
+        """ Sets the configuration of the line filters.
+        
+        Use the enumerator LineFilter"""
         return self._set_enum('ILIN', line_filter)
 
     def get_line_filter_status(self):
+        """ Returns the configuratin of the line filters"""
         return self._get_enum('ILIN', LineFilter)
 
     @check_enums(sensitivity=Sensitivity)
     def set_sensitivity(self, sensitivity):
-        """ Sets the sensitivity of the instrument using the enumerator
-        Sensitivity"""
+        """ Sets the sensitivity of the instrument.
+        
+        Use the enumerator Sensitivity"""
         return self._set_enum('SENS', sensitivity)
 
     def get_sensitivity(self):
+        """Returns the sensitivity setting of the instrument """
         return self._get_enum('SENS', Sensitivity)
 
     @check_enums(reserve_mode=ReserveMode)
     def set_reserve_mode(self, reserve_mode):
-        """ Sets the reserve mode of the instrument using the enumerator
-        ReserveMode"""
+        """ Sets the reserve mode of the instrument
+        
+        Use the enumerator ReserveMode"""
         return self._set_enum('RMOD', reserve_mode)
 
     def get_reserve_mode(self):
+        """ Returns the reserve mode of the instrument."""
         return self._get_enum('RMOD', ReserveMode)
 
     def set_reserve(self, reserve):
-        """ Sets the manual dynamic reserve.  Reserve should be an integer 
+        """ Sets the manual dynamic reserve.
+        
+        Reserve should be an integer 
         between 0 and 5, inclusive. 0 sets the minimum reserve for the current
         time constant and sensitivity.  Each increment increases the reserve
         by 10dB. """
         return self._set('RSRV', None, reserve)   
 
     def get_reserve(self):
+        """ Returns the current value of the dynamic reserve."""
         return self._get('RSVR', None)
 
     @check_enums(time_constant=TimeConstant)
     def set_time_constant(self, time_constant):
-        """ Sets the time constant of the instrument using the enumerator
-        TimeConstant"""
+        """ Sets the time constant of the instrument
+        
+        Use the enumerator TimeConstant"""
         return self._set_enum('OFLT', time_constant)
 
     def get_time_constant(self):
+        """Get the current time constant of the instrument."""
         return self._get_enum('OFLT', TimeConstant)
 
     @check_enums(low_pass_slope=LowPassSlope)
     def set_low_pass_slope(self, low_pass_slope):
-        """ Sets the slope for the low pass filter using the enumerator
-        LowPassSlope"""
+        """ Sets the slope for the low pass filter
+        
+        Use the enumerator LowPassSlope"""
         return self._set_enum('OFSL', low_pass_slope)
 
     def get_low_pass_slope(self):
+        """ Returns the slope of the low pass filter."""
         return self._get_enum('OFSL', LowPassSlope)
 
     @check_enums(synchronous_filter=SynchronousFilter)
     def set_synchronous_filter(self, synchronous_filter):
-        """ Sets the state of the synchronous filter using the enumerator
-        SynchronousFilter.  Note that the synchronous filter only operates is
+        """ Sets the state of the synchronous filter.
+        
+        Use the enumerator SynchronousFilter.
+        Note that the synchronous filter only operates if
         the detection frequency is below 200Hz"""
         return self._set_enum('SYNC', synchronous_filter)
 
     def get_synchronous_filter(self):
+        """Returns the state of the synchronous filter."""
         return self._get_enum('SYNC', SynchronousFilter)
 
     @check_enums(ch1_output_source=Ch1OutputSource)
     def set_ch1_output_source(self, ch1_output_source):
-        """ Sets the output source for channel 1 using the enumerator
-        Ch1OutputSource. """
+        """ Sets the output source for channel 1.
+        
+        Use the enumerator Ch1OutputSource. """
         return self._set_enum('FOUT1,', ch1_output_source)
 
     def get_ch1_output_source(self):
+        """Returns the output source for channel 1."""
         return self._get_enum('FOUT?1', Ch1OutputSource, QM=False)
 
     @check_enums(ch2_output_source=Ch2OutputSource)
     def set_ch2_output_source(self, ch2_output_source):
-        """ Sets the output source for channel 2 using the enumerator
-        Ch2OutputSource. """
+        """ Sets the output source for channel 2
+        
+        Use the enumerator Ch2OutputSource. """
         return self._set_enum('FOUT2,', ch2_output_source)
 
     def get_ch2_output_source(self):
+        """Returns the output source for channel 2."""
         return self._get_enum('FOUT?2', Ch2OutputSource, QM=False)
 
     @check_enums(offset_selector=OffsetSelector)
     def set_output_offsets_and_expands(self, offset_selector, offset,
                                        expand):
-        """ Sets the offsets and expands for the quadrature selected by
-        offset_selector, which should be of type OffsetSelector.
+        """ Sets the offsets and expands for the selected quadrature.
+
+        offset_selector is of type OffsetSelector, and indicates which
+        quadrature to use.
         Note that offset_selector should be in percent, and expand should
         be an integer between 1 and 256 """
         offset = offset
@@ -538,6 +602,9 @@ class SR850:
 
     @check_enums(offset_selector=OffsetSelector)
     def get_output_offsets_and_expands(self, offset_selector):
+        """ Returns the offsets and expands for the selected quadrature.
+        
+        offset_selector should be of type OffsetSelector"""
         command_string = "OEXP? {}".format(offset_selector.value)
         value = self._inst.query(command_string)
         offset, expand = value.split(',')
@@ -545,120 +612,151 @@ class SR850:
 
     @check_enums(offset_selector=OffsetSelector)
     def auto_offset(self, offset_selector):
-        """ Automatically offsets the quadrature selected by enumeraotr 
-        offset_selector of type OffsetSelector to zero. """  
+        """ Automatically offsets the selected quadrature to zero
+        
+        offset_selector should be of type OffsetSelector """  
         self._set_enum('AOFF', offset_selector)
 
-    @check_enums(trace=TraceNumber, multiply_1=Multiply, divide=Divide,
+    @check_enums(trace=TraceNumber, m1=Multiply, m2=Multiply, d=Divide,
                  store=Store)
-    def set_trace_definitions(self, trace, multiply_1,
-                              multiply_2=Multiply.unity, divide=Divide.unity,
+    def set_trace_definitions(self, trace, m1,
+                              m2=Multiply.unity, d=Divide.unity,
                               store=Store.stored):
-        """ Sets the definition of the trace 'trace' to be
-        multiply_1*multiply_2/divide.
-        Note that trace should be an enumerator of Trace,
-        multiply_1 and multiply_2 should be enumerators of Multiply,
-        divide should be an enumerator of Divide,
+        """ Sets the definition of the given trace 'trace' to be
+        m1*m2/d.
+        
+        Trace should be an enumerator of Trace,
+        m1 and m2 should be enumerators of Multiply,
+        d should be an enumerator of Divide,
         and store should be an enumerator of Store.        
         """
-        multiply_1 = multiply_1.value
-        multiply_2 = multiply_2.value
-        divide = divide.value
+        m1 = m1.value
+        m2 = m2.value
+        d = d.value
         trace = trace.value
         store = store.value
         command_string = "TRCD {}, {}, {}, {}, {}"
         
-        command_string = command_string.format(trace, multiply_1, multiply_2,
-                                               divide, store)
+        command_string = command_string.format(trace, m1, m2,
+                                               d, store)
         self._inst.write(command_string)
 
     @check_enums(trace=TraceNumber)
     def get_trace_definitions(self, trace):
+        """ Returns the definition of the given trace.
+        
+        Trace should be an enumerator of Trace.
+        The trace definition is of the form m1*m2/d        
+        
+        Returns
+        --------
+        
+        m1, m2 of type Multiply
+        d of type Divide
+        store of type Store
+        """
         command_string = "TRCD? {}".format(trace.value)
         value = self._inst.query(command_string)
-        multiply_1, multiply_2, divide, store = value.split(',')
-        multiply_1 = Multiply(int(multiply_1))
-        multiply_2 = Multiply(int(multiply_2))
-        divide = Divide(int(divide))
+        m1, m2, d, store = value.split(',')
+        m1 = Multiply(int(m1))
+        m2 = Multiply(int(m2))
+        d = Divide(int(d))
         store = Store(int(store))
-        return multiply_1, multiply_2, divide, store
+        return m1, m2, d, store
 
     @check_enums(scan_sample_rate=ScanSampleRate)
     def set_scan_sample_rate(self, scan_sample_rate):
-        """ Sets the scan sample rate using the enumerator ScanSampleRate. """
+        """ Sets the sampling rate of a scan.
+        
+        Use the enumerator ScanSampleRate. """
         return self._set_enum('SRAT', scan_sample_rate)
 
     def get_scan_sample_rate(self):
+        """ Sets the sampling rate of a scan. """
         return self._get_enum('SRAT', ScanSampleRate)
 
     @check_units(scan_length='s')
     def set_scan_length(self, scan_length):
-        """ Sets the scan length in seconds. """
+        """ Sets the scan length."""
         return self._set('SLEN', 's', scan_length)   
 
     def get_scan_length(self):
+        """Returns the scan length."""
         return self._get('SLEN', 's')
 
     @check_enums(scan_mode=ScanMode)
     def set_scan_mode(self, scan_mode):
-        """ Sets the scan mode using the enumerator ScanMode. """
+        """ Sets the scan mode.
+        Use the enumerator ScanMode. """
         return self._set_enum('SEND', scan_mode)
 
     def get_scan_mode(self):
+        """Returns the scan mode."""
         return self._get_enum('SEND', ScanMode)
 
     def trigger(self):
-        """ initiates a trigger event """
-        self.send_command('TRIG')
+        """ Initiates a trigger event. """
+        self._send_command('TRIG')
 
     @check_enums(aux_in=AuxInput)
     def get_aux_in(self, aux_in):
-        """ Returns the voltage of the auxillary input specified by the
-        enumerator aux_in of type AuxIn.  """
+        """ Returns the voltage of the specified auxillary input.
+        
+        aux_in should be of type AuxIn  """
         command_string = 'OAUX?{}'.format(aux_in.value)
         return self._get(command_string, 'V', QM=False)
 
     @check_enums(trigger_start_scan_mode=TriggerStartScanMode)
     def set_trigger_start_scan_mode(self, trigger_start_scan_mode):
-        """ Sets the mode in which the trigger initiates a scan using the
-        enumerator TriggerStartScanMode. """
+        """ Sets the mode in which the trigger initiates a scan.
+        
+        Use the enumerator TriggerStartScanMode. """
         return self._set_enum('TSTR', trigger_start_scan_mode)
 
     def get_trigger_start_scan_mode(self):
+        """Returns the mode in which the trigger initiates a scan."""
         return self._get_enum('TSTR', TriggerStartScanMode)
 
     def start_scan(self):
-        """ Starts or resumes a scan/sweep.  Has no effect if a scan is already
+        """ Starts or resumes a scan/sweep.
+        
+        Has no effect if a scan is already
         in progress. """
-        self.send_command('STRT')
+        self._send_command('STRT')
 
     def pause_scan(self):
-        """ Pauses a scan or sweep.  If no scans are in progress, then this
-        command has no effect. """
-        self.send_command('PAUS')
+        """ Pauses a scan or sweep.
+        
+        Has no effect is no scans are in progress."""
+        self._send_command('PAUS')
 
     def reset_scan(self):
-        """ Resets a scan, whether in progress, finished, or paused.  Note that
-        this erases the data buffer. """
-        self.send_command('REST')
+        """ Resets a scan.
+        
+        This works whether a scan is in progress, finished, or paused.
+        Note that the data buffer is erased. """
+        self._send_command('REST')
 
     def auto_gain(self):
-        """ Performs the auto-gain function.  Note that this function does not
-        return until the auto-gain process has completed."""
-        self.send_command('AGAN')
+        """ Performs the auto-gain function.
+        
+        Note that this function does not
+        return until the process has completed."""
+        self._send_command('AGAN')
 
     def auto_reserve(self):
         """ Performs the auto-reserve function """
-        self.send_command('ARSV')
+        self._send_command('ARSV')
 
     def auto_phase(self):
         """ Performs the auto-phase function """
-        self.send_command('APHS')
+        self._send_command('APHS')
 
     @check_enums(output_type=OutputType)
     def read_output(self, output_type):
-        """ Reads the value of the indicated output, which should be of
-        enumerator type OutputType. """
+        """ Returns the value of the indicated output
+        
+        use type OutputType. """
         command_string = "OUTP?{}".format(output_type.value)
         if output_type in [OutputType.X, OutputType.Y, OutputType.R]:
             units = 'V'
@@ -668,23 +766,27 @@ class SR850:
 
     @check_enums(trace_number=TraceNumber)
     def read_trace_value(self, trace_number, units=None):
-        """ reads the current value of trace number 'trace_number', which
-        should be of enumeraror class TraceNumber.
-        If specified, units are added to the returned value. """
+        """ Returns the current value of indicated trace
+        
+        trace_number should be of enumeraror class TraceNumber.
+        If specified, units are added to the returned value.
+        units should be a string."""
         command_string = "OUTR? {}".format(trace_number.value)
         return self._get(command_string, units, QM=False)
 
     @check_enums(aux_input=AuxInput)
     def read_aux_input(self, aux_input):
-        """ Reads the value of the specified aux input, which should be of
-        enumerator type AuxInput"""
+        """ Returns the value of the specified aux input
+        
+        use type AuxInput"""
         command_string = "OAUX? {}".format(aux_input.value)
         return self._get(command_string, 'V', QM=False)
 
     def read_simultaneously(self, parameters):
-        """ reads simultaneosly the values of between 2 and 6 parameters given
-        in the list parameters, which should contain elements of the class
-        Parameter """
+        """ Returns simultaneosly the values the given parameters
+        
+        the list parameters should have between two and 6 elements of the type
+        Parameter"""
         command_string = "SNAP?"
         i = 0
         for parameter in parameters:
@@ -702,25 +804,33 @@ class SR850:
 
     @check_enums(trace_number=TraceNumber)
     def trace_length(self, trace_number):
-        """ returns the number of points in the specified trace, which should
-        be an element of the enumerator TraceNumber """
+        """ Returns the number of points in the specified trace
+        
+        use the enumerator TraceNumber """
         command_string = "SPTS? {}".format(trace_number.value)
         return self._get(command_string, None, QM=False).magnitude
 
     @check_enums(trace_number=TraceNumber)
     def get_trace(self, trace_number, points=None, units=None, binary=True):
-        """ This command gets a vector containing the trace indicated by
-        trace_number, which should be an element of TraceNumber.
-        Points is a list of two integers - the first indicates the position
-        of the first value to be read, while the second indicates the number
-        of values to be read.  By default, all points are read.
-        Units can also be added to the returned vectors, using units. If 
-        'binary' is True, then the data transfer is binary (instead of
-        ASCII), which is usually about 4 times faster.
+        """ Returns a vector of the values stored in the indicated trace
         
         If get_trace times out while transferring data, the constants
         BINARY_TIME_PER_POINT and or ASCII_TIME_PER_POINT may need to be
-        increased."""
+        increased        
+        
+        Parameters
+        ----------
+        
+        trace_number should be an element of TraceNumber.
+        
+        points is a list of two integers - the first indicates the position
+        of the first value to be read, while the second indicates the number
+        of values to be read.  By default, all points are read.
+        
+        units - string indicating the proper units of the trace
+        binary - boolean indicating the method of data transfer.  Using binary
+        is usually about 4 times faster.
+        """
         if points is None:
             points = [0, self.trace_length(trace_number)]
         if binary:
@@ -730,7 +840,7 @@ class SR850:
         command_string = "{}? {}, {}, {}".format(command, trace_number.value,
                                                    points[0], points[1])
         if binary:
-            self.send_command(command_string)
+            self._send_command(command_string)
             timeout = self._inst.timeout
             read_termination = self._inst.read_termination
             end_input = self._inst.end_input
@@ -760,31 +870,35 @@ class SR850:
 
     @check_enums(alarm_mode=AlarmMode)
     def set_alarm_mode(self, alarm_mode):
-        """ Sets the alarm on or off using the enumerator AlarmMode. """
+        """ Sets the audible alarm on or off.
+        
+        Use the enumerator AlarmMode. """
         return self._set_enum('ALRM', alarm_mode)
 
     def get_alarm_mode(self):
+        """Returns whether the audible alarm is on or off."""
         return self._get_enum('ALRM', AlarmMode)
 
     def scan_in_progress(self):
-        """ Returns true if no scan is in progress.  Note that a paused scan is
-        counted as being in progress """
+        """Indicates if a scan is in progress.
+        
+        Note that a paused scan is counted as being in progress """
         status_byte = StatusByte.no_scan_in_progress
         return not self._read_status_byte(status_byte)
 
     def command_execution_in_progress(self):
-        """ Returns true if a command execution is in progress. """
+        """ Indicates if a command is currently being executed. """
         status_byte = StatusByte.no_command_execution_in_progress
         return not self._read_status_byte(status_byte)
 
     def _reset(self):
         """ Resets the machine to its defaults. """
-        self.send_command("*rst")
+        self._send_command("*rst")
 
     def clear_registers(self):
         """ Clears all status registers, except for status enable registers.
         """
-        self.send_command("*CLS")
+        self._send_command("*CLS")
 
     def _get(self, command_string, unit_string, QM=True):
         if QM:
@@ -796,7 +910,7 @@ class SR850:
         value = Q_(value)
         command_string = "{} {}".format(command_string,
                                            value.to(unit_string).magnitude)
-        self.send_command(command_string)
+        self._send_command(command_string)
 
     def _get_enum(self, command_string, enum_class, QM=True):
         value = self._get(command_string, None, QM=QM)
@@ -805,7 +919,7 @@ class SR850:
     def _set_enum(self, command_string, enum_value):
         enum_value = enum_value.value
         command_string = "{} {}".format(command_string, enum_value)
-        self.send_command(command_string)
+        self._send_command(command_string)
 
     @check_enums(status_byte=StatusByte)
     def _read_status_byte(self, status_byte):
@@ -815,7 +929,7 @@ class SR850:
         value = self._inst.query(command_string)
         return bool(int(value))
     
-    def send_command(self, command_string):
+    def _send_command(self, command_string):
         self._inst.write(command_string)
 
     def close(self):
