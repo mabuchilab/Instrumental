@@ -1,7 +1,9 @@
 # -*- coding: utf-8  -*-
 # Copyright 2016 Nate Bogdanowicz and Christopher Rogers
 """
-Driver for Tobtica FemtoFiber Lasers.  The femtofiber drivers, which among
+Driver for Tobtica FemtoFiber Lasers.
+
+The femtofiber drivers, which among
 other things make the usb connection appear as a serial port, must be
 installed (available from http://www.toptica.com/products/ultrafast_fiber_lasers/femtofiber_smart/femtosecond_erbium_fiber_laser_1560_nm_femtoferb)
 """
@@ -27,8 +29,9 @@ def _instrument(params):
 
 class FemtoFiber(Laser):
     """
-    A femtoFiber laser. Currently, lasers can only be accessed by their
-    serial port address.
+    A femtoFiber laser.
+    
+    Lasers can only be accessed by their serial port address.
     """
     def __init__(self, port):
         self._inst = visa.instrument(port)
@@ -76,7 +79,7 @@ class FemtoFiber(Laser):
 
     def is_on(self):
         """
-        Returns True if the laser is on, and returns False is the laser is off.
+        Indicates if the laser is on (True) or off (False).
         """
         message = self._ask('(param-ref laser:en)')
         message = bool_dict[message]
