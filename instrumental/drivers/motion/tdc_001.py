@@ -200,6 +200,7 @@ class TDC001(Motion):
         Parameters
         ----------
         position: pint quantity of units self.real_world_units """
+        position = Q_(position)
         position = self._get_encoder_value(position)
         value = self._NiceTDC.MoveToPosition(position)
         return value
@@ -222,6 +223,7 @@ class TDC001(Motion):
         tol: int
             the tolerance, in encoder units, to which the motor is considered
             at position"""
+        position = Q_(position)
         self.move_to(position)
         while not self.at_position(position, tol):
             sleep(delay.to('s').magnitude)
@@ -236,6 +238,7 @@ class TDC001(Motion):
         position: pint quantity of units self.real_world_units
         tol: int representing the number of encoder counts within which the
         motor is considered to be at position"""
+        position = Q_(position)
         self._NiceTDC.RequestPosition()
         enc_position = self._get_encoder_value(position)
         at_pos = abs(self._NiceTDC.GetPosition() - enc_position) <= tol

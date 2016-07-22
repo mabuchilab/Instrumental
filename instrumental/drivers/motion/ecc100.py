@@ -235,6 +235,7 @@ class Actor(Motion):
         target: target position, in nm for linear stages, in micro radians for
         goniometers
         """
+        target = Q_(target)
         target_mag = target.to(self._pos_units).magnitude
         self._c._controlTargetPosition(self.axis, target_mag, set=True)
 
@@ -245,6 +246,7 @@ class Actor(Motion):
 
     def move_to(self, pos, wait=False):
         """ Moves to a location using closed loop control. """
+        pos = Q_(pos)
         self.set_target(pos)
         self.enable_feedback(True)
 
