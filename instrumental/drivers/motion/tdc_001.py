@@ -18,7 +18,7 @@ from cffi import FFI
 from . import Motion
 from .. import _ParamDict
 from ... import Q_, u
-from ...errors import InstrumentTypeError
+from ...errors import InstrumentTypeError, Error
 from ..util import check_units, check_enums
 
 lib_name = 'Thorlabs.MotionControl.TCube.DCServo.dll'
@@ -179,7 +179,7 @@ class TDC001(Motion):
         (steps_per_rev: int,
         gearbox_ratio: int,
         pitch: float)"""
-        steps_per_rev, gearbox_ratio, pitch, _ = self._NiceTDC.GetMotorParams()
+        steps_per_rev, gearbox_ratio, pitch = self._NiceTDC.GetMotorParams()
         return int(steps_per_rev), int(gearbox_ratio), float(pitch)
 
     def get_position(self):
@@ -206,7 +206,7 @@ class TDC001(Motion):
         return value
 
     def _get_encoder_value(self, position):
-        position.to(self.real_world_units)
+        position = position.to(self.real_world_units)
         position = position/self.encoder_to_real_world_units_conversion_factor
         return int(position.magnitude)
 
@@ -289,15 +289,25 @@ class TDC001(Motion):
 class NiceTDC001(NiceLib):
     """ Provides a convenient low-level wrapper for the library
     Thorlabs.MotionControl.TCube.DCServo.dll"""
-    _ret_wrap = None
+    _ret_wrap = 'error_code'
     _struct_maker = None
     _ffi = ffi
     _lib = lib
     _prefix = ('CC_', 'TLI_')
     _buflen = 512
 
+    def _ret_bool_error_code(retval):
+        retval = bool(retval)
+        if retval==False:
+            raise TDC001Error('The function did not execute successfully')
+
+    def _ret_error_code(retval):
+        if not (retval == 0 or retval==None):
+            raise TDC001Error(error_dict[retval]) 
+
     BuildDeviceList = ()
-    TLI_GetDeviceListSize = ()
+    GetDeviceListSize = ({'ret': 'return'},)
+    GetDeviceInfo = ('in', 'out', {'ret': 'bool_error_code'})
     GetDeviceList = ('out')
     GetDeviceListByType = ('out', 'in')
     GetDeviceListByTypes = ('out', 'in', 'in')
@@ -306,53 +316,52 @@ class NiceTDC001(NiceLib):
     GetDeviceListByTypesExt = ('buf', 'len', 'in', 'in')
 
     TDC001 = NiceObjectDef({
-        'GetDeviceInfo': ('in', 'out'),
         'Open': ('in'),
-        'Close': ('in'),
-        'Identify': ('in'),
-        'GetLEDswitches': ('in'),
+        'Close': ('in', {'ret': 'return'}),
+        'Identify': ('in', {'ret': 'return'}),
+        'GetLEDswitches': ('in', {'ret': 'return'}),
         'SetLEDswitches': ('in', 'in'),
         'GetHardwareInfo': ('in', 'buf', 'len', 'out', 'out', 'buf', 'len',
                               'out', 'out', 'out'),
         'GetHardwareInfoBlock': ('in', 'out'),
-        'GetHubBay': ('in'),
-        'GetSoftwareVersion': ('in'),
-        'LoadSettings': ('in'),
-        'PersistSettings': ('in'),
+        'GetHubBay': ('in', {'ret': 'return'}),
+        'GetSoftwareVersion': ('in', {'ret': 'return'}),
+        'LoadSettings': ('in', {'ret': 'bool_error_code'}),
+        'PersistSettings': ('in', {'ret': 'bool_error_code'}),
         'DisableChannel': ('in'),
         'EnableChannel': ('in'),
-        'GetNumberPositions': ('in'),
-        'CanHome': ('in'),
-        'NeedsHoming': ('in'),
+        'GetNumberPositions': ('in', {'ret': 'return'}),
+        'CanHome': ('in', {'ret': 'bool_error_code'}),
+        'NeedsHoming': ('in', {'ret': 'return'}),
         'Home': ('in'),
         'MoveToPosition': ('in', 'in'),
-        'GetPosition': ('in'),
-        'GetHomingVelocity': ('in'),
+        'GetPosition': ('in', {'ret': 'return'}),
+        'GetHomingVelocity': ('in', {'ret': 'return'}),
         'SetHomingVelocity': ('in', 'in'),
         'MoveRelative': ('in', 'in'),
         'GetJogMode': ('in', 'out', 'out'),
         'SetJogMode': ('in', 'in', 'in'),
         'SetJogStepSize': ('in', 'in'),
-        'GetJogStepSize': ('in'),
+        'GetJogStepSize': ('in', {'ret': 'return'}),
         'GetJogVelParams': ('in', 'out', 'out'),
         'SetJogVelParams': ('in', 'in', 'in'),
         'MoveJog': ('in', 'in'),
         'SetVelParams': ('in', 'in', 'in'),
         'GetVelParams': ('in', 'out', 'out'),
         'MoveAtVelocity': ('in', 'in'),
-        'SetDirection': ('in', 'in'),
+        'SetDirection': ('in', 'in', {'ret': 'return'}),
         'StopImmediate': ('in'),
         'StopProfiled': ('in'),
-        'GetBacklash': ('in'),
+        'GetBacklash': ('in', {'ret': 'return'}),
         'SetBacklash': ('in', 'in'),
-        'GetPositionCounter': ('in'),
+        'GetPositionCounter': ('in', {'ret': 'return'}),
         'SetPositionCounter': ('in', 'in'),
-        'GetEncoderCounter': ('in'),
+        'GetEncoderCounter': ('in', {'ret': 'return'}),
         'SetEncoderCounter': ('in', 'in'),
         'GetLimitSwitchParams': ('in', 'out', 'out', 'out', 'out', 'out'),
         'SetLimitSwitchParams': ('in', 'in', 'in', 'in', 'in', 'in'),
-        'GetSoftLimitMode': ('in'),
-        'SetLimitsSoftwareApproachPolicy': ('in', 'in'),
+        'GetSoftLimitMode': ('in', {'ret': 'return'}),
+        'SetLimitsSoftwareApproachPolicy': ('in', 'in', {'ret': 'return'}),
         'GetButtonParams': ('in', 'out', 'out', 'out', 'out'),
         'SetButtonParams': ('in', 'in', 'in', 'in'),
         'SetPotentiometerParams': ('in', 'in', 'in', 'in'),
@@ -360,10 +369,10 @@ class NiceTDC001(NiceLib):
         'GetVelParamsBlock': ('in', 'out'),
         'SetVelParamsBlock': ('in', 'in'),
         'SetMoveAbsolutePosition': ('in', 'in'),
-        'GetMoveAbsolutePosition': ('in'),
+        'GetMoveAbsolutePosition': ('in', {'ret': 'return'}),
         'MoveAbsolute': ('in'),
         'SetMoveRelativeDistance': ('in', 'in'),
-        'GetMoveRelativeDistance': ('in'),
+        'GetMoveRelativeDistance': ('in', {'ret': 'return'}),
         'MoveRelativeDistance': ('in'),
         'GetHomingParamsBlock': ('in', 'out'),
         'SetHomingParamsBlock': ('in', 'in'),
@@ -380,24 +389,54 @@ class NiceTDC001(NiceLib):
         'SuspendMoveMessages': ('in'),
         'ResumeMoveMessages': ('in'),
         'RequestPosition': ('in'),
-        'RequestStatusBits': ('in'),
-        'GetStatusBits': ('in'),    
-        'StartPolling': ('in', 'in'),
-        'PollingDuration': ('in'),
-        'StopPolling': ('in'),
+        'RequestStatusBits': ('in', {'ret': 'return'}),
+        'GetStatusBits': ('in', {'ret': 'return'}),    
+        'StartPolling': ('in', 'in', {'ret': 'bool_error_code'}),
+        'PollingDuration': ('in', {'ret': 'return'}),
+        'StopPolling': ('in', {'ret': 'return'}),
         'RequestSettings': ('in'),
-        'GetStageAxisMinPos': ('in'),
-        'GetStageAxisMaxPos': ('in'),
+        'GetStageAxisMinPos': ('in', {'ret': 'return'}),
+        'GetStageAxisMaxPos': ('in', {'ret': 'return'}),
         'SetStageAxisLimits': ('in', 'in', 'in'),
         'SetMotorTravelMode': ('in', 'in'),
-        'GetMotorTravelMode': ('in'),
+        'GetMotorTravelMode': ('in', {'ret': 'return'}),
         'SetMotorParams': ('in', 'in', 'in', 'in'),
         'GetMotorParams': ('in', 'out', 'out', 'out'),
         'SetMotorParamsExt': ('in', 'in', 'in', 'in'),
         'GetMotorParamsExt': ('in', 'out', 'out', 'out'),
-        'ClearMessageQueue': ('in'),
-        'RegisterMessageCallback': ('in', 'in'),
-        'MessageQueueSize': ('in'),
-        'GetNextMessage': ('in', 'out', 'out', 'out'),
-        'WaitForMessage': ('in', 'in', 'in', 'in'),
+        'ClearMessageQueue': ('in', {'ret': 'return'}),
+        'RegisterMessageCallback': ('in', 'in', {'ret': 'return'}),
+        'MessageQueueSize': ('in', {'ret': 'return'}),
+        'GetNextMessage': ('in', 'out', 'out', 'out', {'ret': 'bool_error_code'}),
+        'WaitForMessage': ('in', 'in', 'in', 'in', {'ret': 'bool_error_code'}),
     })
+
+
+class TDC001Error(Error):
+    pass
+
+
+error_dict = {0: 'OK - Success  ',
+              1: 'InvalidHandle - The FTDI functions have not been initialized.',
+              2: 'DeviceNotFound - The Device could not be found.',  
+              3: 'DeviceNotOpened - The Device must be opened before it can be accessed ',
+              4: 'IOError - An I/O Error has occured in the FTDI chip.',
+              5: 'InsufficientResources - There are Insufficient resources to run this application.',
+              6: 'InvalidParameter - An invalid parameter has been supplied to the device.' , 
+              7: 'DeviceNotPresent - The Device is no longer present',
+              8: 'IncorrectDevice - The device detected does not match that expected./term>',
+              32: 'ALREADY_OPEN - Attempt to open a device that was already open.',
+              33: 'NO_RESPONSE - The device has stopped responding.',
+              34: 'NOT_IMPLEMENTED - This function has not been implemented.', 
+              35: 'FAULT_REPORTED - The device has reported a fault.',
+              36: 'INVALID_OPERATION - The function could not be completed at this time.',
+              36: 'DISCONNECTING - The function could not be completed because the device is disconnected.',
+              41: 'FIRMWARE_BUG - The firmware has thrown an error.',
+              42: 'INITIALIZATION_FAILURE - The device has failed to initialize',
+              43: 'INVALID_CHANNEL - An Invalid channel address was supplied.',
+              37: 'UNHOMED - The device cannot perform this function until it has been Homed.',
+              38: 'INVALID_POSITION - The function cannot be performed as it would result in an illegal position.',
+              39: 'INVALID_VELOCITY_PARAMETER - An invalid velocity parameter was supplied',
+              44: 'CANNOT_HOME_DEVICE - This device does not support Homing ',
+              45: 'TL_JOG_CONTINOUS_MODE - An invalid jog mode was supplied for the jog function.'
+}
