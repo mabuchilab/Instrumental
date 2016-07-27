@@ -5,13 +5,15 @@ only.
 
 Copyright Christopher Rogers 2016
 """
-from ctypes import c_char_p, c_int, WinDLL, c_bool, byref, c_double, create_string_buffer, c_int32, c_ulong, c_long
-from visa import ResourceManager, VisaIOError
-from . import Spectrometer
-from ...errors import InstrumentTypeError, Error, InstrumentNotFoundError
 import numpy as np
 import time
 import sys
+from ctypes import (c_char_p, c_int, WinDLL, c_bool, byref, c_double,
+                    create_string_buffer, c_int32, c_ulong, c_long)
+from visa import ResourceManager, VisaIOError
+from . import Spectrometer
+from ...errors import InstrumentTypeError, Error, InstrumentNotFoundError
+
 
 
 if sys.maxsize > 2**32:
