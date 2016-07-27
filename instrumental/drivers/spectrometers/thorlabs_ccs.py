@@ -8,6 +8,7 @@ Copyright Christopher Rogers 2016
 from ctypes import c_char_p, c_int, WinDLL, c_bool, byref, c_double, create_string_buffer, c_int32, c_ulong, c_long
 from visa import ResourceManager, VisaIOError
 from . import Spectrometer
+from ...errors import InstrumentTypeError, Error, InstrumentNotFoundError
 import numpy as np
 import time
 import sys
@@ -17,7 +18,6 @@ if sys.maxsize > 2**32:
     lib = WinDLL('TLCCS_64')
 else:
     lib = WinDLL('TLCCS_32')
-from .. import InstrumentTypeError, InstrumentNotFoundError
 
 _SPEC_TYPES = {'0x8081': 'CCS100', '0x8083': 'CCS125', '0x8085': 'CCS150',
                '0x8087': 'CCS175', '0x8089': 'CCS200'}
@@ -35,7 +35,6 @@ def _instrument(params):
     """ Possible params include 'ccs_usb_address', 'ccs_serial_number',
     'ccs_model'.
     """
-    print("Checking for CCS spectromer...")
     if 'ccs_usb_address' in params:
         return get_spectrometer(address=params['ccs_usb_address'])
     elif 'ccs_serial_number' in params:
@@ -55,7 +54,6 @@ def list_spectrometers():
     try:
         raw_spec_list = rm.list_resources(search_string)
     except:
-        print "Could not find any attached CCSXXX series spectrometers"
         return spectrometer_list
 
     for spec in raw_spec_list:
@@ -222,7 +220,7 @@ class CCS(Spectrometer):
         self.stop_and_clear()
         data = data/num_avg
         if saturated:
-            print('Warning: Some or all of the spectra taken were saturated')
+            pass
         if use_background is True:
             data = data-self._background
         return [data, self._wavelength_array]
@@ -345,8 +343,7 @@ class LowLevel():
         elif attribute is 'cal_mode':
             attribute = ATTR_CAL_MODE
         else:
-            print('Warning: Invalid Attribute - could not get attribute')
-            return
+            raise Error('Invalid Attribute in get_attribute')
         state = c_ulong()
         status = lib.tlccs_getAttribute(self._handle, attribute, byref(state))
         self.error_message(status)
@@ -359,8 +356,7 @@ class LowLevel():
         if attribute is 'user_data':
             attribute = ATTR_USER_DATA
         else:
-            print('Warning: Invalid Attribute - could not set attribute')
-            return
+            raise Error('Invalid Attribute in set_attribute')
         state = c_long(state)
         status = lib.tlccs_setAttribute(self._handle, attribute, state)
         self.error_message(status)
@@ -382,8 +378,7 @@ class LowLevel():
             The wavelengths (in nm) to be used in the interpolation.
         """
         if num_points < 4 or num_points > 10:
-            print('Warning: Invalid number of data points - unable to set pixel-wavelength correlation')
-            return
+            raise Error('Invalid number of data points in set_wavelength_data')
         pixels = c_int32 * num_points
         pixels = pixels()
         wavelengths = c_double * num_points
@@ -460,15 +455,13 @@ class LowLevel():
         if not num_points:
             num_points = self.num_pixels
         if (num_points + start_index) > self.num_pixels:
-            print('Warning: Invalid combination of start_index and num_points - could not set amplitude data')
-            return
+            raise Error('Invalid combination of start_index and num_points in set_amplitude_data')
         if mode is 'one_time':
             mode = c_int32(1)
         elif mode is 'store':
             mode = c_int32(2)
         else:
-            print('Warning: Invalid mode selected - could not set amplitude data')
-            return
+            raise Error('Invalid mode selected in set_amplitude_data')
         factors = c_double * num_points
         factors = factors()
         for i in range(num_points):
@@ -508,15 +501,13 @@ class LowLevel():
         if not num_points:
             num_points = self.num_pixels
         if (num_points + start_index) > self.num_pixels:
-            print('Warning: Invalid combination of start_index and num_points - could not get amplitude data')
-            return
+            raise Error('Invalid combination of start_index and num_points in get_amplitude_data')
         if mode is 'one_time':
             mode = c_int32(1)
         elif mode is 'stored':
             mode = c_int32(2)
         else:
-            print('Warning: Invalid mode selected - could not get amplitude data')
-            return
+            raise Error('Invalid mode selected in get_amplitude_data.')
         factors = c_double * num_points
         factors = factors()
         num_points = c_int32(num_points)
@@ -771,5 +762,5 @@ class LowLevel():
 
     def error_message(self, status):
         if status < 0:
-            print(VisaIOError(status).message)
+            raise Error(VisaIOError(status).message)
     
