@@ -221,7 +221,7 @@ class CCS(Spectrometer):
         data = data/num_avg
         if saturated:
             pass
-        if use_background is True:
+        if use_background:
             data = data-self._background
         return [data, self._wavelength_array]
 
@@ -338,9 +338,9 @@ class LowLevel():
         data is being used, while  a return value of 1 indicates that
         Thorlabs data is being used.
         """
-        if attribute is 'user_data':
+        if attribute == 'user_data':
             attribute = ATTR_USER_DATA
-        elif attribute is 'cal_mode':
+        elif attribute == 'cal_mode':
             attribute = ATTR_CAL_MODE
         else:
             raise Error('Invalid Attribute in get_attribute')
@@ -353,7 +353,7 @@ class LowLevel():
         """
         Sets the spectrometer's 'user_data' attribute to 'state'.
         """
-        if attribute is 'user_data':
+        if attribute == 'user_data':
             attribute = ATTR_USER_DATA
         else:
             raise Error('Invalid Attribute in set_attribute')
@@ -456,9 +456,9 @@ class LowLevel():
             num_points = self.num_pixels
         if (num_points + start_index) > self.num_pixels:
             raise Error('Invalid combination of start_index and num_points in set_amplitude_data')
-        if mode is 'one_time':
+        if mode == 'one_time':
             mode = c_int32(1)
-        elif mode is 'store':
+        elif mode == 'store':
             mode = c_int32(2)
         else:
             raise Error('Invalid mode selected in set_amplitude_data')
@@ -502,9 +502,9 @@ class LowLevel():
             num_points = self.num_pixels
         if (num_points + start_index) > self.num_pixels:
             raise Error('Invalid combination of start_index and num_points in get_amplitude_data')
-        if mode is 'one_time':
+        if mode == 'one_time':
             mode = c_int32(1)
-        elif mode is 'stored':
+        elif mode == 'stored':
             mode = c_int32(2)
         else:
             raise Error('Invalid mode selected in get_amplitude_data.')
