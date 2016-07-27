@@ -47,7 +47,9 @@ _acceptable_params = OrderedDict((
     ('lasers.femto_ferb',
          ['femto_ferb_port']),
     ('motion.esp300',
-         ['esp300_port'])
+         ['esp300_port']),
+    ('spectrometers.thorlabs_ccs',
+         ['ccs_usb_address', 'ccs_serial_number', 'ccs_model'])
 ))
 
 _visa_models = OrderedDict((
