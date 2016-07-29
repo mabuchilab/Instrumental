@@ -77,8 +77,18 @@ class NiceCCSLib(NiceLib):
     _struct_maker = None
     _prefix = ('tlccs_')
     _buflen = 256
+    _ret_wrap = 'error_code'
+
+    def _ret_error_code(error_code, niceobj):
+        if error_code != 0:
+            if niceobj is None:
+                raise ThorlabsCCSError(NiceCCSLib.error_message(0, error_code)[0])
+            else:
+                raise ThorlabsCCSError(niceobj.error_message(error_code)[0])
 
     init = ('in', 'in', 'in', 'out')
+    error_message = ('in', 'in', 'buf[512]')
+
     NiceCCS = NiceObjectDef({
         'close': ('in'),
         'setIntegrationTime': ('in', 'in'),
@@ -104,7 +114,7 @@ class NiceCCSLib(NiceLib):
         'setAttribute': ('in', 'in', 'in'),
         'getAttribute': ('in', 'in', 'out'),
         'error_query': ('in', 'out', 'out'),
-        'error_message': ('in', 'in', 'buf[512]')
+        'error_message': ('in', 'in', 'buf[512]', {'ret': 'ignore'})
     })
 
 
@@ -194,25 +204,18 @@ class CCS(Spectrometer):
             This parameter specifies whether the instrument is reset during the
             initialization process.
         """
-        handle, error_code = self._NiceCCSLib.init(self._address, True, False)
+        handle = self._NiceCCSLib.init(self._address, True, False)
         self._NiceCCS = self._NiceCCSLib.NiceCCS(handle)
-        self._handle_error(error_code)
-
-    def _handle_error(self, error_code):
-        if error_code !=0:
-            raise ThorlabsCCSError(self._NiceCCS.error_message(error_code)[0])
 
     def close(self):
         """
         Closes the spectrometer.
         """
-        error_code = self._NiceCCS.close()
-        self._handle_error(error_code)
+        self._NiceCCS.close()
 
     def get_integration_time(self):
         """ Returns the integration time."""
-        int_time, error_code = self._NiceCCS.getIntegrationTime()
-        self._handle_error(error_code)
+        int_time =  self._NiceCCS.getIntegrationTime()
         return Q_(int_time, 's')
 
     @check_units(integration_time = 's')
@@ -220,15 +223,14 @@ class CCS(Spectrometer):
         """ Sets the integration time."""
         if stop_scan:
             self.stop_scan()
-        error_code = self._NiceCCS.setIntegrationTime(integration_time.to('s').magnitude)
-        self._handle_error(error_code)
+        self._NiceCCS.setIntegrationTime(integration_time.to('s').magnitude)
         return
 
     def start_single_scan(self):
-        self._handle_error(self._NiceCCS.startScan())
+        self._NiceCCS.startScan()
 
     def start_continuous_scan(self):
-        self._handle_error(self._NiceCCS.startScanCont())
+        self._NiceCCS.startScanCont()
 
     def start_scan_trg(self):
         """Arms spectrometer to wait for a signal from the external trigger
@@ -239,7 +241,7 @@ class CCS(Spectrometer):
         
         Note also that this cancels other scans in progress.
         """
-        self._handle_error(self._NiceCCS.startScanExtTrig())
+        self._NiceCCS.startScanExtTrig()
 
     def start_cont_scan_trg(self):
         """Arms spectrometer for continuous external triggering.
@@ -253,7 +255,7 @@ class CCS(Spectrometer):
         
         Note also that this cancels other scans in progress.
         """
-        self._handle_error(self._NiceCCS.startScanContExtTrig())
+        self._NiceCCS.startScanContExtTrig()
 
     def stop_scan(self):
         # This is hacky but they do not provide a good function to stop a scan.
@@ -273,8 +275,7 @@ class CCS(Spectrometer):
         (default), the method gets the current status directly from the
         spectrometer.
         """
-        status, error_code = self._NiceCCS.getDeviceStatus()
-        self._handle_error(error_code)
+        status= self._NiceCCS.getDeviceStatus()
         return Status(status)
 
     def is_data_ready(self):
@@ -315,8 +316,7 @@ class CCS(Spectrometer):
         -------
         data : numpy array of type float with of length NUM_RAW_PIXELS = 3648,
         """
-        data, error_code = self._NiceCCS.getScanData()
-        self._handle_error(error_code)
+        data = self._NiceCCS.getScanData()
         return self._cdata_to_numpy(data)
 
     def _cdata_to_numpy(self, cdata, data_type=float, size=None):
@@ -329,13 +329,12 @@ class CCS(Spectrometer):
         """Reads out the raw scan data.
         
         No amplitude correction is applied."""
-        data, error_code = self._NiceCCS.getRawScanData()
-        self._handle_error(error_code)
+        data = self._NiceCCS.getRawScanData()
         return self._cdata_to_numpy(data)        
 
     def reset(self):
         """ Resets the device."""
-        self._handle_error(self._NiceCCS.reset())
+        self._NiceCCS.reset()
 
     def stop_and_clear(self):
         """ Stops any scans in progress, and clears any data waiting to transmit."""
@@ -453,10 +452,8 @@ class CCS(Spectrometer):
                 raise ValueError("The wavelength and pixel arrays passed to calibrate_wavelength must be of the same length")
             if wavelength_array is None or pixel_array is None:
                 raise ValueError("wavelength_array and pixel_array must be passed to calibrate_wavelength if calibration_type is Calibration.User")
-            error_code = self._NiceCCS.setWavelengthData(pixel_array, wavelength_array, num_points)
-            self._handle_error(error_code)
-        wavelength_array, _, _, error_code = self._NiceCCS.getWavelengthData(calibration_type.value)
-        self._handle_error(error_code)
+            self._NiceCCS.setWavelengthData(pixel_array, wavelength_array, num_points)
+        wavelength_array, _, _ = self._NiceCCS.getWavelengthData(calibration_type.value)
         self._wavelength_array = self._cdata_to_numpy(wavelength_array)
         return self._wavelength_array
 
@@ -489,9 +486,8 @@ class CCS(Spectrometer):
         num_points = len(correction_factors)
         if (num_points + start_index) > NUM_RAW_PIXELS:
             raise ValueError('Invalid combination of start_index and num_points in set_amplitude_data')
-        error_code = self._NiceCCS.setAmplitudeData(correction_factors, num_points,
-                                                    start_index, mode.value)
-        self._handle_error(error_code)
+        self._NiceCCS.setAmplitudeData(correction_factors, num_points,
+                                       start_index, mode.value)
 
     def get_amplitude_data(self, mode=CorrectionType.Store):
         """Gets the amplitude correction factors.
@@ -510,14 +506,12 @@ class CCS(Spectrometer):
         """
         num_points = NUM_RAW_PIXELS
         start_index = 0
-        factors, error_code = self._NiceCCS.getAmplitudeData(start_index, num_points, mode.value)
-        self._handle_error(error_code)
+        factors = self._NiceCCS.getAmplitudeData(start_index, num_points, mode.value)
         return self._cdata_to_numpy(factors)
 
     def get_device_info(self):
         """Returns and instance of ID_Infor, containing various device 
         information."""
         rets = self._NiceCCS.identificationQuery()
-        self._handle_error(rets[-1])
-        return ID_Info(*list(rets[0:-1])) 
+        return ID_Info(*list(rets)) 
 
