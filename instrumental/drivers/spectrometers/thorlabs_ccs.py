@@ -79,7 +79,6 @@ class NiceCCSLib(NiceLib):
     _buflen = 256
 
     init = ('in', 'in', 'in', 'out')
-    identificationQuery= ('in', 'buf', 'buf', 'buf', 'buf', 'buf')
     NiceCCS = NiceObjectDef({
         'close': ('in'),
         'setIntegrationTime': ('in', 'in'),
