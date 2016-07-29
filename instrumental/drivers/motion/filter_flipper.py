@@ -49,7 +49,7 @@ def _instrument(params):
     """ Possible params include 'ff_serial'"""
     d = {}
     if 'ff_serial' in params:
-        d['serial'] = params['ff_serial']
+        d['serial'] = str(params['ff_serial'])
     if not d:
         raise InstrumentTypeError()
 
@@ -59,16 +59,14 @@ def list_instruments():
     flippers = []
     NiceFF = NiceFilterFlipper
     NiceFF.BuildDeviceList()
-    device_list = NiceFF.GetDeviceListByTypeExt(FILTER_FLIPPER_TYPE)
+    device_list = list(NiceFF.GetDeviceListByTypeExt(FILTER_FLIPPER_TYPE).split(','))
     for serial_number in device_list:
-        if serial_number != 0:
-            serial_number = serial_number[:-1]
+        if serial_number[0:2] == str(FILTER_FLIPPER_TYPE):
             params = _ParamDict("<Thorlabs_Filter_Flipper '{}'>".format(serial_number))
             params.module = 'motion.filter_flipper'
-            params['ff_serial'] = serial_number
+            params['ff_serial'] = str(serial_number)
             flippers.append(params)
     return flippers
-
 
 class NiceFilterFlipper(NiceLib):
     """ Provides a convenient low-level wrapper for the library
