@@ -49,7 +49,7 @@ _acceptable_params = OrderedDict((
     ('motion.esp300',
          ['esp300_port']),
     ('spectrometers.thorlabs_ccs',
-         ['ccs_usb_address', 'ccs_serial_number', 'ccs_model'])
+         ['ccs_usb_address', 'ccs_serial_number', 'ccs_model', 'module'])
 ))
 
 _visa_models = OrderedDict((
