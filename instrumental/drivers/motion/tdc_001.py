@@ -50,7 +50,7 @@ def _instrument(params):
     """ Possible params include 'tdc_serial'"""
     d = {}
     if 'tdc_serial' in params:
-        d['serial'] = params['tdc_serial']
+        d['serial'] = str(params['tdc_serial'])
     if not d:
         raise InstrumentTypeError()
     
@@ -60,13 +60,12 @@ def list_instruments():
     tdcs = []
     NiceTDC = NiceTDC001
     NiceTDC.BuildDeviceList()
-    device_list = NiceTDC.GetDeviceListByTypeExt(TDC001_TYPE)
+    device_list = list(NiceTDC.GetDeviceListByTypeExt(TDC001_TYPE).split(','))
     for serial_number in device_list:
-        if serial_number != 0:
-            serial_number = serial_number[:-1]
+        if serial_number[0:2] == str(TDC001_TYPE):
             params = _ParamDict("<Thorlabs_DC_Servo_T-Cube '{}'>".format(serial_number))
             params.module = 'motion.tdc_001'
-            params['tdc_serial'] = serial_number
+            params['tdc_serial'] = str(serial_number)
             tdcs.append(params)
     return tdcs
 
