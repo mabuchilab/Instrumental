@@ -31,6 +31,7 @@ lib = load_lib('picam', __package__)
 BYTES_PER_PIXEL = 2
 
 class NicePicamLib(NiceLib):
+    """Wrapper for Picam.dll"""
     _info = lib
     _buflen = 256
     _prefix = 'Picam_'
@@ -207,6 +208,7 @@ class NicePicamLib(NiceLib):
 
 
 class EnumTypes():
+    """ Class containg the enumerations in Picam.dll"""
     def __init__(self):
         enum_type_dict = self._get_enum_dict()
         for enum_type, enum in enum_type_dict.items():
@@ -234,6 +236,8 @@ class EnumTypes():
 PicamEnums = EnumTypes()
 
 class PicamRoi():
+    """ Class defining a region of interest.  
+    All values are in pixels.  """
     def __init__(self, x, width, y, height, x_binning=1, y_binning=1):
         self.x = x
         self.y = y
@@ -294,25 +298,11 @@ class PicamCamera():
         return self.getset_param(param, default=default)
 
     def set_frames(self, roi_list):
-        """Sets the camera to capture a single ROI on each frame, with the ROI
-        given by the input parameters.
+        """Sets the region(s) of interest for the camera.
 
-        Parameters
-        ----------
-        width, height: int
-        The number of physical x and y pixels, repectively, on the camera to
-        include in the frame
-
-        x0, y0: int
-        The  (in pixels) of the bottom row and left-most row, respectively, to
-        be included in the frame
-
-        x_binning, y_binning: int
-        The size of the on-chip pixel binning to be carried out in the x and y
-        directions, respectively.  Note that (width-x0) must be an integer
-        multiple of x_binning, and that (hieght-y0) must be an integer multiple
-        of y_binning
-        """
+        roi_list is a list containing region of interest elements, which can
+        be either instances of ``PicamRois`` or dictionaries that can be used
+        to instantiate ``PicamRois``"""
         for i in range(len(roi_list)):
             roi = roi_list[i]
             if not isinstance(roi, PicamRoi):
@@ -325,15 +315,12 @@ class PicamCamera():
                 text = "(height-y) must be an integer multiple of y_binning"
                 raise(PicamError(text))
         rois = self._create_rois(roi_list)
-        self.set_rois(rois)
+        self._set_rois(rois)
 
     def _create_rois(self, roi_list):
-        """ Returns a PicamRois structure created from the data in roi_data.
-
-        roi data should be a list which contains iterable items containing the
-        roi data.  Each iterable should be of the form (x, width, x_binning,
-        y, height, y_binning).
-        """
+        """ Returns a C data PicamRois structure created from roi_list
+        
+        roi_list shoudl be a list containing instances of ``PicamRois``"""
         N_roi = len(roi_list)
         roi_array = self._ffi.new('struct PicamRoi[{}]'.format(N_roi))
         for i in range(N_roi):
@@ -352,12 +339,8 @@ class PicamCamera():
         return rois
 
     def close(self):
+        """ Close the connection to the camera"""
         self._NicePicam.CloseCamera()
-
-    def is_camera_connected(self):
-        """Returns a boolean indicating whether the camera cam_name is
-        connected"""
-        return bool(self._NicePicam.IsCameraConnected())
 
     def get_cameraID(self):
         """Returns the PicamID structure for the camera with name cam_name"""
