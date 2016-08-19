@@ -15,58 +15,13 @@ of the headers installed with the Picam SDK.
 """
 
 from warnings import warn
-from numpy import frombuffer, log2, zeros, sum, uint16, hstack, vstack, rollaxis
+from numpy import frombuffer, sum, uint16, hstack, vstack
 from enum import Enum
 from nicelib import NiceLib, NiceObjectDef, load_lib
-from time import sleep
-import os.path
 from ...errors import Error, InstrumentNotFoundError
 from ..util import check_units, check_enums
 from ... import Q_
 
-#lib = CDLL('Picam')
-
-"""
-    _ret_wrap = 'error_code'
-
-    def _ret_error_code(error_code, niceobj):
-        if error_code != 0:
-            if niceobj is None:
-                raise ThorlabsCCSError(NiceCCSLib.error_message(0, error_code)[0])
-            else:
-                raise ThorlabsCCSError(niceobj.error_message(error_code)[0])
-
-    init = ('in', 'in', 'in', 'out')
-    error_message = ('in', 'in', 'buf[512]')
-
-    NiceCCS = NiceObjectDef({
-        'close': ('in'),
-        'setIntegrationTime': ('in', 'in'),
-        'getIntegrationTime': ('in', 'out'),
-        'startScan': ('in'),
-        'startScanCont': ('in'),
-        'startScanExtTrg': ('in'),
-        'startScanContExtTrg': ('in'),
-        'getDeviceStatus': ('in', 'out'),
-        'getScanData': ('in', 'arr[{}]'.format(NUM_RAW_PIXELS)),
-        'getRawScanData': ('in', 'out'),
-        'setWavelengthData': ('in', 'in', 'in', 'in'),
-        'getWavelengthData': ('in', 'in', 'arr[{}]'.format(NUM_RAW_PIXELS), 'out', 'out'),
-        'getUserCalibrationPoints': ('in', 'out', 'out', 'out'),
-        'setAmplitudeData': ('in', 'in', 'in', 'in', 'in'),
-        'getAmplitudeData': ('in', 'arr[{}]'.format(NUM_RAW_PIXELS), 'in', 'in', 'in'),
-        'identificationQuery': ('in', 'buf[256]', 'buf[256]', 'buf[256]', 'buf[256]', 'buf[256]'),
-        'revision_query': ('in', 'out', 'out'),
-        'reset': ('in'),
-        'self_test': ('in', 'out', 'out'),
-        'setUserText': ('in', 'in'),
-        'getUserText': ('in', 'out'),
-        'setAttribute': ('in', 'in', 'in'),
-        'getAttribute': ('in', 'in', 'out'),
-        'error_query': ('in', 'out', 'out'),
-        'error_message': ('in', 'in', 'buf[512]', {'ret': 'ignore'})
-    })
-"""
 
 class PicamError(Error):
     pass
