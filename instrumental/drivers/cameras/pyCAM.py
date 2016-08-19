@@ -257,6 +257,7 @@ class PicamAcquisitionError(PicamError):
             return "An unkown error with code {}".format(self.value)
 
 class PicamCamera():
+    """ A Picam Camera """
     def __init__(self, name, handle, NicePicam, ffi, NicePicamLib, picam):
         self.picam = picam
         self.name = name
@@ -268,26 +269,27 @@ class PicamCamera():
         self.rois = None
         self.enums = PicamEnums
         self.id = self._ffi.addressof(self._NicePicam.GetCameraID())
-        self.update_rois()
+        self._update_rois()
         self._rois_keep_alive = []
 
-    def update_rois(self):
+    def _update_rois(self):
         self.rois_keep_alive = []
         if self.rois is not None:
             self.picam.destroy_rois(self.rois)
-        self.rois = self.get_rois()
+        self.rois = self._get_rois()
         self.frame_shapes = self.get_frame_shapes()
         self.readout_stride = self.get_readout_stride()
         self.n_pixels_per_readout = self.readout_stride/BYTES_PER_PIXEL
 
-    def set_rois(self, rois, canset=False):
+    def _set_rois(self, rois, canset=False):
+        """ Set the region of interest structure. """
         param = self.enums.Parameter.Rois
         retval = self.getset_param(param, rois, canset)
         if not canset:
-            self.update_rois()
+            self._update_rois()
         return retval
 
-    def get_rois(self, default=False):
+    def _get_rois(self, default=False):
         param = self.enums.Parameter.Rois
         return self.getset_param(param, default=default)
 
