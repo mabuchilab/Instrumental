@@ -1,18 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jan 23 12:21:01 2015
-
-@author: Lab
-
 Copyright 2015 Christopher Rogers
 
 Class to control Princeton Instruments Cameras using the PICAM SDK
 
-Note that one needs to install PICAM from the Princeton Instruments ftp site,
-and then copy .dlls to the current working directory, or some other directory
-on the path.
-
-Also, make sure to not mix .dlls and headers from different PICAM releases ...
+Installation
+----------------
+The PICAM SDK must be installed.  It is available from the Princeton
+Instruments ftp site.
+The .dlls Picam.dll Picc.dll, Pida.dll and Pidi.dll must be copied to a
+directory on the system path.
+Note that the .dlls found first on the system path must match the version
+of the headers installed with the Picam SDK.
 """
 
 from warnings import warn
