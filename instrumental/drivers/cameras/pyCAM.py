@@ -282,20 +282,20 @@ class PicamCamera():
             self.picam.destroy_rois(self.rois)
         self.rois = self._get_rois()
         self.frame_shapes = self.get_frame_shapes()
-        self.readout_stride = self.get_readout_stride()
+        self.readout_stride = self._get_readout_stride()
         self.n_pixels_per_readout = self.readout_stride/BYTES_PER_PIXEL
 
     def _set_rois(self, rois, canset=False):
         """ Set the region of interest structure. """
         param = self.enums.Parameter.Rois
-        retval = self.getset_param(param, rois, canset)
+        retval = self._getset_param(param, rois, canset)
         if not canset:
             self._update_rois()
         return retval
 
     def _get_rois(self, default=False):
         param = self.enums.Parameter.Rois
-        return self.getset_param(param, default=default)
+        return self._getset_param(param, default=default)
 
     def set_frames(self, roi_list):
         """Sets the region(s) of interest for the camera.
@@ -347,7 +347,7 @@ class PicamCamera():
         return self._NicePicam.GetCameraID()
 
     def get_firmware_details(self):
-        """Returns the firmware details for the camera cam_id"""
+        """Returns the camera firmware details"""
         firmware_array, count = self._NicePicamLib.GetFirmwareDetails(self.id)
         if count == 0:
             warn("No Firmware details available for camera {}".format(self.cam_name))
@@ -356,21 +356,39 @@ class PicamCamera():
             name = self._ffi.string(firmware_array[i].name)
             detail = self._ffi.string(firmware_array[i].detail)
             firmware_details[name] = detail
-        self.destroy_firmware_details(firmware_array)
+        self._destroy_firmware_details(firmware_array)
         return firmware_details
 
-    def destroy_firmware_details(self, firmware_array):
+    def _destroy_firmware_details(self, firmware_array):
         """Releases the memory associated with the firmware details
-        'firmware'"""
+        ``firmware_array`` """
         self._NicePicamLib.DestroyFirmwareDetails(firmware_array)
 
-    def get_readout_stride(self, default=False):
-        """Returns the readout stride"""
+    def _get_readout_stride(self, default=False):
+        """Returns the length of a readout in bytes.  """
         param = self.enums.Parameter.ReadoutStride
-        return self.getset_param(param, default=default)
+        return self._getset_param(param, default=default)
 
+    def get_param(self, parameter, default=False):
+        """ Returns the value of the specified parameter.
+        
+        ``parameter`` should be an integer of corresponding to a PicamParameter
+        enumerator.
+        If ``default`` is ``True``, then the default value of the parameter is
+        returned."""
+        return self._getset_param(parameter, default=default)
 
-    def getset_param(self, parameter, value=None, canset=False,
+    def set_param(self, parameter, value=None, canset=False):
+        """ Sets the value of the specified parameter to ``value``.
+        
+        ``parameter`` should be an integer of corresponding to a PicamParameter
+        enumerator.
+        If ``canset`` is ``True``, then a boolean indicating whether it is possible
+        to set the parameter to ``value`` is returned.  Note that this does not
+        actually set the parameter."""
+        return self._getset_param(parameter, value, canset)
+
+    def _getset_param(self, parameter, value=None, canset=False,
                      default=False, commit=True):
         """Gets or sets the value of parameter 'parameter' for camera
         cam_name
@@ -384,27 +402,27 @@ class PicamCamera():
         """
         parameter = parameter.value
         if default:
-            return self.getParameterDefaultValue(parameter)
+            return self._getParameterDefaultValue(parameter)
         if value is not None:
-            settable = self.canSetParameterValue(parameter, value)
+            settable = self._canSetParameterValue(parameter, value)
         if canset is True:
             return settable
         if value is not None:
             if settable:
-                self.setParameterValue(parameter, value)
+                self._setParameterValue(parameter, value)
                 self.commit_parameters()
                 return
             else:
                 raise(PicamError("Value is not settable"))
                 return
-        value = self.getParameterValue(parameter)
+        value = self._getParameterValue(parameter)
         return value
 
-    def get_parameter_value_type(self, parameter):
-        """Returns the enumerator of type PicamValueType, indicating the data
-        type of parameter 'parameter'"""
-        test = self._NicePicam.GetParameterValueType(parameter)
-        return self.enums.ValueType(test)
+    def get_parameter_value_type(self, parameter_type):
+        """Returns an enumerator of ``ValueType`` indicating the data
+        type associated with ``parameter_type``"""
+        value_type = self._NicePicam.GetParameterValueType(parameter_type)
+        return self.enums.ValueType(value_type)
 
     def _turn_enum_into_integer(self, parameter, value=None):
         param_type = self.get_parameter_value_type(parameter)
@@ -415,8 +433,8 @@ class PicamCamera():
             param_type = self.enums.ValueType.Integer
         return param_type, value
 
-    def getParameterValue(self, parameter):
-        """Returns the value of parameter "parameter" for camera cam_name"""
+    def _getParameterValue(self, parameter):
+        """Returns the value of parameter ``parameter`` for camera cam_name"""
         data_type, _ = self._turn_enum_into_integer(parameter)
         if data_type == self.enums.ValueType.Rois:
             value = self._NicePicam.GetParameterRoisValue(parameter)
@@ -428,8 +446,8 @@ class PicamCamera():
         elif data_type == self.enums.ValueType.LargeInteger:
             return self._NicePicam.GetParameterLargeIntegerValue(parameter)
 
-    def setParameterValue(self, parameter, value):
-        """Sets the value of the parameter 'parameter' to value 'value'"""
+    def _setParameterValue(self, parameter, value):
+        """Sets the value of the parameter ``parameter`` to value 'value'"""
         data_type, value = self._turn_enum_into_integer(parameter, value)
         if data_type == self.enums.ValueType.Rois:
             self._NicePicam.SetParameterRoisValue(parameter, value)
@@ -440,8 +458,8 @@ class PicamCamera():
         elif data_type == self.enums.ValueType.LargeInteger:
             self._NicePicam.SetParameterLargeIntegerValue(parameter, value)
 
-    def canSetParameterValue(self, parameter, value):
-        """Returns a boolean indicating whether the parameter 'parameter' can
+    def _canSetParameterValue(self, parameter, value):
+        """Returns a boolean indicating whether the parameter ``parameter`` can
         be set to value 'value'"""
         data_type, value = self._turn_enum_into_integer(parameter, value)
         if data_type == self.enums.ValueType.Rois:
@@ -454,8 +472,8 @@ class PicamCamera():
             can_set = self._NicePicam.CanSetParameterLargeIntegerValue(parameter, value)
         return bool(can_set)
 
-    def getParameterDefaultValue(self, parameter):
-        """Returns the default value of parameter 'parameter' for camera
+    def _getParameterDefaultValue(self, parameter):
+        """Returns the default value of parameter ``parameter`` for camera
         cam_name"""
         data_type, _ = self._turn_enum_into_integer(parameter)
         if data_type == self.enums.ValueType.Rois:
@@ -474,24 +492,25 @@ class PicamCamera():
         return bool(self._NicePicam.AreParametersCommitted())
 
     def commit_parameters(self):
-        """Commits camera parameters for camera cam_name, and returns an array
-        of the parameters that were not correctly committed, and the length of
-        that array."""
+        """Commits camera parameters."""
         uncommitted, N = self._NicePicam.CommitParameters()
         if N != 0:
             raise PicamError("{} parameters were unsuccessfully committed.")
 
     def _c_address_to_numpy(self, address, size, data_type=float):
+        """ Creates a numpy array from a c array at ``address`` with bytesize
+        ``size`` """
         ffi = self._NicePicamLib._ffi
         # This copies the buffer
         buf = buffer(ffi.buffer(address, size)[:])
         return frombuffer(buf, data_type)
 
     def get_frame_shapes(self, rois=None):
-        """Returns a list of tuples, where the tuples correspond to the number
-        of x and y pixels in each region of interest contained in rois.
+        """Returns the region of interest frame shapes as a list of tuples
+        
+        The tuples correspond to the number of x and y pixels in each region of interest
 
-        If rois is None, then the rois for camera cam_name is used
+        If rois is None, then the current region of interest array is used
         """
         if rois is None:
             rois = self.rois
@@ -504,10 +523,9 @@ class PicamCamera():
         return shapes
 
     def start_acquisition(self):
-        """ This function begins an acquisition and returns immediately (before
-        the aqcuisition is completed).
+        """ This function begins an acquisition and returns immediately.
 
-        The number of readouts is set by the camera parameter ReadoutCount
+        The number of readouts is controlled by ``set_readout_count``.
         """
         self._NicePicam.StartAcquisition()
 
@@ -516,14 +534,12 @@ class PicamCamera():
         self._NicePicam.StopAcquisition()
 
     def is_aqcuisition_running(self):
-        """Returns a boolean indicating whether an aqcuisition is currently
-        running"""
+        """Returns a boolean indicating whether an aqcuisition is running"""
         return bool(self._NicePicam.IsAcquisitionRunning())
 
     @check_units(timeout = 'ms')
     def wait_for_aqcuisition_update(self, timeout='-1ms'):
-        """ Waits for a readout
-        """
+        """ Waits for a readout  """
         available, status = self._NicePicam.WaitForAcquisitionUpdate(timeout.to('ms').m)
         if status.errors != 0:
             raise PicamAcquisitionError(status.errors)
@@ -536,7 +552,7 @@ class PicamCamera():
         count = available_data.readout_count
         if count == 0:
             raise PicamError('There are no readouts in available_data')
-        readout_stride = self.get_readout_stride()
+        readout_stride = self._get_readout_stride()
         size = readout_stride * available_data.readout_count
         data = self._c_address_to_numpy(available_data.initial_readout,
                                         size, uint16)
@@ -584,34 +600,34 @@ class PicamCamera():
         """ Returns the readout rate (in units of Hz) of camera cam_name,
         given the current settings"""
         parameter = self.enums.Parameter.ReadoutRateCalculation
-        return Q_(self.getset_param(parameter, default=default), 'Hz')
+        return Q_(self._getset_param(parameter, default=default), 'Hz')
 
     def get_readout_time(self, default=False):
         """ Returns the readout time (in ms) """
         param = self.enums.Parameter.ReadoutTimeCalculation
-        return Q_(self.getset_param(param, default=default), 'ms')
+        return Q_(self._getset_param(param, default=default), 'ms')
 
     @check_units(exposure = 'ms')
     def set_exposure_time(self, exposure, canset=False):
         """sets the value of the exposure time """
         param = self.enums.Parameter.ExposureTime
-        return self.getset_param(param, exposure.to('ms').m, canset)
+        return self._getset_param(param, exposure.to('ms').m, canset)
 
     def get_exposure_time(self, default=False):
         """Returns value of the exposure time """
         param = self.enums.Parameter.ExposureTime
-        return Q_(self.getset_param(param, default=default), 'ms')
+        return Q_(self._getset_param(param, default=default), 'ms')
 
     @check_enums(gain = PicamEnums.AdcAnalogGain)
     def set_adc_gain(self, gain, canset=False):
         """Sets the ADC gain using an enum of type AdcAnalogGain."""
         param = self.enums.Parameter.AdcAnalogGain
-        return self.getset_param(param, gain, canset)
+        return self._getset_param(param, gain, canset)
 
     def get_adc_gain(self, default=False):
         """Gets the ADC gain. """
         param = self.enums.Parameter.AdcAnalogGain
-        value = self.getset_param(param, default=default)
+        value = self._getset_param(param, default=default)
         return self.enums.AdcAnalogGain(value)
 
     @check_units(frequency='MHz')
@@ -621,40 +637,40 @@ class PicamCamera():
         For many cameras, the possible values are very constrained - 
         typical ccd cameras accept only 2MHz and 0.1MHz work."""
         param = self.enums.Parameter.AdcSpeed
-        return self.getset_param(param, frequency.to('MHz').m, canset)
+        return self._getset_param(param, frequency.to('MHz').m, canset)
 
     def get_adc_speed(self, default=False):
         """Returns the ADC speed in MHz """
         param = self.enums.Parameter.AdcSpeed
-        value = self.getset_param(param, default=default)
+        value = self._getset_param(param, default=default)
         return Q_(value, 'MHz')
 
     def get_temperature_reading(self):
         """Returns the temperature of the sensor in degrees Centigrade"""
         param = self.enums.Parameter.SensorTemperatureReading
-        return Q_(self.getset_param(param), 'celsius')
+        return Q_(self._getset_param(param), 'celsius')
 
     @check_units(temperature = 'celsius')
     def set_temperature_setpoint(self, temperature, canset=False):
         """Set the temperature setpoint """
         param = self.enums.Parameter.SensorTemperatureSetPoint
-        return self.getset_param(param, temperature.to('celsius').m, canset)
+        return self._getset_param(param, temperature.to('celsius').m, canset)
 
     def get_temperature_setpoint(self, default=False):
         """Returns the temperature setpoint """
         param = self.enums.Parameter.SensorTemperatureSetPoint
-        value = self.getset_param(param, default=default)
+        value = self._getset_param(param, default=default)
         return Q_(value, 'celsius')
 
     def get_temperature_status(self):
         """Returns the temperature status """
         param = self.enums.Parameter.SensorTemperatureStatus
-        return self.enums.SensorTemperatureStatus(self.getset_param(param))
+        return self.enums.SensorTemperatureStatus(self._getset_param(param))
 
     def get_readout_count(self, default=False):
         """ Gets the number of readouts for an asynchronous aquire. """
         param = self.enums.Parameter.ReadoutCount
-        return self.getset_param(param, default=default)
+        return self._getset_param(param, default=default)
 
     def set_readout_count(self, readout_count=None, canset=False ):
         """ Sets the number of readouts for an asynchronous aquire.
@@ -662,12 +678,12 @@ class PicamCamera():
         This does NOT affect the number of readouts for self.aqcuire
         """
         param = self.enums.Parameter.ReadoutCount
-        return self.getset_param(param, readout_count, canset)
+        return self._getset_param(param, readout_count, canset)
 
     def get_time_stamp_mode(self, default=False):
         """ Get the mode for the timestamp portion of the frame metadata. """
         param = self.enums.Parameter.TimeStamps
-        return self.enums.TimeStampsMask(self.getset_param(param,
+        return self.enums.TimeStampsMask(self._getset_param(param,
                                                            default=default))
 
     @check_enums(gain = PicamEnums.AdcAnalogGain)
@@ -675,18 +691,18 @@ class PicamCamera():
         """ Sets the mode of the timestamp portion of the frame metadata using
         the enum ``TimeStampsMask`` """
         param = self.enums.Parameter.TimeStamps
-        return self.getset_param(param, mode, canset)
+        return self._getset_param(param, mode, canset)
 
     @check_enums(mode = PicamEnums.ShutterTimingMode)
     def set_shutter_mode(self, mode, canset=False):
         """ Controls the shutter operation mode using the enum ``ShutterTimingMode``."""
         param = self.enums.Parameter.ShutterTimingMode
-        return self.getset_param(param, mode, canset)
+        return self._getset_param(param, mode, canset)
 
     def get_shutter_mode(self, default=False):
         """ Get the shutter operation mode."""
         param = self.enums.Parameter.ShutterTimingMode
-        return self.enums.ShutterTimingMode(self.getset_param(param,
+        return self.enums.ShutterTimingMode(self._getset_param(param,
                                                               default=default))
 
     def open_shutter(self):
