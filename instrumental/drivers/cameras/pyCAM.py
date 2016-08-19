@@ -369,11 +369,6 @@ class PicamCamera():
         param = self.enums.Parameter.ReadoutStride
         return self.getset_param(param, default=default)
 
-    def is_valid_enum(self, enum):
-        is_valid = False
-        for enum_type in self.enums.__dict__.values():
-            is_valid = is_valid or (enum in enum_type)
-        return is_valid
 
     def getset_param(self, parameter, value=None, canset=False,
                      default=False, commit=True):
