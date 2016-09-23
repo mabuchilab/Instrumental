@@ -7,7 +7,7 @@ Driver module for Thorlabs power meters. Supports:
 """
 
 from . import PowerMeter
-from .. import _get_visa_instrument
+from .. import _get_visa_instrument, _ParamDict
 from ...errors import InstrumentTypeError
 from ... import Q_
 
@@ -31,6 +31,9 @@ class PM100D(PowerMeter):
 
     def __init__(self, visa_inst):
         self._inst = visa_inst
+        self._param_dict = _ParamDict(self.__class__.__name__)
+        self._param_dict['module'] = 'powermeters.thorlabs'
+        self._param_dict['visa_address'] = self._inst.resource_name
 
     def get_power(self):
         """Get the current power measurement
