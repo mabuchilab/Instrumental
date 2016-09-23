@@ -9,7 +9,7 @@ from enum import Enum
 from time import clock
 import numpy as np
 from cffi import FFI
-from nicelib import NiceLib, NiceObject
+from nicelib import NiceLib, NiceObjectDef
 from ._pixelfly import errortext
 from . import Camera
 from ..util import as_enum, unit_mag, check_units
@@ -54,7 +54,7 @@ def get_error_text(ret_code):
 
 
 class NicePCO(NiceLib):
-    def _err_wrap(code):
+    def _ret_wrap(code):
         if code != 0:
             e = Error(get_error_text(code))
             e.code = code & 0xFFFFFFFF
@@ -72,25 +72,25 @@ class NicePCO(NiceLib):
         return struct_p
 
     _ffi = ffi
-    _lib = lib
+    _ffilib = lib
     _prefix = 'PCO_'
 
     OpenCamera = ('inout', 'in')
     OpenCameraEx = ('inout', 'inout')
 
     # Special cases
-    def _GetTransferParameter(hcam):
+    def _GetTransferParameter(hcam, niceobj=None):
         params_p = ffi.new('PCO_SC2_CL_TRANSFER_PARAM *')
         void_p = ffi.cast('void *', params_p)
         lib.PCO_GetTransferParameter(hcam, void_p, ffi.sizeof(params_p[0]))
         # Should do error checking...
         return params_p[0]
 
-    def _SetTransferParametersAuto(hcam):
+    def _SetTransferParametersAuto(hcam, niceobj=None):
         lib.PCO_SetTransferParametersAuto(hcam, ffi.NULL, 0)
         # Should do error checking...
 
-    Camera = NiceObject({
+    Camera = NiceObjectDef({
         'CloseCamera': ('in'),
         'GetSizes': ('in', 'out', 'out', 'out', 'out'),
         'SetROI': ('in', 'in', 'in', 'in', 'in'),
