@@ -499,6 +499,25 @@ class AnalogIn(Channel):
                 raise DAQError("Must specify 0 or 2 of duration, fsamp, and n_samples")
         return data
 
+    def start_reading(self, fsamp=None, vmin=None, vmax=None):
+        buf_size = 10
+        self._mtask = mtask = self.daq._create_mini_task()
+        mtask.add_AI_channel(self.path, vmin=vmin, vmax=vmax)
+        mtask.config_timing(fsamp, buf_size, mode=SampleMode.continuous)
+        self._mtask.start()
+
+    def read_sample(self, timeout=None):
+        try:
+            return self._mtask.read_AI_scalar(timeout)
+        except DAQError as e:
+            if e.code == NiceNI.ErrorSamplesNotYetAvailable:
+                return None
+            raise
+
+    def stop_reading(self):
+        self._mtask.stop()
+        self._mtask = None
+
 
 class AnalogOut(Channel):
     type = 'AO'
