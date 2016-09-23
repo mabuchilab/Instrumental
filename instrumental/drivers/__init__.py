@@ -28,6 +28,8 @@ _acceptable_params = OrderedDict((
         ['visa_address']),
     ('scopes.tektronix',
         ['visa_address']),
+    ('multimeters.hp',
+        ['visa_address']),
     ('powermeters.thorlabs',
         ['visa_address']),
     ('powermeters.newport',
@@ -43,6 +45,10 @@ _visa_models = OrderedDict((
         'TEKTRONIX',
         ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102',
          'AFG3251', 'AFG3252']
+    )),
+    ('multimeters.hp', (
+        'HEWLETT-PACKARD',
+        ['34401A']
     )),
     ('scopes.tektronix', (
         'TEKTRONIX',
