@@ -3,19 +3,12 @@
 from enum import Enum
 from collections import OrderedDict
 import numpy as np
-from nicelib import NiceLib, NiceObject
+from nicelib import NiceLib, NiceObjectDef, load_lib
 from ... import Q_, u
 from ...errors import Error, InstrumentTypeError
 from ..util import check_units, check_enums
 from .. import _ParamDict
 from . import DAQ
-
-try:
-    from ._nilib import ffi, lib, defs
-except ImportError:
-    from ._build_ni import build
-    build()
-    from ._nilib import ffi, lib, defs
 
 
 __all__ = ['DAQError', 'NIDAQ']
@@ -53,14 +46,15 @@ class NotSupportedError(DAQError):
     pass
 
 
+info = load_lib('ni', __package__)
+
+
 class NiceNI(NiceLib):
-    _ffi = ffi
-    _lib = lib
-    _defs = defs
+    _info = info
     _prefix = ('DAQmx_', 'DAQmx')
     _buflen = 512
 
-    def _err_wrap(code):
+    def _ret_wrap(code):
         if code != 0:
             raise DAQError(code)
 
@@ -68,7 +62,7 @@ class NiceNI(NiceLib):
     GetSysDevNames = ('buf', 'len')
     CreateTask = ('in', 'out')
 
-    Task = NiceObject(doc="A Nice-wrapped NI Task", attrs={
+    Task = NiceObjectDef(doc="A Nice-wrapped NI Task", attrs={
         'StartTask': ('in'),
         'StopTask': ('in'),
         'ClearTask': ('in'),
@@ -89,7 +83,7 @@ class NiceNI(NiceLib):
         'CfgDigEdgeStartTrig': ('in', 'in', 'in'),
     })
 
-    Device = NiceObject({
+    Device = NiceObjectDef({
         'GetDevProductType': ('in', 'buf', 'len'),
         'GetDevAIPhysicalChans': ('in', 'buf', 'len'),
         'GetDevAOPhysicalChans': ('in', 'buf', 'len'),
@@ -103,12 +97,14 @@ class NiceNI(NiceLib):
         'GetDevSerialNum': ('in', 'out'),
     })
 
-    #Device = NiceObject({
+    #Device = NiceObjectDef({
     #    'GetDevProductType': ('in', 'buf', 'len'),
     #    'GetDev(AI|AO|CI|CO)PhysicalChans': ('in', 'buf', 'len'),
     #    'GetDevAIVoltageRngs': ('in', 'arr20', 'len'),
     #    'GetDevProductCategory': ('in', 'out'),
     #})
+
+ffi = NiceNI._info._ffi
 
 
 class Values(object):
