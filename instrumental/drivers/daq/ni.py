@@ -393,11 +393,14 @@ class MiniTask(object):
         self._mx_task.StopTask()
 
     @check_enums(term_cfg=TerminalConfig)
-    def add_AI_channel(self, ai_path, term_cfg='default'):
+    @check_units(vmin='?V', vmax='?V')
+    def add_AI_channel(self, ai_path, term_cfg='default', vmin=None, vmax=None):
         self.AIs.append(ai_path)
-        min, max = self.daq._max_AI_range()
-        self._mx_task.CreateAIVoltageChan(ai_path, '', term_cfg.value, min.m_as('V'),
-                                          max.m_as('V'), Val.Volts, '')
+        default_min, default_max = self.daq._max_AI_range()
+        vmin = default_min if vmin is None else vmin
+        vmax = default_max if vmax is None else vmax
+        self._mx_task.CreateAIVoltageChan(ai_path, '', term_cfg.value, vmin.m_as('V'),
+                                          vmax.m_as('V'), Val.Volts, '')
 
     def add_AO_channel(self, ao_path):
         self.AOs.append(ao_path)
@@ -450,6 +453,7 @@ class AnalogIn(Channel):
         self.daq = daq
         self.name = chan_name
         self.path = '{}/{}'.format(daq.name, chan_name)
+        self._mtask = None
 
     @check_enums(term_cfg=TerminalConfig)
     def _add_to_minitask(self, minitask, term_cfg='default'):
@@ -459,7 +463,7 @@ class AnalogIn(Channel):
                                     Val.Volts, '')
 
     @check_units(duration='?s', fsamp='?Hz')
-    def read(self, duration=None, fsamp=None, n_samples=None):
+    def read(self, duration=None, fsamp=None, n_samples=None, vmin=None, vmax=None):
         """Read one or more analog input samples.
 
         By default, reads and returns a single sample. If two of `duration`, `fsamp`,
@@ -482,7 +486,7 @@ class AnalogIn(Channel):
             The data that was read from analog input.
         """
         with self.daq._create_mini_task() as mtask:
-            mtask.add_AI_channel(self.path)
+            mtask.add_AI_channel(self.path, vmin=vmin, vmax=vmax)
 
             num_args_specified = num_not_none(duration, fsamp, n_samples)
             if num_args_specified == 0:
