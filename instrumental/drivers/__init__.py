@@ -272,7 +272,7 @@ def list_visa_instruments():
     return instruments
 
 
-def list_instruments(server=None):
+def list_instruments(server=None, module=None):
     """Returns a list of info about available instruments.
 
     May take a few seconds because it must poll hardware devices.
@@ -309,6 +309,9 @@ def list_instruments(server=None):
         inst_list = []  # Ignore if PyVISA not installed or configured
 
     for mod_name in _acceptable_params:
+        if module and module not in mod_name:
+            continue
+
         try:
             mod = import_module('.' + mod_name, __package__)
         except Exception as e:
@@ -386,7 +389,7 @@ def instrument(inst=None, **kwargs):
     alias = None
     if inst is None:
         params = kwargs
-    if isinstance(inst, Instrument):
+    elif isinstance(inst, Instrument):
         return inst
     elif isinstance(inst, dict):
         params = inst
