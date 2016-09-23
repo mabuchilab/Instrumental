@@ -54,7 +54,7 @@ MOCK_MODULES = ['numpy', 'scipy', 'scipy.special', 'scipy.interpolate',
                 'scipy.optimize', 'matplotlib', 'matplotlib.pyplot',
                 'matplotlib.widgets', 'matplotlib.transforms',
                 'matplotlib.cbook', 'pint', 'PyDAQmx', 'ctypes',
-                'ctypes.wintypes', 'visa']
+                'ctypes.wintypes', 'visa', 'cffi', 'nicelib']
 
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = Mock()

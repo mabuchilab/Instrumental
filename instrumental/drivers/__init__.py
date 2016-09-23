@@ -35,7 +35,21 @@ _acceptable_params = OrderedDict((
     ('wavemeters.burleigh',
         ['visa_address', 'module']),
     ('spectrometers.bristol',
-        ['bristol_port', 'module'])
+        ['bristol_port', 'module']),
+    ('lockins.sr850',
+        ['visa_address', 'module']),
+    ('motion.filter_flipper',
+         ['ff_serial']),
+    ('motion.tdc_001',
+         ['tdc_serial']),
+    ('motion.ecc100',
+         ['ecc100_id', 'module']),
+    ('lasers.femto_ferb',
+         ['femto_ferb_port']),
+    ('motion.esp300',
+         ['esp300_port']),
+    ('spectrometers.thorlabs_ccs',
+         ['ccs_usb_address', 'ccs_serial_number', 'ccs_model', 'module'])
 ))
 
 _visa_models = OrderedDict((
@@ -51,6 +65,13 @@ _visa_models = OrderedDict((
     ('powermeters.thorlabs', (
         'Thorlabs',
         ['PM100D']
+    )),
+    # Note that the sr850 will not usually work with list_visa_instruments,
+    # because it uses a non-standard termination character, and because one
+    # must first send the 'OUTX' command to specify which type of output to use
+    ('lockins.sr850', (
+        'Stanford_Research_Systems',
+        ['SR850']
     ))
 ))
 
