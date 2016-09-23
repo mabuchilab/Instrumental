@@ -173,9 +173,15 @@ class Pixelfly(Camera):
         self._nbufs = 0
         self._buf_i = 0
 
-        self.set_mode()
+        try:
+            self.set_mode()
+        except:
+            px.CLOSEBOARD(self._hdriver_p)
+            raise
+
         self._open_cameras.append(self)
         self._last_kwds = {}
+        self.lib = px
 
     @staticmethod
     def _list_boards():
