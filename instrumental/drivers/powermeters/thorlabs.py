@@ -6,6 +6,7 @@ Driver module for Thorlabs power meters. Supports:
 * PM100D
 """
 
+import numpy
 from . import PowerMeter
 from .. import _get_visa_instrument, _ParamDict
 from ...errors import InstrumentTypeError
@@ -117,3 +118,27 @@ class PM100D(PowerMeter):
         """
         val = int(num_averaged)
         self._inst.write('sense:average:count {}'.format(val))
+
+    def measure(self, n_samples=100):
+        """Make a multi-sample power measurement
+
+        Parameters
+        ----------
+        n_samples : int
+            Number of samples to take
+
+        Returns
+        -------
+        pint.Measurement
+            Measured power, with units and uncertainty, as a `pint.Measurement` object
+        """
+        n_avg = self.get_num_averaged()  # Save for later
+        self.set_num_averaged(1)
+        self._inst.write('power:dc:unit W')
+
+        raw_arr = numpy.empty((n_samples,), dtype='f')
+        for i in range(n_samples):
+            raw_arr[i] = float(self._inst.query('measure:power?'))
+        self.set_num_averaged(n_avg)
+
+        return Q_(raw_arr.mean(), 'W').plus_minus(raw_arr.std())
