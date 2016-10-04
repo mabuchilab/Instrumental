@@ -27,6 +27,15 @@ class MPLFigure(object):
         self.canvas = FigureCanvas(self.fig)
 
 
+def create_figure_window(title=''):
+    """Creates a figure in a Qt window. Returns the tuple (window, mplfigure)"""
+    win = QMainWindow()
+    mplfig = MPLFigure()
+    win.setCentralWidget(mplfig.canvas)
+    win.setWindowTitle(title)
+    return win, mplfig
+
+
 class CameraView(QLabel):
     def __init__(self, camera=None):
         super(CameraView, self).__init__()
