@@ -75,10 +75,10 @@ def curve_fit(f, xdata, ydata, p0=None, sigma=None, **kw):
     if p0:
         for _p0, _popt_mag, pcov_mag_row in zip(p0, popt_mag, pcov_mag):
             # Convert from base_unit magnitude back to the original units
-            popt.append( Q_(_popt_mag, _p0.to_base_units()).to(_p0.units) )
+            popt.append( Q_(_popt_mag, _p0.to_base_units().units).to(_p0.units) )
             pcov_row = []
             for _p0_2, _pcov_mag in zip(p0, pcov_mag_row):
-                pcov_row.append( Q_(_pcov_mag, (_p0*_p0_2).to_base_units()).to(_p0*_p0_2) )
+                pcov_row.append( Q_(_pcov_mag, (_p0*_p0_2).to_base_units().units).to(_p0*_p0_2) )
             pcov.append(pcov_row)
     else:
         popt = popt_mag
