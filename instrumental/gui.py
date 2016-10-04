@@ -1,20 +1,25 @@
+# -*- coding: utf-8 -*-
+# Copyright 2014-2016 Nate Bogdanowicz
 import numpy as np
 import scipy.misc
-from PySide.QtCore import QTimer
-from PySide.QtGui import QPixmap, QImage, QLabel
+from .compat.QtCore import Qt, QTimer, Signal, QRect, QRectF, QPoint
+from .compat.QtGui import (QPixmap, QImage, QLabel, QGraphicsView, QGraphicsScene, QFrame, QColor,
+                           QPen, QMainWindow, QMouseEvent, QStyle, QPainter)
+from .compat import PYSIDE
 
 mpl, FigureCanvas, Figure = None, None, None
 def load_matplotlib():
     global mpl, FigureCanvas, Figure
     import matplotlib as mpl
     mpl.use('Qt4Agg')
-    mpl.rcParams['backend.qt4'] = 'PySide'
+    if PYSIDE:
+        mpl.rcParams['backend.qt4'] = 'PySide'
     from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
     from matplotlib.figure import Figure
 
 
-class MPLFigure:
-    """Convenience class for adding MPL figures to PySide GUIs"""
+class MPLFigure(object):
+    """Convenience class for adding MPL figures to PySide/PyQt4 GUIs"""
     def __init__(self):
         if mpl is None:
             load_matplotlib()
