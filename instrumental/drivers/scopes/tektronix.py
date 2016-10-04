@@ -10,6 +10,7 @@ Driver module for Tektronix oscilloscopes. Currently supports
 import visa
 import numpy as np
 from instrumental import u, Q_
+from pint import UndefinedUnitError
 from . import Scope
 from .. import _get_visa_instrument
 from ...errors import InstrumentTypeError
@@ -32,6 +33,8 @@ def _instrument(params):
             return TDS_3000(visa_inst=inst)
         elif model in _mso_dpo_4000_models:
             return MSO_DPO_4000(visa_inst=inst)
+        elif model == 'TDS 210':
+            return TDS_3000(visa_inst=inst)
 
     raise InstrumentTypeError("Error: unsupported scope with IDN = " +
                               "'{}'".format(idn))
@@ -54,6 +57,7 @@ class TekScope(Scope):
             rm = visa.ResourceManager()
             self.inst = rm.open_resource(name)
 
+        self.inst.read_termination = "\n"  # Needed for stripping termination
         self.inst.write("header OFF")
 
     def get_data(self, channel=1):
@@ -83,8 +87,26 @@ class TekScope(Scope):
         inst.write("data:start 1")
         inst.write("data:stop {}".format(stop))
 
+        #inst.flow_control = 1  # Soft flagging (XON/XOFF flow control)
+        tmo = inst.timeout
+        inst.timeout = 10000
         inst.write("curve?")
-        raw_bin = inst.read_raw()
+        inst.read_termination = None
+        inst.end_input = visa.constants.SerialTermination.none
+        # TODO: Change this to be more efficient for huge datasets
+        with inst.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
+            s = inst.visalib.read(inst.session, 2)  # read first 2 bytes
+            num_bytes = int(inst.visalib.read(inst.session, int(s[0][1]))[0])
+            buf = ''
+            while len(buf) < num_bytes:
+                raw_bin, _ = inst.visalib.read(inst.session, num_bytes-len(buf))
+                buf += raw_bin
+                print(len(raw_bin))
+        inst.end_input = visa.constants.SerialTermination.termination_char
+        inst.read_termination = '\n'
+        inst.read()  # Eat termination
+        inst.timeout = tmo
+        raw_data_y = np.frombuffer(buf, dtype='>i2', count=int(num_bytes//2))
 
         # Get scale and offset factors
         x_scale = float(inst.query("wfmpre:xincr?"))
@@ -94,21 +116,30 @@ class TekScope(Scope):
         x_offset = float(inst.query("wfmpre:pt_off?"))
         y_offset = float(inst.query("wfmpre:yoff?"))
 
-        x_unit = inst.query("wfmpre:xunit?")[1:-1]
-        y_unit = inst.query("wfmpre:yunit?")[1:-1]
+        x_unit_str = inst.query("wfmpre:xunit?")[1:-1]
+        y_unit_str = inst.query("wfmpre:yunit?")[1:-1]
+
+        unit_map = {
+            'U': '',
+            'Volts': 'V'
+        }
+
+        x_unit_str = unit_map.get(x_unit_str, x_unit_str)
+        try:
+            x_unit = u.parse_units(x_unit_str)
+        except UndefinedUnitError:
+            x_unit = u.dimensionless
+
+        y_unit_str = unit_map.get(y_unit_str, y_unit_str)
+        try:
+            y_unit = u.parse_units(y_unit_str)
+        except UndefinedUnitError:
+            y_unit = u.dimensionless
 
         raw_data_x = np.arange(1, stop+1)
 
-        if raw_bin[0] != b'#':
-            raise Exception("Binary reponse missing header! Something's wrong.")
-        header_width = int(raw_bin[1]) + 2
-        num_bytes = int(raw_bin[2:header_width])
-
-        raw_data_y = np.frombuffer(raw_bin, dtype='>i2', offset=header_width,
-                                   count=int(num_bytes//2))
-
-        data_x = u[x_unit] * ((raw_data_x - x_offset)*x_scale + x_zero)
-        data_y = u[y_unit] * ((raw_data_y - y_offset)*y_scale + y_zero)
+        data_x = Q_((raw_data_x - x_offset)*x_scale + x_zero, x_unit)
+        data_y = Q_((raw_data_y - y_offset)*y_scale + y_zero, y_unit)
 
         return data_x, data_y
 
