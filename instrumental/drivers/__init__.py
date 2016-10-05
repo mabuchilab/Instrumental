@@ -259,10 +259,11 @@ def list_visa_instruments():
             try:
                 log.info("Opening VISA resource '{}'".format(addr))
                 i = rm.open_resource(addr, open_timeout=50, timeout=200)
-            except visa.VisaIOError:
+            except visa.VisaIOError as e:
                 # Could not create visa instrument object
                 skipped.append(addr)
                 log.info("Skipping this resource due to VisaIOError")
+                log.info(e)
                 continue
             except socket.timeout:
                 skipped.append(addr)
@@ -334,6 +335,7 @@ def list_instruments(server=None, module=None):
             continue
 
         try:
+            log.info("Importing driver module '%s'", mod_name)
             mod = import_module('.' + mod_name, __package__)
         except Exception as e:
             # Module not supported
