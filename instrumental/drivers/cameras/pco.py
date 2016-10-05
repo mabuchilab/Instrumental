@@ -75,7 +75,7 @@ class NicePCO(NiceLib):
     _ffilib = lib
     _prefix = 'PCO_'
 
-    OpenCamera = ('inout', 'in')
+    OpenCamera = ('inout', 'ignore')
     OpenCameraEx = ('inout', 'inout')
 
     # Special cases
