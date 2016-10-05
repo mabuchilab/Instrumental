@@ -11,8 +11,9 @@ from cffi import FFI
 from ._pvcam import macros
 from . import Camera
 from .. import _ParamDict
+from ..util import check_units
 from ...errors import InstrumentTypeError, InstrumentNotFoundError
-from ... import Q_
+from ... import Q_, u
 
 __all__ = ['PVCam']
 
@@ -132,7 +133,6 @@ class PVCam(Camera):
 
     def latest_frame(self, copy=True):
         raise NotImplementedError
-
 
     def __init__(self, name=''):
         cam_name = ffi.new('char[{}]'.format(pv.CAM_NAME_LEN), name)
