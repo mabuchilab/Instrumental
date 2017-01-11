@@ -547,6 +547,12 @@ class UC480_Camera(Camera):
         lib.is_Exposure(self._hcam, IS_EXPOSURE_CMD_SET_EXPOSURE, byref(param), cbSizeOfParam)
         return param
 
+    def _get_gain(self):
+        return lib.is_SetHardwareGain(self._hcam, IS_GET_MASTER_GAIN, -1, -1, -1)
+
+    def _set_gain(self, gain):
+        return lib.is_SetHardwareGain(self._hcam, gain, -1, -1, -1)
+
     def _get_exposure(self):
         param = DOUBLE()
         lib.is_Exposure(self._hcam, IS_EXPOSURE_CMD_GET_EXPOSURE, byref(param), 8)
