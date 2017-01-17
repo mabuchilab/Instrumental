@@ -37,7 +37,7 @@ class Camera(Instrument):
         >>> cam.stop_live_video()
     """
 
-    DEFAULT_KWDS = dict(n_frames=1, vbin=1, hbin=1, exposure_time=Q_('10ms'), width=None,
+    DEFAULT_KWDS = dict(n_frames=1, vbin=1, hbin=1, exposure_time=Q_('10ms'), gain=0, width=None,
                         height=None, cx=None, cy=None, left=None, right=None, top=None, bot=None,
                         fix_hotpixels=False)
 
