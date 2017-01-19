@@ -432,6 +432,7 @@ class UC480_Camera(Camera):
         self._set_binning(kwds['vbin'], kwds['hbin'])
         self._set_AOI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
         self._set_exposure(kwds['exposure_time'])
+        self._set_gain(kwds['gain'])
 
         self._free_image_mem_seq()
         self._allocate_mem_seq(kwds['n_frames'])
@@ -478,6 +479,7 @@ class UC480_Camera(Camera):
         self._set_binning(kwds['vbin'], kwds['hbin'])
         self._set_AOI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
         self._set_exposure(kwds['exposure_time'])
+        self._set_gain(kwds['gain'])
 
         self._free_image_mem_seq()
         self._allocate_mem_seq(num_bufs=2)
@@ -546,6 +548,12 @@ class UC480_Camera(Camera):
         cbSizeOfParam = UINT(8)
         lib.is_Exposure(self._hcam, IS_EXPOSURE_CMD_SET_EXPOSURE, byref(param), cbSizeOfParam)
         return param
+
+    def _get_gain(self):
+        return lib.is_SetHardwareGain(self._hcam, IS_GET_MASTER_GAIN, -1, -1, -1)
+
+    def _set_gain(self, gain):
+        return lib.is_SetHardwareGain(self._hcam, max(min(gain, 100), 0), -1, -1, -1)
 
     def _get_exposure(self):
         param = DOUBLE()

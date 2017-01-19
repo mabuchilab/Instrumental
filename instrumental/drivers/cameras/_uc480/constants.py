@@ -627,3 +627,42 @@ IS_BINNING_MASK_HORIZONTAL = (IS_BINNING_2X_HORIZONTAL | IS_BINNING_3X_HORIZONTA
 # Compatibility
 IS_BINNING_VERT = IS_BINNING_2X_VERTICAL
 IS_BINNING_HOR = IS_BINNING_2X_HORIZONTAL
+
+#  ----------------------------------------------------------------------------
+#  Gain definitions
+#  ----------------------------------------------------------------------------
+IS_GET_MASTER_GAIN          =        0x8000
+IS_GET_RED_GAIN             =        0x8001
+IS_GET_GREEN_GAIN           =        0x8002
+IS_GET_BLUE_GAIN            =        0x8003
+IS_GET_DEFAULT_MASTER       =        0x8004
+IS_GET_DEFAULT_RED          =        0x8005
+IS_GET_DEFAULT_GREEN        =        0x8006
+IS_GET_DEFAULT_BLUE         =        0x8007
+IS_GET_GAINBOOST            =        0x8008
+IS_SET_GAINBOOST_ON         =        0x0001
+IS_SET_GAINBOOST_OFF        =        0x0000
+IS_GET_SUPPORTED_GAINBOOST  =        0x0002
+IS_MIN_GAIN                 =        0
+IS_MAX_GAIN                 =        100
+
+
+#  ----------------------------------------------------------------------------
+#  Gain factor definitions
+#  ----------------------------------------------------------------------------
+IS_GET_MASTER_GAIN_FACTOR   =        0x8000
+IS_GET_RED_GAIN_FACTOR      =        0x8001
+IS_GET_GREEN_GAIN_FACTOR    =        0x8002
+IS_GET_BLUE_GAIN_FACTOR     =        0x8003
+IS_SET_MASTER_GAIN_FACTOR   =        0x8004
+IS_SET_RED_GAIN_FACTOR      =        0x8005
+IS_SET_GREEN_GAIN_FACTOR    =        0x8006
+IS_SET_BLUE_GAIN_FACTOR     =        0x8007
+IS_GET_DEFAULT_MASTER_GAIN_FACTOR =  0x8008
+IS_GET_DEFAULT_RED_GAIN_FACTOR    =  0x8009
+IS_GET_DEFAULT_GREEN_GAIN_FACTOR  =  0x800a
+IS_GET_DEFAULT_BLUE_GAIN_FACTOR   =  0x800b
+IS_INQUIRE_MASTER_GAIN_FACTOR     =  0x800c
+IS_INQUIRE_RED_GAIN_FACTOR        =  0x800d
+IS_INQUIRE_GREEN_GAIN_FACTOR      =  0x800e
+IS_INQUIRE_BLUE_GAIN_FACTOR       =  0x800f
