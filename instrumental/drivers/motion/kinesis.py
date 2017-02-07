@@ -220,6 +220,7 @@ class K10CR1(Motion):
                               steps_per_rev / (360.0 * u.deg))
         self._open()
         self._start_polling(polling_period)
+        self._wait_for_message(0, 0)  # Make sure status has been loaded before we return
 
     @property
     def _param_dict(self):
@@ -261,12 +262,37 @@ class K10CR1(Motion):
         """
         log.debug("Moving stage to {}".format(angle))
         log.debug("Current position is {}".format(self.position))
+        self.dev.ClearMessageQueue()
         self.dev.MoveToPosition(self._to_dev_units(angle + self.offset))
-
         if wait:
-            msg_type, msg_id, _ = self.dev.WaitForMessage()
-            while msg_type != 2 or msg_id != 1:
-                msg_type, msg_id, _ = self.dev.WaitForMessage()
+            self.wait_for_move()
+
+    def _wait_for_message(self, match_type, match_id):
+        msg_type, msg_id, msg_data = self.dev.WaitForMessage()
+        log.debug("Received kinesis message ({},{},{})".format(msg_type, msg_id, msg_data))
+        while msg_type != match_type or msg_id != match_id:
+            msg_type, msg_id, msg_data = self.dev.WaitForMessage()
+            log.debug("Received kinesis message ({},{},{})".format(msg_type, msg_id, msg_data))
+
+    def _check_for_message(self, match_type, match_id):
+        """Check if a message of the given type and id is in the queue"""
+        while True:
+            try:
+                msg_type, msg_id, msg_data = self.dev.GetNextMessage()
+            except KinesisError:
+                return False
+
+            log.debug("Received kinesis message ({},{},{})".format(msg_type, msg_id, msg_data))
+            if msg_type == match_type and msg_id == match_id:
+                return True
+
+    def wait_for_move(self):
+        """Wait for the most recent move to complete"""
+        self._wait_for_message(2, 1)
+
+    def move_finished(self):
+        """Check if the most recent move has finished"""
+        return self._check_for_message(2, 1)
 
     def _to_real_units(self, dev_units):
         return (dev_units / self._unit_scaling).to('deg')
@@ -275,10 +301,29 @@ class K10CR1(Motion):
     def _to_dev_units(self, real_units):
         return int(round(float(real_units * self._unit_scaling)))
 
-    def home(self):
-        """Performs the homing function"""
+    def home(self, wait=False):
+        """Home the stage
+
+        Parameters
+        ----------
+        wait : bool, optional
+            Wait until the stage has finished homing to return
+        """
+        self.dev.ClearMessageQueue()
         self.dev.Home()
 
+        if wait:
+            self.wait_for_home()
+
+    def wait_for_home(self):
+        """Wait for the most recent homing operation to complete"""
+        self._wait_for_message(2, 0)
+
+    def homing_finished(self):
+        """Check if the most recent homing operation has finished"""
+        return self._check_for_message(2, 0)
+
+    @property
     def needs_homing(self):
         """True if the device needs to be homed before a move can be performed"""
         return bool(self.dev.NeedsHoming())
@@ -295,6 +340,14 @@ class K10CR1(Motion):
     @property
     def position(self):
         return self._to_real_units(self.dev.GetPosition()) - self.offset
+
+    @property
+    def is_homing(self):
+        return bool(self.dev.GetStatusBits() & 0x00000200)
+
+    @property
+    def is_moving(self):
+        return bool(self.dev.GetStatusBits() & 0x00000030)
 
     def get_next_message(self):
         msg_type, msg_id, msg_data = self.dev.GetNextMessage()
