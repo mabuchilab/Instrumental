@@ -4,6 +4,7 @@
 Driver for controlling Thorlabs Kinesis devices. Currently only directs the K10CR1 rotation stage.
 """
 from __future__ import division
+import logging as log
 from enum import Enum
 from nicelib import NiceLib, NiceObjectDef, load_lib
 
@@ -258,6 +259,8 @@ class K10CR1(Motion):
         angle : Quantity
             Angle that the stage will rotate to. Takes the stage offset into account.
         """
+        log.debug("Moving stage to {}".format(angle))
+        log.debug("Current position is {}".format(self.position))
         self.dev.MoveToPosition(self._to_dev_units(angle + self.offset))
 
         if wait:
