@@ -1,13 +1,7 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016-2017 Christopher Rogers, Dodd Gray, and Nate Bogdanowicz
 """
-This script contains classes for controlling Thorlabs K10CR1 integrated rotation stages.
-
-One must place Thorlabs.MotionControl.DeviceManager.dll and Thorlabs.MotionControl.FilterFlipper.dll
-in the path
-
-The path to Clean_FilterFlipper.h must also be specified in hname.
-
-Copyright 2016 Christopher Rogers and Dodd Gray
+Driver for controlling Thorlabs Kinesis devices. Currently only directs the K10CR1 rotation stage.
 """
 from __future__ import division
 from enum import Enum
@@ -38,11 +32,13 @@ class MessageType(Enum):
     Specialized = 10
     Solenoid = 11
 
+
 class GenericDevice(Enum):
     SettingsInitialized = 0
     SettingsUpdated = 1
     Error = 2
     Close = 3
+
 
 class GenericMotor(Enum):
     Homed = 0
@@ -50,9 +46,11 @@ class GenericMotor(Enum):
     Stopped = 2
     LimitUpdated = 3
 
+
 class GenericDCMotor(Enum):
     Error = 0
     Status = 1
+
 
 MessageIDs = {
     MessageType.GenericDevice: GenericDevice,
@@ -178,6 +176,7 @@ class NiceKinesisISC(NiceLib):
         GetBacklash = ('in', {'ret': 'return'}),
         SetBacklash = ('in', 'in'),
     ))
+
 
 STATUS_MOVING_CW = 0x10
 STATUS_MOVING_CCW = 0x20
