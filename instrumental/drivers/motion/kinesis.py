@@ -106,8 +106,9 @@ class KinesisError(Exception):
         45: 'An invalid jog mode was supplied for the jog function',
     }
 
-    def __init__(self, code):
-        msg = '(0x{:X}) {}'.format(code, self.messages[code])
+    def __init__(self, code=None, msg=''):
+        if code is not None and not msg:
+            msg = '(0x{:X}) {}'.format(code, self.messages[code])
         super(KinesisError, self).__init__(msg)
         self.code = code
 
@@ -124,9 +125,9 @@ class NiceKinesisISC(NiceLib):
         if ret != 0:
             raise KinesisError(ret)
 
-    def _ret_success(ret):
+    def _ret_success(ret, funcname):
         if not ret:
-            raise Exception("Operation failed")
+            raise KinesisError(msg="Call to function '{}' failed".format(funcname))
 
     #
     # Function signatures
