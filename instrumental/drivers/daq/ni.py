@@ -22,7 +22,7 @@ def _instrument(params):
 
 
 def list_instruments():
-    dev_names = NiceNI.GetSysDevNames().split(b',')
+    dev_names = NiceNI.GetSysDevNames().decode().split(',')
     instruments = []
     for dev_name in dev_names:
         dev_name = dev_name.strip("'")
@@ -907,7 +907,7 @@ class NIDAQ(DAQ):
     def _load_digital_ports(self):
         # Need to handle general case of DI and DO ports, can't assume they're always the same...
         ports = {}
-        for line_path in self._dev.GetDevDILines().split(','):
+        for line_path in self._dev.GetDevDILines().decode().split(','):
             port_name, line_name = line_path.rsplit('/', 2)[-2:]
             if port_name not in ports:
                 ports[port_name] = []
@@ -946,7 +946,7 @@ class NIDAQ(DAQ):
 
     @staticmethod
     def _basenames(names):
-        return [path.rsplit('/', 1)[-1] for path in names.split(',')]
+        return [path.rsplit('/', 1)[-1] for path in names.decode().split(',')]
 
     product_type = property(lambda self: self._dev.GetDevProductType())
     product_category = property(lambda self: ProductCategory(self._dev.GetDevProductCategory()))
