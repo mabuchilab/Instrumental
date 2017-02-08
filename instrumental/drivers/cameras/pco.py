@@ -3,12 +3,15 @@
 """
 Driver for PCO cameras that use the PCO.camera SDK.
 """
+import os
 import os.path
 import atexit
+import tempfile
 from enum import Enum
 from time import clock
 import numpy as np
-from cffi import FFI
+from cffi import FFI, cparser
+from pycparser import CParser
 from nicelib import NiceLib, NiceObjectDef
 from ._pixelfly import errortext
 from . import Camera
@@ -30,6 +33,12 @@ from ... import Q_, u
 
 
 __all__ = ['PCO_Camera']
+
+# Hack to prevent lextab.py and yacctab.py from littering the working directory
+tmp_dir = os.path.join(tempfile.gettempdir(), 'instrumental_pycparser')
+if not os.path.exists(tmp_dir):
+    os.mkdir(tmp_dir)
+cparser._parser_cache = CParser(taboutputdir=tmp_dir)
 
 ffi = FFI()
 with open(os.path.join(os.path.dirname(__file__), '_pco', 'clean.h')) as f:
