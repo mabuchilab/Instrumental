@@ -81,6 +81,12 @@ class NiceNI(NiceLib):
         'GetBufInputBufSize': ('in', 'out'),
         'CfgSampClkTiming': ('in', 'in', 'in', 'in', 'in', 'in'),
         'CfgDigEdgeStartTrig': ('in', 'in', 'in'),
+        'SetReadOffset': ('in', 'in'),
+        'GetReadOffset': ('in', 'out'),
+        'SetReadRelativeTo': ('in', 'in'),
+        'GetReadRelativeTo': ('in', 'out'),
+        'SetReadOverWrite': ('in', 'in'),
+        'GetReadOverWrite': ('in', 'out'),
     })
 
     Device = NiceObjectDef({
@@ -133,6 +139,14 @@ class TerminalConfig(Enum):
     NRSE = Val.NRSE
     diff = Val.Diff
     pseudo_diff = Val.PseudoDiff
+
+
+class RelativeTo(Enum):
+    FirstSample = Val.FirstSample
+    CurrReadPos = Val.CurrReadPos
+    RefTrig = Val.RefTrig
+    FirstPretrigSamp = Val.FirstPretrigSamp
+    MostRecentSamp = Val.MostRecentSamp
 
 
 class ProductCategory(Enum):
@@ -441,6 +455,17 @@ class MiniTask(object):
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
         self._mx_task.WAitUntilTaskDone(timeout_s)
 
+    def overwrite(self, overwrite):
+        val = Val.OverwriteUnreadSamps if overwrite else Val.DoNotOverwriteUnreadSamps
+        self._mx_task.SetReadOverWrite(val)
+
+    @check_enums(relative_to=RelativeTo)
+    def relative_to(self, relative_to):
+        self._mx_task.SetReadRelativeTo(relative_to.value)
+
+    def offset(self, offset):
+        self._mx_task.SetReadOffset(offset)
+
 
 class Channel(object):
     pass
@@ -499,11 +524,14 @@ class AnalogIn(Channel):
                 raise DAQError("Must specify 0 or 2 of duration, fsamp, and n_samples")
         return data
 
-    def start_reading(self, fsamp=None, vmin=None, vmax=None):
-        buf_size = 10
+    def start_reading(self, fsamp=None, vmin=None, vmax=None, overwrite=False,
+                      relative_to=RelativeTo.CurrReadPos, offset=0, buf_size=10):
         self._mtask = mtask = self.daq._create_mini_task()
         mtask.add_AI_channel(self.path, vmin=vmin, vmax=vmax)
         mtask.config_timing(fsamp, buf_size, mode=SampleMode.continuous)
+        mtask.overwrite(overwrite)
+        mtask.relative_to(relative_to)
+        mtask.offset(offset)
         self._mtask.start()
 
     def read_sample(self, timeout=None):
