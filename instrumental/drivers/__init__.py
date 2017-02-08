@@ -9,6 +9,8 @@ from inspect import isfunction
 from importlib import import_module
 from collections import OrderedDict
 
+from past.builtins import basestring
+
 from .. import conf
 from ..errors import InstrumentTypeError, InstrumentNotFoundError, ConfigError
 
