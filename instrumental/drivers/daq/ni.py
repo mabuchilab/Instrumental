@@ -647,7 +647,7 @@ class AnalogOut(Channel):
             be continually buffered from the PC memory, even if it is only
             repeating a small number of samples many times.
         """
-        if np.isscalar(data):
+        if isscalar(data):
             return self._write_scalar(data)
 
         if num_not_none(fsamp, freq) != 1:
@@ -673,6 +673,12 @@ class AnalogOut(Channel):
         with self.daq._create_mini_task() as mtask:
             mtask.add_AO_channel(self.path)
             mtask.write_AO_scalar(value)
+
+
+def isscalar(value):
+    if isinstance(value, Q_):
+        value = value.magnitude
+    return np.isscalar(value)
 
 
 class Counter(Channel):
