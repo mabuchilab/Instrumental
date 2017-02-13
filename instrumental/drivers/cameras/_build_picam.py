@@ -2,7 +2,7 @@
 """
 Copyright 2016 Christopher Rogers
 """
-from nicelib import build_lib, generate_wrapper, nicelib
+from nicelib import build_lib
 
 header_info = {
     'win*': {
