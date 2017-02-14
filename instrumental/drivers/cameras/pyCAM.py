@@ -569,7 +569,7 @@ class PicamCamera():
                 index_2 = index_end + i * self.n_pixels_per_readout
                 temp = data[index_1:index_2]
                 roi_data = vstack([roi_data, temp])
-            roi_data = roi_data.reshape((count,) + shape)
+            roi_data = roi_data.reshape((count,) + shape[::-1])
 
             if count==1:
                 roi_data = roi_data[0,:,:]
