@@ -432,8 +432,8 @@ def instrument(inst=None, **kwargs):
             alias = name
 
         if params is None:
-            raise Exception("Instrument with alias `{}` not ".format(name)
-                            + "found in config file")
+            raise Exception("Instrument with alias `{}` not ".format(name) +
+                            "found in config file")
     params.update(kwargs)
 
     if 'server' in params:
