@@ -413,7 +413,7 @@ def instrument(inst=None, **kwargs):
     """
     alias = None
     if inst is None:
-        params = kwargs
+        params = {}
     elif isinstance(inst, Instrument):
         return inst
     elif isinstance(inst, dict):
@@ -434,6 +434,7 @@ def instrument(inst=None, **kwargs):
         if params is None:
             raise Exception("Instrument with alias `{}` not ".format(name)
                             + "found in config file")
+    params.update(kwargs)
 
     if 'server' in params:
         from . import remote
