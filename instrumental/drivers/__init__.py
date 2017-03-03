@@ -275,13 +275,25 @@ def list_visa_instruments():
             try:
                 idn = i.ask("*IDN?")
                 log.info("*IDN? gives '{}'".format(idn.strip()))
-                manufac, model, rest = idn.split(',', 2)
+                try:
+                    manufac, model, rest = idn.split(',', 2)
+                except ValueError as e:
+                    skipped.append(addr)
+                    log.info("Invalid response to IDN query")
+                    log.info(str(e))
+                    continue
+
                 module_name = _find_visa_inst_type(manufac, model)
                 params = _ParamDict("<{} '{}'>".format(manufac, model))
                 params['visa_address'] = addr
                 if module_name:
                     params.module = module_name
                 instruments.append(params)
+            except UnicodeDecodeError as e:
+                skipped.append(addr)
+                log.info("UnicodeDecodeError while getting IDN. Probably a non-Visa Serial device")
+                log.info(str(e))
+                continue
             except visa.VisaIOError as e:
                 skipped.append(addr)
                 log.info("Getting IDN failed due to VisaIOError")
