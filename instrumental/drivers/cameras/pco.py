@@ -225,7 +225,14 @@ class PCO_Camera(Camera):
         openStruct.wCameraNumAtInterface = 0
         openStruct.wOpenFlags[0] = 0
 
-        hcam = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p[0])[0]
+        try:
+            hcam = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p[0])[0]
+        except Error:
+            # TODO: Figure out how to reset this error so we can turn on the camera and
+            # retry instead of having to restart python. We may need to close the DLL
+            # and reopen it, but that's currently difficult/impossible with cffi
+            raise Error("Could not find PCO camera. Is it connected and turned on?")
+
         self._cam = NicePCO.Camera(hcam)
 
         self.cam_num = openStruct.wCameraNumber
@@ -640,7 +647,13 @@ def list_instruments():
         openStruct.wCameraNumAtInterface = 0
         openStruct.wOpenFlags[0] = 0
 
-        hCam, _ = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p)  # This is reallllyyyy sloowwwww
+        try:
+            hCam, _ = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p)  # This is reallllyyyy sloowwwww
+        except Error as e:
+            if e.code == 0x800A300D:
+                return []  # No cameras attached/turned on
+            raise
+
         _cam = NicePCO.Camera(hCam)
 
         if openStruct.wInterfaceType == 0xFFFF or hCam == prev_handle:
