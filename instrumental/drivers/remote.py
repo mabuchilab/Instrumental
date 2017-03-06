@@ -8,6 +8,7 @@ from __future__ import absolute_import, unicode_literals, print_function
 import atexit
 import socket
 import struct
+import threading
 import logging as log
 import cPickle as pickle
 
@@ -26,6 +27,14 @@ DEFAULT_PORT = 28265
 # 1 unsigned byte - message id
 # 8 unsigned bytes - message length in bytes (not including header)
 STRUCT = struct.Struct('!BQ')
+
+
+class FakeLock(object):
+    def __enter__(self):
+        pass
+    def __exit__(self, type, value, traceback):
+        pass
+FAKE_LOCK = FakeLock()  # Only need one
 
 
 class RemoteError(Exception):
@@ -220,8 +229,17 @@ class ServerMessenger(Messenger):
         self._send_message(response_bytes, self.curr_id)
 
 
+class ObjectEntry(object):
+    def __init__(self, obj, remote_obj, lock, share):
+        self.id = id(obj)
+        self.obj = obj
+        self.remote_obj = remote_obj
+        self.lock = lock
+        self.share = share
+
+
 class ServerSession(Session):
-    def __init__(self, socket):
+    def __init__(self, socket, shared_obj_table, table_lock):
         self.command_handler = {
             'create': self.handle_create,
             'list': self.handle_list,
@@ -229,68 +247,98 @@ class ServerSession(Session):
             'item': self.handle_item,
             'call': self.handle_call
         }
+        self.shared_obj_table = shared_obj_table
+        self.shared_table_lock = table_lock
+
         self.messenger = ServerMessenger(socket)
-        self.next_obj_id = 0
-        self.obj_table = {}  # id -> object
-        self.remote_obj_pairs = []  # (object, RemoteObject)
+        self.obj_table = {}  # id -> ObjectEntry
+
+    def _get_shared_inst(self, params):
+        """Get shared instrument if it exists, otherwise create it and add it to the table"""
+        key = frozenset(params.items())
+        with self.shared_table_lock:
+            # Get or create instrument
+            try:
+                inst = self.shared_obj_table[key]
+            except KeyError:
+                inst = self.shared_obj_table[key] = instrument(params)
+                inst._server_refcount = 0
+            inst._server_refcount += 1
+
+            # Get or create module-level lock
+            module_name = inst.__class__.__module__
+            try:
+                lock = self.shared_obj_table[module_name]
+            except KeyError:
+                lock = self.shared_obj_table[module_name] = threading.RLock()
+
+        return inst, lock
 
     def handle_create(self, request):
         params = request['params'].copy()
         params.pop('server')  # Needed to force instrument() to look locally
-        inst = instrument(params)
-        id = self.new_obj_id()
-        self.obj_table[id] = inst
-        remote_obj = RemoteInstrument(request['params'], id, None, dir(inst), repr(inst))
-        self.remote_obj_pairs.append((inst, remote_obj))
-        return remote_obj
+        share = params.pop('share', False)
+
+        if share:
+            inst, lock = self._get_shared_inst(params)
+        else:
+            # TODO: Add warning or error if instrument is already shared
+            inst = instrument(params)
+            lock = FAKE_LOCK
+
+        obj_id = id(inst)
+        remote_obj = RemoteInstrument(request['params'], obj_id, None, dir(inst), repr(inst))
+        self.obj_table[obj_id] = ObjectEntry(inst, remote_obj, lock, share)
+        return remote_obj, lock
 
     def handle_list(self, request):
-        return list_instruments()
+        # TODO: Handle locking of listed instruments
+        return list_instruments(), FAKE_LOCK
 
     def handle_attr(self, request):
         obj_id = request['obj_id']
-        obj = self.obj_table[obj_id]
-        return getattr(obj, request['attr'])
+        entry = self.obj_table[obj_id]
+        with entry.lock:
+            return getattr(entry.obj, request['attr']), entry.lock
 
     def handle_item(self, request):
         obj_id = request['obj_id']
-        obj = self.obj_table[obj_id]
-        return obj[request['key']]
+        entry = self.obj_table[obj_id]
+        with entry.lock:
+            return entry.obj[request['key']], entry.lock
 
     def handle_call(self, request):
         obj_id = request['obj_id']
-        obj = self.obj_table[obj_id]
-        return obj(*request['args'], **request['kwargs'])
+        entry = self.obj_table[obj_id]
+        with entry.lock:
+            return entry.obj(*request['args'], **request['kwargs']), entry.lock
 
     def handle_none(self, request):
-        return Exception("Unknown command")
+        return Exception("Unknown command"), FAKE_LOCK
 
-    def new_obj_id(self):
-        id = self.next_obj_id
-        self.next_obj_id += 1
-        return id
-
-    def serialize(self, obj):
+    def serialize(self, obj, lock):
         parent_serialize = super(ServerSession, self).serialize
 
-        # Don't try to serialize objects already in remote_obj_pairs
-        for local_obj, remote_obj in self.remote_obj_pairs:
-            if local_obj is obj:
-                obj = remote_obj
-                break
-
+        # Use RemoteObject if obj has one
         try:
-            bytes = parent_serialize(obj)
-        except TypeError:
-            bytes = parent_serialize(self.new_remote_obj(obj))
+            obj = self.obj_table[id(obj)].remote_obj
+        except KeyError:
+            pass
+
+        with lock:
+            try:
+                bytes = parent_serialize(obj)
+            except TypeError:
+                bytes = parent_serialize(self.new_remote_obj(obj, lock))
         return bytes
 
-    def new_remote_obj(self, obj):
-        new_id = self.new_obj_id()
-        self.obj_table[new_id] = obj
-        remote_obj = RemoteObject(new_id, dir(obj), repr(obj))
-        self.remote_obj_pairs.append((obj, remote_obj))
-        return remote_obj
+    def new_remote_obj(self, obj, lock):
+        with lock:
+            obj_id = id(obj)
+            remote_obj = RemoteObject(obj_id, dir(obj), repr(obj))
+            shared = (lock is not FAKE_LOCK)
+            self.obj_table[obj_id] = ObjectEntry(obj, remote_obj, lock, shared)
+            return remote_obj
 
     def handle_requests(self):
         while True:
@@ -305,15 +353,16 @@ class ServerSession(Session):
 
             try:
                 handler = self.command_handler.get(command, self.handle_none)
-                response = handler(request)
+                response, lock = handler(request)
             except Exception as e:
                 log.exception(e)
                 response = e
+                lock = FAKE_LOCK
 
-            self.messenger.respond(self.serialize(response))
+            self.messenger.respond(self.serialize(response, lock))
 
         # Clean up before we exit
-        for obj in self.obj_table.values():
+        for obj, lock in self.obj_table.values():
             if isinstance(obj, Instrument):
                 try:
                     obj.close()
@@ -324,12 +373,15 @@ class ServerSession(Session):
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     def handle(self):
         log.info("Opening connection to client...")
-        session = ServerSession(self.request)
+        session = ServerSession(self.request, self.server.shared_obj_table, self.server.table_lock)
         session.handle_requests()
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    pass
+    def __init__(self, server_address):
+        socketserver.TCPServer.__init__(self, server_address, ThreadedTCPRequestHandler)
+        self.shared_obj_table = {}
+        self.table_lock = threading.RLock()
 
 
 class RemoteObject(object):
