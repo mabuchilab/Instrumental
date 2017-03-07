@@ -192,6 +192,9 @@ class ClientSession(Session):
             obj._session = self
         return obj
 
+    def set_obj_attr(self, obj_id, attr, value):
+        return self.request(command='setattr', obj_id=obj_id, attr=attr, value=value)
+
     def get_obj_item(self, obj_id, key):
         obj = self.request(command='item', obj_id=obj_id, key=key)
         if isinstance(obj, RemoteObject):
@@ -244,6 +247,7 @@ class ServerSession(Session):
             'create': self.handle_create,
             'list': self.handle_list,
             'attr': self.handle_attr,
+            'setattr': self.handle_setattr,
             'item': self.handle_item,
             'call': self.handle_call
         }
@@ -300,6 +304,13 @@ class ServerSession(Session):
         entry = self.obj_table[obj_id]
         with entry.lock:
             return getattr(entry.obj, request['attr']), entry.lock
+
+    def handle_setattr(self, request):
+        obj_id = request['obj_id']
+        entry = self.obj_table[obj_id]
+        with entry.lock:
+            setattr(entry.obj, request['attr'], request['value'])
+        return None, FAKE_LOCK
 
     def handle_item(self, request):
         obj_id = request['obj_id']
@@ -386,10 +397,15 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 class RemoteObject(object):
     def __init__(self, id, dirlist, reprname, session=None):
-        self._obj_id = id
-        self._reprname = "<Remote {}>".format(reprname)
-        self._session = session
-        self._dirlist = dirlist
+        self.__dict__['_local_attrs'] = set(('_local_attrs',))
+        self._local_setattr('_obj_id', id)
+        self._local_setattr('_reprname', "<Remote {}>".format(reprname))
+        self._local_setattr('_session', session)
+        self._local_setattr('_dirlist', dirlist)
+
+    def _local_setattr(self, name, value):
+        self.__dict__[name] = value
+        self._local_attrs.add(name)
 
     def __enter__(self):
         return self.__getattr__('__enter__')()
@@ -407,6 +423,12 @@ class RemoteObject(object):
     def __getattr__(self, name):
         return self._session.get_obj_attr(self._obj_id, name)
 
+    def __setattr__(self, name, value):
+        if name in self._local_attrs:
+            self.__dict__[name] = value
+        else:
+            self._session.set_obj_attr(self._obj_id, name, value)
+
     def __getitem__(self, key):
         return self._session.get_obj_item(self._obj_id, key)
 
@@ -414,22 +436,16 @@ class RemoteObject(object):
         return self._session.get_obj_call(self._obj_id, *args, **kwargs)
 
     def __getstate__(self):
-        return dict(_obj_id=self._obj_id, _session=self._session,
-                    _dirlist=self._dirlist, _reprname=self._reprname)
+        return {name: self.__dict__[name] for name in self._local_attrs}
 
-    def __setstate__(self, dict):
-        self.__dict__ = dict
+    def __setstate__(self, state_dict):
+        self.__dict__.update(state_dict)
 
 
 class RemoteInstrument(RemoteObject, Instrument):
     def __init__(self, params, id, session, dirlist, reprname):
         super(RemoteInstrument, self).__init__(id, dirlist, reprname, session)
-        self._param_dict = params
-
-    def __getstate__(self):
-        dict = super(RemoteInstrument, self).__getstate__()
-        dict.update(_param_dict=self._param_dict)
-        return dict
+        self._local_setattr('_param_dict', params)
 
 
 def client_session(server):
