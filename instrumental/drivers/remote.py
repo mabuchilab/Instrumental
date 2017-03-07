@@ -193,13 +193,16 @@ class ClientSession(Session):
         return obj
 
     def set_obj_attr(self, obj_id, attr, value):
-        return self.request(command='setattr', obj_id=obj_id, attr=attr, value=value)
+        self.request(command='setattr', obj_id=obj_id, attr=attr, value=value)
 
     def get_obj_item(self, obj_id, key):
         obj = self.request(command='item', obj_id=obj_id, key=key)
         if isinstance(obj, RemoteObject):
             obj._session = self
         return obj
+
+    def set_obj_item(self, obj_id, key, value):
+        self.request(command='setitem', obj_id=obj_id, key=key, value=value)
 
     def get_obj_call(self, obj_id, *args, **kwargs):
         obj = self.request(command='call', obj_id=obj_id, args=args, kwargs=kwargs)
@@ -249,6 +252,7 @@ class ServerSession(Session):
             'attr': self.handle_attr,
             'setattr': self.handle_setattr,
             'item': self.handle_item,
+            'setitem': self.handle_setitem,
             'call': self.handle_call
         }
         self.shared_obj_table = shared_obj_table
@@ -317,6 +321,13 @@ class ServerSession(Session):
         entry = self.obj_table[obj_id]
         with entry.lock:
             return entry.obj[request['key']], entry.lock
+
+    def handle_setitem(self, request):
+        obj_id = request['obj_id']
+        entry = self.obj_table[obj_id]
+        with entry.lock:
+            entry.obj[request['key']] = request['value']
+        return None, FAKE_LOCK
 
     def handle_call(self, request):
         obj_id = request['obj_id']
@@ -431,6 +442,9 @@ class RemoteObject(object):
 
     def __getitem__(self, key):
         return self._session.get_obj_item(self._obj_id, key)
+
+    def __setitem__(self, key, value):
+        self._session.set_obj_item(self._obj_id, key, value)
 
     def __call__(self, *args, **kwargs):
         return self._session.get_obj_call(self._obj_id, *args, **kwargs)
