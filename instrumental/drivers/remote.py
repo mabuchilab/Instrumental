@@ -424,6 +424,7 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         socketserver.TCPServer.__init__(self, server_address, ThreadedTCPRequestHandler)
         self.shared_obj_table = {}
         self.table_lock = threading.RLock()
+        log.info("Server started...")
 
 
 class RemoteObject(object):
