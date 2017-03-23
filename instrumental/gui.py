@@ -11,10 +11,19 @@ mpl, FigureCanvas, Figure = None, None, None
 def load_matplotlib():
     global mpl, FigureCanvas, Figure
     import matplotlib as mpl
-    mpl.use('Qt4Agg')
+    if PYQT5:
+        mpl.use('Qt5Agg')
+    else:
+        mpl.use('Qt4Agg')
+
     if PYSIDE:
         mpl.rcParams['backend.qt4'] = 'PySide'
-    from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+
+    if PYQT5:
+        from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+    else:
+        from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+
     from matplotlib.figure import Figure
 
 
