@@ -448,6 +448,8 @@ def instrument(inst=None, **kwargs):
         if params is None:
             raise Exception("Instrument with alias `{}` not ".format(name) +
                             "found in config file")
+
+    params = params.copy()  # Make sure we don't modify any existing dicts
     params.update(kwargs)
 
     if 'server' in params:
