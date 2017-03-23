@@ -282,6 +282,23 @@ class ServerSession(Session):
 
         return inst, lock
 
+    def _close_shared_inst(self, entry):
+        with entry.lock:
+            entry.obj._server_refcount -= 1
+            if entry.obj._server_refcount > 0:
+                return
+
+            try:
+                entry.obj.close()
+            except:
+                pass
+
+            # Delete instrument from shared_obj_table
+            keys_to_remove = [k for k,v in self.shared_obj_table.items()
+                              if v is entry.obj]
+            for key in keys_to_remove:
+                del self.shared_obj_table[key]
+
     def handle_create(self, request):
         params = request['params'].copy()
         params.pop('server')  # Needed to force instrument() to look locally
@@ -384,12 +401,15 @@ class ServerSession(Session):
             self.messenger.respond(self.serialize(response, lock))
 
         # Clean up before we exit
-        for obj, lock in self.obj_table.values():
-            if isinstance(obj, Instrument):
-                try:
-                    obj.close()
-                except:
-                    pass
+        for entry in self.obj_table.values():
+            if isinstance(entry.obj, Instrument):
+                if entry.share:
+                    self._close_shared_inst(entry)
+                else:
+                    try:
+                        entry.obj.close()
+                    except:
+                        pass
 
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
