@@ -2,10 +2,10 @@
 # Copyright 2014-2016 Nate Bogdanowicz
 import numpy as np
 import scipy.misc
-from .compat.QtCore import Qt, QTimer, Signal, QRect, QRectF, QPoint
-from .compat.QtGui import (QPixmap, QImage, QLabel, QGraphicsView, QGraphicsScene, QFrame, QColor,
-                           QPen, QMainWindow, QMouseEvent, QStyle, QPainter)
-from .compat import PYSIDE
+from qtpy.QtCore import Qt, QTimer, Signal, QRect, QRectF, QPoint
+from qtpy.QtGui import QPixmap, QImage, QColor, QPen, QMouseEvent, QPainter
+from qtpy.QtWidgets import QGraphicsView, QGraphicsScene, QMainWindow, QLabel, QStyle
+from qtpy import PYSIDE, PYQT5
 
 mpl, FigureCanvas, Figure = None, None, None
 def load_matplotlib():
