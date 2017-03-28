@@ -9,11 +9,11 @@ import os.path
 from time import clock
 import numpy as np
 from scipy.interpolate import interp1d
-from cffi import FFI
 import win32event
 
+from nicelib import NiceLib, NiceObjectDef, load_lib
+
 from ._pixelfly import errortext
-from ._pixelfly import macros
 from . import Camera
 from .. import InstrumentTypeError, _ParamDict
 from ..util import check_units
@@ -22,115 +22,63 @@ from ... import Q_, u
 
 __all__ = ['Pixelfly']
 
-
-ffi = FFI()
-with open(os.path.join(os.path.dirname(__file__), '_pixelfly', 'Pccam_clean.h')) as f:
-    ffi.cdef(f.read())
-lib = ffi.dlopen('pf_cam.dll')  # Developed using version 2.1.0.29 of pf_cam.dll
+# Developed using version 2.1.0.29 of pf_cam.dll
+info = load_lib('pixelfly', __package__)
+ffi = info._ffi
 
 
-# Here we create a proxy for 'lib' that includes some nicer features like
-# automatic error handling, includes enums, and excludes pl_ from function
-# names
-class PixelflyLib(object):
-    pass
-px = PixelflyLib()
+class NicePixelfly(NiceLib):
+    _info = info
 
-
-px_funcs = [
-    'INITBOARD',
-    'CLOSEBOARD',
-    'GETBOARDPAR',
-    'GETBOARDVAL',
-    'SETMODE',
-    'GETMODE',
-    'WRRDORION',
-    'SET_EXPOSURE',
-    'TRIGGER_CAMERA',
-    'START_CAMERA',
-    'STOP_CAMERA',
-    'GETSIZES',
-    'READTEMPERATURE',
-    'READVERSION',
-    'GETBUFFER_STATUS',
-    'ADD_BUFFER_TO_LIST',
-    'REMOVE_BUFFER_FROM_LIST',
-    'REMOVE_ALL_BUFFERS_FROM_LIST',
-    'ALLOCATE_BUFFER',
-    'ALLOCATE_BUFFER_EX',
-    'FREE_BUFFER',
-    'SETBUFFER_EVENT',
-    'MAP_BUFFER',
-    'UNMAP_BUFFER',
-    'SETORIONINT',
-    'GETORIONINT',
-    'READEEPROM',
-    'WRITEEEPROM',
-    'SETTIMEOUTS',
-    'SETDRIVER_EVENT',
-    'READ_TEMP',
-    'SET_NOMINAL_PELTIER_TEMP',
-    'GET_NOMINAL_PELTIER_TEMP',
-    'SET_STANDBY_MODE',
-    'GET_STANDBY_MODE',
-    'PCC_MEMCPY',
-    'PCC_GET_VERSION',
-    'PCC_WAITFORBUFFER',
-    'PCC_RESETEVENT'
-]
-
-# Include enums from CFFI library version of headers
-# for some reason, enums aren't available until after first dir()...
-dir(lib)
-for name in dir(lib):
-    if not name.startswith('__'):
-        try:
-            setattr(px, name, getattr(lib, name))
-        except AttributeError as e:
-            pass
-
-ERR_CODE_MAP = {
-    -1: 'Initialization failed; no camera connected',
-    -2: 'Timeout',
-    -3: 'Function called with wrong parameter',
-    -4: 'Cannot locate PCI card or card driver',
-    -5: 'Wrong operating system',
-    -6: 'No driver or wrong driver is installed',
-    -7: 'IO function failed',
-    -8: 'Reserved',
-    -9: 'Invalid camera mode',
-    -10: 'Reserved',
-    -11: 'Device is held by another process',
-    -12: 'Error in reading or writing data to board',
-    -13: 'Wrong driver function',
-    -14: 'Reserved'
-}
-
-# Include selected macros from headers
-for name in dir(macros):
-    if not name.startswith('__'):
-        setattr(px, name, getattr(macros, name))
-
-
-def err_wrap(func):
-    def err_wrapped(*args):
-        ret_code = func(*args)
-        if ret_code != 0:
+    def _ret_wrap(code):
+        if code != 0:
             pbuf = errortext.ffi.new('char[]', 1024)
-            errortext.lib.PCO_GetErrorText(errortext.ffi.cast('unsigned int', ret_code), pbuf,
+            errortext.lib.PCO_GetErrorText(errortext.ffi.cast('unsigned int', code), pbuf,
                                            len(pbuf))
             err_message = errortext.ffi.string(pbuf)
-            e = Exception('({}) {}'.format(ret_code, err_message))
-            e.err_code = ret_code
+            e = Error('({}) {}'.format(code, err_message))
+            e.err_code = code
             raise e
-    err_wrapped.__name__ = str(func)
-    return err_wrapped
 
+    INITBOARD = ('in', 'out')  # Second arg should really be 'inout'
+    CHECK_BOARD_AVAILABILITY = ('in')
 
-# Include (and wrap) functions from CFFI library
-for func_name in px_funcs:
-    func = getattr(lib, func_name)
-    setattr(px, func_name, err_wrap(func))
+    Board = NiceObjectDef(init='INITBOARD', attrs=dict(
+        CLOSEBOARD = ('inout'),
+        START_CAMERA = ('in'),
+        STOP_CAMERA = ('in'),
+        TRIGGER_CAMERA = ('in'),
+        SETMODE = ('in', 'in', 'in', 'in', 'in', 'in', 'in', 'in', 'in', 'in'),
+        SET_EXPOSURE = ('in', 'in'),
+        GETMODE = ('in', 'out', 'out', 'out', 'out', 'out', 'out', 'out', 'out', 'out'),
+        GETSIZES = ('in', 'out', 'out', 'out', 'out', 'out'),
+        GETBOARDVAL = ('in', 'in', 'inout'),  # TODO: deal with void pointer properly
+        READVERSION = ('in', 'in', 'buf', 'len=64'),
+        READTEMPERATURE = ('in', 'out'),
+        WRRDORION = ('in', 'in', 'out'),
+        SETORIONINT = ('in', 'in', 'in', 'in', 'in'),  # TODO: NiceLib needs something like bufin
+        GETORIONINT = ('in', 'in', 'in', 'buf', 'len'),
+        READEEPROM = ('in', 'in', 'in', 'out'),
+        WRITEEEPROM = ('in', 'in', 'in', 'in'),
+        SETTIMEOUTS = ('in', 'in', 'in', 'in'),
+        #SET_TIMEOUT_VALUES = ('in', 'arr', 'len'),  # TODO: len is in bytes
+        SETDRIVER_EVENT = ('in', 'in', 'inout'),
+        PCC_GET_VERSION = ('in', 'out', 'out'),
+        READ_IMAGE = ('in', 'in', 'len', 'arr', 'in'),  # TODO: Check this
+        ALLOCATE_BUFFER_EX = ('in', 'inout', 'in', 'inout', 'inout'),
+        FREE_BUFFER = ('in', 'in'),
+        SETBUFFER_EVENT = ('in', 'in', 'inout'),
+        CLEARBUFFER_EVENT = ('in', 'in', 'inout'),
+        PCC_RESETEVENT = ('in', 'in'),
+        ADD_BUFFER_TO_LIST = ('in', 'in', 'in', 'in', 'in'),
+        REMOVE_BUFFER_FROM_LIST = ('in', 'in'),
+        ADD_BUFFER = ('in', 'in', 'in', 'in', 'in'),
+        REMOVE_BUFFER = ('in', 'in'),
+        REMOVE_ALL_BUFFERS_FROM_LIST = ('in'),
+        PCC_WAITFORBUFFER = ('in', 'in', 'inout', 'in'),
+        GETBUFFER_STATUS = ('in', 'in', 'in', 'arr', 'len=4:byte'),
+    ))
+
 
 # Load QE curves
 data_dir = os.path.join(os.path.dirname(__file__), '_pixelfly')
@@ -150,10 +98,7 @@ class Pixelfly(Camera):
     _qe_vga = load_qe_curve('VGA.tsv')
 
     def __init__(self, board_num=0):
-        hdriver_p = ffi.new('HANDLE *', ffi.NULL)
-        px.INITBOARD(board_num, hdriver_p)
-        self._hdriver_p = hdriver_p
-        self._hcam = hdriver_p[0]
+        self._dev = NicePixelfly.Board(board_num)
         self._cam_started = False
         self._mode_set = False
         self._mem_set_up = False
@@ -176,40 +121,39 @@ class Pixelfly(Camera):
         try:
             self.set_mode()
         except:
-            px.CLOSEBOARD(self._hdriver_p)
+            self._dev.CLOSEBOARD()
             raise
 
         self._open_cameras.append(self)
         self._last_kwds = {}
-        self.lib = px
 
     @staticmethod
     def _list_boards():
-        hdriver_p = ffi.new('HANDLE *', ffi.NULL)
         board_nums = []
 
         for board_num in range(4):
             try:
-                px.INITBOARD(board_num, hdriver_p)
+                board = NicePixelfly.Board(board_num)
             except Exception:
                 pass
             else:
-                px.CLOSEBOARD(hdriver_p)
+                board.CLOSEBOARD()
                 board_nums.append(board_num)
+
         return board_nums
 
     def close(self):
         """ Clean up memory and close the camera."""
         if self._cam_started:
-            px.STOP_CAMERA(self._hcam)
+            self._dev.STOP_CAMERA()
 
-        px.REMOVE_ALL_BUFFERS_FROM_LIST(self._hcam)
+        self._dev.REMOVE_ALL_BUFFERS_FROM_LIST()
         for bufnum in self._bufnums:
-            px.FREE_BUFFER(self._hcam, bufnum)
+            self._dev.FREE_BUFFER(bufnum)
         self._bufsizes, self._bufnums, self._bufptrs = [], [], []
         self._nbufs = 0
 
-        px.CLOSEBOARD(self._hdriver_p)
+        self._dev.CLOSEBOARD()
 
     def __enter__(self):
         return self
@@ -263,10 +207,9 @@ class Pixelfly(Camera):
 
         # Camera must be stopped before SETMODE is called
         if self._cam_started:
-            px.STOP_CAMERA(self._hcam)
+            self._dev.STOP_CAMERA()
 
-        px.SETMODE(self._hcam, mode, 0, exptime, hbin_val, vbin_val,
-                   gain_val, 0, bit_pix, 0)
+        self._dev.SETMODE(mode, 0, exptime, hbin_val, vbin_val, gain_val, 0, bit_pix, 0)
 
         self._load_sizes()
         self._allocate_buffers()
@@ -295,7 +238,6 @@ class Pixelfly(Camera):
         """wait_for_frame(self, timeout=None')"""
         timeout = win32event.INFINITE if timeout is None else max(0, timeout.m_as('ms'))
 
-        ptr = ffi.new('int[4]')
         buf_i = (self._buf_i) % self._nbufs  # Most recently triggered buffer
         ret = win32event.WaitForSingleObject(int(self._buf_events[buf_i]), int(timeout))
 
@@ -303,22 +245,23 @@ class Pixelfly(Camera):
             return False  # Object is not signaled
 
         win32event.ResetEvent(int(self._buf_events[buf_i]))
-        px.PCC_RESETEVENT(self._hcam, buf_i)
-        px.GETBUFFER_STATUS(self._hcam, self._bufnums[buf_i], 0, ptr, ffi.sizeof('DWORD')*1)
+        self._dev.PCC_RESETEVENT(buf_i)
+        status = self._dev.GETBUFFER_STATUS(self._bufnums[buf_i], 0)
 
-        if px.PCC_BUF_STAT_ERROR(ptr):
-            uptr = ffi.cast('DWORD *', ptr)
+        #if px.PCC_BUF_STAT_ERROR(ptr):
+        if status[0] & 0xF000:
+            uptr = ffi.cast('DWORD *', status)
             raise Exception("Buffer error 0x{:08X} 0x{:08X} 0x{:08X} 0x{:08X}".format(
                             uptr[0], uptr[1], uptr[2], uptr[3]))
 
         if self._shutter == 'video':
-            px.ADD_BUFFER_TO_LIST(self._hcam, self._bufnums[self._buf_i], self._frame_size(), 0, 0)
+            self._dev.ADD_BUFFER_TO_LIST(self._bufnums[self._buf_i], self._frame_size(), 0, 0)
         self._buf_i = (self._buf_i + 1) % self._nbufs
 
         return True
 
     def _frame_size(self):
-        return self._binned_width * self._binned_height * (self.bit_depth/8 + 1)
+        return self._binned_width * self._binned_height * (self.bit_depth//8 + 1)
 
     def _allocate_buffers(self, nbufs=None):
         if nbufs is None:
@@ -333,9 +276,9 @@ class Pixelfly(Camera):
         bufnr_p = ffi.new('int *')
 
         # Remove and free all existing buffers
-        px.REMOVE_ALL_BUFFERS_FROM_LIST(self._hcam)
+        self._dev.REMOVE_ALL_BUFFERS_FROM_LIST()
         for bufnum in self._bufnums:
-            px.FREE_BUFFER(self._hcam, bufnum)
+            self._dev.FREE_BUFFER(bufnum)
         self._bufnums = []
         self._bufsizes = []
         self._buf_events = []
@@ -347,7 +290,7 @@ class Pixelfly(Camera):
             bufnr_p[0] = -1  # Allocate new buffer
             event_p = ffi.new('HANDLE *', ffi.NULL)
 
-            px.ALLOCATE_BUFFER_EX(self._hcam, bufnr_p, frame_size, event_p, adr)
+            self._dev.ALLOCATE_BUFFER_EX(bufnr_p, frame_size, event_p, adr)
 
             self._bufnums.append(bufnr_p[0])
             self._bufsizes.append(frame_size)
@@ -355,7 +298,7 @@ class Pixelfly(Camera):
             self._bufptrs.append(ffi.cast('void *', adr[0]))
         self._nbufs = nbufs
 
-        px.START_CAMERA(self._hcam)
+        self._dev.START_CAMERA()
         self._cam_started = True
         self._mem_set_up = True
 
@@ -363,22 +306,11 @@ class Pixelfly(Camera):
         frame_size = self._frame_size()
 
         for i in range(self._nbufs):
-            px.ADD_BUFFER_TO_LIST(self._hcam, self._bufnums[i], frame_size, 0, 0)
+            self._dev.ADD_BUFFER_TO_LIST(self._bufnums[i], frame_size, 0, 0)
         self._buf_i = 0
         self._capture_started = True
 
-        px.TRIGGER_CAMERA(self._hcam)
-
-    def _buffer_status(self):
-        ptr = ffi.new('DWORD[23]')
-        px.GETBUFFER_STATUS(self._hcam, self._bufnums[self._buf_i], 0,
-                            ffi.cast('int *', ptr), ffi.sizeof('DWORD')*23)
-        return ptr
-
-    def _board_param(self):
-        ptr = ffi.new('DWORD[21]')
-        px.GETBOARDPAR(self._hcam, ptr, ffi.sizeof('DWORD'))
-        return ptr
+        self._dev.TRIGGER_CAMERA()
 
     def latest_frame(self, copy=True):
         buf_i = (self._buf_i - 1) % self._nbufs
@@ -454,7 +386,7 @@ class Pixelfly(Camera):
 
             # FIXME: HACK -- remove me
             if self._buf_i < self._nbufs:
-                px.TRIGGER_CAMERA(self._hcam)
+                self._dev.TRIGGER_CAMERA()
 
         image_arrs = self._partial_sequence + image_arrs
         self._partial_sequence = []
@@ -482,17 +414,12 @@ class Pixelfly(Camera):
         return self.get_captured_image(timeout=timeout, copy=copy, **kwds)
 
     def _load_sizes(self):
-        ccdx_p = ffi.new('int *')
-        ccdy_p = ffi.new('int *')
-        actualx_p = ffi.new('int *')
-        actualy_p = ffi.new('int *')
-        bit_pix_p = ffi.new('int *')
-        px.GETSIZES(self._hcam, ccdx_p, ccdy_p, actualx_p, actualy_p, bit_pix_p)
-        self._max_width = ccdx_p[0]
-        self._max_height = ccdy_p[0]
-        self._binned_width = actualx_p[0]
-        self._binned_height = actualy_p[0]
-        self._bit_depth = bit_pix_p[0]
+        ccdx, ccdy, actualx, actualy, bit_pix = self._dev.GETSIZES()
+        self._max_width = ccdx
+        self._max_height = ccdy
+        self._binned_width = actualx
+        self._binned_height = actualy
+        self._bit_depth = bit_pix
 
         self._width = self._binned_width
         self._height = self._binned_height
@@ -500,10 +427,8 @@ class Pixelfly(Camera):
         if self._shutter == 'double':
             self._height = self._height / 2  # Give the height of *each* image individually
 
-    def version(self, typ):
-        vers = ffi.new('char[64]')
-        px.READVERSION(self._hcam, typ, vers, len(vers))
-        return ffi.string(vers)
+    def _version(self, typ):
+        return self._dev.READVERSION(typ)
 
     @check_units(wavlen='nm')
     def quantum_efficiency(self, wavlen, high_gain=False):
@@ -522,9 +447,8 @@ class Pixelfly(Camera):
     @property
     def temperature(self):
         """ The temperature of the CCD. """
-        temp_p = ffi.new('int *')
-        px.READTEMPERATURE(self._hcam, temp_p)
-        return Q_(temp_p[0], 'degC')
+        temp_C = self._dev.READTEMPERATURE()
+        return Q_(temp_C, 'degC')
 
     width = property(lambda self: self._width)
     height = property(lambda self: self._height)
@@ -565,7 +489,6 @@ def _cleanup():
 
 
 def close_all():
-    hdriver_p = ffi.new('HANDLE *', ffi.NULL)
-    px.INITBOARD(0, hdriver_p)
-    px.STOP_CAMERA(hdriver_p[0])
-    px.CLOSEBOARD(hdriver_p)
+    board = NicePixelfly.Board(0)
+    board.STOP_CAMERA()
+    board.CLOSEBOARD()
