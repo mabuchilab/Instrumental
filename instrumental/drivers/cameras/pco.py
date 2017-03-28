@@ -299,14 +299,14 @@ class PCO_Camera(Camera):
         y1 = min(self.max_width, y1)
 
         # Round and center x coords (must be symmetric in dual-ADC mode)
-        cx = self.max_width / 2
+        cx = self.max_width // 2
         xdiff = max(cx - x0, x1 - cx) - 1
         xdiff = (xdiff // hstep + 1) * hstep
         fx0 = cx - xdiff
         fx1 = cx + xdiff
 
         # Round and center y coords (must be symmetric for pco.edge)
-        cy = self.max_height / 2
+        cy = self.max_height // 2
         ydiff = max(cy - y0, y1 - cy) - 1
         ydiff = (ydiff // vstep + 1) * vstep
         fy0 = cy - ydiff
@@ -336,8 +336,8 @@ class PCO_Camera(Camera):
 
     def _set_centered_ROI(self, width, height):
         _, _, max_width, max_height = self._get_sizes()
-        x0 = (max_width-width)/2
-        y0 = (max_height-height)/2
+        x0 = (max_width-width)//2
+        y0 = (max_height-height)//2
         self._set_ROI(x0, y0, x0+width, y0+height)
 
     def _get_lookup_table_info(self):
@@ -433,7 +433,7 @@ class PCO_Camera(Camera):
         """Calculate the size (in bytes) a buffer needs to hold an image with the current
         settings."""
         width, height, _, _ = self._get_sizes()
-        return (width * height * self._data_depth()) / 16 * 2
+        return (width * height * self._data_depth()) // 16 * 2
 
     def _set_binning(self, hbin, vbin):
         self._cam.SetBinning(hbin, vbin)
@@ -500,9 +500,9 @@ class PCO_Camera(Camera):
                     break
 
             if copy:
-                image_buf = buffer(ffi.buffer(buf.address, frame_size)[:])
+                image_buf = memoryview(ffi.buffer(buf.address, frame_size)[:])
             else:
-                image_buf = buffer(ffi.buffer(buf.address, frame_size))
+                image_buf = memoryview(ffi.buffer(buf.address, frame_size))
 
             # Convert to array (currently assumes mono16)
             array = np.frombuffer(image_buf, np.uint16)
@@ -599,9 +599,9 @@ class PCO_Camera(Camera):
     def latest_frame(self, copy=True):
         buf_info = self.last_buffer
         if copy:
-            buf = buffer(ffi.buffer(buf_info.address, self._frame_size())[:])
+            buf = memoryview(ffi.buffer(buf_info.address, self._frame_size())[:])
         else:
-            buf = buffer(ffi.buffer(buf_info.address, self._frame_size()))
+            buf = memoryview(ffi.buffer(buf_info.address, self._frame_size()))
 
         width, height, _, _ = self._get_sizes()
         array = np.frombuffer(buf, np.uint16)
