@@ -148,6 +148,8 @@ class BufferInfo(object):
 class UC480_Camera(Camera):
     """A uc480-supported Camera."""
     _open_cameras = []
+    DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
+    DEFAULT_KWDS.update(vsub=1, hsub=1)
 
     def __init__(self, id=None, serial=None):
         """Create a UC480_Camera object.
@@ -396,6 +398,36 @@ class UC480_Camera(Camera):
                 lib.is_ExitImageQueue(self._hcam)
         self._queue_enabled = enable
 
+    def _set_subsampling(self, vsub, hsub):
+        VMAP = {
+            1: IS_SUBSAMPLING_DISABLE,
+            2: IS_SUBSAMPLING_2X_VERTICAL,
+            3: IS_SUBSAMPLING_3X_VERTICAL,
+            4: IS_SUBSAMPLING_4X_VERTICAL,
+            5: IS_SUBSAMPLING_5X_VERTICAL,
+            6: IS_SUBSAMPLING_6X_VERTICAL,
+            8: IS_SUBSAMPLING_8X_VERTICAL,
+            16: IS_SUBSAMPLING_16X_VERTICAL,
+        }
+        HMAP = {
+            1: IS_SUBSAMPLING_DISABLE,
+            2: IS_SUBSAMPLING_2X_HORIZONTAL,
+            3: IS_SUBSAMPLING_3X_HORIZONTAL,
+            4: IS_SUBSAMPLING_4X_HORIZONTAL,
+            5: IS_SUBSAMPLING_5X_HORIZONTAL,
+            6: IS_SUBSAMPLING_6X_HORIZONTAL,
+            8: IS_SUBSAMPLING_8X_HORIZONTAL,
+            16: IS_SUBSAMPLING_16X_HORIZONTAL,
+        }
+
+        mode = VMAP[vsub] | HMAP[hsub]
+        ret = lib.is_SetSubSampling(self._hcam, mode)
+
+        if ret == IS_NOT_SUPPORTED:
+            raise Error("Unsupported subsampling mode (h,v) = ({},{})".format(hsub, vsub))
+        elif ret != IS_SUCCESS:
+            raise Error("Failed to set subsampling: error code {}".format(ret))
+
     def _set_binning(self, vbin, hbin):
         VMAP = {
             1: IS_BINNING_DISABLE,
@@ -430,6 +462,7 @@ class UC480_Camera(Camera):
         self._handle_kwds(kwds)
 
         self._set_binning(kwds['vbin'], kwds['hbin'])
+        self._set_subsampling(kwds['vsub'], kwds['hsub'])
         self._set_AOI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
         self._set_exposure(kwds['exposure_time'])
         self._set_gain(kwds['gain'])
@@ -477,6 +510,7 @@ class UC480_Camera(Camera):
         self._handle_kwds(kwds)
 
         self._set_binning(kwds['vbin'], kwds['hbin'])
+        self._set_subsampling(kwds['vsub'], kwds['hsub'])
         self._set_AOI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
         self._set_exposure(kwds['exposure_time'])
         self._set_gain(kwds['gain'])
