@@ -315,9 +315,9 @@ class Pixelfly(Camera):
     def latest_frame(self, copy=True):
         buf_i = (self._buf_i - 1) % self._nbufs
         if copy:
-            buf = buffer(ffi.buffer(self._bufptrs[buf_i], self._frame_size())[:])
+            buf = memoryview(ffi.buffer(self._bufptrs[buf_i], self._frame_size())[:])
         else:
-            buf = buffer(ffi.buffer(self._bufptrs[buf_i], self._frame_size()))
+            buf = memoryview(ffi.buffer(self._bufptrs[buf_i], self._frame_size()))
 
         arr = self._array_from_buffer(buf)
 
@@ -368,9 +368,9 @@ class Pixelfly(Camera):
                 raise TimeoutError
 
             if copy:
-                buf = buffer(ffi.buffer(self._bufptrs[self._buf_i], self._frame_size())[:])
+                buf = memoryview(ffi.buffer(self._bufptrs[self._buf_i], self._frame_size())[:])
             else:
-                buf = buffer(ffi.buffer(self._bufptrs[self._buf_i], self._frame_size()))
+                buf = memoryview(ffi.buffer(self._bufptrs[self._buf_i], self._frame_size()))
 
             array = self._array_from_buffer(buf)
 
