@@ -68,7 +68,7 @@ def get_error_text(ret_code):
 
 
 class NicePCO(NiceLib):
-    def _ret_wrap(code):
+    def _ret(code):
         if code != 0:
             e = Error(get_error_text(code))
             e.code = code & 0xFFFFFFFF

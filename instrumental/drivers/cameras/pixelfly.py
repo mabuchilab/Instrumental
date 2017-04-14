@@ -34,7 +34,7 @@ ffi = info._ffi
 class NicePixelfly(NiceLib):
     _info = info
 
-    def _ret_wrap(code):
+    def _ret(code):
         if code != 0:
             pbuf = errortext.ffi.new('char[]', 1024)
             errortext.lib.PCO_GetErrorText(errortext.ffi.cast('unsigned int', code), pbuf,

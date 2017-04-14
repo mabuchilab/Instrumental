@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016 Nate Bogdanowicz
+# Copyright 2016-2017 Nate Bogdanowicz
 from enum import Enum
 from collections import OrderedDict
 import numpy as np
@@ -54,7 +54,7 @@ class NiceNI(NiceLib):
     _prefix = ('DAQmx_', 'DAQmx')
     _buflen = 512
 
-    def _ret_wrap(code):
+    def _ret(code):
         if code != 0:
             raise DAQError(code)
 

@@ -122,7 +122,7 @@ class NiceKinesisISC(NiceLib):
     #
     # Error wrapping functions
     #
-    def _ret_wrap(ret):
+    def _ret(ret):
         if ret != 0:
             raise KinesisError(ret)
 
