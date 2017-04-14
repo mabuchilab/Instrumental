@@ -3,6 +3,7 @@
 """
 Driver for PCO Pixelfly cameras.
 """
+from future.utils import PY2
 
 import atexit
 import os.path
@@ -19,6 +20,9 @@ from .. import InstrumentTypeError, _ParamDict
 from ..util import check_units
 from ...errors import Error, TimeoutError
 from ... import Q_, u
+
+if PY2:
+    memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
 
 __all__ = ['Pixelfly']
 

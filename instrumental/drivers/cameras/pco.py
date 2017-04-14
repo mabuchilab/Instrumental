@@ -3,6 +3,8 @@
 """
 Driver for PCO cameras that use the PCO.camera SDK.
 """
+from future.utils import PY2
+
 import os
 import os.path
 import atexit
@@ -19,6 +21,9 @@ from ..util import as_enum, unit_mag, check_units
 from .. import InstrumentTypeError, _ParamDict
 from ...errors import Error, TimeoutError
 from ... import Q_, u
+
+if PY2:
+    memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
 
 
 # Notes:
