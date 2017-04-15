@@ -524,6 +524,21 @@ class MiniTask(object):
         self.n_samples = n_samples
         self.fsamp = fsamp
 
+    def reserve(self):
+        self._mx_task.TaskControl(Val.Task_Reserve)
+
+    def reserve_with_timeout(self, timeout):
+        """Try, multiple times if necessary, to reserve the hardware resources needed for the task
+
+        If `timeout` is None, only tries once. Otherwise, tries repeatedly until successful, raising
+        a TimeoutError if the given timeout elapses. To retry without limit, use a negative
+        `timeout`.
+        """
+        call_with_timeout(self.reserve, timeout)
+
+    def verify(self):
+        self._mx_task.TaskControl(Val.Task_Verify)
+
     def start(self):
         self._mx_task.StartTask()
 
