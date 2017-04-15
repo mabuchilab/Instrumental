@@ -573,6 +573,28 @@ class MiniTask(object):
         value = self._mx_task.ReadAnalogScalarF64(timeout_s)
         return Q_(value, 'V')
 
+    @check_units(timeout='?s')
+    def read_AI_channels(self, samples=-1, timeout=None):
+        """Perform an AI read and get a dict containing the AI buffers"""
+        samples = int(samples)
+        timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
+
+        if samples == -1:
+            buf_size = self._mx_task.GetBufInputBufSize() * len(self.AIs)
+        else:
+            buf_size = samples * len(self.AIs)
+
+        data, n_samples_read = self._mx_task.ReadAnalogF64(samples, timeout_s, Val.GroupByChannel,
+                                                           buf_size)
+        res = {}
+        for i, ch_name in enumerate(self.AIs):
+            start = i * n_samples_read
+            stop = (i+1) * n_samples_read
+            res[ch_name] = Q_(data[start:stop], 'V')
+        res['t'] = Q_(np.linspace(0, n_samples_read/self.fsamp.m_as('Hz'),
+                                  n_samples_read, endpoint=False), 's')
+        return res
+
     @check_units(value='V', timeout='?s')
     def write_AO_scalar(self, value, timeout=None):
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
