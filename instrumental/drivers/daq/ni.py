@@ -465,7 +465,7 @@ class Task(object):
         ao_names = [name for (name, ch) in self.channels.items() if ch.type == 'AO']
         arr = np.concatenate([Q_(data[ao]).to('V').magnitude for ao in ao_names])
         arr = arr.astype(np.float64)
-        n_samps_per_chan = data.values()[0].magnitude.size
+        n_samps_per_chan = list(data.values())[0].magnitude.size
         mx_task.WriteAnalogF64(n_samps_per_chan, False, -1., Val.GroupByChannel, arr)
 
 
