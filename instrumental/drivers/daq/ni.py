@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright 2016-2017 Nate Bogdanowicz
+from past.builtins import unicode
+
 from enum import Enum
 from collections import OrderedDict
 import numpy as np
@@ -12,6 +14,16 @@ from . import DAQ
 
 
 __all__ = ['DAQError', 'NIDAQ']
+
+
+def to_bytes(value, codec='utf-8'):
+    """Encode a unicode string as bytes or pass through an existing bytes object"""
+    if isinstance(value, bytes):
+        return value
+    elif isinstance(value, unicode):
+        value.encode(codec)
+    else:
+        return bytes(value)
 
 
 def _instrument(params):
@@ -393,7 +405,7 @@ class MiniTask(object):
     @check_enums(mode=SampleMode, edge=EdgeSlope)
     @check_units(fsamp='Hz')
     def config_timing(self, fsamp, n_samples, mode='finite', edge='rising', clock=''):
-        clock = bytes(clock)
+        clock = to_bytes(clock)
         self._mx_task.CfgSampClkTiming(clock, fsamp.m_as('Hz'), edge.value, mode.value, n_samples)
 
         # Save for later
