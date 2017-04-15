@@ -3,13 +3,14 @@
 from __future__ import division
 from past.builtins import unicode
 
+import time
 from enum import Enum
 from collections import OrderedDict
 import numpy as np
 from nicelib import NiceLib, NiceObjectDef, load_lib
 
 from ... import Q_, u
-from ...errors import Error, InstrumentTypeError
+from ...errors import Error, InstrumentTypeError, TimeoutError
 from ..util import check_units, check_enums
 from .. import _ParamDict
 from . import DAQ
@@ -26,6 +27,29 @@ def to_bytes(value, codec='utf-8'):
         value.encode(codec)
     else:
         return bytes(value)
+
+
+def call_with_timeout(func, timeout):
+    """Call a function repeatedly until successful or timeout elapses
+
+    timeout : float or None
+        If None, only try to call `func` once. If negative, try until successful. If nonnegative,
+        try for up to `timeout` seconds. If a non-None timeout is given, hides any exceptions that
+        `func` causes. If timeout elapses, raises a TimeoutError.
+    """
+    if timeout is None:
+        return func()
+
+    cur_time = start_time = time.time()
+    max_time = start_time + float(timeout)
+    while cur_time <= max_time:
+        try:
+            return func()
+        except:
+            pass
+        cur_time = time.time()
+
+    raise TimeoutError
 
 
 def _instrument(params):
@@ -67,6 +91,7 @@ class NiceNI(NiceLib):
     _info = info
     _prefix = ('DAQmx_', 'DAQmx')
     _buflen = 512
+    _use_numpy = True
 
     def _ret(code):
         if code != 0:
@@ -449,8 +474,7 @@ class Task(object):
         """ Returns a dict containing the AI buffers. """
         mx_task = self._mtasks['AI']._mx_task
         buf_size = mx_task.GetBufInputBufSize() * len(self.AIs)
-        c_arr, n_samps_read = mx_task.ReadAnalogF64(-1, -1., Val.GroupByChannel, buf_size)
-        data = np.frombuffer(ffi.buffer(c_arr), dtype=np.float64)
+        data, n_samps_read = mx_task.ReadAnalogF64(-1, -1., Val.GroupByChannel, buf_size)
 
         res = {}
         for i, ch in enumerate(self.AIs):
