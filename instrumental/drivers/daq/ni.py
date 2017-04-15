@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 # Copyright 2016-2017 Nate Bogdanowicz
+from __future__ import division
 from past.builtins import unicode
 
 from enum import Enum
 from collections import OrderedDict
 import numpy as np
 from nicelib import NiceLib, NiceObjectDef, load_lib
+
 from ... import Q_, u
 from ...errors import Error, InstrumentTypeError
 from ..util import check_units, check_enums
