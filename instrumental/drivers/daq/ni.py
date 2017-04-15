@@ -649,7 +649,8 @@ class AnalogIn(Channel):
                                     Val.Volts, '')
 
     @check_units(duration='?s', fsamp='?Hz')
-    def read(self, duration=None, fsamp=None, n_samples=None, vmin=None, vmax=None):
+    def read(self, duration=None, fsamp=None, n_samples=None, vmin=None, vmax=None,
+             reserve_timeout=None):
         """Read one or more analog input samples.
 
         By default, reads and returns a single sample. If two of `duration`, `fsamp`,
@@ -676,10 +677,14 @@ class AnalogIn(Channel):
 
             num_args_specified = num_not_none(duration, fsamp, n_samples)
             if num_args_specified == 0:
+                mtask.verify()
+                mtask.reserve_with_timeout(reserve_timeout)
                 data = mtask.read_AI_scalar()
             elif num_args_specified == 2:
                 fsamp, n_samples = handle_timing_params(duration, fsamp, n_samples)
                 mtask.config_timing(fsamp, n_samples)
+                mtask.verify()
+                mtask.reserve_with_timeout(reserve_timeout)
                 data = mtask.read_AI_channels()
             else:
                 raise DAQError("Must specify 0 or 2 of duration, fsamp, and n_samples")
