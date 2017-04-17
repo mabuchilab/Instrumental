@@ -370,8 +370,13 @@ _internal_channels = {
 
 @check_units(duration='?s', fsamp='?Hz')
 def handle_timing_params(duration, fsamp, n_samples):
-    if duration and fsamp:
-        n_samples = int((duration * fsamp).to(''))  # Exclude endpoint
+    if duration is not None:
+        if fsamp is not None:
+            n_samples = int((duration * fsamp).to(''))  # Exclude endpoint
+        elif n_samples is not None:
+            if n_samples <= 0:
+                raise ValueError("`n_samples` must be greater than zero")
+            fsamp = (n_samples - 1) / duration
     return fsamp, n_samples
 
 
