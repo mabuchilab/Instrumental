@@ -395,6 +395,11 @@ class Task(object):
 
         Each arg can either be a Channel or a tuple of (Channel, name_str)
         """
+        self._trig_set_up = False
+        self.fsamp = None
+        self.n_samples = 1
+        self.is_scalar = True
+
         self.channels = OrderedDict()
         self._mtasks = {}
         self.AOs, self.AIs, self.DOs, self.DIs, self.COs, self.CIs = [], [], [], [], [], []
@@ -417,15 +422,11 @@ class Task(object):
             channel._add_to_minitask(self._mtasks[channel.type])
 
             TYPED_CHANNELS[channel.type].append(channel)
+        self._setup_master_channel()
 
-    @check_enums(mode=SampleMode, edge=EdgeSlope)
-    @check_units(duration='?s', fsamp='?Hz')
-    def set_timing(self, duration=None, fsamp=None, n_samples=None, mode='finite', edge='rising',
-                   clock=''):
-        fsamp, n_samples = handle_timing_params(duration, fsamp, n_samples)
-        self.fsamp = fsamp
+    def _setup_master_channel(self):
         master_clock = ''
-        master_trig = ''
+        self.master_trig = ''
         self.master_type = None
         for ch_type in ['AI', 'AO', 'DI', 'DO']:
             if ch_type in self._mtasks:
@@ -435,18 +436,35 @@ class Task(object):
                         devname = ch.daq.name
                         break
                 master_clock = '/{}/{}/SampleClock'.format(devname, ch_type.lower())
-                master_trig = '/{}/{}/StartTrigger'.format(devname, ch_type.lower())
+                self.master_trig = '/{}/{}/StartTrigger'.format(devname, ch_type.lower())
                 self.master_type = ch_type
                 break
 
-        for ch_type, mtask in self._mtasks.items():
-            mtask.config_timing(fsamp, n_samples, mode, edge, '')
+    @check_enums(mode=SampleMode, edge=EdgeSlope)
+    @check_units(duration='?s', fsamp='?Hz')
+    def set_timing(self, duration=None, fsamp=None, n_samples=None, mode='finite', edge='rising',
+                   clock=''):
+        self.edge = edge
+        num_args_specified = num_not_none(duration, fsamp, n_samples)
+        if num_args_specified == 0:
+            self.n_samples = 1
+        elif num_args_specified == 2:
+            self.fsamp, self.n_samples = handle_timing_params(duration, fsamp, n_samples)
+            for ch_type, mtask in self._mtasks.items():
+                mtask.config_timing(self.fsamp, self.n_samples, mode, self.edge, '')
+        else:
+            raise DAQError("Must specify 0 or 2 of duration, fsamp, and n_samples")
 
+    def _setup_triggers(self):
         for ch_type, mtask in self._mtasks.items():
             if ch_type != self.master_type:
-                mtask._mx_task.CfgDigEdgeStartTrig(master_trig, edge.value)
+                mtask._mx_task.CfgDigEdgeStartTrig(self.master_trig, self.edge.value)
+        self._trig_set_up = True
 
     def run(self, write_data=None):
+        if not self._trig_set_up:
+            self._setup_triggers()
+
         # Need to make sure we get data array for each output channel (AO, DO, CO...)
         for ch_name, ch in self.channels.items():
             if ch.type in ('AO', 'DO', 'CO'):
