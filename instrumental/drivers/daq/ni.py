@@ -121,6 +121,8 @@ class NiceNI(NiceLib):
         'GetBufInputBufSize': ('in', 'out'),
         'GetBufInputOnbrdBufSize': ('in', 'out'),
         'CfgSampClkTiming': ('in', 'in', 'in', 'in', 'in', 'in'),
+        'CfgImplicitTiming': ('in', 'in', 'in'),
+        'CfgOutputBuffer': ('in', 'in'),
         'CfgDigEdgeStartTrig': ('in', 'in', 'in'),
         'SetReadOffset': ('in', 'in'),
         'GetReadOffset': ('in', 'out'),
