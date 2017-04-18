@@ -449,9 +449,12 @@ class Task(object):
     def run(self, write_data=None):
         # Need to make sure we get data array for each output channel (AO, DO, CO...)
         for ch_name, ch in self.channels.items():
-            if ch.type in ('AO', 'DO', 'CO') and ch_name not in write_data:
-                raise Exception('write_data missing an array for output channel {}'
-                                .format(ch_name))
+            if ch.type in ('AO', 'DO', 'CO'):
+                if write_data is None:
+                    raise ValueError("Must provide write_data if using output channels")
+                elif ch_name not in write_data:
+                    raise ValueError('write_data missing an array for output channel {}'
+                                     .format(ch_name))
 
         # Then set up writes for each channel, don't auto-start
         self._write_AO_channels(write_data)
