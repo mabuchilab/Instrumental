@@ -493,6 +493,8 @@ class Task(object):
         return res
 
     def _write_AO_channels(self, data):
+        if 'AO' not in self._mtasks:
+            return
         mx_task = self._mtasks['AO']._mx_task
         ao_names = [name for (name, ch) in self.channels.items() if ch.type == 'AO']
         arr = np.concatenate([Q_(data[ao]).to('V').magnitude for ao in ao_names])
