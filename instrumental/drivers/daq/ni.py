@@ -536,6 +536,7 @@ class Task(object):
 
     def _read_AI_channels(self, timeout_s):
         """ Returns a dict containing the AI buffers. """
+        is_scalar = self.fsamp is None
         mx_task = self._mtasks['AI']._mx_task
         buf_size = self.n_samples * len(self.AIs)
         data, n_samps_read = mx_task.ReadAnalogF64(-1, timeout_s, Val.GroupByChannel, buf_size)
@@ -544,10 +545,14 @@ class Task(object):
         for i, ch in enumerate(self.AIs):
             start = i * n_samps_read
             stop = (i + 1) * n_samps_read
-            res[ch.name] = Q_(data[start:stop], 'V')
+            ch_data = data[start:stop] if not is_scalar else data[start]
+            res[ch.name] = Q_(ch_data, 'V')
 
-        end_t = (n_samps_read-1)/self.fsamp.m_as('Hz') if self.fsamp is not None else 0
-        res['t'] = Q_(np.linspace(0, end_t, n_samps_read), 's')
+        if is_scalar:
+            res['t'] = Q_(0., 's')
+        else:
+            end_t = (n_samps_read-1)/self.fsamp.m_as('Hz') if self.fsamp is not None else 0
+            res['t'] = Q_(np.linspace(0., end_t, n_samps_read), 's')
         return res
 
     def _write_AO_channels(self, data):
