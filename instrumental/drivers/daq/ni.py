@@ -534,11 +534,11 @@ class Task(object):
             if ch_type != self.master_type:
                 mtask.stop()
 
-    def _read_AI_channels(self):
+    def _read_AI_channels(self, timeout_s):
         """ Returns a dict containing the AI buffers. """
         mx_task = self._mtasks['AI']._mx_task
         buf_size = self.n_samples * len(self.AIs)
-        data, n_samps_read = mx_task.ReadAnalogF64(-1, -1., Val.GroupByChannel, buf_size)
+        data, n_samps_read = mx_task.ReadAnalogF64(-1, timeout_s, Val.GroupByChannel, buf_size)
 
         res = {}
         for i, ch in enumerate(self.AIs):
