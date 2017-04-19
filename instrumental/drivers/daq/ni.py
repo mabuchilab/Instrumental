@@ -481,12 +481,8 @@ class Task(object):
         # self.write_DO_channels()
         # self.write_CO_channels()
 
-        # Then manually start. Do we need triggering to launch all tasks at the
-        # same time? Do we only start the 'main' one? So many questions...
-        for ch_type, mtask in self._mtasks.items():
-            if ch_type != self.master_type:
-                mtask.start()
-        self._mtasks[self.master_type].start()  # Start the master last
+        # Then manually start
+        self.start()
 
         # Lastly, read the data (e.g. using ReadAnalogF64)
         read_data = self._read_AI_channels()
@@ -497,6 +493,36 @@ class Task(object):
                 mtask.stop()
 
         return read_data
+
+    def verify(self):
+        for mtask in self._mtasks.values():
+            mtask.verify()
+
+    def reserve(self):
+        for mtask in self._mtasks.values():
+            mtask.reserve()
+
+    def unreserve(self):
+        for mtask in self._mtasks.values():
+            mtask.unreserve()
+
+    def abort(self):
+        for mtask in self._mtasks.values():
+            mtask.abort()
+
+    def commit(self):
+        for mtask in self._mtasks.values():
+            mtask.commit()
+
+    def start(self):
+        for ch_type, mtask in self._mtasks.items():
+            if ch_type != self.master_type:
+                mtask.start()
+        self._mtasks[self.master_type].start()  # Start the master last
+
+    def stop(self):
+        for mtask in self._mtasks.values():
+            mtask.stop()
 
     def _read_AI_channels(self):
         """ Returns a dict containing the AI buffers. """
@@ -559,6 +585,12 @@ class MiniTask(object):
     def reserve(self):
         self._mx_task.TaskControl(Val.Task_Reserve)
 
+    def unreserve(self):
+        self._mx_task.TaskControl(Val.Task_Unreserve)
+
+    def abort(self):
+        self._mx_task.TaskControl(Val.Task_Abort)
+
     def reserve_with_timeout(self, timeout):
         """Try, multiple times if necessary, to reserve the hardware resources needed for the task
 
@@ -570,6 +602,9 @@ class MiniTask(object):
 
     def verify(self):
         self._mx_task.TaskControl(Val.Task_Verify)
+
+    def commit(self):
+        self._mx_task.TaskControl(Val.Task_Commit)
 
     def start(self):
         self._mx_task.StartTask()
