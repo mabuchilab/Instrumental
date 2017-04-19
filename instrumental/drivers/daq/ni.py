@@ -464,9 +464,30 @@ class Task(object):
         self._trig_set_up = True
 
     def run(self, write_data=None):
+        """Run a task from start to finish
+
+        Writes output data, starts the task, reads input data, stops the task, then returns the
+        input data. Will wait indefinitely for the data to be received. If you need more control,
+        you may instead prefer to use `write()`, `read()`, `start()`, `stop()`, etc. directly.
+        """
         if not self._trig_set_up:
             self._setup_triggers()
 
+        self.write(write_data)
+        self.start()
+        read_data = self.read()
+        self.stop()
+
+        return read_data
+
+    @check_units(timeout='?s')
+    def read(self, timeout=None):
+        timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
+        read_data = self._read_AI_channels(timeout_s)
+        return read_data
+
+    def write(self, write_data):
+        """Write data to the output channels"""
         # Need to make sure we get data array for each output channel (AO, DO, CO...)
         for ch_name, ch in self.channels.items():
             if ch.type in ('AO', 'DO', 'CO'):
@@ -480,19 +501,6 @@ class Task(object):
         self._write_AO_channels(write_data)
         # self.write_DO_channels()
         # self.write_CO_channels()
-
-        # Then manually start
-        self.start()
-
-        # Lastly, read the data (e.g. using ReadAnalogF64)
-        read_data = self._read_AI_channels()
-
-        self._mtasks[self.master_type].stop()  # Stop the master first
-        for ch_type, mtask in self._mtasks.items():
-            if ch_type != self.master_type:
-                mtask.stop()
-
-        return read_data
 
     def verify(self):
         for mtask in self._mtasks.values():
@@ -521,8 +529,10 @@ class Task(object):
         self._mtasks[self.master_type].start()  # Start the master last
 
     def stop(self):
-        for mtask in self._mtasks.values():
-            mtask.stop()
+        self._mtasks[self.master_type].stop()  # Stop the master first
+        for ch_type, mtask in self._mtasks.items():
+            if ch_type != self.master_type:
+                mtask.stop()
 
     def _read_AI_channels(self):
         """ Returns a dict containing the AI buffers. """
