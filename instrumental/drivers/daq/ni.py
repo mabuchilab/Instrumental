@@ -546,7 +546,7 @@ class Task(object):
             start = i * n_samps_read
             stop = (i + 1) * n_samps_read
             ch_data = data[start:stop] if not is_scalar else data[start]
-            res[ch.name] = Q_(ch_data, 'V')
+            res[ch.path] = Q_(ch_data, 'V')
 
         if is_scalar:
             res['t'] = Q_(0., 's')
