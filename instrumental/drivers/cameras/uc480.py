@@ -626,7 +626,7 @@ class UC480_Camera(Camera):
 
         if self._color_mode == lib.CM_RGBA8_PACKED:
             w = self.bytes_per_line // 4
-            arr = arr.reshape((h, w, 4), order='C')
+            arr = arr.reshape((h, w, 4), order='C')[:,:,:3]
         elif self._color_mode == lib.CM_BGRA8_PACKED:
             w = self.bytes_per_line // 4
             arr = arr.reshape((h, w, 4), order='C')[:, :, 2::-1]
