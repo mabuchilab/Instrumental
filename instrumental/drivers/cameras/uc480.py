@@ -189,10 +189,6 @@ class NiceUC480(NiceLib):
         SetDisplayMode = ('in', 'in', {'ret': ret_handler('IS_GET_DISPLAY_MODE')}),
         SetExternalTrigger = ('in', 'in', {'ret': ret_handler('IS_GET_*TRIGGER*')}),
         SetFrameRate = ('in', 'in', 'out'),
-
-        # TODO: Replace this deprecated function
-        SetImageSize = ('in', 'in', 'in', {'ret': ret_handler('IS_GET_IMAGE_SIZE_*')}),
-
         SetSubSampling = ('in', 'in', {'ret': ret_handler('IS_GET_*SUBSAMPLING*')}),
         SetTriggerDelay = ('in', 'in', {'ret': ret_handler('IS_GET_*TRIGGER*')}),
         StopLiveVideo = ('in', 'in'),
@@ -548,6 +544,7 @@ class UC480_Camera(Camera):
         log.debug('image width=%d, height=%d', self.width, self.height)
 
         self._init_colormode()
+        self._set_AOI(0, 0, self._width, self._height)
         self._allocate_mem_seq(num_bufs)
 
         self._seq_event = win32event.CreateEvent(None, False, False, '')
@@ -589,7 +586,6 @@ class UC480_Camera(Camera):
             self._buffers.append(BufferInfo(p_img_mem, memid))
 
         # Initialize display
-        self._dev.SetImageSize(self._width, self._height)
         self._dev.SetDisplayMode(lib.SET_DM_DIB)
 
     def close(self):
