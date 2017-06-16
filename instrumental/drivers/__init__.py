@@ -180,6 +180,7 @@ class Instrument(object):
         with open(old_fname, 'r') as old, open(new_fname, 'w') as new:
             in_section = False
             num_trailing = 0
+            lines = None
             for line in old:
                 if in_section:
                     if re.split(':|=', line)[0].strip() == name:
