@@ -149,7 +149,7 @@ class TSI_DLL_SDK(object):
     def GetCamera(self, camera_number):
         cam_ptr = self._ll.vptr.GetCamera(self._ll, camera_number)
         if cam_ptr == ffi.NULL:
-            raise ValueError("No such camera found")
+            raise Error("Camera not found. Make sure you called GetNumberOfCameras first")
         return TSI_DLL_Camera(cam_ptr)
 
 
