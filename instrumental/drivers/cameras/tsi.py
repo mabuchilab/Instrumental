@@ -152,6 +152,31 @@ class TSI_DLL_SDK(object):
             raise Error("Camera not found. Make sure you called GetNumberOfCameras first")
         return TSI_DLL_Camera(cam_ptr)
 
+    def GetCameraInterfaceTypeStr(self, camera_number):
+        ret = self._ll.vptr.GetCameraInterfaceTypeStr(self._ll, camera_number)
+        if ret == ffi.NULL:
+            raise Error("Camera not found. Make sure you called GetNumberOfCameras first")
+        return ffi.string(ret)
+
+    def GetCameraAddressStr(self, camera_number, address_select):
+        ret = self._ll.vptr.GetCameraAddressStr(self._ll, camera_number, address_select)
+        if ret == ffi.NULL:
+            raise Error("Camera not found, or invalid address_select value for this camera. "
+                        "Make sure you called GetNumberOfCameras first")
+        return ffi.string(ret)
+
+    def GetCameraName(self, camera_number):
+        ret = self._ll.vptr.GetCameraName(self._ll, camera_number)
+        if ret == ffi.NULL:
+            raise Error("Camera not found. Make sure you called GetNumberOfCameras first")
+        return ffi.string(ret)
+
+    def GetCameraSerialNumStr(self, camera_number):
+        ret = self._ll.vptr.GetCameraSerialNumStr(self._ll, camera_number)
+        if ret == ffi.NULL:
+            raise Error("Camera not found. Make sure you called GetNumberOfCameras first")
+        return ffi.string(ret)
+
 
 sdk = TSI_DLL_SDK()
 sdk.Open()
