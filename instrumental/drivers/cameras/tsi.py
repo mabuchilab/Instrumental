@@ -331,16 +331,6 @@ class TSI_Camera(Camera):
     def _get_exposure_time(self):
         return self._get_parameter(Param.EXPOSURE_TIME) * u.ms
 
-    def _get_max_width(self):
-        sensor_width = self._get_parameter(Param.HSIZE)
-        xbin = self._get_parameter(Param.XBIN)
-        return sensor_width // xbin
-
-    def _get_max_height(self):
-        sensor_height = self._get_parameter(Param.VSIZE)
-        ybin = self._get_parameter(Param.YBIN)
-        return sensor_height // ybin
-
     def _set_ROI(self, params):
         roi_data = {
             'XOrigin': params['left'],
@@ -452,14 +442,32 @@ class TSI_Camera(Camera):
     def stop_live_video(self):
         pass
 
+    @property
+    def name(self):
+        return self._dev.GetCameraName()
+
+    @name.setter
+    def name(self, name):
+        self._dev.SetCameraName(name)
+
+    @property
+    def max_width(self):
+        sensor_width = self._get_parameter(Param.HSIZE)
+        xbin = self._get_parameter(Param.XBIN)
+        return sensor_width // xbin
+
+    @property
+    def max_height(self):
+        sensor_height = self._get_parameter(Param.VSIZE)
+        ybin = self._get_parameter(Param.YBIN)
+        return sensor_height // ybin
+
     model = _ro_property(Param.HW_MODEL)
     serial = _ro_property(Param.HW_SER_NUM)
     led_on = _rw_property(Param.USB_ENABLE_LED)
 
     width = _rw_property(Param.XPIXELS)
     height = _rw_property(Param.YPIXELS)
-    max_width = property(lambda self: self._get_max_width())
-    max_height = property(lambda self: self._get_max_height())
 
 
 if __name__ == '__main__':
