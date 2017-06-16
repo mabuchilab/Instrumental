@@ -129,7 +129,7 @@ Status = make_enum('Status', 'TSI_CAMERA_STATUS', 'TSI_STATUS_')
 AcqStatus = make_enum('AcqStatus', 'TSI_ACQ_STATUS_ID', 'TSI_ACQ_STATUS_')
 
 
-class TSI_SDK(object):
+class TSI_DLL_SDK(object):
     def __init__(self):
         self._ll = lib.tsi_create_sdk()
 
@@ -150,15 +150,15 @@ class TSI_SDK(object):
         cam_ptr = self._ll.vptr.GetCamera(self._ll, camera_number)
         if cam_ptr == ffi.NULL:
             raise ValueError("No such camera found")
-        return TSI_Camera(cam_ptr)
+        return TSI_DLL_Camera(cam_ptr)
 
 
-sdk = TSI_SDK()
+sdk = TSI_DLL_SDK()
 sdk.Open()
 atexit.register(sdk.destroy)
 
 
-class TSI_Camera(object):
+class TSI_DLL_Camera(object):
     def __init__(self, ptr):
         self._ll = ptr
 
@@ -307,7 +307,7 @@ def _ro_property(param):
     return property(fget)
 
 
-class TSICamera(Camera):
+class TSI_Camera(Camera):
     def __init__(self, cam_num):
         sdk.GetNumberOfCameras()
         self._partial_sequence = []
@@ -463,4 +463,4 @@ class TSICamera(Camera):
 
 
 if __name__ == '__main__':
-    cam = TSICamera(0)
+    cam = TSI_Camera(0)
