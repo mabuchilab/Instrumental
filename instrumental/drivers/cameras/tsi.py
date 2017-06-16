@@ -339,6 +339,10 @@ class TSI_Camera(Camera):
         self._next_frame_idx = 0
         self._tot_frames = 0
         self._dev = sdk.GetCamera(cam_num)
+
+        if self._dev.Status() != Status.CLOSED:
+            raise Error("Camera is already open")
+
         self._dev.Open()
         self._set_parameter(Param.EXPOSURE_UNIT, ExpUnit.MILLISECONDS)
 
@@ -346,6 +350,9 @@ class TSI_Camera(Camera):
         self._param_dict = _ParamDict("<TSI_Camera '{}'>".format(self.serial))
         self._param_dict['module'] = 'cameras.tsi'
         self._param_dict['tsi_cam_ser'] = self.serial
+
+    def close(self):
+        self._dev.Close()
 
     def _get_parameter(self, param_id):
         return self._dev.GetParameter(param_id)
