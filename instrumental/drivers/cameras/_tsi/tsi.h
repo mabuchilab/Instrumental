@@ -486,7 +486,7 @@ typedef struct sdk_vtbl {
   int        (*GetNumberOfCameras)        (TsiSDK *self);
   TsiCamera* (*GetCamera)                 (TsiSDK *self, int camera_number);
   char*      (*GetCameraInterfaceTypeStr) (TsiSDK *self, int camera_number);
-  char*      (*GetCameraAddressStr)       (TsiSDK *self, int camera_number);
+  char*      (*GetCameraAddressStr)       (TsiSDK *self, int camera_number, TSI_ADDRESS_SELECT address_select);
   char*      (*GetCameraName)             (TsiSDK *self, int camera_number);
   char*      (*GetCameraSerialNumStr)     (TsiSDK *self, int camera_number);
 
