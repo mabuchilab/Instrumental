@@ -18,6 +18,8 @@ from ..errors import InstrumentTypeError, InstrumentNotFoundError, ConfigError
 _acceptable_params = OrderedDict((
     ('cameras.uc480',
         ['ueye_cam_id', 'cam_serial']),
+    ('cameras.tsi',
+        ['tsi_cam_ser', 'tsi_cam_num']),
     ('cameras.pixelfly',
         ['pixelfly_board_num', 'module']),
     ('cameras.pco',

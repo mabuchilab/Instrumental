@@ -342,6 +342,11 @@ class TSI_Camera(Camera):
         self._dev.Open()
         self._set_parameter(Param.EXPOSURE_UNIT, ExpUnit.MILLISECONDS)
 
+        # For saving
+        self._param_dict = _ParamDict("<TSI_Camera '{}'>".format(self.serial))
+        self._param_dict['module'] = 'cameras.tsi'
+        self._param_dict['tsi_cam_ser'] = self.serial
+
     def _get_parameter(self, param_id):
         return self._dev.GetParameter(param_id)
 
@@ -493,6 +498,39 @@ class TSI_Camera(Camera):
 
     width = _rw_property(Param.XPIXELS)
     height = _rw_property(Param.YPIXELS)
+
+
+def list_instruments():
+    cameras = []
+    for i in range(sdk.GetNumberOfCameras()):
+        cam_ser = sdk.GetCameraSerialNumStr(i)
+
+        param_dict = _ParamDict("<TSI_Camera '{}'>".format(cam_ser))
+        param_dict['module'] = 'cameras.tsi'
+        param_dict['tsi_cam_ser'] = cam_ser
+
+        cameras.append(param_dict)
+    return cameras
+
+
+def _find_cam_by_serial(serial):
+    for i in range(sdk.GetNumberOfCameras()):
+        cam_ser = sdk.GetCameraSerialNumStr(i)
+        if cam_ser == serial:
+            return TSI_Camera(i)
+    raise ValueError("Could not find camera with serial '{}'".format(serial))
+
+
+def _instrument(params):
+    if 'tsi_cam_ser' in params:
+        cam = _find_cam_by_serial(params['tsi_cam_ser'])
+    elif 'tsi_cam_num' in params:
+        cam = TSI_Camera(params['tsi_cam_num'])
+    elif params['module'] == 'cameras.tsi':
+        cam = TSI_Camera(0)  # Just open first camera
+    else:
+        raise InstrumentTypeError()
+    return cam
 
 
 if __name__ == '__main__':
