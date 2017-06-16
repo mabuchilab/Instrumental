@@ -533,7 +533,7 @@ def _instrument(params):
         cam = _find_cam_by_serial(params['tsi_cam_ser'])
     elif 'tsi_cam_num' in params:
         cam = TSI_Camera(params['tsi_cam_num'])
-    elif params['module'] == 'cameras.tsi':
+    elif params.get('module') == 'cameras.tsi':
         cam = TSI_Camera(0)  # Just open first camera
     else:
         raise InstrumentTypeError()
