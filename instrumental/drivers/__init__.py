@@ -45,19 +45,19 @@ _acceptable_params = OrderedDict((
     ('lockins.sr850',
         ['visa_address', 'module']),
     ('motion.filter_flipper',
-         ['ff_serial']),
+        ['ff_serial']),
     ('motion.tdc_001',
-         ['tdc_serial']),
+        ['tdc_serial']),
     ('motion.ecc100',
-         ['ecc100_id', 'module']),
+        ['ecc100_id', 'module']),
     ('lasers.femto_ferb',
-         ['femto_ferb_port']),
+        ['femto_ferb_port']),
     ('motion.esp300',
-         ['esp300_port']),
+        ['esp300_port']),
     ('spectrometers.thorlabs_ccs',
-         ['ccs_usb_address', 'ccs_serial_number', 'ccs_model', 'module']),
+        ['ccs_usb_address', 'ccs_serial_number', 'ccs_model', 'module']),
     ('vacuum.sentorr_mod',
-         ['sentorrmod_port']),
+        ['sentorrmod_port']),
 ))
 
 _visa_models = OrderedDict((
@@ -157,7 +157,7 @@ class Instrument(object):
         from datetime import datetime
         import os
         import os.path
-        conf.load_config_file() # Reload latest version
+        conf.load_config_file()  # Reload latest version
 
         if name in conf.instruments.keys():
             if not force:
@@ -221,7 +221,7 @@ class Instrument(object):
                 # Write original trailing space
                 for l in lines[len(lines)-num_trailing:]:
                     new.write(l)
-        
+
         if os.path.exists(bak_fname):
             os.remove(bak_fname)
         os.rename(old_fname, bak_fname)
