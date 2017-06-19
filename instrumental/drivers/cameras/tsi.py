@@ -422,7 +422,7 @@ class TSI_Camera(Camera):
             image_arrs.append(array)
         image_arrs = self._partial_sequence + image_arrs
 
-        if self._next_frame_idx >= self._tot_frames:
+        if self._tot_frames is not None and self._next_frame_idx >= self._tot_frames:
             self._dev.Stop()
             self._partial_sequence = []
 
@@ -484,10 +484,22 @@ class TSI_Camera(Camera):
 
         return array
 
-    def start_live_video(self):
-        pass
+    def start_live_video(self, **kwds):
+        self._handle_kwds(kwds)
+
+        self._set_ROI(kwds)
+        self._set_exposure_time(kwds['exposure_time'])
+        self._set_n_frames(0)
+        self._tot_frames = None
+        self._next_frame_idx = 0
+
+        self._dev.Stop()  # Ensure old captures are finished
+        self._dev.Start()
 
     def stop_live_video(self):
+        self._dev.Stop()
+
+    def _set_trig_mode(self, mode, rising=True):
         pass
 
     @property
