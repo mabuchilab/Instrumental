@@ -418,12 +418,8 @@ class TSI_Camera(Camera):
                 else:
                     break
 
-            tsi_img = self._dev.GetPendingImage()
-            if tsi_img == ffi.NULL:
-                raise Error("Got a null image")
-            array = self._arr_from_img_struct(tsi_img, copy)
+            array = self.latest_frame(copy)
             image_arrs.append(array)
-            self._next_frame_idx += 1
         image_arrs = self._partial_sequence + image_arrs
 
         if self._next_frame_idx >= self._tot_frames:
@@ -455,10 +451,21 @@ class TSI_Camera(Camera):
             elapsed_time = clock() - start_time
             if timeout_s is not None and elapsed_time > timeout_s:
                 return False
+
+        self._latest_tsi_img = self._dev.GetPendingImage()
+        if self._latest_tsi_img == ffi.NULL:
+            raise Error("Got a null image")
+        self._next_frame_idx += 1
+
         return True
 
     def latest_frame(self, copy=True):
-        return self._arr_from_img_struct(self._latest_tsi_img, copy)
+        # Frees the TSI image buffer if `copy` is true. Otherwise, it's the user's responsibility
+        # If no buffers are available for use, the frame count will never increment, and
+        # wait_for_frame will block (until its timeout is reached)
+        img = self._arr_from_img_struct(self._latest_tsi_img, copy)
+        self._dev.FreeImage(self._latest_tsi_img)
+        return img
 
     def _arr_from_img_struct(self, tsi_img, copy):
         p_buf = tsi_img.m_PixelData.ui16
