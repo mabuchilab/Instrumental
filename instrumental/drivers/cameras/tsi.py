@@ -262,6 +262,11 @@ class TSI_DLL_Camera(object):
         if not ok:
             raise Exception("Failed to reset camera")
 
+    def FreeImage(self, image):
+        ok = self._ll.vptr.FreeImage(self._ll, image)
+        if not ok:
+            raise Exception("Failed to free image")
+
     def StartAndWait(self, timeout_ms):
         ok = self._ll.vptr.StartAndWait(self._ll, timeout_ms)
         if not ok:
