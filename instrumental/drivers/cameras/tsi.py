@@ -1,6 +1,7 @@
 from future.utils import PY2
 
 import atexit
+import os.path
 from time import clock
 import numpy as np
 from cffi import FFI
@@ -16,7 +17,8 @@ if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
 
 ffi = FFI()
-with open('./_tsi/tsi.h') as f:
+mod_dir, _ = os.path.split(__file__)
+with open(os.path.join(mod_dir, '_tsi', 'tsi.h')) as f:
     ffi.cdef(f.read())
 ffi.cdef("""
     #define WAIT_OBJECT_0       0x00L
