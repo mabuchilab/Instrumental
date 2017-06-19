@@ -398,7 +398,6 @@ class TSI_Camera(Camera):
 
         start_time = clock() * u.s
         while self._next_frame_idx < self._tot_frames:
-            print("Waiting for frame")
             if timeout is None:
                 frame_ready = self.wait_for_frame(timeout=None)
             else:
@@ -412,7 +411,6 @@ class TSI_Camera(Camera):
                 else:
                     break
 
-            print("GetPendingImage()")
             tsi_img = self._dev.GetPendingImage()
             if tsi_img == ffi.NULL:
                 raise Error("Got a null image")
@@ -439,7 +437,6 @@ class TSI_Camera(Camera):
         self._tot_frames = kwds['n_frames']
         self._next_frame_idx = 0
 
-        print(self._dev.GetAcquisitionStatus())
         self._dev.Stop()  # Ensure old captures are finished
         self._dev.Start()
 
