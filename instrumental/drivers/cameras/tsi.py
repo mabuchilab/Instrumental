@@ -586,7 +586,3 @@ def _instrument(params):
     else:
         raise InstrumentTypeError()
     return cam
-
-
-if __name__ == '__main__':
-    cam = TSI_Camera(0)
