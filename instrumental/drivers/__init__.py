@@ -469,7 +469,7 @@ def instrument(inst=None, **kwargs):
         except Exception as e:
             msg = ("\n\nSpecified module '{}' could not be imported. Make sure you have all of "
                    "this driver module's dependencies installed.".format(params['module']))
-            e.args = (e.args[0] + msg,) + e.args[1:]
+            e.args = (str(e.args[0]) + msg,) + e.args[1:]
             raise
 
         try:
