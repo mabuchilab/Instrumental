@@ -342,6 +342,14 @@ def _ro_property(param):
 
 
 class TSI_Camera(Camera):
+    DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
+    DEFAULT_KWDS.update(trig='auto', rising=True)
+
+    class TriggerMode(Enum):
+        auto = software = TrigSource.OFF.value
+        hw_edge = TrigSource.CL.value
+        hw_bulb = TrigSource.CL.value
+
     def __init__(self, cam_num):
         sdk.GetNumberOfCameras()
         self._partial_sequence = []
@@ -392,6 +400,9 @@ class TSI_Camera(Camera):
         return self._get_parameter(Param.ROI_BIN)
 
     def _set_n_frames(self, n_frames):
+        # Ensure only one exposure per HW trigger
+        if self._trig_mode != self.TriggerMode.auto:
+            n_frames = 1
         self._set_parameter(Param.FRAME_COUNT, n_frames)
 
     def grab_image(self, timeout='1s', copy=True, **kwds):
@@ -438,6 +449,7 @@ class TSI_Camera(Camera):
 
         self._set_ROI(kwds)
         self._set_exposure_time(kwds['exposure_time'])
+        self._set_trig_mode(kwds['trig'], kwds['rising'])
         self._set_n_frames(kwds['n_frames'])
         self._tot_frames = kwds['n_frames']
         self._partial_sequence = []
@@ -503,7 +515,13 @@ class TSI_Camera(Camera):
         self._dev.Stop()
 
     def _set_trig_mode(self, mode, rising=True):
-        pass
+        self._trig_mode = mode = as_enum(self.TriggerMode, mode)
+        use_hw_trigger = (mode != self.TriggerMode.auto)
+        polarity = TrigPol.ACTIVE_HIGH if rising else TrigPol.ACTIVE_LOW
+
+        self._set_parameter(Param.HW_TRIGGER_ACTIVE, use_hw_trigger)
+        self._set_parameter(Param.HW_TRIG_SOURCE, mode.value)
+        self._set_parameter(Param.HW_TRIG_POLARITY, polarity)
 
     @property
     def name(self):
