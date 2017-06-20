@@ -48,12 +48,6 @@ all_by_module = {
     'instrumental.drivers': ['instrument', 'list_instruments',
                              'list_visa_instruments', 'saved_instruments'],
     'instrumental.tools': ['fit_scan', 'fit_ringdown'],
-    'instrumental.optics.beam_plotting': ['plot_profile'],
-    'instrumental.optics.beam_tools': ['find_cavity_modes', 'get_zR',
-                                       'get_w0', 'get_z0', 'beam_profile',
-                                       'beam_roc', 'get_profiles'],
-    'instrumental.optics.optical_elements': ['ABCD', 'Space', 'Lens',
-                                             'Mirror', 'Interface'],
     'instrumental.conf': ['load_config_file']
 }
 
