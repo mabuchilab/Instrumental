@@ -407,7 +407,11 @@ class TSI_Camera(Camera):
 
     def grab_image(self, timeout='1s', copy=True, **kwds):
         self.start_capture(**kwds)
-        return self.get_captured_image(timeout=timeout, copy=copy, **kwds)
+        try:
+            images = self.get_captured_image(timeout=timeout, copy=copy, **kwds)
+        finally:
+            self._dev.Stop()
+        return images
 
     @check_units(timeout='?ms')
     def get_captured_image(self, timeout='1s', copy=True, wait_for_all=True, **kwds):
