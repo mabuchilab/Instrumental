@@ -84,8 +84,8 @@ param_type = {
     lib.TSI_PARAM_PIXEL_SIZE: 'float*',
     lib.TSI_PARAM_READOUT_TIME: 'float*',
     lib.TSI_PARAM_HW_TRIGGER_ACTIVE: 'uint32_t*',
-    lib.TSI_PARAM_HW_TRIG_SOURCE: 'uint32_t*',
-    lib.TSI_PARAM_HW_TRIG_POLARITY: 'uint32_t*',
+    lib.TSI_PARAM_HW_TRIG_SOURCE: 'TSI_HW_TRIG_SOURCE*',
+    lib.TSI_PARAM_HW_TRIG_POLARITY: 'TSI_HW_TRIG_POLARITY*',
     lib.TSI_PARAM_TAP_BALANCE_ENABLE: 'uint32_t*',
     lib.TSI_PARAM_DROPPED_FRAMES: 'uint32_t*',
     lib.TSI_PARAM_EXPOSURE_TIME_US: 'uint32_t*',
@@ -129,6 +129,8 @@ Param = make_enum('Param', 'TSI_PARAM_ID', 'TSI_PARAM_')
 ExpUnit = make_enum('ExpUnit', 'TSI_EXPOSURE_UNITS', 'TSI_EXP_UNIT_')
 Status = make_enum('Status', 'TSI_CAMERA_STATUS', 'TSI_STATUS_')
 AcqStatus = make_enum('AcqStatus', 'TSI_ACQ_STATUS_ID', 'TSI_ACQ_STATUS_')
+TrigSource = make_enum('TrigSource', 'TSI_HW_TRIG_SOURCE', 'TSI_HW_TRIG_')
+TrigPol = make_enum('TrigPol', 'TSI_HW_TRIG_POLARITY', 'TSI_HW_TRIG_')
 
 
 class TSI_DLL_SDK(object):
