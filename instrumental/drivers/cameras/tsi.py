@@ -354,7 +354,7 @@ class TSI_Camera(Camera):
         sdk.GetNumberOfCameras()
         self._partial_sequence = []
         self._next_frame_idx = 0
-        self._tot_frames = 0
+        self._tot_frames = None  # Zero means 'infinite' capture
         self._trig_mode = None
         self._dev = sdk.GetCamera(cam_num)
 
@@ -418,7 +418,7 @@ class TSI_Camera(Camera):
     def get_captured_image(self, timeout='1s', copy=True, wait_for_all=True, **kwds):
         image_arrs = []
 
-        if self._next_frame_idx >= self._tot_frames:
+        if self._tot_frames and self._next_frame_idx >= self._tot_frames:
             raise Error("No capture initiated. You must first call start_capture()")
 
         start_time = clock() * u.s
@@ -440,7 +440,7 @@ class TSI_Camera(Camera):
             image_arrs.append(array)
         image_arrs = self._partial_sequence + image_arrs
 
-        if self._tot_frames is not None and self._next_frame_idx >= self._tot_frames:
+        if self._tot_frames and self._next_frame_idx >= self._tot_frames:
             self._dev.Stop()
             self._partial_sequence = []
 
@@ -508,9 +508,10 @@ class TSI_Camera(Camera):
         self._handle_kwds(kwds)
 
         self._set_ROI(kwds)
+        self._set_trig_mode(self.TriggerMode.auto)
         self._set_exposure_time(kwds['exposure_time'])
         self._set_n_frames(0)
-        self._tot_frames = None
+        self._tot_frames = 0
         self._next_frame_idx = 0
 
         self._dev.Stop()  # Ensure old captures are finished
