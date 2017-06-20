@@ -355,6 +355,7 @@ class TSI_Camera(Camera):
         self._partial_sequence = []
         self._next_frame_idx = 0
         self._tot_frames = 0
+        self._trig_mode = None
         self._dev = sdk.GetCamera(cam_num)
 
         if self._dev.Status() != Status.CLOSED:
