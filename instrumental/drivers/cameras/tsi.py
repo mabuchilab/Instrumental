@@ -438,6 +438,7 @@ class TSI_Camera(Camera):
         self._set_exposure_time(kwds['exposure_time'])
         self._set_n_frames(kwds['n_frames'])
         self._tot_frames = kwds['n_frames']
+        self._partial_sequence = []
         self._next_frame_idx = 0
 
         self._dev.Stop()  # Ensure old captures are finished
