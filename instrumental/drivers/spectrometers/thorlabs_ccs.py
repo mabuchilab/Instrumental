@@ -77,7 +77,7 @@ class NiceCCSLib(NiceLib):
     _struct_maker = None
     _prefix = ('tlccs_')
     _buflen = 256
-    _ret_wrap = 'error_code'
+    _ret = 'error_code'
 
     def _ret_error_code(error_code, niceobj):
         if error_code != 0:

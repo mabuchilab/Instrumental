@@ -288,7 +288,7 @@ class TDC001(Motion):
 class NiceTDC001(NiceLib):
     """ Provides a convenient low-level wrapper for the library
     Thorlabs.MotionControl.TCube.DCServo.dll"""
-    _ret_wrap = 'error_code'
+    _ret = 'error_code'
     _struct_maker = None
     _ffi = ffi
     _lib = lib
