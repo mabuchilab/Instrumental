@@ -134,6 +134,7 @@ Status = make_enum('Status', 'TSI_CAMERA_STATUS', 'TSI_STATUS_')
 AcqStatus = make_enum('AcqStatus', 'TSI_ACQ_STATUS_ID', 'TSI_ACQ_STATUS_')
 TrigSource = make_enum('TrigSource', 'TSI_HW_TRIG_SOURCE', 'TSI_HW_TRIG_')
 TrigPol = make_enum('TrigPol', 'TSI_HW_TRIG_POLARITY', 'TSI_HW_TRIG_')
+OpMode = make_enum('OpMode', 'TSI_OP_MODE', 'TSI_OP_MODE_')
 
 
 class TSI_DLL_SDK(object):
@@ -349,9 +350,9 @@ class TSI_Camera(Camera):
     DEFAULT_KWDS.update(trig='auto', rising=True)
 
     class TriggerMode(Enum):
-        auto = software = TrigSource.OFF.value
-        hw_edge = TrigSource.CL.value
-        hw_bulb = TrigSource.CL.value
+        auto = software = OpMode.NORMAL
+        hw_edge = OpMode.TOE
+        hw_bulb = OpMode.PDX
 
     def __init__(self, cam_num):
         sdk.GetNumberOfCameras()
@@ -404,8 +405,8 @@ class TSI_Camera(Camera):
         return self._get_parameter(Param.ROI_BIN)
 
     def _set_n_frames(self, n_frames):
-        # Ensure only one exposure per HW trigger
-        if self._trig_mode != self.TriggerMode.auto:
+        # Ensure only one exposure per HW edge trigger
+        if self._trig_mode == self.TriggerMode.hw_edge:
             n_frames = 1
         self._set_parameter(Param.FRAME_COUNT, n_frames)
 
@@ -526,10 +527,11 @@ class TSI_Camera(Camera):
     def _set_trig_mode(self, mode, rising=True):
         self._trig_mode = mode = as_enum(self.TriggerMode, mode)
         use_hw_trigger = (mode != self.TriggerMode.auto)
+        trig_source = mode.value
         polarity = TrigPol.ACTIVE_HIGH if rising else TrigPol.ACTIVE_LOW
 
         self._set_parameter(Param.HW_TRIGGER_ACTIVE, use_hw_trigger)
-        self._set_parameter(Param.HW_TRIG_SOURCE, mode.value)
+        self._set_parameter(Param.OP_MODE, trig_source)
         self._set_parameter(Param.HW_TRIG_POLARITY, polarity)
 
     @property
