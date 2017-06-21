@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+# Copyright 2017 Nate Bogdanowicz
+
 from future.utils import PY2
 
 import atexit
