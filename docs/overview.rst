@@ -7,23 +7,38 @@ The ``drivers`` subpackage's purpose is to provide relatively high-level
 'drivers' for interfacing with lab equipment. Currently it (fully or partially)
 supports:
 
-* Tektronix TDS300 and MSO/DPO4000 series oscilloscopes
-* Tektronix AFG3000 series arbitrary function generators
-* Thorlabs DCx class USB cameras
-* NI DAQmx compatible DAQ devices
-* Thorlabs PM100x series optical power meters
-* Newport 1830-C optical power meter
-* Thorlabs Kinesis motion control systems (e.g. T-Cube motor controllers)
-* Toptica FemtoFerb 1560 Laser
-* Attocube ECC100 controller and associated translation stages and
-  goniometers
+* Cameras
+  - PCO SDK(tested on PCO.Edge)
+  - PCO Pixelfly
+  - Photometrics PVCAM
+  - Thorlabs TSI
+  - Thorlabs UC480 / iDS uEye
+* DAQs
+  - NI-DAQmx
+* Function Generators
+  - Tektronix AFG3000 series
+* Lasers
+  - Toptica FemtoFErb 1560
+* Lock-in Amplifiers
+  - SRS SR850
+* Motion Control
+  - Thorlabs Kinesis (FilterFlipper/TDC001/K10CR1 currently supported)
+  - Attocube ECC100 Controller
+* Multimeters
+  - HP 34401A
+* Optical Power Meters
+  - Newport 1830-C
+  - Thorlabs PM100x series
+* Oscilloscopes
+  - Tektronix TDS300 and MSO/DPO4000 series (and probably others)
+* Spectrometers
+  - Bristol 721 spectrum analyzer
+  - Thorlabs CCSxxx series
+* Wavemeters
+  - Burleigh WA-1000/1500
 
-Drivers are planned for:
-
-* Princeton Instruments Cameras
-* Newport ESP300 controller
-
-It should be pretty easy to write drivers for other VISA-compatible devices via PyVISA. Driver submissions are greatly appreciated!
+It should be pretty easy to write drivers for other VISA-compatible devices via PyVISA. Driver
+submissions are greatly appreciated!
 
 
 -------------------------------------------------------------------------------
@@ -53,17 +68,6 @@ It should also provide optional unit-awareness.
 
 -------------------------------------------------------------------------------
 
-
-Optics
-------
-
-The ``optics`` module is a repository for useful optics code. Currently it
-focuses on using numerical ABCD matrices to manipulate and visualize paraxial
-gaussian beams. For example, it can be used to easily specify the elements of
-an optical cavity, solve for the supported modes, and plot the tangential and
-sagittal spot size throughout the beam path.
-
--------------------------------------------------------------------------------
 
 Tools
 -----
