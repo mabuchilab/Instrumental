@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015 Nate Bogdanowicz
+# Copyright 2015-2017 Nate Bogdanowicz
 """
 Driver for Photometrics cameras.
 """
@@ -158,7 +158,6 @@ class PVCam(Camera):
 
         # For saving
         self._param_dict = _ParamDict("<PVCam '{}'>".format(name))
-        self._param_dict.module = 'cameras.pvcam'
         self._param_dict['module'] = 'cameras.pvcam'
         self._param_dict['pvcam_name'] = ffi.string(cam_name)
 
@@ -515,7 +514,7 @@ def list_instruments():
 
     for name in names:
         params = _ParamDict("<PVCam '{}'>".format(name))
-        params.module = 'cameras.pvcam'
+        params['module'] = 'cameras.pvcam'
         params['pvcam_name'] = name
         cams.append(params)
     return cams
@@ -524,7 +523,7 @@ def list_instruments():
 def _instrument(params):
     if 'pvcam_name' in params:
         cam = PVCam(params['pvcam_name'])
-    elif params.module == 'cameras.pvcam':
+    elif params['module'] == 'cameras.pvcam':
         cam = PVCam()
     else:
         raise InstrumentTypeError()

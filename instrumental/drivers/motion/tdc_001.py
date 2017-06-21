@@ -64,7 +64,7 @@ def list_instruments():
     for serial_number in device_list:
         if serial_number[0:2] == str(TDC001_TYPE):
             params = _ParamDict("<Thorlabs_DC_Servo_T-Cube '{}'>".format(serial_number))
-            params.module = 'motion.tdc_001'
+            params['module'] = 'motion.tdc_001'
             params['tdc_serial'] = str(serial_number)
             tdcs.append(params)
     return tdcs

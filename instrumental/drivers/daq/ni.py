@@ -67,7 +67,7 @@ def list_instruments():
         if not dev_name:
             continue
         params = _ParamDict("<NIDAQ '{}'>".format(dev_name))
-        params.module = 'daq.ni'
+        params['module'] = 'daq.ni'
         params['nidaq_devname'] = dev_name
         instruments.append(params)
     return instruments

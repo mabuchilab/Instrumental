@@ -59,7 +59,7 @@ def list_instruments():
         _, _, model, serial_number, _ = spec.split("::")
         model = SpecTypes(int(model, 0))
         params = _ParamDict("<Thorlabs_CCS_Spectrometer '{}-{}'>".format(model.name, serial_number))
-        params.module = 'spectrometers.thorlabs_ccs'
+        params['module'] = 'spectrometers.thorlabs_ccs'
         params['ccs_usb_address'] = spec
         params['ccs_model'] = model
         params['ccs_serial_number'] = serial_number

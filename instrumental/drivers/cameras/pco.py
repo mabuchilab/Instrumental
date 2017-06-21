@@ -179,7 +179,6 @@ class PCO_Camera(Camera):
 
         # For saving
         self._param_dict = _ParamDict("<PCO '{}'>".format(self.cam_num))
-        self._param_dict.module = 'cameras.pco'
         self._param_dict['module'] = 'cameras.pco'
         self._param_dict['pco_cam_num'] = self.cam_num
         self._param_dict['pco_interface_type'] = self.interface_type
@@ -669,7 +668,6 @@ def list_instruments():
             break
         else:
             param_dict = _ParamDict("<PCO '{}'>".format(openStruct.wCameraNumber))
-            param_dict.module = 'cameras.pco'
             param_dict['module'] = 'cameras.pco'
             param_dict['pco_cam_num'] = openStruct.wCameraNumber
             param_dict['pco_interface_type'] = openStruct.wInterfaceType
@@ -686,7 +684,7 @@ def list_instruments():
 def _instrument(params):
     if 'pco_cam_num' in params:
         cam = PCO_Camera(params['pco_cam_num'])
-    elif params.module == 'cameras.pco':
+    elif params['module'] == 'cameras.pco':
         cam = PCO_Camera()
     else:
         raise InstrumentTypeError()

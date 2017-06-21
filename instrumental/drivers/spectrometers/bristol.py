@@ -112,7 +112,6 @@ class Bristol_721(Spectrometer):
 
         # For saving
         self._param_dict = _ParamDict("<Bristol_721 Spectrometer '{}'>".format(self._com_port))
-        self._param_dict.module = 'spectrometers.bristol'
         self._param_dict['module'] = 'spectrometers.bristol'
         self._param_dict['bristol_port'] = self._com_port
 
@@ -169,7 +168,7 @@ def list_instruments():
 
     for port in com_ports:
         params = _ParamDict("<Bristol_721 Spectrometer '{}'>".format(port))
-        params.module = 'spectrometers.bristol'
+        params['module'] = 'spectrometers.bristol'
         params['bristol_port'] = port
         spectrometers.append(params)
     return spectrometers
@@ -178,7 +177,7 @@ def list_instruments():
 def _instrument(params):
     if 'bristol_port' in params:
         spec = Bristol_721(params['bristol_port'])
-    elif params.module == 'spectrometers.bristol':
+    elif params['module'] == 'spectrometers.bristol':
         spec = Bristol_721()
     else:
         raise InstrumentTypeError()

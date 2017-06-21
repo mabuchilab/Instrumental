@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014 Chris Rogers, Nate Bogdanowicz
+# Copyright 2014-2017 Chris Rogers, Nate Bogdanowicz
 """
 Driver module for Attocube stages. Interfaces with the ECC100 controller,
 which has support for various stages:
@@ -63,7 +63,7 @@ def list_instruments():
     for i in range(N):
         device_id = info_list[i].id
         params = _ParamDict("<Attocube ECC100 Controller '{}'>".format(device_id))
-        params.module = 'motion.ecc100'
+        params['module'] = 'motion.ecc100'
         params['ecc100_id'] = device_id
         controllers.append(params)
     return controllers

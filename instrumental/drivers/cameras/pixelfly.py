@@ -111,7 +111,6 @@ class Pixelfly(Camera):
 
         # For saving
         self._param_dict = _ParamDict("<Pixelfly '{}'>".format(board_num))
-        self._param_dict.module = 'cameras.pixelfly'
         self._param_dict['module'] = 'cameras.pixelfly'
         self._param_dict['pixelfly_board_num'] = board_num
 
@@ -467,7 +466,7 @@ def list_instruments():
 
     for board_num in board_nums:
         params = _ParamDict("<Pixelfly '{}'>".format(board_num))
-        params.module = 'cameras.pixelfly'
+        params['module'] = 'cameras.pixelfly'
         params['pixelfly_board_num'] = board_num
         cams.append(params)
     return cams
@@ -476,7 +475,7 @@ def list_instruments():
 def _instrument(params):
     if 'pixelfly_board_num' in params:
         cam = Pixelfly(params['pixelfly_board_num'])
-    elif params.module == 'cameras.pixelfly':
+    elif params['module'] == 'cameras.pixelfly':
         cam = Pixelfly()
     else:
         raise InstrumentTypeError()

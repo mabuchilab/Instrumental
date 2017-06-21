@@ -183,7 +183,6 @@ class SenTorrMod(Instrument):
 
         # For saving
         self._param_dict = _ParamDict("<senTorr-mod '{}'".format(port))
-        self._param_dict.module = 'vacuum.sentorr_mod'
         self._param_dict['module'] = 'vacuum.sentorr_mod'
         self._param_dict['sentorrmod_port'] = port
 
@@ -317,7 +316,7 @@ def list_instruments():
     for p in comports():
         if (p.vid, p.pid, p.serial_number) == (0x2A03, 0x0043, '8553130333135141A141'):
             params = _ParamDict("<senTorr-mod '{}'>".format(p.device))
-            params.module = 'vacuum.sentorr_mod'
+            params['module'] = 'vacuum.sentorr_mod'
             params['sentorrmod_port'] = p.device
             insts.append(params)
     return insts

@@ -366,7 +366,7 @@ def _cameras():
     if not repeated:
         for info in cam_list:
             params = _ParamDict("<UC480_Camera '{}'>".format(ffi.string(info.SerNo)))
-            params.module = 'cameras.uc480'
+            params['module'] = 'cameras.uc480'
             params['cam_serial'] = ffi.string(info.SerNo)
             params['cam_model'] = ffi.string(info.Model)
             params['ueye_cam_id'] = info.dwCameraID
@@ -464,7 +464,6 @@ class UC480_Camera(Camera):
 
         # For saving
         self._param_dict = params
-        self._param_dict.module = 'cameras.uc480'
         self._param_dict['module'] = 'cameras.uc480'
 
         self._id = int(params['ueye_cam_id'])

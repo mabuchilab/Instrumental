@@ -91,7 +91,7 @@ _visa_models = OrderedDict((
 class _ParamDict(dict):
     def __init__(self, name):
         self.name = name
-        self.module = None
+        self['module'] = None
 
     def __str__(self):
         if self.name:
@@ -292,7 +292,7 @@ def list_visa_instruments():
                 params = _ParamDict("<{} '{}'>".format(manufac, model))
                 params['visa_address'] = addr
                 if module_name:
-                    params.module = module_name
+                    params['module'] = module_name
                 instruments.append(params)
             except UnicodeDecodeError as e:
                 skipped.append(addr)

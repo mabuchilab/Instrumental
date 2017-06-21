@@ -75,7 +75,7 @@ def list_instruments():
     instruments = []
     for serial_num in serial_nums:
         params = _ParamDict("<K10CR1 '{}'>".format(serial_num))
-        params.module = 'positioners.K10CR1'
+        params['module'] = 'positioners.K10CR1'
         params['kinesis_serial'] = serial_num
         instruments.append(params)
     return instruments

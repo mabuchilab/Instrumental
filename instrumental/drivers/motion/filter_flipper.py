@@ -63,7 +63,7 @@ def list_instruments():
     for serial_number in device_list:
         if serial_number[0:2] == str(FILTER_FLIPPER_TYPE):
             params = _ParamDict("<Thorlabs_Filter_Flipper '{}'>".format(serial_number))
-            params.module = 'motion.filter_flipper'
+            params['module'] = 'motion.filter_flipper'
             params['ff_serial'] = str(serial_number)
             flippers.append(params)
     return flippers
