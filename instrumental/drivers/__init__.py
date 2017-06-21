@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2016 Nate Bogdanowicz
+# Copyright 2013-2017 Nate Bogdanowicz
 
 import re
 import abc
+import atexit
 import socket
 import logging as log
 from inspect import isfunction
@@ -140,6 +141,22 @@ class Instrument(object):
     Base class for all instruments.
     """
     __metaclass__ = InstrumentMeta
+    _instruments_to_close = []
+
+    def _register_close_atexit(self):
+        """Register this instrument to be auto-closed upon program termination
+
+        The instrument must have a `close()` method.
+        """
+        Instrument._instruments_to_close.append(self)
+
+    @classmethod
+    def _close_atexit(cls):
+        for inst in cls._instruments_to_close:
+            try:
+                inst.close()
+            except:
+                pass  # Instrument may have already been closed
 
     def save_instrument(self, name, force=False):
         """ Save an entry for this instrument in the config file.
@@ -539,3 +556,6 @@ def instrument(inst=None, **kwargs):
         raise Exception("Parameters {} match no existing driver module".format(params))
     else:
         raise Exception("No instrument matching {} was found".format(params))
+
+
+atexit.register(Instrument._close_atexit)
