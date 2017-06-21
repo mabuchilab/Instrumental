@@ -31,6 +31,7 @@ class PM100D(PowerMeter):
     """A Thorlabs PM100D series power meter"""
 
     def __init__(self, visa_inst):
+        self._register_close_atexit()
         self._inst = visa_inst
         self._param_dict = _ParamDict(self.__class__.__name__)
         self._param_dict['module'] = 'powermeters.thorlabs'
