@@ -17,6 +17,17 @@ Added
   - Software ROI
   - Quantum efficiency functions
   - Multi-buffer capture sequences
+- Driver for Thorlabs FilterFlipper
+- Driver for Thhorlabs TDC001
+- Driver for SRS SR850 lock-in amplifier
+- Driver for Attocube ECC100
+- Driver for Toptica FemtoFErb
+- Driver for Thorlabs CCS specrometers
+- Driver for HP 34401A Multimeter
+- Driver for Thorlabs K10CR1 rotation stages
+- Driver for modded SenTorr ion gauge
+- Support for sharing instruments/objects across multiple clients of an
+  Instrumental server
 
 Changed
 """""""
@@ -29,11 +40,20 @@ Changed
 - Use ``decorator`` module to preserve function signatures for wrapped functions
 - Moved ``DEFAULT_KWDS`` into the Camera class
 - Renamed ``check_enum()`` to ``as_enum()``
-- PCO driver now uses the new NiceLib package
+- Converted PCO driver to use NiceLib
+- Converted NI driver to use NiceLib
+- Converted Pixelfly driver to use NiceLib
+- Converted UC480 driver to use NiceLib
+- Improved error messages
+- Added filtering of modules in ``list_instruments()``
+- Added some fixes to improve Python 3 support
+- Switched to using qtpy for handling Qt compatibility
+- Added subsampling support to UC480 driver
 
 Removed
 """""""
 - The ``NiceLib`` framework grew significantly and was split off into its own separate project
+- The optics package was split off into a separate project named ``lentil``
 
 
 (0.2.1) - 2016-01-13
