@@ -55,7 +55,7 @@ if __name__ == '__main__':
         url = about['__url__'],
         license = about['__license__'],
         classifiers = classifiers,
-        install_requires = ['numpy', 'scipy', 'pint>=0.6'],
+        install_requires = ['numpy', 'scipy', 'pint>=0.7'],
         **keywords
     )
 

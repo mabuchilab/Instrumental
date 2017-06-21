@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2016 Nate Bogdanowicz
+# Copyright 2013-2017 Nate Bogdanowicz
 
 
 import sys
@@ -13,25 +13,6 @@ from .__about__ import (__author__, __copyright__, __email__, __license__, __dis
 # Use the default UnitRegistry instance for the entire package
 u = _DEFAULT_REGISTRY
 Q_ = u.Quantity
-
-# Monkey-patch Quantity to have convenience methods that will likely be provided in release 0.7
-if not hasattr(Q_, 'u'):
-    def _u(self):
-        """Quantity's units. Short form for `units`"""
-        return self._units
-    Q_.u = property(_u)
-
-if not hasattr(Q_, 'm'):
-    def _m(self):
-        """Quantity's magnitude. Short form for `magnitude`"""
-        return self._magnitude
-    Q_.m = property(_m)
-
-if not hasattr(Q_, 'm_as'):
-    def _m_as(self, units):
-        """Quantity's magnitude expressed in particular units"""
-        return self.to(units).magnitude
-    Q_.m_as = _m_as
 
 
 # NOTE: Lazy-loading code from (http://github.com/mitsuhiko/werkzeug)
