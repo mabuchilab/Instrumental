@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2015 Nate Bogdanowicz
+# Copyright 2014-2017 Nate Bogdanowicz
 """
 Driver module for Thorlabs power meters. Supports:
 
@@ -35,6 +35,9 @@ class PM100D(PowerMeter):
         self._param_dict = _ParamDict(self.__class__.__name__)
         self._param_dict['module'] = 'powermeters.thorlabs'
         self._param_dict['visa_address'] = self._inst.resource_name
+
+    def close(self):
+        self._inst.control_ren(False)  # Disable remote mode
 
     def get_power(self):
         """Get the current power measurement
