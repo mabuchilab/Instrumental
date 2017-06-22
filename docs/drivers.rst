@@ -14,16 +14,16 @@ NI-VISA) to interface with connected devices.
     :maxdepth: 2
     :titlesonly:
 
-    daqs
     cameras
-    scopes
+    daqs
     funcgenerators
-    powermeters
-    wavemeters
+    lasers
     lockins
     motion
-    lasers
+    powermeters
+    scopes
     spectrometers
+    wavemeters
 
 
 -------------------------------------------------------------------------------
