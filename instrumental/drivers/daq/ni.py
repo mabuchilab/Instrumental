@@ -17,7 +17,8 @@ from .. import _ParamDict
 from . import DAQ
 
 
-__all__ = ['DAQError', 'NIDAQ']
+__all__ = ['NIDAQ', 'AnalogIn', 'AnalogOut', 'VirtualDigitalChannel', 'SampleMode', 'EdgeSlope',
+           'TerminalConfig', 'RelativeTo', 'ProductCategory', 'DAQError']
 
 
 def to_bytes(value, codec='utf-8'):
