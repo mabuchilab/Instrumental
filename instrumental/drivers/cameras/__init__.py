@@ -41,13 +41,26 @@ class Camera(Instrument):
                         height=None, cx=None, cy=None, left=None, right=None, top=None, bot=None,
                         fix_hotpixels=False)
 
+    @abc.abstractproperty
+    def width(self):
+        """Width of the camera image in pixels"""
+        pass
 
-    width = abc.abstractproperty(doc="Width of the camera image in pixels")
-    height = abc.abstractproperty(doc="Height of the camera image in pixels")
-    max_width = abc.abstractproperty(doc="Max settable width of the camera image, "
-                                     "given current binning")
-    max_height = abc.abstractproperty(doc="Max settable height of the camera image, "
-                                      "given current binning")
+    @abc.abstractproperty
+    def height(self):
+        """Height of the camera image in pixels"""
+        pass
+
+    @abc.abstractproperty
+    def max_width(self):
+        """Max settable width of the camera image, given current binning/subpixel settings"""
+        pass
+
+    @abc.abstractproperty
+    def max_height(self):
+        """Max settable height of the camera image, given current binning/subpixel settings"""
+        pass
+
     _hot_pixels = None
     _defaults = None
 
