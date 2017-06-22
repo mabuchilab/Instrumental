@@ -11,7 +11,8 @@ NI-VISA) to interface with connected devices.
 
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
+    :titlesonly:
 
     daqs
     cameras
