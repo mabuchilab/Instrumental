@@ -1,5 +1,5 @@
 Photometrics Cameras
-================
+====================
 
 .. toctree::
 

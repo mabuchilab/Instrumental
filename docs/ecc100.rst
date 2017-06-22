@@ -1,5 +1,5 @@
 Attocube ECC100 Motion Controller
-=====================
+=================================
 
 .. toctree::
 

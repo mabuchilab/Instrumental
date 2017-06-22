@@ -1,5 +1,5 @@
 Thorlabs CCS Spectrometers
-================
+==========================
 
 .. toctree::
 

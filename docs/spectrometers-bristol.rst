@@ -1,5 +1,5 @@
 Bristol Spectrum Analyzers
-================
+==========================
 
 .. toctree::
 

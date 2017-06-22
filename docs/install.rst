@@ -69,7 +69,7 @@ VISA
 """"
 
 To operate devices that communicate using VISA (e.g. Tektronix scopes) you will
-need::
+need:
 
 1. an implementation of VISA, and
 2. a Python interface layer called PyVISA

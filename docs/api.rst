@@ -7,6 +7,5 @@ API Documentation
     drivers
     fitting
     plotting
-    optics
     tools
 

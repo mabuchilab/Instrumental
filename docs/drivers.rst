@@ -22,6 +22,7 @@ NI-VISA) to interface with connected devices.
     lockins
     motion
     lasers
+    spectrometers
 
 
 -------------------------------------------------------------------------------
