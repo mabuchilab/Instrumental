@@ -467,7 +467,7 @@ class CCS(Spectrometer):
         On start-up, these are all set to unity.  The factors are set by the values in
         correction_factors, starting with pixel start_index.
 
-        Paramters
+        Parameters
         ---------
         correction_factors : array of float
             Correction factors for the pixels.
@@ -492,7 +492,7 @@ class CCS(Spectrometer):
     def get_amplitude_data(self, mode=CorrectionType.Store):
         """Gets the amplitude correction factors.
 
-        Paramters
+        Parameters
         ---------
         mode : str
             This parameter can be either 'stored' or 'one_time'.  If set to

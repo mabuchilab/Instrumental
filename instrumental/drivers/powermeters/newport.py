@@ -248,7 +248,7 @@ class Newport_1830_C(PowerMeter):
         'REL' displays power relative to the current reference power (i.e.
         REL = P / Pref)
 
-        The current reference power can be set using `store_reference`().
+        The current reference power can be set using `store_reference()`.
 
         Parameters
         ----------

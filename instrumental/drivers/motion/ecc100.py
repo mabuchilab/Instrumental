@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright 2014-2017 Chris Rogers, Nate Bogdanowicz
-"""
-Driver module for Attocube stages. Interfaces with the ECC100 controller,
-which has support for various stages:
+"""Driver module for Attocube stages.
+
+Interfaces with the ECC100 controller, which has support for various stages:
     * ECS3030
     * ECS3040
     * ECS3050
@@ -13,7 +13,7 @@ which has support for various stages:
     * ECGp5050
     * ECGt5050
     * ECR3030
-    
+
 Note that ecc.dll must be on the system path, and that this is a windows only
 driver.
 """
@@ -44,7 +44,7 @@ _err_map = {
 
 def _instrument(params):
     """ Possible params include 'ecc100_id', 'module'
-    
+
     Note that ecc100_id should be a string"""
     d = {}
     if 'ecc100_id' in params:
@@ -143,7 +143,7 @@ class Actor(Motion):
     @check_units(frequency='Hz')
     def set_frequency(self, frequency):
         """ Sets the frequency of the actuation voltage applied to the stage.
-        
+
         The frequency is proportional to the travel speed of the positioner.
 
         Parameters
@@ -169,7 +169,7 @@ class Actor(Motion):
     def start_stepping(self, backward=False):
         """
         Step continously until stopped.
-        
+
         This will stop any ongoing motion in the opposite direction.
         """
         if backward:
@@ -252,11 +252,11 @@ class Actor(Motion):
 
         if wait:
             self.wait_unitl_at_position()
-        
+
     @check_units(update_interval='ms')
     def wait_until_at_position(self, update_interval='10 ms', delta_pos=None):
         """Waits to return until the actor is at the target position
-        
+
         delta_pos is the margin within which the device is considered to be at
         the target position
         """
@@ -269,7 +269,7 @@ class Actor(Motion):
 
     def at_target(self, delta_pos=None):
         """ Indicates whether the stage is at the target position.
-        
+
         delta_pos is the tolerance within which the stage is considered
         'at position'
         """
@@ -329,7 +329,7 @@ class ECC100(Motion):
     """
     def __init__(self, device_id=None):
         """ Connects to the attocube controller.
-        
+
         id is the id of the device to be connected to
         """
 
@@ -412,7 +412,7 @@ class ECC100(Motion):
     def _Connect(self):
         """
         Attempts to open a connection to the controller.
-        
+
         If successful, sets
         the device handle self._dev_handle. Reads from self._dev_num.
         """
@@ -779,18 +779,18 @@ class ECC100(Motion):
 
     def set_default_actors(self, actors):
         """ Sets the default list of actors used in various functions.
-        
+
         Actors should be a list of instances of Actor
         """
         for actor in actors:
             if not isinstance(Actor):
                 raise TypeError("actors must be a list of instances of Actor")
         self._default_actors = actors
-    
+
     def wait_until_at_position(self, actors=None, delta_pos=None):
         """Waits to return until all actors are at the target
         position
-        
+
         If actors is None, then the default actors are used.  The default actors
         are set using set_default_actors
         """
@@ -803,7 +803,7 @@ class ECC100(Motion):
 
     def move_to(self, positions, actors=None, wait=False):
         """ Moves to the positions in the list positions.
-        
+
         actors is a list of type Actor, or one can use the default actors, set
         by set_default_actors
         """
@@ -818,9 +818,9 @@ class ECC100(Motion):
 
     def get_target(self, actors=None):
         """ Gets the target positions of the actors in the list actors.
-        
+
         Returns a list of target positions.
-        
+
         actors is a list of type Actor, or one can use the default actors, set
         by set_default_actors
         """
@@ -830,12 +830,12 @@ class ECC100(Motion):
         for actor in actors:
             targets.append(actor.get_target())
         return targets
-        
+
     def set_target(self, target, actors=None):
         """ Sets the target positions of the actors in the list actors.
-        
+
         target is a list of position that are unitful pint quantities
-        
+
         actors is a list of type Actor, or one can use the default actors, set
         by set_default_actors
         """
@@ -846,7 +846,7 @@ class ECC100(Motion):
 
     def get_position(self, actors=None):
         """ Gets the positions of the actors in the list actors.
-        
+
         actors is a list of type Actor, or one can use the default actors, set
         by set_default_actors
         """
