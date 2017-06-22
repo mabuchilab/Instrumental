@@ -12,7 +12,9 @@ import ctypes
 import numpy as np
 from numpy.ctypeslib import ndpointer
 
-from ._bristol_types import *
+from . import Spectrometer
+from .. import _ParamDict
+from ...errors import InstrumentTypeError
 from ... import u
 
 bristol_dll = ctypes.WinDLL("BristolFFT.dll", use_errno=True, use_last_error=True)

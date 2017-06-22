@@ -2,7 +2,8 @@
 # Copyright 2014-2015 Nikolas Tezak, Nate Bogdanowicz
 """Module that contains structs, typedefs, and other odds-and-ends from the Bristol header files"""
 
-from ctypes import *
+from ctypes import (Structure, c_ubyte, c_ulong, c_char, c_short, c_long, c_ushort, c_float,
+                    c_double, CFUNCTYPE, POINTER)
 
 # Define basic types
 BYTE = c_ubyte
