@@ -99,19 +99,11 @@ be found `here <http://pyvisa.readthedocs.org/en/latest/>`_.
 Thorlabs DCx Cameras
 """"""""""""""""""""
 To operate Thorlabs DCx cameras, you'll need the `drivers from Thorlabs
-<http://www.thorlabs.us/software_pages/ViewSoftwarePage.cfm?Code=DCx>`_ under
-the "Software and Support" tab. Run the .exe installer which, among other
-things, will install the .dll shared libraries somewhere in your PATH
-(hopefully). Currently the code only looks for the 64-bit driver, so if you're
-on a 32-bit system I may need to work with you to fix this.
-
+<http://www.thorlabs.us/software_pages/ViewSoftwarePage.cfm?Code=DCx>`_ under the "Software and
+Support" tab. Run the .exe installer which, among other things, will install the .dll shared
+libraries somewhere in your PATH (hopefully).
 
 NI DAQs
 """""""
-Currently, NI-DAQmx support requires `PyDAQmx
-<https://pythonhosted.org/PyDAQmx/>`_. It can be installed via pip::
-
-    $ pip install PyDAQmx
-
-You will also need to have NI-DAQmx installed. You can find the installer
-on the `National Instruments website <http://www.ni.com>`_.
+NI-DAQmx support requires you to to have NI-DAQmx installed. You can find the installer on the
+`National Instruments website <http://www.ni.com>`_.
