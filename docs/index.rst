@@ -28,7 +28,8 @@ Then you can simply open it by name::
 
     >>> daq = instrument('myDAQ')
 
-Check out :doc:`instruments` for more detailed info.
+You can even access and control instruments on remote machines. Check out :doc:`instruments` for
+more detailed info.
 
 
 Instrumental also bundles in some additional support code, including:
