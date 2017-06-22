@@ -8,33 +8,54 @@ The ``drivers`` subpackage's purpose is to provide relatively high-level
 supports:
 
 * Cameras
+
   - PCO SDK(tested on PCO.Edge)
   - PCO Pixelfly
   - Photometrics PVCAM
   - Thorlabs TSI
   - Thorlabs UC480 / iDS uEye
+
 * DAQs
+
   - NI-DAQmx
+
 * Function Generators
+
   - Tektronix AFG3000 series
+
 * Lasers
+
   - Toptica FemtoFErb 1560
+
 * Lock-in Amplifiers
+
   - SRS SR850
+
 * Motion Control
+
   - Thorlabs Kinesis (FilterFlipper/TDC001/K10CR1 currently supported)
   - Attocube ECC100 Controller
+
 * Multimeters
+
   - HP 34401A
+
 * Optical Power Meters
+
   - Newport 1830-C
   - Thorlabs PM100x series
+
 * Oscilloscopes
+
   - Tektronix TDS300 and MSO/DPO4000 series (and probably others)
+
 * Spectrometers
+
   - Bristol 721 spectrum analyzer
   - Thorlabs CCSxxx series
+
 * Wavemeters
+
   - Burleigh WA-1000/1500
 
 It should be pretty easy to write drivers for other VISA-compatible devices via PyVISA. Driver
