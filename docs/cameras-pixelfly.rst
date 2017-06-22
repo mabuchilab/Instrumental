@@ -1,5 +1,5 @@
-Pixelfly Cameras
-================
+PCO Pixelfly Cameras
+====================
 
 .. toctree::
 
