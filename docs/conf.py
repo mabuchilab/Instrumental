@@ -32,9 +32,15 @@ class Mock(object):
     def __init__(self, *args, **kwargs):
         pass
 
+    def __getitem__(self, key):
+        return Mock()
+
+    def __iter__(self):
+        return iter(())
+
     def __call__(self, *args, **kwargs):
         return Mock()
-    
+
     def __mul__(self, other):
         return self
 
@@ -50,11 +56,12 @@ class Mock(object):
             return Mock()
 
 # Include ctypes due to Windows-specific imports
-MOCK_MODULES = ['numpy', 'scipy', 'scipy.special', 'scipy.interpolate',
-                'scipy.optimize', 'matplotlib', 'matplotlib.pyplot',
-                'matplotlib.widgets', 'matplotlib.transforms',
-                'matplotlib.cbook', 'pint', 'PyDAQmx', 'ctypes',
+MOCK_MODULES = ['numpy', 'numpy.ctypeslib','scipy', 'scipy.special', 'scipy.interpolate',
+                'scipy.optimize', 'matplotlib', 'matplotlib.pyplot', 'matplotlib.widgets',
+                'matplotlib.transforms', 'matplotlib.cbook', 'pint', 'PyDAQmx', 'ctypes',
                 'ctypes.wintypes', 'visa', 'cffi', 'nicelib']
+
+import sphinx.builders.linkcheck  # Force import before ctypes is mocked
 
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = Mock()
@@ -82,7 +89,7 @@ def setup(app):
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.intersphinx', 'sphinx.ext.todo',
-              'sphinx.ext.coverage', 'sphinx.ext.pngmath', 'sphinx.ext.autosummary', 'numpydoc']
+              'sphinx.ext.coverage', 'sphinx.ext.imgmath', 'sphinx.ext.autosummary', 'numpydoc']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
