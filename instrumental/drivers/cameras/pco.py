@@ -477,7 +477,6 @@ class PCO_Camera(Camera):
 
     @check_units(timeout='?ms')
     def get_captured_image(self, timeout='1s', copy=True, wait_for_all=True, **kwds):
-        """get_captured_image(timeout='1s', copy=True, **kwds)"""
         self._handle_kwds(kwds)
         width, height, _, _ = self._get_sizes()
         frame_size = self._frame_size()
@@ -539,7 +538,6 @@ class PCO_Camera(Camera):
 
     @check_units(framerate='Hz')
     def start_live_video(self, framerate='10Hz', **kwds):
-        """start_live_video(self, framerate='10Hz', **kwds)"""
         self._handle_kwds(kwds)
 
         self.set_trigger_mode(self.TriggerMode.auto)
@@ -574,7 +572,6 @@ class PCO_Camera(Camera):
 
     @unit_mag(timeout='?ms')
     def wait_for_frame(self, timeout=None):
-        """wait_for_frame(self, timeout=None')"""
         if not self.queue:
             raise Exception("No queued buffers!")
 

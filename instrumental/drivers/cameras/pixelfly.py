@@ -238,7 +238,6 @@ class Pixelfly(Camera):
 
     @check_units(timeout='?ms')
     def wait_for_frame(self, timeout=None):
-        """wait_for_frame(self, timeout=None')"""
         timeout = win32event.INFINITE if timeout is None else max(0, timeout.m_as('ms'))
 
         buf_i = (self._buf_i) % self._nbufs  # Most recently triggered buffer
