@@ -5,9 +5,7 @@ NI DAQs
 
 This module has been developed using an NI USB-6221 -- the code should generally work for all DAQmx boards, but I'm sure there are plenty of compatibility bugs just waiting for you wonderful users to find and fix.
 
-First, make sure you have NI's DAQmx software installed. Once that's set, you'll need PyDAQmx, a basic Python interface to DAQmx. You can get it via pip::
-
-    pip install PyDAQmx
+First, make sure you have NI's DAQmx software installed. Instrumental will then use NiceLib to generate bindings from the header it finds.
 
 The ``NIDAQ`` class lets you interact with your board and all its various inputs
 and outputs in a fairly simple way. Let's say you've hooked up digital I/O P1.0
