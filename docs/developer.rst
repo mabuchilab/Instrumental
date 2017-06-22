@@ -1,6 +1,15 @@
 Developer's Guide
 =================
 
+.. contents::
+    :local:
+    :depth: 1
+
+-------------------------------------------------------------------------------
+
+The Manifesto
+-------------
+
 A major goal of Instrumental is to try to unify and simplify a lot of common,
 useful operations. Essential to that is a consistent and coherent interface. 
 
@@ -9,10 +18,6 @@ useful operations. Essential to that is a consistent and coherent interface.
 * Documentation is an essential, not a luxury
 * Make units standard
 
--------------------------------------------------------------------------------
-
-The Manifesto
--------------
 
 Simple and common tasks should be simple to perform
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,7 +63,7 @@ suggestions in `PEP8`_. In particular:
 * Classes should be named using ``CapWords`` capitalization
 * Functions and methods should be named using ``lower_case_with_underscores``
 
-  * As an exception, python wrapper (e.g. ctypes) code used as a _thin_ wrapper
+  * As an exception, python wrapper (e.g. cffi/ctypes) code used as a _thin_ wrapper
     to an underlying library may stick with its naming convention for
     functions/methods. (See the docs for Attocube stages for an example of this)
 
@@ -70,6 +75,9 @@ suggestions in `PEP8`_. In particular:
 
 Strongly consider using a plugin for your text editor (e.g. `vim-flake8`_) to
 check your PEP8 compliance.
+
+It is OK to have lines over 80 characters, though they should almost always be 100 characters or
+less.
 
 .. _PEP8: http://legacy.python.org/dev/peps/pep-0008
 .. _vim-flake8: https://github.com/nvie/vim-flake8
@@ -126,3 +134,12 @@ Some useful links about Py2/3 compatibility
 
 * `<https://docs.python.org/3/howto/pyporting.html>`_
 * `<http://python-future.org/>`_
+
+
+-------------------------------------------------------------------------------
+
+
+Developing Drivers
+------------------
+
+If you're considering writing a driver, thank you! Check out :doc:`driver-dev` for details.
