@@ -3,6 +3,7 @@
 from __future__ import division
 from past.builtins import unicode
 
+import sys
 import time
 from enum import Enum
 from collections import OrderedDict
@@ -240,8 +241,14 @@ class NiceNI(NiceLib):
 ffi = NiceNI._info._ffi
 
 
-class Values(object):
-    pass
+if 'sphinx' in sys.modules:
+    # Use mock class to allow sphinx to import this module
+    class Values(object):
+        def __getattr__(self, name):
+            return name
+else:
+    class Values(object):
+        pass
 
 Val = Values()
 for name, attr in NiceNI.__dict__.items():
