@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# Copyright 2013-2017 Nate Bogdanowicz
+"""
+A simple plot of a sine wave with slider-adjustable parameters
+"""
 from instrumental import u, plotting as ip
 from matplotlib import pyplot as plt
 from numpy import sin, pi, arange

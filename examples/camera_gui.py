@@ -1,8 +1,11 @@
+# -*- coding: utf-8 -*-
+# Copyright 2015-2017 Nate Bogdanowicz
 """
 A very simple GUI that uses a CameraView to view live video from a camera.
 """
 import sys
-from PySide.QtGui import *
+from qtpy.QtWidgets import (QApplication, QMainWindow, QWidget, QScrollArea, QPushButton,
+                            QVBoxLayout, QHBoxLayout)
 from instrumental import instrument, gui
 
 
