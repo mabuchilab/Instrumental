@@ -3,6 +3,7 @@
 
 from future.utils import PY2
 
+import sys
 import atexit
 import os.path
 from time import clock
@@ -120,12 +121,19 @@ def _strip_prefix(value, prefix):
 enum_map = {}
 
 
-def make_enum(name, c_name, prefix=''):
-    ctype = ffi.typeof(c_name)
-    d = {_strip_prefix(v, prefix):k for k,v in ctype.elements.items()}
-    new_enum = Enum(name, d)
-    enum_map[c_name] = new_enum
-    return new_enum
+if 'sphinx' in sys.modules:
+    class make_enum(object):
+        def __init__(self, *args):
+            pass
+        def __getattr__(self, name):
+            return name
+else:
+    def make_enum(name, c_name, prefix=''):
+        ctype = ffi.typeof(c_name)
+        d = {_strip_prefix(v, prefix):k for k,v in ctype.elements.items()}
+        new_enum = Enum(name, d)
+        enum_map[c_name] = new_enum
+        return new_enum
 
 
 Param = make_enum('Param', 'TSI_PARAM_ID', 'TSI_PARAM_')
@@ -350,9 +358,16 @@ class TSI_Camera(Camera):
     DEFAULT_KWDS.update(trig='auto', rising=True)
 
     class TriggerMode(Enum):
-        auto = software = OpMode.NORMAL
+        auto = OpMode.NORMAL
+        """Auto-trigger as fast as possible once capture has started"""
+        software = auto
+        """Alias for `auto`"""
         hw_edge = OpMode.TOE
+        """Trigger a single exposure on an edge, using a software-defined exposure time"""
         hw_bulb = OpMode.PDX
+        """Trigger a single exposure on an edge of a pulse, and stop the exposure at the end of the
+        pulse
+        """
 
     def __init__(self, cam_num):
         sdk.GetNumberOfCameras()

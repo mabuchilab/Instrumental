@@ -9,6 +9,7 @@ Create :py:class:`~instrumental.drivers.cameras.Camera` objects using :py:func:`
 
     pco-cameras
     cameras-pixelfly
+    cameras-tsi
     uc480-cameras
     cameras-pvcam
 
