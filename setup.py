@@ -60,5 +60,8 @@ if __name__ == '__main__':
     )
 
     if not build_cffi_modules:
-        print("\nPython cffi is not installed, so CFFI modules were not built. If you would like "
-              "to use cffi-based drivers, first install cffi, then rebuild Instrumental")
+        print("\nPython cffi is not installed or there was no C compiler found, so cffi modules "
+              "were not built. If you would like to use cffi-based drivers that require "
+              "compilation, first install cffi and a suitable compiler, then reinstall "
+              "Instrumental. See the cffi installation documentation for more details on "
+              "installing an appropriate compiler.")
