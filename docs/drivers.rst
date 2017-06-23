@@ -20,6 +20,7 @@ NI-VISA) to interface with connected devices.
     lasers
     lockins
     motion
+    multimeters
     powermeters
     scopes
     spectrometers
