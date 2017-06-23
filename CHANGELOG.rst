@@ -18,11 +18,12 @@ Added
   - Quantum efficiency functions
   - Multi-buffer capture sequences
 - Driver for Thorlabs FilterFlipper
-- Driver for Thhorlabs TDC001
+- Driver for Thorlabs TDC001
 - Driver for SRS SR850 lock-in amplifier
 - Driver for Attocube ECC100
 - Driver for Toptica FemtoFErb
 - Driver for Thorlabs CCS specrometers
+- Driver for Thorlabs TSI camera SDK
 - Driver for HP 34401A Multimeter
 - Driver for Thorlabs K10CR1 rotation stages
 - Driver for modded SenTorr ion gauge
@@ -49,6 +50,8 @@ Changed
 - Added some fixes to improve Python 3 support
 - Switched to using qtpy for handling Qt compatibility
 - Added subsampling support to UC480 driver
+- Added proper connection closing for PM100D power meters
+- Documentation improvements
 
 Removed
 """""""

@@ -28,7 +28,6 @@ Then you can simply open it by name::
 Instrumental also bundles in some additional support code, including:
 
 * Plotting and curve fitting utilities
-* Tools for working with optics, including Gaussian beams and ABCD matrices
 * Utilities for acquiring and organizing data
 
 Instrumental makes use of NumPy, SciPy, Matplotlib, and Pint, a Python units
