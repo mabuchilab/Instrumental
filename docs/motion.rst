@@ -8,5 +8,6 @@ Create :py:class:`~instrumental.drivers.motion.Motion` objects using :py:func:`~
     :maxdepth: 1
 
     filter-flipper
+    motion-kinesis
     tdc-001
     ecc100
