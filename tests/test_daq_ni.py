@@ -1,3 +1,6 @@
+import pytest
+pytestmark = pytest.mark.skip('Testing drivers not yet implemented')
+
 from instrumental import instrument, u
 daq = instrument(nidaq_devname='Dev1')
 
