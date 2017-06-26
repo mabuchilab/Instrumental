@@ -76,6 +76,10 @@ def load_config_file():
     if 'data_directory' in prefs:
         prefs['data_directory'] = os.path.normpath(os.path.expanduser(prefs['data_directory']))
 
+    blacklist = prefs.setdefault('driver_blacklist', [])
+    if blacklist:
+        prefs['driver_blacklist'] = [entry.strip() for entry in blacklist.split(',')]
+
 
 # Run on import
 load_config_file()

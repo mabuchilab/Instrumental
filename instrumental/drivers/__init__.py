@@ -330,7 +330,7 @@ def list_visa_instruments():
     return instruments
 
 
-def list_instruments(server=None, module=None):
+def list_instruments(server=None, module=None, blacklist=None):
     """Returns a list of info about available instruments.
 
     May take a few seconds because it must poll hardware devices.
@@ -351,11 +351,21 @@ def list_instruments(server=None, module=None):
         The remote Instrumental server to query. It can be an alias from your instrumental.conf
         file, or a str of the form `(hostname|ip-address)[:port]`, e.g. '192.168.1.10:12345'. Is
         None by default, meaning search on the local machine.
+    blacklist : list or str, optional
+        A str or list of strs indicating driver modules which should not be queried for instruments.
+        Strings should be in the format ``'subpackage.module'``, e.g. ``'cameras.pco'``. This is
+        useful for very slow-loading drivers whose instruments no longer need to be listed (but may
+        still be in use otherwise). This can be set permanently in your ``instrumental.conf``.
     """
     if server is not None:
         from . import remote
         session = remote.client_session(server)
         return session.list_instruments()
+
+    if blacklist is None:
+        blacklist = conf.prefs['driver_blacklist']
+    elif isinstance(blacklist, basestring):
+        blacklist = [blacklist]
 
     try:
         import visa
@@ -368,6 +378,9 @@ def list_instruments(server=None, module=None):
 
     for mod_name in _acceptable_params:
         if module and module not in mod_name:
+            continue
+        if mod_name in blacklist:
+            log.info("Skipping blacklisted module '%s'", mod_name)
             continue
 
         try:
