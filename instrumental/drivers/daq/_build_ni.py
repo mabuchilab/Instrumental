@@ -24,7 +24,7 @@ lib_names = {'win*': 'nicaiu', 'linux*': 'nidaqmx', 'darwin*': 'nidaqmxbase'}
 
 
 def build():
-    build_lib(header_info, lib_names, '_nilib')
+    build_lib(header_info, lib_names, '_nilib', __file__)
 
 
 if __name__ == '__main__':

@@ -11,8 +11,9 @@ from cffi import FFI
 from ._pvcam import macros
 from . import Camera
 from .. import _ParamDict
+from ..util import check_units
 from ...errors import InstrumentTypeError, InstrumentNotFoundError
-from ... import Q_
+from ... import Q_, u
 
 __all__ = ['PVCam']
 
@@ -120,6 +121,19 @@ for func_name in pv_funcs:
 class PVCam(Camera):
     num_cams_open = 0
 
+    def start_capture(self, **kwds):
+        raise NotImplementedError
+
+    @check_units(timeout='?ms')
+    def get_captured_image(self, timeout='1s', copy=True):
+        raise NotImplementedError
+
+    def grab_image(self, timeout='1s', copy=True, **kwds):
+        raise NotImplementedError
+
+    def latest_frame(self, copy=True):
+        raise NotImplementedError
+
     def __init__(self, name=''):
         cam_name = ffi.new('char[{}]'.format(pv.CAM_NAME_LEN), name)
         hcam_p = ffi.new('int16[1]')
@@ -222,12 +236,10 @@ class PVCam(Camera):
             self._try_uninit()
             pv.buf_uninit()
 
-    def freeze_frame(self):
-        self.grab_frame()
+    def start_live_video(self, **kwds):
+        raise NotImplementedError
 
-    def start_live_video(self, framerate=1, exp_time=100):
-        framerate = 1 if framerate is None else framerate  # TODO: Hack
-        self.framerate = framerate
+        exposure_ms = kwds['exposure_time'].m_as('ms')
 
         if self.seq_is_set_up:
             #self._unsetup_sequence()
@@ -240,7 +252,7 @@ class PVCam(Camera):
 
         n_exposures = 2  # Double buffering
         n_regions = 1
-        pv.exp_setup_cont(self.hcam, n_regions, region_p, mode, exp_time,
+        pv.exp_setup_cont(self.hcam, n_regions, region_p, mode, exposure_ms,
                           frame_size_p, pv.CIRC_OVERWRITE)
 
         # frame_size_p[0] is the number of BYTES per frame
@@ -265,18 +277,24 @@ class PVCam(Camera):
     def image_array(self):
         return self.grab_ndarray(fresh_capture=False)
 
-    def wait_for_frame(self, timeout=0):
+    @check_units(timeout='?ms')
+    def wait_for_frame(self, timeout=None):
+        raise NotImplementedError
+
         status_p = ffi.new('int16_ptr')
         byte_cnt_p = ffi.new('uns32_ptr')
         buffer_cnt_p = ffi.new('uns32_ptr')
 
-        t = time.clock()
-        tfinal = t + timeout/1000.
+        t = time.clock() * u.s
+        if timeout is not None:
+            tfinal = t + timeout
+
         status = pv.READOUT_NOT_ACTIVE
-        while status != pv.READOUT_COMPLETE and status != pv.READOUT_FAILED and t <= tfinal:
+        while status != pv.READOUT_COMPLETE and status != pv.READOUT_FAILED and (timeout is None or
+                                                                                 t <= tfinal):
             pv.exp_check_cont_status(self.hcam, status_p, byte_cnt_p, buffer_cnt_p)
             status = status_p[0]
-            t = time.clock()
+            t = time.clock() * u.s
 
         if status == pv.READOUT_FAILED:
             raise Exception("Data collection error: {}".format(pv.error_code()))

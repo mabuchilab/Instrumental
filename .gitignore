@@ -8,6 +8,7 @@ _*lib.py
 /bin/
 /build/
 /dist/
+/.cache/
 /*.egg-info/
 
 /docs/_build

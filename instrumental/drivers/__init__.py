@@ -9,6 +9,8 @@ from inspect import isfunction
 from importlib import import_module
 from collections import OrderedDict
 
+from past.builtins import basestring
+
 from .. import conf
 from ..errors import InstrumentTypeError, InstrumentNotFoundError, ConfigError
 
@@ -27,6 +29,8 @@ _acceptable_params = OrderedDict((
     ('funcgenerators.tektronix',
         ['visa_address']),
     ('scopes.tektronix',
+        ['visa_address']),
+    ('multimeters.hp',
         ['visa_address']),
     ('powermeters.thorlabs',
         ['visa_address']),
@@ -49,7 +53,9 @@ _acceptable_params = OrderedDict((
     ('motion.esp300',
          ['esp300_port']),
     ('spectrometers.thorlabs_ccs',
-         ['ccs_usb_address', 'ccs_serial_number', 'ccs_model', 'module'])
+         ['ccs_usb_address', 'ccs_serial_number', 'ccs_model', 'module']),
+    ('vacuum.sentorr_mod',
+         ['sentorrmod_port']),
 ))
 
 _visa_models = OrderedDict((
@@ -57,6 +63,10 @@ _visa_models = OrderedDict((
         'TEKTRONIX',
         ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102',
          'AFG3251', 'AFG3252']
+    )),
+    ('multimeters.hp', (
+        'HEWLETT-PACKARD',
+        ['34401A']
     )),
     ('scopes.tektronix', (
         'TEKTRONIX',
@@ -253,10 +263,11 @@ def list_visa_instruments():
             try:
                 log.info("Opening VISA resource '{}'".format(addr))
                 i = rm.open_resource(addr, open_timeout=50, timeout=200)
-            except visa.VisaIOError:
+            except visa.VisaIOError as e:
                 # Could not create visa instrument object
                 skipped.append(addr)
                 log.info("Skipping this resource due to VisaIOError")
+                log.info(e)
                 continue
             except socket.timeout:
                 skipped.append(addr)
@@ -266,13 +277,25 @@ def list_visa_instruments():
             try:
                 idn = i.ask("*IDN?")
                 log.info("*IDN? gives '{}'".format(idn.strip()))
-                manufac, model, rest = idn.split(',', 2)
+                try:
+                    manufac, model, rest = idn.split(',', 2)
+                except ValueError as e:
+                    skipped.append(addr)
+                    log.info("Invalid response to IDN query")
+                    log.info(str(e))
+                    continue
+
                 module_name = _find_visa_inst_type(manufac, model)
                 params = _ParamDict("<{} '{}'>".format(manufac, model))
                 params['visa_address'] = addr
                 if module_name:
                     params.module = module_name
                 instruments.append(params)
+            except UnicodeDecodeError as e:
+                skipped.append(addr)
+                log.info("UnicodeDecodeError while getting IDN. Probably a non-Visa Serial device")
+                log.info(str(e))
+                continue
             except visa.VisaIOError as e:
                 skipped.append(addr)
                 log.info("Getting IDN failed due to VisaIOError")
@@ -287,7 +310,7 @@ def list_visa_instruments():
     return instruments
 
 
-def list_instruments(server=None):
+def list_instruments(server=None, module=None):
     """Returns a list of info about available instruments.
 
     May take a few seconds because it must poll hardware devices.
@@ -324,7 +347,11 @@ def list_instruments(server=None):
         inst_list = []  # Ignore if PyVISA not installed or configured
 
     for mod_name in _acceptable_params:
+        if module and module not in mod_name:
+            continue
+
         try:
+            log.info("Importing driver module '%s'", mod_name)
             mod = import_module('.' + mod_name, __package__)
         except Exception as e:
             # Module not supported
@@ -400,8 +427,8 @@ def instrument(inst=None, **kwargs):
     """
     alias = None
     if inst is None:
-        params = kwargs
-    if isinstance(inst, Instrument):
+        params = {}
+    elif isinstance(inst, Instrument):
         return inst
     elif isinstance(inst, dict):
         params = inst
@@ -419,8 +446,11 @@ def instrument(inst=None, **kwargs):
             alias = name
 
         if params is None:
-            raise Exception("Instrument with alias `{}` not ".format(name)
-                            + "found in config file")
+            raise Exception("Instrument with alias `{}` not ".format(name) +
+                            "found in config file")
+
+    params = params.copy()  # Make sure we don't modify any existing dicts
+    params.update(kwargs)
 
     if 'server' in params:
         from . import remote
@@ -458,51 +488,51 @@ def instrument(inst=None, **kwargs):
         return new_inst
 
     # Find the right type of Instrument to create
-    has_valid_params = False
-    for mod_name, acceptable in _acceptable_params.items():
-        if _has_acceptable_params(acceptable, params):
-            has_valid_params = True
+    acceptable_modules = [mod_name for mod_name, acc_params in _acceptable_params.items()
+                          if _has_acceptable_params(acc_params, params)]
 
-            # Try to import module, skip it if optional deps aren't met
-            try:
-                log.info("Trying to import module '{}'".format(mod_name))
-                mod = import_module('.' + mod_name, __package__)
-            except Exception as e:
-                #print(e.args)
-                log.info("Module {} not supported, skipping".format(mod_name), exc_info=e)
-                continue
+    for mod_name in acceptable_modules:
+        # Try to import module, skip it if optional deps aren't met
+        try:
+            log.info("Trying to import module '{}'".format(mod_name))
+            mod = import_module('.' + mod_name, __package__)
+        except Exception as e:
+            if len(acceptable_modules) == 1: raise
+            log.info("Module {} not supported, skipping".format(mod_name), exc_info=e)
+            continue
 
-            # Try to create an instance of this instrument type
-            try:
-                log.info("Trying to create instrument using module '{}'".format(mod_name))
-                new_inst = mod._instrument(params)
-            except AttributeError:
-                # Module doesn't define the required _instrument() function
-                log.info("Module " + mod_name +
-                         " missing _instrument(), skipping")
-                continue
-            except InstrumentTypeError:
-                log.info("Not the right type")
-                continue
-            except InstrumentNotFoundError:
-                log.info("Instrument not found")
-                continue
+        # Try to create an instance of this instrument type
+        try:
+            log.info("Trying to create instrument using module '{}'".format(mod_name))
+            new_inst = mod._instrument(params)
+        except AttributeError:
+            if len(acceptable_modules) == 1: raise
+            log.info("Module {} missing _instrument(), skipping".format(mod_name))
+            continue
+        except InstrumentTypeError:
+            if len(acceptable_modules) == 1: raise
+            log.info("Not the right type")
+            continue
+        except InstrumentNotFoundError:
+            if len(acceptable_modules) == 1: raise
+            log.info("Instrument not found")
+            continue
 
-            new_inst._alias = alias
+        new_inst._alias = alias
 
-            # HACK to allow 'parent' modules to do special initialization of instruments
-            # We may get rid of this in the future by having each class's __init__ method directly
-            # handle params, getting rid of the _instrument() middleman.
-            parent_mod = import_module('.' + mod_name.rsplit('.', 1)[0], __package__)
-            try:
-                parent_mod._init_instrument(new_inst, params)
-            except AttributeError:
-                pass
+        # HACK to allow 'parent' modules to do special initialization of instruments
+        # We may get rid of this in the future by having each class's __init__ method directly
+        # handle params, getting rid of the _instrument() middleman.
+        parent_mod = import_module('.' + mod_name.rsplit('.', 1)[0], __package__)
+        try:
+            parent_mod._init_instrument(new_inst, params)
+        except AttributeError:
+            pass
 
-            return new_inst
+        return new_inst
 
     # If we reach this point, we haven't been able to create a valid instrument
-    if not has_valid_params:
+    if not acceptable_modules:
         raise Exception("Parameters {} match no existing driver module".format(params))
     else:
         raise Exception("No instrument matching {} was found".format(params))

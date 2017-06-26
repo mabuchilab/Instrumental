@@ -7,6 +7,9 @@ import sys
 import warnings
 from inspect import getargspec, isfunction
 import pint
+
+from past.builtins import basestring
+
 from . import decorator
 from .. import Q_, u
 

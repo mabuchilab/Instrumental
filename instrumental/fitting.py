@@ -75,10 +75,10 @@ def curve_fit(f, xdata, ydata, p0=None, sigma=None, **kw):
     if p0:
         for _p0, _popt_mag, pcov_mag_row in zip(p0, popt_mag, pcov_mag):
             # Convert from base_unit magnitude back to the original units
-            popt.append( Q_(_popt_mag, _p0.to_base_units()).to(_p0.units) )
+            popt.append( Q_(_popt_mag, _p0.to_base_units().units).to(_p0.units) )
             pcov_row = []
             for _p0_2, _pcov_mag in zip(p0, pcov_mag_row):
-                pcov_row.append( Q_(_pcov_mag, (_p0*_p0_2).to_base_units()).to(_p0*_p0_2) )
+                pcov_row.append( Q_(_pcov_mag, (_p0*_p0_2).to_base_units().units).to(_p0*_p0_2) )
             pcov.append(pcov_row)
     else:
         popt = popt_mag
@@ -177,6 +177,59 @@ def _linear_fit_decay(x, y):
     a = a_num / den
     b = b_num / den
     return exp(a), b, c
+
+
+def guided_decay_fit(data_x, data_y):
+    """
+    Guided fit of a ringdown. Takes *data_x* and *data_y* as ``pint``
+    Quantities with dimensions of time and voltage, respectively. Plots the
+    data and asks user to manually crop to select the region to fit.
+
+    It then does a rough linear fit to find initial parameters and performs
+    a nonlinear fit.
+
+    Finally, it plots the data with the curve fit overlayed and returns the
+    full-width at half-max (FWHM) with units.
+    """
+    # Have user choose crop points
+    plt.plot(data_x, data_y)
+    cursor = Cursor(plt.gca(), useblit=True)
+    cursor.horizOn = False
+    (x1, y1), (x2, y2) = _ginput(2)
+    plt.close()
+
+    # Crop the data
+    i1 = searchsorted(data_x.magnitude, x1)
+    i2 = searchsorted(data_x.magnitude, x2)
+    data_x = data_x[i1:i2]
+    data_y = data_y[i1:i2]
+
+    # Set t0 = 0 so that the amplitude 'a' doesn't blow up if we
+    # have a large time offset
+    t = data_x - data_x[0]
+
+    def decay(x, a, b, c):
+        return a*exp(b*x) + c
+
+    # Do linear fit to get initial parameter estimate
+    a0, b0, c0 = _linear_fit_decay(t.magnitude, data_y.magnitude)
+
+    # Do nonlinear fit
+    popt, pcov = curve_fit(decay, t.magnitude, data_y.magnitude, p0=[a0, b0, c0], maxfev=2000)
+    a, b, c = popt
+    tau = Q_(-1/b, t.units)
+    fit = a * exp(-t/tau) + c
+    final = Q_(c, data_y.units)
+
+    t.ito('s')
+    plt.plot(t, fit, 'b-', lw=2, zorder=3)
+    plt.plot(t, data_y, 'gx')
+    plt.title('Decay fit')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Magnitude ({})'.format(data_y.units))
+    plt.legend(['Fitted Curve', 'Data Trace'])
+    plt.show()
+    return tau, final
 
 
 def guided_ringdown_fit(data_x, data_y):
