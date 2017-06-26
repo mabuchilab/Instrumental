@@ -1,6 +1,19 @@
 Change Log
 ==========
 
+(0.3.1) - 2017-06-26
+--------------------
+
+Added
+"""""
+- ``.travis.yml``
+- ``setup.cfg``
+
+Changed
+"""""""
+- Fixed PyPI packaging whoopsie from 0.3
+
+
 (0.3) - 2017-06-23
 ------------------
 
