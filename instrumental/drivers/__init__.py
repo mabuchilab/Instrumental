@@ -89,6 +89,22 @@ _visa_models = OrderedDict((
 ))
 
 
+class Params(object):
+    def __init__(self, module_name, cls, **params):
+        self._dict = params
+        self._cls = cls
+
+        submodule_name = module_name.split('instrumental.drivers.', 1)[-1]
+        self._dict['module'] = submodule_name
+
+    def __repr__(self):
+        param_str = ' '.join('{}={!r}'.format(k, v) for k,v in self._dict.items() if k != 'module')
+        return "<Params[{}] {}>".format(self._cls.__name__, param_str)
+
+    def instantiate(self):
+        return instrument(self._dict)
+
+
 class _ParamDict(dict):
     def __init__(self, name):
         self.name = name
