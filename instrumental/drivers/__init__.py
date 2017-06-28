@@ -15,6 +15,12 @@ from past.builtins import basestring
 from .. import conf
 from ..errors import InstrumentTypeError, InstrumentNotFoundError, ConfigError
 
+_legacy_params = {
+    'ueye_cam_id': 'uc480_camera_id',
+    'pixelfly_board_num': 'pixelfly_camera_number',
+    'nidaq_devname': 'ni_daq_name',
+}
+
 # Listing of acceptable parameters for each driver module
 _acceptable_params = OrderedDict((
     ('cameras.uc480',
@@ -466,6 +472,168 @@ def _has_acceptable_params(acceptable, given):
         if p in acceptable:
             return True
     return False
+
+
+def _extract_params(inst, kwargs):
+    # Look for params in a bunch of ways
+    alias = None
+    if inst is None:
+        params = {}
+    elif isinstance(inst, Instrument):
+        return inst
+    elif isinstance(inst, Params):
+        params = inst._dict
+    elif isinstance(inst, dict):
+        params = inst
+    elif isinstance(inst, basestring):
+        name = inst
+        params = conf.instruments.get(name, None)
+        if params is None:
+            # Try looking for the string in the output of list_instruments()
+            test_str = name.lower()
+            for inst_params in list_instruments():
+                if test_str in str(inst_params).lower():
+                    params = inst_params
+                    break
+        else:
+            alias = name
+
+        if params is None:
+            raise Exception("Instrument with alias `{}` not ".format(name) +
+                            "found in config file")
+
+    params = params.copy()  # Make sure we don't modify any existing dicts
+    params.update(kwargs)
+    return params, alias
+
+
+def _get_instrument_by_module(params, alias):
+    try:
+        mod = import_module('.' + params['module'], __package__)
+    except Exception as e:
+        msg = ("\n\nSpecified module '{}' could not be imported. Make sure you have all of "
+               "this driver module's dependencies installed.".format(params['module']))
+        e.args = (str(e.args[0]) + msg,) + e.args[1:]
+        raise
+
+    try:
+        new_inst = mod._instrument(params)
+    except InstrumentTypeError:
+        raise Exception("Instrument is not compatible with the given module")
+
+    new_inst._alias = alias
+    _init_instrument(new_inst, params)
+    return new_inst
+
+
+def _init_instrument(new_inst, params):
+    # HACK to allow 'parent' modules to do special initialization of instruments
+    # We may get rid of this in the future by having each class's __init__ method directly
+    # handle params, getting rid of the _instrument() middleman.
+    parent_mod = import_module('.' + params['module'].rsplit('.', 1)[0], __package__)
+    try:
+        parent_mod._init_instrument(new_inst, params)
+    except AttributeError:
+        pass
+
+
+def _get_matching_drivers(all_driver_params, in_params):
+    matching_drivers = []
+    split_params = []
+    for in_param, value in in_params.items():
+        if in_param == 'visa_address':
+            split_params.append(((), 'visa_address'))
+        else:
+            in_param = _legacy_params.get(in_param, in_param)
+            tup = in_param.split('_', 2)
+            split_params.append((tup[:-1], tup[-1]))
+
+    for (driver_category, driver_mod_name), driver_params in all_driver_params.items():
+        normalized_params = {}
+        log.debug("Checking against %r", (driver_category, driver_mod_name, driver_params))
+        for filters, base_param in split_params:
+            log.debug("Param filters: %r", filters)
+            log.debug("Base param: %r", base_param)
+
+            for driver_param in driver_params:
+                if base_param in driver_param:
+                    matching_param = driver_param
+                    break
+            else:
+                break
+
+            if len(filters) == 2:
+                # Both must match
+                mod_name, category = filters
+                if mod_name not in driver_mod_name or category not in driver_category:
+                    break
+            elif len(filters) == 1:
+                # Filter must match one
+                filt, = filters
+                if filt not in driver_mod_name and filt not in driver_category:
+                    break
+
+            normalized_params[matching_param] = value
+        else:
+            # All given params match this driver
+            driver_name = driver_category + '.' + driver_mod_name
+            matching_drivers.append((driver_name, normalized_params))
+    return matching_drivers
+
+
+def instrument2(inst=None, **kwargs):
+    params, alias = _extract_params(inst, kwargs)
+
+    if 'server' in params:
+        from . import remote
+        host = params['server']
+        session = remote.client_session(host)
+        return session.instrument(params)
+
+    if 'module' in params:
+        return _get_instrument_by_module(params, alias)
+
+    # Find the right type of Instrument to create
+    from ..driver_info import driver_params
+    ok_drivers = _get_matching_drivers(driver_params, params)
+
+    for mod_name, normalized_params in ok_drivers:
+        # Try to import module, skip it if optional deps aren't met
+        try:
+            log.info("Trying to import module '{}'".format(mod_name))
+            mod = import_module('.' + mod_name, __package__)
+        except Exception as e:
+            if len(ok_drivers) == 1: raise
+            log.info("Module {} not supported, skipping".format(mod_name), exc_info=e)
+            continue
+
+        # Try to create an instance of this instrument type
+        try:
+            log.info("Trying to create instrument using module '{}'".format(mod_name))
+            new_inst = mod._instrument(normalized_params)
+        except AttributeError:
+            if len(ok_drivers) == 1: raise
+            log.info("Module {} missing _instrument(), skipping".format(mod_name))
+            continue
+        except InstrumentTypeError:
+            if len(ok_drivers) == 1: raise
+            log.info("Not the right type")
+            continue
+        except InstrumentNotFoundError:
+            if len(ok_drivers) == 1: raise
+            log.info("Instrument not found")
+            continue
+
+        new_inst._alias = alias
+        normalized_params['module'] = mod_name
+        _init_instrument(new_inst, normalized_params)
+        return new_inst
+
+    # If we reach this point, we haven't been able to create a valid instrument
+    if not ok_drivers:
+        raise Exception("Parameters {} match no existing driver module".format(params))
+    else:
+        raise Exception("No instrument matching {} was found".format(params))
 
 
 def instrument(inst=None, **kwargs):
