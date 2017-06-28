@@ -9,10 +9,14 @@ import logging as log
 from . import std_modules
 
 THIS_DIR = os.path.split(__file__)[0] or '.'
-DEFAULT_PRIORITY = 5
 
 IGNORED_IMPORTS = ['numpy', 'scipy', 'pint', 'future', 'past']
-VAR_NAMES = ['_INST_PARAMS', '_INST_PRIORITY']
+VAR_NAMES = ['_INST_PARAMS', '_INST_PRIORITY', '_INST_VISA_INFO']
+DEFAULT_VALUES = {
+    '_INST_PARAMS': [],
+    '_INST_PRIORITY': 5,
+    '_INST_VISA_INFO': None,
+}
 
 
 def load_module_source(module):
@@ -42,13 +46,13 @@ def list_drivers():
         for fname in os.listdir(group_dir):
             if fname.endswith('.py') and not fname.startswith('_'):
                 mod_name = fname[:-3]
-                yield (group, mod_name)
+                yield group + '.' + mod_name
 
 
 def parse_module(module_name):
     """Parse special vars and imports from the given driver module"""
     source = load_module_source(module_name)
-    values = {}
+    values = DEFAULT_VALUES.copy()
     root = ast.parse(source)
 
     assignments = (n for n in root.body if isinstance(n, ast.Assign) and len(n.targets) == 1)
@@ -72,39 +76,36 @@ def parse_module(module_name):
                 imports.append(node.module)
         else:
             continue
-    imports = [fullpkg.split('.', 1)[0] for fullpkg in imports if fullpkg is not None]
+    imports = (fullpkg.split('.', 1)[0] for fullpkg in imports if fullpkg is not None)
+    values['nonstd_imports'] = filter_std_modules(imports)
 
-    return values, imports
+    return values
 
 
 def generate_info_file():
     mod_info = []
-    for group, mod_name in list_drivers():
-        values, imports = parse_module(group + '.' + mod_name)
-        params = values.get('_INST_PARAMS', None)
-        priority = values.get('_INST_PRIORITY', DEFAULT_PRIORITY)
-        nonstd_modules = filter_std_modules(imports)
-        mod_info.append( (priority, (group, mod_name), params, nonstd_modules) )
-
+    for module_name in list_drivers():
+        values = parse_module(module_name)
+        mod_info.append((values['_INST_PRIORITY'], module_name, values))
     mod_info.sort()
 
     file_path = os.path.join(THIS_DIR, 'driver_info.py')
     with open(file_path, 'w') as f:
         f.write('# Auto-generated {}\n'.format(dt.datetime.now().isoformat()))
-        f.write('from collections import OrderedDict\n\n\n')
+        f.write('from collections import OrderedDict\n\n')
 
         # Write parameters
-        f.write('driver_params = OrderedDict([\n')
-        for _, mod_tup, params, _ in mod_info:
-            if params is not None:
-                f.write('    ({!r}, {!r}),\n'.format(mod_tup, params))
-        f.write('])\n')
+        f.write('driver_info = OrderedDict([\n')
+        for _, module_name, values in mod_info:
+            params = values['_INST_PARAMS']
+            f.write("    ({!r}, {{\n".format(module_name))
+            f.write("        'params': {!r},\n".format(params))
+            f.write("        'imports': {!r},\n".format(values['nonstd_imports']))
 
-        # Write import info
-        f.write('\n')
-        f.write('driver_imports = OrderedDict([\n')
-        for _, (group, mod), _, nonstd_modules in mod_info:
-            f.write("    ('{}.{}', {!r}),\n".format(group, mod, nonstd_modules))
+            if params and 'visa_address' in params:
+                f.write("        'visa_info': {!r},\n".format(values['_INST_VISA_INFO']))
+
+            f.write('    }),\n')
         f.write('])\n')
 
 
