@@ -12,10 +12,12 @@ from cffi import FFI
 from enum import Enum
 from . import Camera
 from ..util import as_enum, unit_mag, check_units
-from .. import InstrumentTypeError, _ParamDict
+from .. import InstrumentTypeError, Params
 from ...errors import Error, TimeoutError
 from ... import Q_, u
 
+_INST_PRIORITY = 5
+_INST_PARAMS = ['serial', 'number']
 
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
@@ -383,10 +385,7 @@ class TSI_Camera(Camera):
         self._dev.Open()
         self._set_parameter(Param.EXPOSURE_UNIT, ExpUnit.MILLISECONDS)
 
-        # For saving
-        self._param_dict = _ParamDict("<TSI_Camera '{}'>".format(self.serial))
-        self._param_dict['module'] = 'cameras.tsi'
-        self._param_dict['tsi_cam_ser'] = self.serial
+        self._create_params(serial=self.serial)
 
     def close(self):
         self._dev.Close()
@@ -581,12 +580,8 @@ def list_instruments():
     cameras = []
     for i in range(sdk.GetNumberOfCameras()):
         cam_ser = sdk.GetCameraSerialNumStr(i)
-
-        param_dict = _ParamDict("<TSI_Camera '{}'>".format(cam_ser))
-        param_dict['module'] = 'cameras.tsi'
-        param_dict['tsi_cam_ser'] = cam_ser
-
-        cameras.append(param_dict)
+        params = Params(__name__, TSI_Camera, serial=cam_ser)
+        cameras.append(params)
     return cameras
 
 
@@ -599,10 +594,10 @@ def _find_cam_by_serial(serial):
 
 
 def _instrument(params):
-    if 'tsi_cam_ser' in params:
-        cam = _find_cam_by_serial(params['tsi_cam_ser'])
-    elif 'tsi_cam_num' in params:
-        cam = TSI_Camera(params['tsi_cam_num'])
+    if 'serial' in params:
+        cam = _find_cam_by_serial(params['serial'])
+    elif 'number' in params:
+        cam = TSI_Camera(params['number'])
     elif params.get('module') == 'cameras.tsi':
         cam = TSI_Camera(0)  # Just open first camera
     else:
