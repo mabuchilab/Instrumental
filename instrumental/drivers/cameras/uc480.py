@@ -19,9 +19,11 @@ from nicelib import NiceLib, NiceObjectDef, load_lib
 
 from . import Camera
 from ..util import check_units
-from .. import _ParamDict
-from ...errors import InstrumentTypeError, InstrumentNotFoundError, Error, TimeoutError
+from .. import Params
+from ...errors import InstrumentNotFoundError, Error, TimeoutError
 from ... import Q_
+
+_INST_PARAMS = ['serial', 'id', 'model']
 
 info = load_lib('uc480', __package__)
 ffi = info._ffi
@@ -312,14 +314,7 @@ BIN_H_CODE_FROM_NUM = {
 
 def _instrument(params):
     """ Possible params include 'ueye_cam_id', 'cam_serial'"""
-    d = {}
-    if 'ueye_cam_id' in params:
-        d['id'] = params['ueye_cam_id']
-    if 'cam_serial' in params:
-        d['serial'] = params['cam_serial']
-    if not d:
-        raise InstrumentTypeError()
-
+    d = {k:v for k,v in filter(lambda t: t[0] in ('id', 'serial'), params.items())}
     return UC480_Camera(**d)
 
 
@@ -349,7 +344,7 @@ def camera_info_list():
 
 
 def _cameras():
-    """Get a list of ParamDicts for all cameras currently attached"""
+    """Get a list of Params for all cameras currently attached"""
     cam_list = camera_info_list()
     if not cam_list:
         return []
@@ -365,11 +360,10 @@ def _cameras():
 
     if not repeated:
         for info in cam_list:
-            params = _ParamDict("<UC480_Camera '{}'>".format(ffi.string(info.SerNo)))
-            params['module'] = 'cameras.uc480'
-            params['cam_serial'] = ffi.string(info.SerNo)
-            params['cam_model'] = ffi.string(info.Model)
-            params['ueye_cam_id'] = info.dwCameraID
+            params = Params(__name__, UC480_Camera,
+                            serial=ffi.string(info.SerNo),
+                            model=ffi.string(info.Model),
+                            id=int(info.dwCameraID))
             cams.append(params)
 
     else:
@@ -400,7 +394,7 @@ def _cameras():
 
 def _get_legit_params(params):
     """
-    Get the ParamDict of the camera that matches params. Useful for e.g.
+    Get the Params of the camera that matches params. Useful for e.g.
     checking that a camera with the given id exists and for getting its serial
     and model numbers.
     """
@@ -409,7 +403,7 @@ def _get_legit_params(params):
         raise InstrumentNotFoundError("No cameras attached")
 
     for cam_params in param_list:
-        if all(cam_params[k] == v for k, v in params.items()):
+        if all(cam_params[k] == v for k, v in params.items() if v is not None):
             return cam_params
 
     raise InstrumentNotFoundError("No camera found matching the given parameters")
@@ -427,7 +421,7 @@ class UC480_Camera(Camera):
     DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
     DEFAULT_KWDS.update(vsub=1, hsub=1)
 
-    def __init__(self, id=None, serial=None):
+    def __init__(self, **kwds):
         """Create a UC480_Camera object.
 
         A camera can be identified by its id, serial number, or both. If no
@@ -445,30 +439,18 @@ class UC480_Camera(Camera):
         id : int, optional
             The uEye camera ID
         serial : str, optional
-            The serial number string of the camera.
+            The serial number string of the camera
+        model : str, optional
+            The model of the camera
         """
-        params = {}
-        if id is not None:
-            params['ueye_cam_id'] = id
-        if serial is not None:
-            params['cam_serial'] = serial
-
-        if params:
-            params = _get_legit_params(params)
-        else:
-            # If given no args, just choose the 'first' camera
-            param_list = _cameras()
-            if not param_list:
-                raise Exception("No uEye cameras attached!")
-            params = param_list[0]
+        params = _get_legit_params(kwds)
 
         # For saving
-        self._param_dict = params
-        self._param_dict['module'] = 'cameras.uc480'
+        self._create_params(**params)
 
-        self._id = int(params['ueye_cam_id'])
-        self._serial = params['cam_serial']
-        self._model = params['cam_model']
+        self._id = int(params['id'])
+        self._serial = params['serial']
+        self._model = params['model']
 
         self._in_use = False
         self._width, self._height = 0, 0
