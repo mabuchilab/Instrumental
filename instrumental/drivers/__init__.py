@@ -13,6 +13,7 @@ from collections import OrderedDict
 from past.builtins import basestring
 
 from .. import conf
+from ..driver_info import driver_info
 from ..errors import InstrumentTypeError, InstrumentNotFoundError, ConfigError
 
 _legacy_params = {
@@ -275,12 +276,64 @@ class Instrument(object):
         conf.load_config_file()
 
 
+def _try_idn(resource_manager, visa_address):
+    """Try to open a visa instrument and return the result of an *IDN? query.
+
+    Tries to properly handle various errors.
+    """
+    import visa
+    rm = resource_manager
+    try:
+        log.info("Opening VISA resource '{}'".format(visa_address))
+        i = rm.open_resource(visa_address, open_timeout=50, timeout=200)
+    except visa.VisaIOError as e:
+        # Could not create visa instrument object
+        log.info("Skipping this resource due to VisaIOError")
+        log.info(e)
+        return
+    except socket.timeout:
+        log.info("Skipping this resource due to socket.timeout")
+        return
+
+    try:
+        idn = i.ask("*IDN?")
+        log.info("*IDN? gives '{}'".format(idn.strip()))
+
+    except UnicodeDecodeError as e:
+        log.info("UnicodeDecodeError while getting IDN. Probably a non-Visa Serial device")
+        log.info(str(e))
+        return
+    except visa.VisaIOError as e:
+        log.info("Getting IDN failed due to VisaIOError")
+        log.info(str(e))
+        return
+    except socket.timeout:
+        log.info("Getting IDN failed due to socket.timeout")
+        return
+    finally:
+        i.close()
+
+    try:
+        manufac, model, _ = idn.split(',', 2)
+    except ValueError as e:
+        log.info("Invalid response to IDN query")
+        log.info(str(e))
+        return
+
+    return manufac, model
+
+
 def _find_visa_inst_type(manufac, model):
-    for mod_name, tup in _visa_models.items():
-        mod_manufac, mod_models = tup
-        if manufac == mod_manufac and model in mod_models:
-            return mod_name
-    return None
+    for driver_fullname, mod_info in driver_info.items():
+        if 'visa_info' not in mod_info:
+            continue
+
+        log.info("Checking manufac/model against those in %s", driver_fullname)
+        for classname, (manufac, models) in mod_info['visa_info'].items():
+            if manufac == manufac and model in models:
+                log.info("Match found: %s, %s", driver_fullname, classname)
+                return driver_fullname, classname
+    raise Exception("No matching visa instrument type found")
 
 
 def list_visa_instruments():
@@ -304,55 +357,22 @@ def list_visa_instruments():
     rm = visa.ResourceManager()
     visa_list = rm.list_resources()
     for addr in visa_list:
-        if not addr.startswith(prev_addr):
-            prev_addr = addr
-            try:
-                log.info("Opening VISA resource '{}'".format(addr))
-                i = rm.open_resource(addr, open_timeout=50, timeout=200)
-            except visa.VisaIOError as e:
-                # Could not create visa instrument object
-                skipped.append(addr)
-                log.info("Skipping this resource due to VisaIOError")
-                log.info(e)
-                continue
-            except socket.timeout:
-                skipped.append(addr)
-                log.info("Skipping this resource due to socket.timeout")
-                continue
+        if addr.startswith(prev_addr):
+            continue
 
-            try:
-                idn = i.ask("*IDN?")
-                log.info("*IDN? gives '{}'".format(idn.strip()))
-                try:
-                    manufac, model, rest = idn.split(',', 2)
-                except ValueError as e:
-                    skipped.append(addr)
-                    log.info("Invalid response to IDN query")
-                    log.info(str(e))
-                    continue
+        prev_addr = addr
+        idn = _try_idn(rm, addr)
 
-                module_name = _find_visa_inst_type(manufac, model)
-                params = _ParamDict("<{} '{}'>".format(manufac, model))
-                params['visa_address'] = addr
-                if module_name:
-                    params['module'] = module_name
-                instruments.append(params)
-            except UnicodeDecodeError as e:
-                skipped.append(addr)
-                log.info("UnicodeDecodeError while getting IDN. Probably a non-Visa Serial device")
-                log.info(str(e))
-                continue
-            except visa.VisaIOError as e:
-                skipped.append(addr)
-                log.info("Getting IDN failed due to VisaIOError")
-                log.info(str(e))
-                continue
-            except socket.timeout:
-                skipped.append(addr)
-                log.info("Getting IDN failed due to socket.timeout")
-                continue
-            finally:
-                i.close()
+        if idn:
+            manufac, model = idn
+            module_name, classname = _find_visa_inst_type(manufac, model)
+            mod = import_module('.' + module_name, __package__)
+            cls = getattr(mod, classname)
+
+            params = Params(module_name, cls, visa_address=addr)
+            instruments.append(params)
+        else:
+            skipped.append(addr)
     return instruments
 
 
@@ -395,33 +415,30 @@ def list_instruments(server=None, module=None, blacklist=None):
 
     try:
         import visa
-        try:
-            inst_list = list_visa_instruments()
-        except visa.VisaIOError:
-            inst_list = []  # Hide visa errors
     except (ImportError, ConfigError):
         inst_list = []  # Ignore if PyVISA not installed or configured
 
-    for mod_name in _acceptable_params:
+    try:
+        inst_list = list_visa_instruments()
+    except visa.VisaIOError:
+        inst_list = []  # Hide visa errors
+
+    for mod_name in driver_info:
         if module and module not in mod_name:
             continue
+
         if mod_name in blacklist:
-            log.info("Skipping blacklisted module '%s'", mod_name)
+            log.info("Skipping blacklisted driver module '%s'", mod_name)
+            continue
+
+        driver_module = import_driver(mod_name, raise_errors=False)
+        if driver_module is None:
             continue
 
         try:
-            log.info("Importing driver module '%s'", mod_name)
-            mod = import_module('.' + mod_name, __package__)
-        except Exception as e:
-            # Module not supported
-            log.info("Error when importing module %s: <<%s>>", mod_name, str(e))
-            continue
-
-        try:
-            inst_list.extend(mod.list_instruments())
+            inst_list.extend(driver_module.list_instruments())
         except AttributeError:
-            # Module doesn't have a list_instruments() function
-            continue
+            continue  # Module doesn't have a list_instruments() function
     return inst_list
 
 
@@ -466,14 +483,6 @@ def _get_visa_instrument(params):
     return visa_inst
 
 
-def _has_acceptable_params(acceptable, given):
-    """ Returns true if given contains a param in the acceptable list. """
-    for p in given:
-        if p in acceptable:
-            return True
-    return False
-
-
 def _extract_params(inst, kwargs):
     # Look for params in a bunch of ways
     alias = None
@@ -507,25 +516,6 @@ def _extract_params(inst, kwargs):
     return params, alias
 
 
-def _get_instrument_by_module(params, alias):
-    try:
-        mod = import_module('.' + params['module'], __package__)
-    except Exception as e:
-        msg = ("\n\nSpecified module '{}' could not be imported. Make sure you have all of "
-               "this driver module's dependencies installed.".format(params['module']))
-        e.args = (str(e.args[0]) + msg,) + e.args[1:]
-        raise
-
-    try:
-        new_inst = mod._instrument(params)
-    except InstrumentTypeError:
-        raise Exception("Instrument is not compatible with the given module")
-
-    new_inst._alias = alias
-    _init_instrument(new_inst, params)
-    return new_inst
-
-
 def _init_instrument(new_inst, params):
     # HACK to allow 'parent' modules to do special initialization of instruments
     # We may get rid of this in the future by having each class's __init__ method directly
@@ -537,20 +527,62 @@ def _init_instrument(new_inst, params):
         pass
 
 
-def _get_matching_drivers(all_driver_params, in_params):
+def _get_idn(inst):
+    import visa
+    try:
+        idn = inst.ask("*IDN?")
+        log.info("*IDN? gives '{}'".format(idn.strip()))
+    except UnicodeDecodeError as e:
+        log.info("UnicodeDecodeError while getting IDN. Probably a non-Visa Serial device")
+        log.info(str(e))
+        return None, None
+    except visa.VisaIOError as e:
+        log.info("Getting IDN failed due to VisaIOError")
+        log.info(str(e))
+        return None, None
+    except socket.timeout:
+        log.info("Getting IDN failed due to socket.timeout")
+        return None, None
+
+    try:
+        manufac, model, _ = idn.split(',', 2)
+    except ValueError as e:
+        log.info("Invalid response to IDN query")
+        log.info(str(e))
+        return None, None
+
+    return manufac, model
+
+
+def import_driver(driver_fullname, raise_errors=False):
+    try:
+        log.info("Importing driver module '%s'", driver_fullname)
+        return import_module('.' + driver_fullname, __package__)
+    except Exception as e:
+        log.info("Error when importing driver module %s: <<%s>>", driver_fullname, str(e))
+        if raise_errors:
+            raise
+        else:
+            return None
+
+
+def find_matching_drivers(in_params):
+    """Find all drivers to which `in_params` could refer
+
+    This is for matching non-VISA parameter sets with all the drivers that may support them.
+    """
     matching_drivers = []
     split_params = []
     for in_param, value in in_params.items():
-        if in_param == 'visa_address':
-            split_params.append(((), 'visa_address'))
-        else:
-            in_param = _legacy_params.get(in_param, in_param)
-            tup = in_param.split('_', 2)
-            split_params.append((tup[:-1], tup[-1]))
+        in_param = _legacy_params.get(in_param, in_param)
+        tup = in_param.split('_', 2)
+        split_params.append((tup[:-1], tup[-1]))
 
-    for (driver_category, driver_mod_name), driver_params in all_driver_params.items():
+    for driver_fullname, info in driver_info.items():
+        driver_group, driver_module = driver_fullname.split('.')
+        driver_params = info['params']
         normalized_params = {}
-        log.debug("Checking against %r", (driver_category, driver_mod_name, driver_params))
+        log.debug("Checking against %r", (driver_fullname, driver_params))
         for filters, base_param in split_params:
             log.debug("Param filters: %r", filters)
             log.debug("Base param: %r", base_param)
@@ -565,77 +597,211 @@ def _get_matching_drivers(all_driver_params, in_params):
             if len(filters) == 2:
                 # Both must match
                 mod_name, category = filters
-                if mod_name not in driver_mod_name or category not in driver_category:
+                if mod_name not in driver_module or category not in driver_group:
                     break
             elif len(filters) == 1:
                 # Filter must match one
                 filt, = filters
-                if filt not in driver_mod_name and filt not in driver_category:
+                if filt not in driver_module and filt not in driver_group:
                     break
 
             normalized_params[matching_param] = value
         else:
             # All given params match this driver
-            driver_name = driver_category + '.' + driver_mod_name
-            matching_drivers.append((driver_name, normalized_params))
+            matching_drivers.append((driver_fullname, normalized_params))
     return matching_drivers
 
 
-def instrument2(inst=None, **kwargs):
-    params, alias = _extract_params(inst, kwargs)
-
-    if 'server' in params:
-        from . import remote
-        host = params['server']
-        session = remote.client_session(host)
-        return session.instrument(params)
+# find_visa_instrument(params):
+#   if module given:
+#     if _instrument in module:
+#       open using _instrument() and return
+#     else:
+#       open visa_inst
+#       if classname not given:
+#         try:
+#           module, class = find_visa_module(visa_inst)
+#         except:
+#           close visa_inst
+#           raise exception(Couldn't find matching instrument given this module)
+#
+#       open directly using class and return
+#   else:
+#     open visa_inst
+#     try:
+#       module, class = find_visa_module(visa_inst)
+#     except:
+#       close visa_inst
+#       raise
+#
+#     import module
+#
+#     if _instrument in module:
+#       open using _instrument() and return
+#     else:
+#       open directly using class and return
+#
+def find_visa_instrument(params):
+    import visa
+    rm = visa.ResourceManager()
+    visa_address = params['visa_address']
 
     if 'module' in params:
-        return _get_instrument_by_module(params, alias)
+        driver_module = import_driver(params['module'], raise_errors=True)
+        if hasattr(driver_module, '_instrument'):
+            return driver_module._instrument(params)
 
-    # Find the right type of Instrument to create
-    from ..driver_info import driver_params
-    ok_drivers = _get_matching_drivers(driver_params, params)
+        log.info("Opening VISA resource '{}'".format(visa_address))
+        visa_inst = rm.open_resource(visa_address, open_timeout=50, timeout=200)
 
-    for mod_name, normalized_params in ok_drivers:
-        # Try to import module, skip it if optional deps aren't met
-        try:
-            log.info("Trying to import module '{}'".format(mod_name))
-            mod = import_module('.' + mod_name, __package__)
-        except Exception as e:
-            if len(ok_drivers) == 1: raise
-            log.info("Module {} not supported, skipping".format(mod_name), exc_info=e)
-            continue
+        if 'classname' in params:
+            classname = params['classname']
+        else:
+            try:
+                _, classname = find_visa_driver_class(visa_inst)
+            except:
+                visa_inst.close()
+                raise Exception("Couldn't find class in the given module that supports this "
+                                "VISA instrument")
 
-        # Try to create an instance of this instrument type
-        try:
-            log.info("Trying to create instrument using module '{}'".format(mod_name))
-            new_inst = mod._instrument(normalized_params)
-        except AttributeError:
-            if len(ok_drivers) == 1: raise
-            log.info("Module {} missing _instrument(), skipping".format(mod_name))
-            continue
-        except InstrumentTypeError:
-            if len(ok_drivers) == 1: raise
-            log.info("Not the right type")
-            continue
-        except InstrumentNotFoundError:
-            if len(ok_drivers) == 1: raise
-            log.info("Instrument not found")
-            continue
+        return getattr(driver_module, classname)(visa_inst)
 
-        new_inst._alias = alias
-        normalized_params['module'] = mod_name
-        _init_instrument(new_inst, normalized_params)
-        return new_inst
-
-    # If we reach this point, we haven't been able to create a valid instrument
-    if not ok_drivers:
-        raise Exception("Parameters {} match no existing driver module".format(params))
     else:
-        raise Exception("No instrument matching {} was found".format(params))
+        log.info("Opening VISA resource '{}'".format(visa_address))
+        visa_inst = rm.open_resource(visa_address, open_timeout=50, timeout=200)
+
+        try:
+            driver_name, classname = find_visa_driver_class(visa_inst)
+        except:
+            visa_inst.close()
+            raise
+
+        driver_module = import_driver(driver_name, raise_errors=True)
+        if hasattr(driver_module, '_instrument'):
+            return driver_module._instrument(params)
+        else:
+            return getattr(driver_module, classname)(visa_inst)
 
 
+# find_visa_module(visa_inst, module=None):
+#   modules = [module] if module else all-visa-drivers
+#   try to get idn
+#   if successful:
+#     for driver in visa drivers with manufac/model:
+#       return (driver, classname) if manufac/model match idn
+#
+#   for driver in visa drivers:
+#     return (driver, classname) if _check_visa_support returns them (catch exceptions?)
+#
+#   raise exception("No matching visa driver found")
+#
+def find_visa_driver_class(visa_inst, module=None):
+    """Search for the appropriate VISA driver, returning (driver_module, classname)"""
+    if module:
+        all_info = ((drv_name, mod_info['visa_info']) for (drv_name, mod_info) in driver_info.items()
+                    if 'visa_info' in mod_info and drv_name == module)
+    else:
+        all_info = ((drv_name, mod_info['visa_info']) for (drv_name, mod_info) in driver_info.items()
+                    if 'visa_info' in mod_info)
+
+    inst_manufac, inst_model = _get_idn(visa_inst)
+
+    # Match against driver manufac/model
+    if inst_manufac:
+        for driver_fullname, visa_info in all_info:
+            log.info("Checking manufac/model against those in %s", driver_fullname)
+            for classname, (cls_manufac, cls_models) in visa_info.items():
+                if inst_manufac == cls_manufac and inst_model in cls_models:
+                    log.info("Match found: %s, %s", driver_fullname, classname)
+                    driver_module = import_driver(driver_fullname, raise_errors=True)
+                    return driver_module, classname
+
+    # Manually try visa-based drivers
+    for driver_fullname, _ in all_info:
+        driver_module = import_driver(driver_fullname, raise_errors=False)
+        if driver_module is None:
+            continue
+
+        if not hasattr(driver_module, '_check_visa_support'):
+            log.info("Module %s missing _check_visa_support(), skipping", driver_fullname)
+            continue
+
+        log.info("Checking if '%s' has a matching class", driver_fullname)
+        classname = driver_module._check_visa_support(visa_inst)
+
+        if classname:
+            return driver_module, classname
+
+    raise Exception("No matching VISA driver found")
+
+
+# find_nonvisa_instrument(params):
+#   if module given:
+#     if _instrument not in module:
+#       raise exception(Driver module is missing _instrument)
+#     else:
+#       open using _instrument()
+#   else:
+#     filter drivers by the given params
+#     if no such drivers:
+#       raise exception(No drivers found matching those params)
+#
+#     for each param-matching nonvisa driver module:
+#       try opening using _instrument()
+#       return if successful, else continue
+#     else:
+#       raise exception(No instrument matching these params was found)
+#
+def find_nonvisa_instrument(params):
+    if 'module' in params:
+        driver_module = import_driver(params['module'], raise_errors=True)
+        if hasattr(driver_module, '_instrument'):
+            return driver_module._instrument(params)
+        else:
+            raise Exception("Non-VISA driver module '{}' is missing `_instrument()` "
+                            "function".format(params['module']))
+    else:
+        ok_drivers = find_matching_drivers(params)
+        if not ok_drivers:
+            raise Exception("Parameters {} match no existing driver module".format(params))
+
+        for driver_name, normalized_params in ok_drivers:
+            driver_module = import_driver(driver_name, raise_errors=False)
+            if driver_module is None:
+                continue
+
+            try:
+                log.info("Trying to create instrument using module '%s'", driver_name)
+                inst = driver_module._instrument(normalized_params)
+            except AttributeError:
+                if len(ok_drivers) == 1: raise
+                log.info("Module %s missing _instrument(), skipping", driver_name)
+                continue
+            except InstrumentTypeError:
+                if len(ok_drivers) == 1: raise
+                log.info("Not the right type")
+                continue
+            except InstrumentNotFoundError:
+                if len(ok_drivers) == 1: raise
+                log.info("Instrument not found")
+                continue
+
+            normalized_params['module'] = driver_name
+            _init_instrument(inst, normalized_params)
+            return inst
+
+
+# Pseudocode:
+#
+# Handle input params
+#
+# if 'server' in params:
+#   return remote instrument
+# elif 'visa_address' in params:
+#   return find_visa_instrument(params)
+# else:
+#   return find_nonvisa_instrument(params)
+#
 def instrument(inst=None, **kwargs):
     """
     Create any Instrumental instrument object from an alias, parameters,
@@ -646,117 +812,20 @@ def instrument(inst=None, **kwargs):
     >>> inst3 = instrument({'visa_address': 'TCPIP:192.168.1.35::INSTR'})
     >>> inst4 = instrument(inst1)
     """
-    alias = None
-    if inst is None:
-        params = {}
-    elif isinstance(inst, Instrument):
-        return inst
-    elif isinstance(inst, dict):
-        params = inst
-    elif isinstance(inst, basestring):
-        name = inst
-        params = conf.instruments.get(name, None)
-        if params is None:
-            # Try looking for the string in the output of list_instruments()
-            test_str = name.lower()
-            for inst_params in list_instruments():
-                if test_str in str(inst_params).lower():
-                    params = inst_params
-                    break
-        else:
-            alias = name
-
-        if params is None:
-            raise Exception("Instrument with alias `{}` not ".format(name) +
-                            "found in config file")
-
-    params = params.copy()  # Make sure we don't modify any existing dicts
-    params.update(kwargs)
+    params, alias = _extract_params(inst, kwargs)
 
     if 'server' in params:
         from . import remote
         host = params['server']
         session = remote.client_session(host)
-        return session.instrument(params)
-
-    if 'module' in params:
-        # We've already been given the name of the module
-        # SHOULD PROBABLY INTEGRATE THIS WITH THE OTHER CASE
-        try:
-            mod = import_module('.' + params['module'], __package__)
-        except Exception as e:
-            msg = ("\n\nSpecified module '{}' could not be imported. Make sure you have all of "
-                   "this driver module's dependencies installed.".format(params['module']))
-            e.args = (str(e.args[0]) + msg,) + e.args[1:]
-            raise
-
-        try:
-            new_inst = mod._instrument(params)
-        except InstrumentTypeError:
-            raise Exception("Instrument is not compatible with the given module")
-
-        new_inst._alias = alias
-
-        # HACK to allow 'parent' modules to do special initialization of instruments
-        # We may get rid of this in the future by having each class's __init__ method directly
-        # handle params, getting rid of the _instrument() middleman.
-        parent_mod = import_module('.' + params['module'].rsplit('.', 1)[0], __package__)
-        try:
-            parent_mod._init_instrument(new_inst, params)
-        except AttributeError:
-            pass
-
-        return new_inst
-
-    # Find the right type of Instrument to create
-    acceptable_modules = [mod_name for mod_name, acc_params in _acceptable_params.items()
-                          if _has_acceptable_params(acc_params, params)]
-
-    for mod_name in acceptable_modules:
-        # Try to import module, skip it if optional deps aren't met
-        try:
-            log.info("Trying to import module '{}'".format(mod_name))
-            mod = import_module('.' + mod_name, __package__)
-        except Exception as e:
-            if len(acceptable_modules) == 1: raise
-            log.info("Module {} not supported, skipping".format(mod_name), exc_info=e)
-            continue
-
-        # Try to create an instance of this instrument type
-        try:
-            log.info("Trying to create instrument using module '{}'".format(mod_name))
-            new_inst = mod._instrument(params)
-        except AttributeError:
-            if len(acceptable_modules) == 1: raise
-            log.info("Module {} missing _instrument(), skipping".format(mod_name))
-            continue
-        except InstrumentTypeError:
-            if len(acceptable_modules) == 1: raise
-            log.info("Not the right type")
-            continue
-        except InstrumentNotFoundError:
-            if len(acceptable_modules) == 1: raise
-            log.info("Instrument not found")
-            continue
-
-        new_inst._alias = alias
-
-        # HACK to allow 'parent' modules to do special initialization of instruments
-        # We may get rid of this in the future by having each class's __init__ method directly
-        # handle params, getting rid of the _instrument() middleman.
-        parent_mod = import_module('.' + mod_name.rsplit('.', 1)[0], __package__)
-        try:
-            parent_mod._init_instrument(new_inst, params)
-        except AttributeError:
-            pass
-
-        return new_inst
-
-    # If we reach this point, we haven't been able to create a valid instrument
-    if not acceptable_modules:
-        raise Exception("Parameters {} match no existing driver module".format(params))
+        inst = session.instrument(params)
+    elif 'visa_address' in params:
+        inst = find_visa_instrument(params)
     else:
-        raise Exception("No instrument matching {} was found".format(params))
+        inst = find_nonvisa_instrument(params)
+
+    inst._alias = alias
+    return inst
 
 
 atexit.register(Instrument._close_atexit)
