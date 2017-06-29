@@ -16,6 +16,9 @@ from .. import conf
 from ..driver_info import driver_info
 from ..errors import InstrumentTypeError, InstrumentNotFoundError, ConfigError
 
+
+__all__ = ['Instrument', 'instrument', 'list_instruments', 'list_visa_instruments']
+
 _legacy_params = {
     'ueye_cam_id': 'uc480_camera_id',
     'pixelfly_board_num': 'pixelfly_camera_number',
