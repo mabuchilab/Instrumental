@@ -276,64 +276,32 @@ class Instrument(object):
         conf.load_config_file()
 
 
-def _try_idn(resource_manager, visa_address):
-    """Try to open a visa instrument and return the result of an *IDN? query.
+def open_visa_inst(visa_address, raise_errors=False):
+    """Try to open a visa instrument.
 
-    Tries to properly handle various errors.
+    Logs well-known errors, and also suppress them if raise_errors is False.
     """
     import visa
-    rm = resource_manager
+    rm = visa.ResourceManager()
     try:
         log.info("Opening VISA resource '{}'".format(visa_address))
-        i = rm.open_resource(visa_address, open_timeout=50, timeout=200)
+        visa_inst = rm.open_resource(visa_address, open_timeout=50, timeout=200)
     except visa.VisaIOError as e:
         # Could not create visa instrument object
         log.info("Skipping this resource due to VisaIOError")
         log.info(e)
-        return
+        if raise_errors:
+            raise
+        else:
+            return None
     except socket.timeout:
         log.info("Skipping this resource due to socket.timeout")
-        return
+        if raise_errors:
+            raise
+        else:
+            return None
 
-    try:
-        idn = i.ask("*IDN?")
-        log.info("*IDN? gives '{}'".format(idn.strip()))
-
-    except UnicodeDecodeError as e:
-        log.info("UnicodeDecodeError while getting IDN. Probably a non-Visa Serial device")
-        log.info(str(e))
-        return
-    except visa.VisaIOError as e:
-        log.info("Getting IDN failed due to VisaIOError")
-        log.info(str(e))
-        return
-    except socket.timeout:
-        log.info("Getting IDN failed due to socket.timeout")
-        return
-    finally:
-        i.close()
-
-    try:
-        manufac, model, _ = idn.split(',', 2)
-    except ValueError as e:
-        log.info("Invalid response to IDN query")
-        log.info(str(e))
-        return
-
-    return manufac, model
-
-
-def _find_visa_inst_type(manufac, model):
-    for driver_fullname, mod_info in driver_info.items():
-        if 'visa_info' not in mod_info:
-            continue
-
-        log.info("Checking manufac/model against those in %s", driver_fullname)
-        for classname, (manufac, models) in mod_info['visa_info'].items():
-            if manufac == manufac and model in models:
-                log.info("Match found: %s, %s", driver_fullname, classname)
-                return driver_fullname, classname
-    raise Exception("No matching visa instrument type found")
+    return visa_inst
 
 
 def list_visa_instruments():
@@ -352,7 +320,7 @@ def list_visa_instruments():
     >>> inst = instrument(inst_list[0])
     """
     import visa
-    instruments, skipped = [], []
+    instruments = []
     prev_addr = 'START'
     rm = visa.ResourceManager()
     visa_list = rm.list_resources()
@@ -361,18 +329,19 @@ def list_visa_instruments():
             continue
 
         prev_addr = addr
-        idn = _try_idn(rm, addr)
+        visa_inst = open_visa_inst(addr, raise_errors=False)
+        if visa_inst is None:
+            continue
 
-        if idn:
-            manufac, model = idn
-            module_name, classname = _find_visa_inst_type(manufac, model)
-            mod = import_module('.' + module_name, __package__)
-            cls = getattr(mod, classname)
-
-            params = Params(module_name, cls, visa_address=addr)
+        try:
+            driver_module, classname = find_visa_driver_class(visa_inst)
+            cls = getattr(driver_module, classname)
+            params = Params(driver_module.__name__, cls, visa_address=addr)
             instruments.append(params)
-        else:
-            skipped.append(addr)
+        except:
+            continue
+        finally:
+            visa_inst.close()
     return instruments
 
 
@@ -527,7 +496,11 @@ def _init_instrument(new_inst, params):
         pass
 
 
-def _get_idn(inst):
+def get_idn(inst):
+    """Get manufacturer/model strings from ``*IDN?``
+
+    Returns (None, None) if unsuccessful.
+    """
     import visa
     try:
         idn = inst.ask("*IDN?")
@@ -696,7 +669,11 @@ def find_visa_instrument(params):
 #   raise exception("No matching visa driver found")
 #
 def find_visa_driver_class(visa_inst, module=None):
-    """Search for the appropriate VISA driver, returning (driver_module, classname)"""
+    """Search for the appropriate VISA driver, returning (driver_module, classname)
+
+    First checks based on the manufacturer/model returned by ``*IDN?``, then ``_check_visa_support``
+    until a match is found. Raises an exception if no match is found.
+    """
     if module:
         all_info = ((drv_name, mod_info['visa_info']) for (drv_name, mod_info) in driver_info.items()
                     if 'visa_info' in mod_info and drv_name == module)
@@ -704,7 +681,7 @@ def find_visa_driver_class(visa_inst, module=None):
         all_info = ((drv_name, mod_info['visa_info']) for (drv_name, mod_info) in driver_info.items()
                     if 'visa_info' in mod_info)
 
-    inst_manufac, inst_model = _get_idn(visa_inst)
+    inst_manufac, inst_model = get_idn(visa_inst)
 
     # Match against driver manufac/model
     if inst_manufac:
