@@ -371,6 +371,10 @@ def list_instruments(server=None, module=None, blacklist=None):
         Strings should be in the format ``'subpackage.module'``, e.g. ``'cameras.pco'``. This is
         useful for very slow-loading drivers whose instruments no longer need to be listed (but may
         still be in use otherwise). This can be set permanently in your ``instrumental.conf``.
+    module : str, optional
+        A str to filter what driver modules are checked. A driver module gets checked only if it
+        contains the substring ``module`` in its full name. The full name includes both the driver
+        group and the module, e.g. ``'cameras.pco'``.
     """
     if server is not None:
         from . import remote
