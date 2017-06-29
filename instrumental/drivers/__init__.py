@@ -106,9 +106,11 @@ class Params(object):
 
         submodule_name = module_name.split('instrumental.drivers.', 1)[-1]
         self._dict['module'] = submodule_name
+        self._dict['classname'] = self._cls.__name__
 
     def __repr__(self):
-        param_str = ' '.join('{}={!r}'.format(k, v) for k,v in self._dict.items() if k != 'module')
+        param_str = ' '.join('{}={!r}'.format(k, v) for k,v in self._dict.items()
+                             if k not in ('module', 'classname'))
         return "<Params[{}] {}>".format(self._cls.__name__, param_str)
 
     def instantiate(self):
