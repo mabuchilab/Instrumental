@@ -24,6 +24,7 @@ from ...errors import InstrumentNotFoundError, Error, TimeoutError
 from ... import Q_
 
 _INST_PARAMS = ['serial', 'id', 'model']
+_INST_CLASSES = ['UC480_Camera']
 
 info = load_lib('uc480', __package__)
 ffi = info._ffi
@@ -310,12 +311,6 @@ BIN_H_CODE_FROM_NUM = {
     8: lib.BINNING_8X_HORIZONTAL,
     16: lib.BINNING_16X_HORIZONTAL
 }
-
-
-def _instrument(params):
-    """ Possible params include 'ueye_cam_id', 'cam_serial'"""
-    d = {k:v for k,v in filter(lambda t: t[0] in ('id', 'serial'), params.items())}
-    return UC480_Camera(**d)
 
 
 def list_instruments():
