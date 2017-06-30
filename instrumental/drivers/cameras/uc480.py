@@ -77,7 +77,20 @@ def ret_handler(getcmd_names, cmd_pos=1):
 
 
 class UC480Error(Error):
-    pass
+    MESSAGES = {
+        -1: "Undefined error occurred",
+        1: "Invalid camera handle",
+        2: ("An IO request from the uc480 driver failed. Maybe the versions of the DLL (API) and "
+            "the driver (.sys) file do not match"),
+        3: ("An attempt to initialize or select the camera failed (no camera connected or "
+            "initialization error)"),
+    }
+
+    def __init__(self, code=None, msg=''):
+        if code is not None and not msg:
+            msg = '({:d}) {}'.format(code, self.MESSAGES[code])
+        super(UC480Error, self).__init__(msg)
+        self.code = code
 
 
 class NiceUC480(NiceLib):
@@ -88,12 +101,12 @@ class NiceUC480(NiceLib):
     #
     def _ret(result):
         if result != NiceUC480.SUCCESS:
-            raise UC480Error('({})'.format(result))
+            raise UC480Error(result)
 
     def _ret_cam(result, niceobj):
         if result != NiceUC480.SUCCESS:
             err_code, err_msg = niceobj.GetError()
-            raise UC480Error('({}): {}'.format(result, err_msg))
+            raise UC480Error(result, err_msg)
 
     # Classmethods
     #
