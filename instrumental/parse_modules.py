@@ -11,10 +11,11 @@ from . import std_modules
 THIS_DIR = os.path.split(__file__)[0] or '.'
 
 IGNORED_IMPORTS = ['numpy', 'scipy', 'pint', 'future', 'past']
-VAR_NAMES = ['_INST_PARAMS', '_INST_PRIORITY', '_INST_VISA_INFO']
+VAR_NAMES = ['_INST_PARAMS', '_INST_PRIORITY', '_INST_CLASSES', '_INST_VISA_INFO']
 DEFAULT_VALUES = {
     '_INST_PARAMS': [],
     '_INST_PRIORITY': 5,
+    '_INST_CLASSES': [],
     '_INST_VISA_INFO': None,
 }
 
@@ -100,6 +101,7 @@ def generate_info_file():
             params = values['_INST_PARAMS']
             f.write("    ({!r}, {{\n".format(module_name))
             f.write("        'params': {!r},\n".format(params))
+            f.write("        'classes': {!r},\n".format(values['_INST_CLASSES']))
             f.write("        'imports': {!r},\n".format(values['nonstd_imports']))
 
             if params and 'visa_address' in params:

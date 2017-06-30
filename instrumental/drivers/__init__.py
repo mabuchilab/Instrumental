@@ -116,6 +116,22 @@ class Params(object):
     def instantiate(self):
         return instrument(self._dict)
 
+    def matches(self, other):
+        """True iff all common keys have matching values"""
+        return all(other[k] == v for k, v in self.items() if k in other)
+
+    def items(self):
+        return self._dict.items()
+
+    def keys(self):
+        return self._dict.keys()
+
+    def values(self):
+        return self._dict.values()
+
+    def __getitem__(self, key):
+        return self._dict[key]
+
 
 class _ParamDict(dict):
     def __init__(self, name):
@@ -741,11 +757,25 @@ def find_visa_driver_class(visa_inst, module=None):
 def find_nonvisa_instrument(params):
     if 'module' in params:
         driver_module = import_driver(params['module'], raise_errors=True)
+        normalized_params = {k.rsplit('_', 1)[-1]:v for k,v in params.items()}
         if hasattr(driver_module, '_instrument'):
-            return driver_module._instrument(params)
-        else:
-            raise Exception("Non-VISA driver module '{}' is missing `_instrument()` "
-                            "function".format(params['module']))
+            return driver_module._instrument(normalized_params)
+
+        full_params = find_full_params(normalized_params, driver_module)
+        if not full_params:
+            raise Exception("{} does not match any known Params from driver module "
+                            "{}.".format(params, params['module']))
+
+        classnames = driver_info[params['module']]['classes']
+        for classname in classnames:
+            try:
+                return getattr(driver_module, classname)(**normalized_params)
+            except (InstrumentTypeError, InstrumentNotFoundError):
+                log.info("Failed to create instrument using '%s'", classname)
+
+        raise Exception("Could not open non-VISA instrument. Driver module '{}' is missing "
+                        "_instrument function, and the listed instrument classes {} "
+                        "Failed to handle these params.".format(params['module'], classnames))
     else:
         ok_drivers = find_matching_drivers(params)
         if not ok_drivers:
@@ -756,25 +786,52 @@ def find_nonvisa_instrument(params):
             if driver_module is None:
                 continue
 
-            try:
-                log.info("Trying to create instrument using module '%s'", driver_name)
-                inst = driver_module._instrument(normalized_params)
-            except AttributeError:
-                if len(ok_drivers) == 1: raise
-                log.info("Module %s missing _instrument(), skipping", driver_name)
-                continue
-            except InstrumentTypeError:
-                if len(ok_drivers) == 1: raise
-                log.info("Not the right type")
-                continue
-            except InstrumentNotFoundError:
-                if len(ok_drivers) == 1: raise
-                log.info("Instrument not found")
+            if hasattr(driver_module, '_instrument'):
+                inst = call_instrument_func(driver_module, normalized_params, raise_errors=False)
+                if not inst:
+                    continue
+            else:
+                full_params = find_full_params(normalized_params, driver_module)
+                if not full_params:
+                    log.info("%s does not match any known Params from driver module %s",
+                             params, driver_name)
+                    continue
+
+                classnames = driver_info[driver_name]['classes']
+                for classname in classnames:
+                    try:
+                        return getattr(driver_module, classname)(**normalized_params)
+                    except:
+                        log.info("Failed to create instrument using '%s'", classname)
+                log.info("All classes given in this module failed to create instrument")
                 continue
 
             normalized_params['module'] = driver_name
             _init_instrument(inst, normalized_params)
             return inst
+
+
+def call_instrument_func(driver_module, normalized_params, raise_errors):
+    try:
+        log.info("Trying to create instrument using module '%s'", driver_module.__name__)
+        return driver_module._instrument(normalized_params)
+    except AttributeError:
+        if raise_errors: raise
+        log.info("Module missing _instrument()")
+    except InstrumentTypeError:
+        if raise_errors: raise
+        log.info("Not the right type")
+    except InstrumentNotFoundError:
+        if raise_errors: raise
+        log.info("Instrument not found")
+
+    return None
+
+
+def find_full_params(normalized_params, driver_module):
+    for inst_params in driver_module.list_instruments():
+        if inst_params.matches(normalized_params):
+            return inst_params
 
 
 # Pseudocode:
@@ -809,6 +866,9 @@ def instrument(inst=None, **kwargs):
         inst = find_visa_instrument(params)
     else:
         inst = find_nonvisa_instrument(params)
+
+    if inst is None:
+        raise Exception("No instrument found that matches {}".format(params))
 
     inst._alias = alias
     return inst
