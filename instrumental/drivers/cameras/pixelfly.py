@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2016 Nate Bogdanowicz
+# Copyright 2015-2017 Nate Bogdanowicz
 """
 Driver for PCO Pixelfly cameras.
 """
@@ -16,10 +16,12 @@ from nicelib import NiceLib, NiceObjectDef, load_lib
 
 from ._pixelfly import errortext
 from . import Camera
-from .. import InstrumentTypeError, _ParamDict
+from .. import Params
 from ..util import check_units
 from ...errors import Error, TimeoutError
 from ... import Q_, u
+
+_INST_PARAMS = ['number']
 
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
@@ -110,9 +112,7 @@ class Pixelfly(Camera):
         self._capture_started = False
 
         # For saving
-        self._param_dict = _ParamDict("<Pixelfly '{}'>".format(board_num))
-        self._param_dict['module'] = 'cameras.pixelfly'
-        self._param_dict['pixelfly_board_num'] = board_num
+        self._create_params(number=board_num)
 
         self._bufsizes = []
         self._bufnums = []
@@ -461,24 +461,11 @@ class Pixelfly(Camera):
 
 def list_instruments():
     board_nums = Pixelfly._list_boards()
-    cams = []
-
-    for board_num in board_nums:
-        params = _ParamDict("<Pixelfly '{}'>".format(board_num))
-        params['module'] = 'cameras.pixelfly'
-        params['pixelfly_board_num'] = board_num
-        cams.append(params)
-    return cams
+    return [Params(__name__, Pixelfly, number=n) for n in board_nums]
 
 
 def _instrument(params):
-    if 'pixelfly_board_num' in params:
-        cam = Pixelfly(params['pixelfly_board_num'])
-    elif params['module'] == 'cameras.pixelfly':
-        cam = Pixelfly()
-    else:
-        raise InstrumentTypeError()
-    return cam
+    return Pixelfly(params.get('number', 0))
 
 
 @atexit.register
