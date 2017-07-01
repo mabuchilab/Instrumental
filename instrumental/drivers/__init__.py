@@ -787,7 +787,8 @@ def find_nonvisa_instrument(params):
                 continue
 
             if hasattr(driver_module, '_instrument'):
-                inst = call_instrument_func(driver_module, normalized_params, raise_errors=False)
+                inst = call_instrument_func(driver_module, normalized_params,
+                                            raise_errors=(len(ok_drivers) == 1))
                 if not inst:
                     continue
             else:
@@ -801,8 +802,11 @@ def find_nonvisa_instrument(params):
                 for classname in classnames:
                     try:
                         return getattr(driver_module, classname)(**normalized_params)
-                    except:
+                    except Exception as e:
                         log.info("Failed to create instrument using '%s'", classname)
+                        log.info(str(e))
+                        if len(ok_drivers) == len(classnames) == 1:
+                            raise
                 log.info("All classes given in this module failed to create instrument")
                 continue
 
