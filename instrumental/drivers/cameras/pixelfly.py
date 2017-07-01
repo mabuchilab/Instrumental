@@ -22,6 +22,7 @@ from ...errors import Error, TimeoutError, LibError
 from ... import Q_, u
 
 _INST_PARAMS = ['number']
+_INST_CLASSES = ['Pixelfly']
 
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
@@ -105,8 +106,8 @@ class Pixelfly(Camera):
     _qe_low = load_qe_curve('QELow.tsv')
     _qe_vga = load_qe_curve('VGA.tsv')
 
-    def __init__(self, board_num=0):
-        self._dev = NicePixelfly.Board(board_num)
+    def __init__(self, number=0):
+        self._dev = NicePixelfly.Board(number)
         self._cam_started = False
         self._mode_set = False
         self._mem_set_up = False
@@ -114,7 +115,7 @@ class Pixelfly(Camera):
         self._capture_started = False
 
         # For saving
-        self._create_params(number=board_num)
+        self._create_params(number=number)
 
         self._bufsizes = []
         self._bufnums = []
@@ -464,10 +465,6 @@ class Pixelfly(Camera):
 def list_instruments():
     board_nums = Pixelfly._list_boards()
     return [Params(__name__, Pixelfly, number=n) for n in board_nums]
-
-
-def _instrument(params):
-    return Pixelfly(params.get('number', 0))
 
 
 @atexit.register
