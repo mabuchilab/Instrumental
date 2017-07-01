@@ -18,7 +18,7 @@ from ._pixelfly import errortext
 from . import Camera
 from .. import Params
 from ..util import check_units
-from ...errors import Error, TimeoutError
+from ...errors import Error, TimeoutError, LibError
 from ... import Q_, u
 
 _INST_PARAMS = ['number']
@@ -33,6 +33,10 @@ info = load_lib('pixelfly', __package__)
 ffi = info._ffi
 
 
+class PixelflyLibError(LibError):
+    MSG_FORMAT = '(0x{:X}) {}'
+
+
 class NicePixelfly(NiceLib):
     _info = info
 
@@ -42,9 +46,7 @@ class NicePixelfly(NiceLib):
             errortext.lib.PCO_GetErrorText(errortext.ffi.cast('unsigned int', code), pbuf,
                                            len(pbuf))
             err_message = errortext.ffi.string(pbuf)
-            e = Error('({}) {}'.format(code, err_message))
-            e.err_code = code
-            raise e
+            raise PixelflyLibError(code & 0xFFFFFFFF, err_message)
 
     INITBOARD = ('in', 'out')  # Second arg should really be 'inout'
     CHECK_BOARD_AVAILABILITY = ('in')

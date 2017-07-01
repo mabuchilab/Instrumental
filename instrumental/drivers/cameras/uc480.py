@@ -20,7 +20,7 @@ from nicelib import NiceLib, NiceObjectDef, load_lib
 from . import Camera
 from ..util import check_units
 from .. import Params
-from ...errors import InstrumentNotFoundError, Error, TimeoutError
+from ...errors import InstrumentNotFoundError, Error, TimeoutError, LibError
 from ... import Q_
 
 _INST_PARAMS = ['serial', 'id', 'model']
@@ -76,7 +76,7 @@ def ret_handler(getcmd_names, cmd_pos=1):
     return wrap
 
 
-class UC480Error(Error):
+class UC480Error(LibError):
     MESSAGES = {
         -1: "Undefined error occurred",
         1: "Invalid camera handle",
@@ -85,12 +85,6 @@ class UC480Error(Error):
         3: ("An attempt to initialize or select the camera failed (no camera connected or "
             "initialization error)"),
     }
-
-    def __init__(self, code=None, msg=''):
-        if code is not None and not msg:
-            msg = '({:d}) {}'.format(code, self.MESSAGES[code])
-        super(UC480Error, self).__init__(msg)
-        self.code = code
 
 
 class NiceUC480(NiceLib):
@@ -101,12 +95,12 @@ class NiceUC480(NiceLib):
     #
     def _ret(result):
         if result != NiceUC480.SUCCESS:
-            raise UC480Error(result)
+            raise UC480Error(code=result)
 
     def _ret_cam(result, niceobj):
         if result != NiceUC480.SUCCESS:
             err_code, err_msg = niceobj.GetError()
-            raise UC480Error(result, err_msg)
+            raise UC480Error(code=result, msg=err_msg)
 
     # Classmethods
     #

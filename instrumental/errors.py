@@ -20,3 +20,15 @@ class InstrumentTypeError(Error):
 
 class InstrumentNotFoundError(Error):
     pass
+
+
+class LibError(Error):
+    MESSAGES = {}
+    MSG_FORMAT = '({:d}) {}'
+    def __init__(self, code=None, msg=''):
+        self.code = code
+        if code is not None:
+            if not msg:
+                msg = self.MESSAGES.get(code)
+            msg = self.MSG_FORMAT.format(code, msg)
+        super(LibError, self).__init__(msg)
