@@ -8,7 +8,6 @@ possible to implement if desired.
 from past.builtins import basestring, unicode
 
 import struct
-import atexit
 import weakref
 import logging as log
 import fnmatch
@@ -419,7 +418,6 @@ class BufferInfo(object):
 
 class UC480_Camera(Camera):
     """A uc480-supported Camera."""
-    _open_cameras = []
     DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
     DEFAULT_KWDS.update(vsub=1, hsub=1)
 
@@ -466,7 +464,6 @@ class UC480_Camera(Camera):
         self._trigger_mode = lib.SET_TRIGGER_OFF
 
         self._open()
-        UC480_Camera._open_cameras.append(self)
 
     def __del__(self):
         if self._in_use:
@@ -583,7 +580,6 @@ class UC480_Camera(Camera):
 
         try:
             self._dev.ExitCamera()
-            UC480_Camera._open_cameras.remove(self)
             self._in_use = False
         except Exception as e:
             log.error("Failed to close camera")
@@ -892,12 +888,3 @@ class UC480_Camera(Camera):
 
     #: Trigger mode string. Read-only
     trigger_mode = property(lambda self: self._get_trigger())
-
-
-@atexit.register
-def _cleanup():
-    for cam in UC480_Camera._open_cameras:
-        try:
-            cam.close()
-        except:
-            pass
