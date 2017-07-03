@@ -118,7 +118,7 @@ class Params(object):
 
     def matches(self, other):
         """True iff all common keys have matching values"""
-        return all(other[k] == v for k, v in self.items() if k in other)
+        return all(other[k] == v for k, v in self.items() if k in other.keys())
 
     def items(self):
         return self._dict.items()
