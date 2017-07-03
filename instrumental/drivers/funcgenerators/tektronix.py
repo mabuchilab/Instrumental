@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2015 Nate Bogdanowicz
+# Copyright 2014-2017 Nate Bogdanowicz
 """
 Driver module for Tektronix function generators. Currently supports:
 
 * AFG 3000 series
 """
-
 import numpy as np
-from instrumental import u, Q_
 from . import FunctionGenerator
 from .. import _get_visa_instrument
+from ... import u, Q_
 from ...errors import InstrumentTypeError
 
 AFG_3000_models = ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102',

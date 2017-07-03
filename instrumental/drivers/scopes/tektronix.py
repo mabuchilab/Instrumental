@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2015 Nate Bogdanowicz
+# Copyright 2013-2017 Nate Bogdanowicz
 """
 Driver module for Tektronix oscilloscopes. Currently supports
 
@@ -9,10 +9,10 @@ Driver module for Tektronix oscilloscopes. Currently supports
 
 import visa
 import numpy as np
-from instrumental import u, Q_
 from pint import UndefinedUnitError
 from . import Scope
 from .. import _get_visa_instrument
+from ... import u, Q_
 from ...errors import InstrumentTypeError
 
 _tds_3000_models = ['TDS 3032', 'TDS 3034B']

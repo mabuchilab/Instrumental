@@ -1,8 +1,8 @@
 from enum import Enum
-from instrumental import u, Q_
 from . import Multimeter
 from .. import _get_visa_instrument
 from ..util import as_enum, check_enums
+from ... import u, Q_
 from ...errors import InstrumentTypeError
 
 supported_models = ['34401A']
