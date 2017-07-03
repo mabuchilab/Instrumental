@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# Copyright 2016-2017 Nate Bogdanowicz
+"""
+Driver module for HP/Agilent 34401A multimeters.
+"""
 from enum import Enum
 from . import Multimeter
 from .. import _get_visa_instrument
