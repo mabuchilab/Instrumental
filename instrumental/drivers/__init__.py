@@ -132,6 +132,14 @@ class Params(object):
     def __getitem__(self, key):
         return self._dict[key]
 
+    def update(self, other):
+        self._dict.update(other)
+
+    def lazyupdate(self, other):
+        for key, value in other.items():
+            if key not in self._dict.keys():
+                self._dict[key] = value
+
 
 class _ParamDict(dict):
     def __init__(self, name):
