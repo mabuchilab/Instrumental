@@ -421,7 +421,7 @@ class UC480_Camera(Camera):
     DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
     DEFAULT_KWDS.update(vsub=1, hsub=1)
 
-    def __init__(self, **kwds):
+    def __init__(self, paramset, **kwds):
         """Create a UC480_Camera object.
 
         A camera can be identified by its id, serial number, or both. If no
@@ -443,14 +443,9 @@ class UC480_Camera(Camera):
         model : str, optional
             The model of the camera
         """
-        params = _get_legit_params(kwds)
-
-        # For saving
-        self._create_params(**params)
-
-        self._id = int(params['id'])
-        self._serial = params['serial']
-        self._model = params['model']
+        self._id = int(self._paramset['id'])
+        self._serial = self._paramset['serial']
+        self._model = self._paramset['model']
 
         self._in_use = False
         self._width, self._height = 0, 0
