@@ -819,7 +819,7 @@ def find_nonvisa_instrument(params):
         classnames = driver_info[params['module']]['classes']
         for classname in classnames:
             try:
-                return getattr(driver_module, classname)(**normalized_params)
+                return getattr(driver_module, classname)(paramset=normalized_params)
             except (InstrumentTypeError, InstrumentNotFoundError):
                 log.info("Failed to create instrument using '%s'", classname)
 
@@ -851,7 +851,7 @@ def find_nonvisa_instrument(params):
                 classnames = driver_info[driver_name]['classes']
                 for classname in classnames:
                     try:
-                        return getattr(driver_module, classname)(**normalized_params)
+                        return getattr(driver_module, classname)(paramset=normalized_params)
                     except Exception as e:
                         log.info("Failed to create instrument using '%s'", classname)
                         log.info(str(e))
