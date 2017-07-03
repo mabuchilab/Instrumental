@@ -158,7 +158,7 @@ class InstrumentMeta(abc.ABCMeta):
     docstring in case more specific documentation is useful.
 
     If the child's docstring contains only a single-line function signature, it is prepended to its
-    parent's docstring rather than overriding it comopletely. This is useful for the explicitly
+    parent's docstring rather than overriding it completely. This is useful for the explicitly
     specifying signatures for methods that are wrapped by a decorator.
     """
     def __new__(metacls, clsname, bases, classdict):
