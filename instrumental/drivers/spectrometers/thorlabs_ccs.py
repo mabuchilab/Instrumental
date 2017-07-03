@@ -447,7 +447,7 @@ class CCS(Spectrometer):
         """
         if calibration_type==Calibration.User:
             num_points = len(pixel_array)
-            print num_points
+            print(num_points)
             if len(wavelength_array)!= num_points:
                 raise ValueError("The wavelength and pixel arrays passed to calibrate_wavelength must be of the same length")
             if wavelength_array is None or pixel_array is None:
