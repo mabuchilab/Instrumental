@@ -235,6 +235,15 @@ class Instrument(object):
                 self._paramset.lazyupdate(paramset)
                 break
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
+
+    def close(self):
+        pass
+
     def _register_close_atexit(self):
         """Register this instrument to be auto-closed upon program termination
 
