@@ -14,7 +14,7 @@ from past.builtins import basestring
 
 from .. import conf
 from ..driver_info import driver_info
-from ..errors import InstrumentTypeError, InstrumentNotFoundError, ConfigError
+from ..errors import InstrumentTypeError, InstrumentNotFoundError, ConfigError, Error
 
 
 __all__ = ['Instrument', 'instrument', 'list_instruments', 'list_visa_instruments']
@@ -185,6 +185,15 @@ class InstrumentMeta(abc.ABCMeta):
                             else:
                                 value.__doc__ = doc
                             break
+        classdict['_instances'] = []
+        if '__init__' in classdict:
+            original_init = classdict['__init__']
+
+            def __init__(self, *args, **kwds):
+                Instrument._before_init(self, *args, **kwds)
+                original_init(self, *args, **kwds)
+                Instrument._after_init(self, *args, **kwds)
+            classdict['__init__'] = __init__
         return super(InstrumentMeta, metacls).__new__(metacls, clsname, bases, classdict)
 
 
@@ -194,6 +203,37 @@ class Instrument(object):
     """
     __metaclass__ = InstrumentMeta
     _instruments_to_close = []
+    _all_instances = {}
+    _allow_sharing = False  # Should we allow returning existing instruments?
+
+    def _before_init(self, paramset, *args, **kwds):
+        """Called just before __init__, with the same parameters"""
+        cls = self.__class__
+        driver_name = cls.__module__.strip('instrumental.drivers.')
+        self._module = import_driver(driver_name)
+
+        self._paramset = Params(cls.__module__, cls, **paramset)
+        self._fill_out_paramset()
+
+        if not self._allow_sharing:
+            for open_inst in self._instances:
+                if self._paramset.matches(open_inst._paramset):
+                    raise Error("Device already open")
+
+    def _after_init(self, paramset, *args, **kwds):
+        """Called just after __init__, with the same parameters"""
+        cls = self.__class__
+        driver_name = cls.__module__.strip('instrumental.drivers.')
+
+        # Only add the instrument after init, to ensure it hasn't failed to open
+        Instrument._all_instances.setdefault(driver_name, {}).setdefault(cls, []).append(self)
+        self._instances.append(self)
+
+    def _fill_out_paramset(self):
+        for paramset in self._module.list_instruments():
+            if self._paramset.matches(paramset):
+                self._paramset.lazyupdate(paramset)
+                break
 
     def _register_close_atexit(self):
         """Register this instrument to be auto-closed upon program termination
@@ -202,13 +242,15 @@ class Instrument(object):
         """
         Instrument._instruments_to_close.append(self)
 
-    @classmethod
-    def _close_atexit(cls):
-        for inst in cls._instruments_to_close:
-            try:
-                inst.close()
-            except:
-                pass  # Instrument may have already been closed
+    @staticmethod
+    def _close_atexit():
+        for class_instances in Instrument._all_instances.values():
+            for instances in class_instances.values():
+                for inst in instances:
+                    try:
+                        inst.close()
+                    except:
+                        pass  # Instrument may have already been closed
 
     def _create_params(self, **kwds):
         cls = self.__class__
