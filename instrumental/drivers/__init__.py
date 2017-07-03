@@ -190,9 +190,15 @@ class InstrumentMeta(abc.ABCMeta):
             original_init = classdict['__init__']
 
             def __init__(self, *args, **kwds):
-                Instrument._before_init(self, *args, **kwds)
+                if self._init_nest_level == 0:
+                    Instrument._before_init(self, *args, **kwds)
+
+                self._init_nest_level += 1
                 original_init(self, *args, **kwds)
-                Instrument._after_init(self, *args, **kwds)
+                self._init_nest_level -= 1
+
+                if self._init_nest_level == 0:
+                    Instrument._after_init(self, *args, **kwds)
             classdict['__init__'] = __init__
         return super(InstrumentMeta, metacls).__new__(metacls, clsname, bases, classdict)
 
@@ -205,6 +211,7 @@ class Instrument(object):
     _instruments_to_close = []
     _all_instances = {}
     _allow_sharing = False  # Should we allow returning existing instruments?
+    _init_nest_level = 0
 
     def _before_init(self, paramset, *args, **kwds):
         """Called just before __init__, with the same parameters"""
