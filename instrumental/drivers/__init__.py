@@ -751,6 +751,15 @@ def find_visa_instrument(params):
             return getattr(driver_module, classname)(visa_inst)
 
 
+def find_visa_instrument_by_module(driver_name):
+    # This is slower than strictly necessary, it lists all visa instruments, then finds
+    # the first that is supported by the given module
+    for paramset in list_visa_instruments():
+        if paramset['module'] == driver_name:
+            return paramset
+    raise Exception("No instrument from driver {} detected".format(driver_name))
+
+
 # find_visa_module(visa_inst, module=None):
 #   modules = [module] if module else all-visa-drivers
 #   try to get idn
@@ -942,6 +951,8 @@ def instrument(inst=None, **kwargs):
         inst = session.instrument(params)
     elif 'visa_address' in params:
         inst = find_visa_instrument(params)
+    elif 'module' in params and 'visa_address' in driver_info[params['module']]['params']:
+        inst = find_visa_instrument_by_module(params['module'])
     else:
         inst = find_nonvisa_instrument(params)
 
