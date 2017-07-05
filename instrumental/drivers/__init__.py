@@ -132,6 +132,9 @@ class Params(object):
     def __getitem__(self, key):
         return self._dict[key]
 
+    def get(self, key, default=None):
+        return self._dict.get(key, default)
+
     def update(self, other):
         self._dict.update(other)
 
