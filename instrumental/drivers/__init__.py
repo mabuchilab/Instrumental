@@ -618,12 +618,12 @@ def get_idn(inst):
     return manufac, model
 
 
-def import_driver(driver_fullname, raise_errors=False):
+def import_driver(driver_name, raise_errors=False):
     try:
-        log.info("Importing driver module '%s'", driver_fullname)
-        return import_module('.' + driver_fullname, __package__)
+        log.info("Importing driver module '%s'", driver_name)
+        return import_module('.' + driver_name, __package__)
     except Exception as e:
-        log.info("Error when importing driver module %s: <<%s>>", driver_fullname, str(e))
+        log.info("Error when importing driver module %s: <<%s>>", driver_name, str(e))
         if raise_errors:
             raise
         else:
