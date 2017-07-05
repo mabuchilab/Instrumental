@@ -755,9 +755,9 @@ def find_visa_instrument(params):
 
 
 def find_visa_instrument_by_module(driver_name):
-    # This is slower than strictly necessary, it lists all visa instruments, then finds
-    # the first that is supported by the given module
-    for paramset in list_visa_instruments():
+    # This may be slower than strictly necessary, since it tries all visa addresses in order,
+    # instead of filtering based on address type. That would require extra machinery though
+    for paramset in gen_visa_instruments():
         if paramset['module'] == driver_name:
             return paramset
     raise Exception("No instrument from driver {} detected".format(driver_name))
