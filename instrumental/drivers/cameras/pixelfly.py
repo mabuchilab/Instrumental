@@ -5,7 +5,6 @@ Driver for PCO Pixelfly cameras.
 """
 from future.utils import PY2
 
-import atexit
 import os.path
 from time import clock
 import numpy as np
@@ -106,16 +105,14 @@ class Pixelfly(Camera):
     _qe_low = load_qe_curve('QELow.tsv')
     _qe_vga = load_qe_curve('VGA.tsv')
 
-    def __init__(self, number=0):
+    def __init__(self, paramset):
+        number = paramset.get('number', 0)
         self._dev = NicePixelfly.Board(number)
         self._cam_started = False
         self._mode_set = False
         self._mem_set_up = False
         self._partial_sequence = []
         self._capture_started = False
-
-        # For saving
-        self._create_params(number=number)
 
         self._bufsizes = []
         self._bufnums = []
@@ -465,15 +462,6 @@ class Pixelfly(Camera):
 def list_instruments():
     board_nums = Pixelfly._list_boards()
     return [Params(__name__, Pixelfly, number=n) for n in board_nums]
-
-
-@atexit.register
-def _cleanup():
-    for cam in Pixelfly._open_cameras:
-        try:
-            cam.close()
-        except:
-            pass
 
 
 def close_all():
