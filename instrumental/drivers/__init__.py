@@ -14,7 +14,8 @@ from past.builtins import basestring
 
 from .. import conf
 from ..driver_info import driver_info
-from ..errors import InstrumentTypeError, InstrumentNotFoundError, ConfigError, Error
+from ..errors import (InstrumentTypeError, InstrumentNotFoundError, ConfigError,
+                      InstrumentExistsError)
 
 
 __all__ = ['Instrument', 'instrument', 'list_instruments', 'list_visa_instruments']
@@ -230,7 +231,7 @@ class Instrument(object):
         if not self._allow_sharing:
             for open_inst in self._instances:
                 if self._paramset.matches(open_inst._paramset):
-                    raise Error("Device already open")
+                    raise InstrumentExistsError("Device already open")
 
     def _after_init(self, paramset, *args, **kwds):
         """Called just after __init__, with the same parameters"""

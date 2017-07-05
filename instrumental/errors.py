@@ -22,6 +22,10 @@ class InstrumentNotFoundError(Error):
     pass
 
 
+class InstrumentExistsError(Error):
+    pass
+
+
 class LibError(Error):
     MESSAGES = {}
     MSG_FORMAT = '({:d}) {}'
