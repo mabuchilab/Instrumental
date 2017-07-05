@@ -195,16 +195,17 @@ class InstrumentMeta(abc.ABCMeta):
         if '__init__' in classdict:
             original_init = classdict['__init__']
 
-            def __init__(self, *args, **kwds):
+            def __init__(self, paramset, *args, **kwds):
                 if self._init_nest_level == 0:
-                    Instrument._before_init(self, *args, **kwds)
+                    Instrument._before_init(self, paramset, *args, **kwds)
+                paramset = self._paramset  # This should have been set by _before_init
 
                 self._init_nest_level += 1
-                original_init(self, *args, **kwds)
+                original_init(self, paramset, *args, **kwds)
                 self._init_nest_level -= 1
 
                 if self._init_nest_level == 0:
-                    Instrument._after_init(self, *args, **kwds)
+                    Instrument._after_init(self, paramset, *args, **kwds)
             classdict['__init__'] = __init__
         return super(InstrumentMeta, metacls).__new__(metacls, clsname, bases, classdict)
 
