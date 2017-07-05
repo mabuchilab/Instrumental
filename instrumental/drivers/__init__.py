@@ -177,7 +177,8 @@ class InstrumentMeta(abc.ABCMeta):
                     prefix = '' if cur_doc is None else cur_doc + '\n\n'
                     for base in bases:
                         if hasattr(base, name):
-                            doc = prefix + getattr(base, name).__doc__
+                            base_doc = getattr(base, name).__doc__ or ''
+                            doc = prefix + base_doc
 
                             if isinstance(value, property):
                                 # Hack b/c __doc__ is readonly for a property...
@@ -185,6 +186,7 @@ class InstrumentMeta(abc.ABCMeta):
                             else:
                                 value.__doc__ = doc
                             break
+
         classdict['_instances'] = []
         if '__init__' in classdict:
             original_init = classdict['__init__']
