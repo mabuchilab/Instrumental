@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 # Copyright 2017 Nate Bogdanowicz
-
 from future.utils import PY2
 
 import sys
@@ -12,12 +11,12 @@ from cffi import FFI
 from enum import Enum
 from . import Camera
 from ..util import as_enum, unit_mag, check_units
-from .. import InstrumentTypeError, Params
+from .. import Params
 from ...errors import Error, TimeoutError
-from ... import Q_, u
+from ... import u
 
-_INST_PRIORITY = 5
 _INST_PARAMS = ['serial', 'number']
+_INST_CLASSES = ['TSI_Camera']
 
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
@@ -371,21 +370,19 @@ class TSI_Camera(Camera):
         pulse
         """
 
-    def __init__(self, cam_num):
+    def __init__(self, paramset):
         sdk.GetNumberOfCameras()
         self._partial_sequence = []
         self._next_frame_idx = 0
         self._tot_frames = None  # Zero means 'infinite' capture
         self._trig_mode = None
-        self._dev = sdk.GetCamera(cam_num)
+        self._dev = sdk.GetCamera(self._paramset.get('number', 0))
 
         if self._dev.Status() != Status.CLOSED:
             raise Error("Camera is already open")
 
         self._dev.Open()
         self._set_parameter(Param.EXPOSURE_UNIT, ExpUnit.MILLISECONDS)
-
-        self._create_params(serial=self.serial)
 
     def close(self):
         self._dev.Close()
@@ -580,26 +577,6 @@ def list_instruments():
     cameras = []
     for i in range(sdk.GetNumberOfCameras()):
         cam_ser = sdk.GetCameraSerialNumStr(i)
-        params = Params(__name__, TSI_Camera, serial=cam_ser)
+        params = Params(__name__, TSI_Camera, serial=cam_ser, number=i)
         cameras.append(params)
     return cameras
-
-
-def _find_cam_by_serial(serial):
-    for i in range(sdk.GetNumberOfCameras()):
-        cam_ser = sdk.GetCameraSerialNumStr(i)
-        if cam_ser == serial:
-            return TSI_Camera(i)
-    raise ValueError("Could not find camera with serial '{}'".format(serial))
-
-
-def _instrument(params):
-    if 'serial' in params:
-        cam = _find_cam_by_serial(params['serial'])
-    elif 'number' in params:
-        cam = TSI_Camera(params['number'])
-    elif params.get('module') == 'cameras.tsi':
-        cam = TSI_Camera(0)  # Just open first camera
-    else:
-        raise InstrumentTypeError()
-    return cam
