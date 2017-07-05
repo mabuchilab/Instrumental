@@ -242,10 +242,13 @@ class Instrument(object):
         self._instances.append(self)
 
     def _fill_out_paramset(self):
-        for paramset in self._module.list_instruments():
-            if self._paramset.matches(paramset):
-                self._paramset.lazyupdate(paramset)
-                break
+        if hasattr(self._module, 'list_instruments'):
+            for paramset in self._module.list_instruments():
+                if self._paramset.matches(paramset):
+                    self._paramset.lazyupdate(paramset)
+                    break
+        else:
+            log.info("Driver module missing `list_instruments()`, not filling out paramset")
 
     def __enter__(self):
         return self
@@ -900,6 +903,10 @@ def call_instrument_func(driver_module, normalized_params, raise_errors):
 
 
 def find_full_params(normalized_params, driver_module):
+    if not hasattr(driver_module, 'list_instruments'):
+        log.info("Driver module missing `list_instruments()`, not filling out paramset")
+        return normalized_params
+
     for inst_params in driver_module.list_instruments():
         if inst_params.matches(normalized_params):
             return inst_params
