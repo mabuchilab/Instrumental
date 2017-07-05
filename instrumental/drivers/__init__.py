@@ -760,7 +760,7 @@ def find_visa_instrument_by_module(driver_name):
     # instead of filtering based on address type. That would require extra machinery though
     for paramset in gen_visa_instruments():
         if paramset['module'] == driver_name:
-            return paramset
+            return paramset.instantiate()
     raise Exception("No instrument from driver {} detected".format(driver_name))
 
 
