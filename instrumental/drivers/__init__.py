@@ -841,7 +841,7 @@ def find_visa_driver_class(visa_inst, module=None):
 def find_nonvisa_instrument(params):
     if 'module' in params:
         driver_module = import_driver(params['module'], raise_errors=True)
-        normalized_params = {k.rsplit('_', 1)[-1]:v for k,v in params.items()}
+        normalized_params = {_legacy_params.get(k, k).rsplit('_', 1)[-1]:v for k,v in params.items()}
         if hasattr(driver_module, '_instrument'):
             return driver_module._instrument(normalized_params)
 
