@@ -9,10 +9,12 @@ from enum import Enum
 from nicelib import NiceLib, NiceObjectDef, load_lib
 
 from . import Motion
-from .. import _ParamDict
+from .. import Params
 from ..util import check_units
-from ... import u
-from ...errors import InstrumentTypeError
+from ... import u, Q_
+
+_INST_PARAMS = ['serial']
+_INST_CLASSES = ['K10CR1']
 
 __all__ = ['K10CR1']
 
@@ -60,25 +62,13 @@ MessageIDs = {
 }
 
 
-def _instrument(params):
-    if 'kinesis_serial' not in params:
-        raise InstrumentTypeError("K10CR1 requires 'kinesis_serial'")
-    serial = params['kinesis_serial']
-    kwds = {key: params[key] for key in ('gear_box_ratio', 'steps_per_rev', 'micro_steps_per_step',
-                                         'offset') if key in params}
-    return K10CR1(serial, **kwds)
-
-
 def list_instruments():
     NiceKinesisISC.BuildDeviceList()
     serial_nums = NiceKinesisISC.GetDeviceListExt().strip(',').split(',')
-    instruments = []
+    paramsets = []
     for serial_num in serial_nums:
-        params = _ParamDict("<K10CR1 '{}'>".format(serial_num))
-        params['module'] = 'positioners.K10CR1'
-        params['kinesis_serial'] = serial_num
-        instruments.append(params)
-    return instruments
+        paramsets.append(Params(__name__, K10CR1, serial=serial_num))
+    return paramsets
 
 
 class KinesisError(Exception):
@@ -206,29 +196,20 @@ class K10CR1(Motion):
     GenericDCMotor = GenericDCMotor
 
     @check_units(polling_period='ms')
-    def __init__(self, serial, gear_box_ratio=120, steps_per_rev=200, micro_steps_per_step=2048,
-                 polling_period='200 ms', offset='0 deg'):
-        """
-        Parameters
-        ----------
-        serial: str
-        polling_period: pint quantity with units of time
-        """
-        self.serial = serial
+    def __init__(self, paramset):
+        gear_box_ratio = paramset.get('gear_box_ratio', 120)
+        steps_per_rev = paramset.get('steps_per_rev', 200)
+        micro_steps_per_step = paramset.get('micro_steps_per_step', 2048)
+        polling_period = Q_(paramset.get('polling_period', '200ms')).to('ms')
+        offset = paramset.get('offset', '0 deg')
+
+        self.serial = paramset['serial']
         self.offset = offset
         self._unit_scaling = (gear_box_ratio * micro_steps_per_step *
                               steps_per_rev / (360.0 * u.deg))
         self._open()
         self._start_polling(polling_period)
         self._wait_for_message(0, 0)  # Make sure status has been loaded before we return
-
-    @property
-    def _param_dict(self):
-        param_dict = _ParamDict(self.__class__.__name__)
-        param_dict['module'] = 'motion.kinesis'
-        param_dict['kinesis_serial'] = self.serial
-        param_dict['offset'] = str(self.offset)
-        return param_dict
 
     def _open(self):
         NiceKinesisISC.BuildDeviceList()  # Necessary?
