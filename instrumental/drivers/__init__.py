@@ -395,23 +395,8 @@ def open_visa_inst(visa_address, raise_errors=False):
     return visa_inst
 
 
-def list_visa_instruments():
-    """Returns a list of info about available VISA instruments.
-
-    May take a few seconds because it must poll the network.
-
-    It actually returns a list of specialized dict objects that contain
-    parameters needed to create an instance of the given instrument. You can
-    then get the actual instrument by passing the dict to
-    :py:func:`~instrumental.drivers.instrument`.
-
-    >>> inst_list = get_visa_instruments()
-    >>> print(inst_list)
-    [<TEKTRONIX 'TDS 3032'>, <TEKTRONIX 'AFG3021B'>]
-    >>> inst = instrument(inst_list[0])
-    """
+def gen_visa_instruments():
     import visa
-    instruments = []
     prev_addr = 'START'
     rm = visa.ResourceManager()
     visa_list = rm.list_resources()
@@ -428,12 +413,30 @@ def list_visa_instruments():
             driver_module, classname = find_visa_driver_class(visa_inst)
             cls = getattr(driver_module, classname)
             params = Params(driver_module.__name__, cls, visa_address=addr)
-            instruments.append(params)
         except:
             continue
+        else:
+            yield params
         finally:
             visa_inst.close()
-    return instruments
+
+
+def list_visa_instruments():
+    """Returns a list of info about available VISA instruments.
+
+    May take a few seconds because it must poll the network.
+
+    It actually returns a list of specialized dict objects that contain
+    parameters needed to create an instance of the given instrument. You can
+    then get the actual instrument by passing the dict to
+    :py:func:`~instrumental.drivers.instrument`.
+
+    >>> inst_list = get_visa_instruments()
+    >>> print(inst_list)
+    [<TEKTRONIX 'TDS 3032'>, <TEKTRONIX 'AFG3021B'>]
+    >>> inst = instrument(inst_list[0])
+    """
+    return list(gen_visa_instruments())
 
 
 def list_instruments(server=None, module=None, blacklist=None):
