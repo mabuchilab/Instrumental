@@ -134,13 +134,13 @@ class Pixelfly(Camera):
     def _list_boards():
         board_nums = []
 
-        for board_num in range(4):
+        for board_num in range(8):
             try:
-                board = NicePixelfly.Board(board_num)
-            except Exception:
-                pass
+                NicePixelfly.CHECK_BOARD_AVAILABILITY(board_num)
+            except PixelflyLibError as e:
+                if e.code != 0x80202006:
+                    raise
             else:
-                board.CLOSEBOARD()
                 board_nums.append(board_num)
 
         return board_nums
