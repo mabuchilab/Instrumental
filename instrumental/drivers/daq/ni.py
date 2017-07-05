@@ -11,11 +11,13 @@ import numpy as np
 from nicelib import NiceLib, NiceObjectDef, load_lib
 
 from ... import Q_, u
-from ...errors import Error, InstrumentTypeError, TimeoutError
+from ...errors import Error, TimeoutError
 from ..util import check_units, check_enums
-from .. import _ParamDict
+from .. import Params
 from . import DAQ
 
+_INST_PARAMS = ['name', 'serial', 'model']
+_INST_CLASSES = ['NIDAQ']
 
 __all__ = ['NIDAQ', 'AnalogIn', 'AnalogOut', 'VirtualDigitalChannel', 'SampleMode', 'EdgeSlope',
            'TerminalConfig', 'RelativeTo', 'ProductCategory', 'DAQError']
@@ -54,25 +56,20 @@ def call_with_timeout(func, timeout):
     raise TimeoutError
 
 
-def _instrument(params):
-    if 'nidaq_devname' not in params:
-        raise InstrumentTypeError("NIDAQ requires 'nidaq_devname'")
-    dev_name = params['nidaq_devname']
-    return NIDAQ(dev_name)
-
-
 def list_instruments():
     dev_names = NiceNI.GetSysDevNames().decode().split(',')
-    instruments = []
+    paramsets = []
     for dev_name in dev_names:
         dev_name = dev_name.strip("'")
         if not dev_name:
             continue
-        params = _ParamDict("<NIDAQ '{}'>".format(dev_name))
-        params['module'] = 'daq.ni'
-        params['nidaq_devname'] = dev_name
-        instruments.append(params)
-    return instruments
+
+        paramset = Params(__name__, NIDAQ,
+                          name=dev_name,
+                          serial=NiceNI.GetDevSerialNum(dev_name),
+                          model=NiceNI.GetDevProductType(dev_name))
+        paramsets.append(paramset)
+    return paramsets
 
 
 class DAQError(Error):
@@ -1135,9 +1132,9 @@ class VirtualDigitalChannel(Channel):
 class NIDAQ(DAQ):
     mx = NiceNI
 
-    def __init__(self, dev_name):
-        self.name = dev_name
-        self._dev = self.mx.Device(dev_name)
+    def __init__(self, paramset):
+        self.name = paramset['name']
+        self._dev = self.mx.Device(self.name)
         self._load_analog_channels()
         self._load_internal_channels()
         self._load_digital_ports()
