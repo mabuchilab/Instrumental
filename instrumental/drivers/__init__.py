@@ -273,10 +273,6 @@ class Instrument(object):
                     except:
                         pass  # Instrument may have already been closed
 
-    def _create_params(self, **kwds):
-        cls = self.__class__
-        self._params = Params(cls.__module__, cls, **kwds)
-
     def save_instrument(self, name, force=False):
         """ Save an entry for this instrument in the config file.
 
