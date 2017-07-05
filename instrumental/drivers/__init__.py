@@ -222,7 +222,7 @@ class Instrument(object):
     def _before_init(self, paramset, *args, **kwds):
         """Called just before __init__, with the same parameters"""
         cls = self.__class__
-        driver_name = cls.__module__.strip('instrumental.drivers.')
+        _, _, driver_name = cls.__module__.rpartition('instrumental.drivers.')
         self._module = import_driver(driver_name)
 
         self._paramset = Params(cls.__module__, cls, **paramset)
@@ -236,7 +236,7 @@ class Instrument(object):
     def _after_init(self, paramset, *args, **kwds):
         """Called just after __init__, with the same parameters"""
         cls = self.__class__
-        driver_name = cls.__module__.strip('instrumental.drivers.')
+        _, _, driver_name = cls.__module__.rpartition('instrumental.drivers.')
 
         # Only add the instrument after init, to ensure it hasn't failed to open
         Instrument._all_instances.setdefault(driver_name, {}).setdefault(cls, []).append(self)
