@@ -5,37 +5,23 @@ Driver module for Thorlabs power meters. Supports:
 
 * PM100D
 """
-
 import numpy
 from . import PowerMeter
-from .. import _get_visa_instrument, _ParamDict
-from ...errors import InstrumentTypeError
 from ... import Q_
 
-
-def _instrument(params):
-    inst = _get_visa_instrument(params)
-    idn = inst.query("*IDN?")
-    idn_list = idn.split(',')
-
-    if len(idn_list) != 4:
-        raise InstrumentTypeError("Not a Thorlabs PM100D series power meter")
-    manufacturer, model, serial, firmware = idn_list
-
-    if manufacturer != 'Thorlabs' or model != 'PM100D':
-        raise InstrumentTypeError("Not a Thorlabs PM100D series power meter")
-    return PM100D(inst)
+_INST_PARAMS = ['visa_address']
+_INST_VISA_MANUFACTURER = 'Thorlabs'
+_INST_VISA_MODEL = ['PM100D']
+_INST_VISA_INFO = {
+    'PM100D': ('Thorlabs', ['PM100D'])
+}
 
 
 class PM100D(PowerMeter):
     """A Thorlabs PM100D series power meter"""
 
-    def __init__(self, visa_inst):
-        self._register_close_atexit()
+    def __init__(self, params, visa_inst):
         self._inst = visa_inst
-        self._param_dict = _ParamDict(self.__class__.__name__)
-        self._param_dict['module'] = 'powermeters.thorlabs'
-        self._param_dict['visa_address'] = self._inst.resource_name
 
     def close(self):
         self._inst.control_ren(False)  # Disable remote mode
