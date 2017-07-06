@@ -747,23 +747,22 @@ def find_visa_instrument(params):
                 raise Exception("Couldn't find class in the given module that supports this "
                                 "VISA instrument")
 
-        return getattr(driver_module, classname)(params, visa_inst=visa_inst)
+        return getattr(driver_module, classname)(params, visa_inst)
 
     else:
         log.info("Opening VISA resource '{}'".format(visa_address))
         visa_inst = rm.open_resource(visa_address, open_timeout=50, timeout=200)
 
         try:
-            driver_name, classname = find_visa_driver_class(params, visa_inst=visa_inst)
+            driver_module, classname = find_visa_driver_class(visa_inst)
         except:
             visa_inst.close()
             raise
 
-        driver_module = import_driver(driver_name, raise_errors=True)
         if hasattr(driver_module, '_instrument'):
             return driver_module._instrument(params)
         else:
-            return getattr(driver_module, classname)(visa_inst)
+            return getattr(driver_module, classname)(params, visa_inst)
 
 
 def find_visa_instrument_by_module(driver_name):
