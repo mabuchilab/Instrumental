@@ -7,16 +7,19 @@ to intercept and relay the status of the front-panel LCDs via serial-over-USB.
 The controller uses two MAX7219 LED Display Driver chips, one to drive the 7-segment displays, and
 the other to drive the indicator LEDs on the front panel.
 """
-
 import struct
 from enum import Enum
 import threading
 from serial import Serial
 from serial.threaded import ReaderThread, Packetizer
 
-from .. import Instrument, _ParamDict
-from ...errors import InstrumentTypeError, Error
+from .. import Instrument, Params
+from ...errors import Error
 from ... import u
+
+_INST_PRIORITY = 9  # There's only one of these devices in existence
+_INST_PARAMS = ['port']
+_INST_CLASSES = ['SenTorrMod']
 
 TERMINATOR = b'\xfd\x49\xfd\x49'
 MSG_GET_ONE = b'\xd3'
@@ -170,7 +173,7 @@ class LEDDriver(object):
 
 
 class SenTorrMod(Instrument):
-    def __init__(self, port, timeout=1.0):
+    def __init__(self, paramset):
         self._rlock = threading.RLock()
         self._driver_A = LEDDriver()
         self._driver_B = LEDDriver()
@@ -178,24 +181,13 @@ class SenTorrMod(Instrument):
         self._driver_A.decoders[Address.Digit1] = LEDDriver.decode_digit
         self._driver_A.decoders[Address.Digit2] = sign_map.__getitem__
         self._driver_A.decoders[Address.Digit3] = LEDDriver.decode_digit
-        self._ser = Serial(port, timeout=timeout)
+        self._ser = Serial(paramset['port'], timeout=1.0)
         self._thread = None
-
-        # For saving
-        self._param_dict = _ParamDict("<senTorr-mod '{}'".format(port))
-        self._param_dict['module'] = 'vacuum.sentorr_mod'
-        self._param_dict['sentorrmod_port'] = port
 
     def close(self):
         if self._thread:
             self._thread.stop()
         self._ser.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
 
     @property
     def autoupdate(self):
@@ -300,23 +292,9 @@ class SenTorrMod(Instrument):
         return bool(d6 & MASK_TOP)
 
 
-def _instrument(params):
-    if 'sentorrmod_port' in params:
-        return SenTorrMod(params['sentorrmod_port'])
-    else:
-        raise InstrumentTypeError()
-
-
 def list_instruments():
     # TODO: This just lists my one Arduino, but it'd be nice to have a better way of
     # IDing these if anyone else ever makes one.
     from serial.tools.list_ports import comports
-
-    insts = []
-    for p in comports():
-        if (p.vid, p.pid, p.serial_number) == (0x2A03, 0x0043, '8553130333135141A141'):
-            params = _ParamDict("<senTorr-mod '{}'>".format(p.device))
-            params['module'] = 'vacuum.sentorr_mod'
-            params['sentorrmod_port'] = p.device
-            insts.append(params)
-    return insts
+    return [Params(__name__, SenTorrMod, port=p.device) for p in comports()
+            if (p.vid, p.pid, p.serial_number) == (0x2A03, 0x0043, '8553130333135141A141')]
