@@ -251,6 +251,7 @@ class Instrument(object):
             return
 
         if hasattr(self._module, 'list_instruments'):
+            log.info("Filling out paramset")
             for paramset in self._module.list_instruments():
                 if self._paramset.matches(paramset):
                     self._paramset.lazyupdate(paramset)
@@ -923,6 +924,7 @@ def call_instrument_func(driver_module, normalized_params, raise_errors):
 
 
 def find_full_params(normalized_params, driver_module):
+    log.info('Filling out full params')
     if not hasattr(driver_module, 'list_instruments'):
         log.info("Driver module missing `list_instruments()`, not filling out paramset")
         return normalized_params
