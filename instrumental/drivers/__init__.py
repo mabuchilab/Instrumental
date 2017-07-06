@@ -649,14 +649,14 @@ def find_matching_drivers(in_params):
     for in_param, value in in_params.items():
         in_param = _legacy_params.get(in_param, in_param)
         tup = in_param.split('_', 2)
-        split_params.append((tup[:-1], tup[-1]))
+        split_params.append((tup[:-1], tup[-1], value))
 
     for driver_fullname, info in driver_info.items():
         driver_group, driver_module = driver_fullname.split('.')
         driver_params = info['params']
         normalized_params = {}
         log.debug("Checking against %r", (driver_fullname, driver_params))
-        for filters, base_param in split_params:
+        for filters, base_param, value in split_params:
             log.debug("Param filters: %r", filters)
             log.debug("Base param: %r", base_param)
 
