@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2016 Nate Bogdanowicz
+# Copyright 2015-2017 Nate Bogdanowicz
 """
 Driver for PCO cameras that use the PCO.camera SDK.
 """
@@ -7,23 +7,31 @@ from future.utils import PY2
 
 import os
 import os.path
-import atexit
 import tempfile
 from enum import Enum
 from time import clock
+import logging as log
+
 import numpy as np
 from cffi import FFI, cparser
 from pycparser import CParser
 from nicelib import NiceLib, NiceObjectDef
+
 from ._pixelfly import errortext
 from . import Camera
 from ..util import as_enum, unit_mag, check_units
-from .. import InstrumentTypeError, _ParamDict
+from .. import Params
 from ...errors import Error, TimeoutError
 from ... import Q_, u
 
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
+
+_INST_PRIORITY = 9  # This driver is very slow
+_INST_PARAMS = ['number', 'interface']
+_INST_CLASSES = ['PCO_Camera']
+
+__all__ = ['PCO_Camera']
 
 
 # Notes:
@@ -36,8 +44,6 @@ if PY2:
 # Also, I'm using the errortext module I compiled for the pixelfly library. Still unsure whether I
 # should code my own version in Python so we don't require the end-user to compile it.
 
-
-__all__ = ['PCO_Camera']
 
 # Hack to prevent lextab.py and yacctab.py from littering the working directory
 tmp_dir = os.path.join(tempfile.gettempdir(), 'instrumental_pycparser')
@@ -156,9 +162,8 @@ class BufferInfo(object):
 class PCO_Camera(Camera):
     DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
     DEFAULT_KWDS.update(trig='software', rising=True)
-    open_cameras = []
 
-    def __init__(self, cam_num=0):
+    def __init__(self, paramset):
         self.buffers = []
         self.queue = []
         self._partial_sequence = []
@@ -166,8 +171,9 @@ class PCO_Camera(Camera):
         self.shutter = None
         self._trig_mode = self.TriggerMode.software
 
-        self._open(cam_num)
-        self.open_cameras.append(self)
+        self._open(paramset.get('cam_num', 0))
+        self._paramset['interface'] = self.interface_type
+        self._paramset['number'] = self.cam_num
 
         # Flags indicating changed data, i.e. invalid cached data
         self._sizes_changed = True
@@ -177,11 +183,6 @@ class PCO_Camera(Camera):
         _, _, max_width, max_height = self._get_sizes()
         self._set_ROI(0, 0, max_width, max_height)
 
-        # For saving
-        self._param_dict = _ParamDict("<PCO '{}'>".format(self.cam_num))
-        self._param_dict['module'] = 'cameras.pco'
-        self._param_dict['pco_cam_num'] = self.cam_num
-        self._param_dict['pco_interface_type'] = self.interface_type
 
     # Enums
     class FrameRateMode(Enum):
@@ -224,13 +225,14 @@ class PCO_Camera(Camera):
         openStruct_p = ffi.new('PCO_OpenStruct *')
         openStruct = openStruct_p[0]
         openStruct.wSize = ffi.sizeof('PCO_OpenStruct')
-        openStruct.wInterfaceType = 0xFFFF
+        openStruct.wInterfaceType = self._paramset.get('interface', 0xFFFF)
         openStruct.wCameraNumber = cam_num
         openStruct.wCameraNumAtInterface = 0
         openStruct.wOpenFlags[0] = 0
 
         try:
-            hcam = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p[0])[0]
+            log.info("Opening PCO camera")
+            hcam = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p)[0]
         except Error:
             # TODO: Figure out how to reset this error so we can turn on the camera and
             # retry instead of having to restart python. We may need to close the DLL
@@ -640,7 +642,7 @@ def list_instruments():
     openStruct.wSize = ffi.sizeof('PCO_OpenStruct')
     openStruct.wCameraNumber = 0
 
-    cameras = []
+    paramsets = []
     prev_handle = None
 
     while True:
@@ -649,6 +651,7 @@ def list_instruments():
         openStruct.wOpenFlags[0] = 0
 
         try:
+            log.info("Opening PCO camera")
             hCam, _ = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p)  # This is reallllyyyy sloowwwww
         except Error as e:
             if e.code == 0x800A300D:
@@ -664,34 +667,17 @@ def list_instruments():
             _cam.CloseCamera()
             break
         else:
-            param_dict = _ParamDict("<PCO '{}'>".format(openStruct.wCameraNumber))
-            param_dict['module'] = 'cameras.pco'
-            param_dict['pco_cam_num'] = openStruct.wCameraNumber
-            param_dict['pco_interface_type'] = openStruct.wInterfaceType
-
-            cameras.append(param_dict)
+            paramset = Params(__name__, PCO_Camera, number=openStruct.wCameraNumber,
+                              interface=openStruct.wInterfaceType)
+            paramsets.append(paramset)
             _cam.CloseCamera()
             prev_handle = hCam
 
         openStruct.wCameraNumber += 1
-
-    return cameras
-
-
-def _instrument(params):
-    if 'pco_cam_num' in params:
-        cam = PCO_Camera(params['pco_cam_num'])
-    elif params['module'] == 'cameras.pco':
-        cam = PCO_Camera()
-    else:
-        raise InstrumentTypeError()
-    return cam
+    return paramsets
 
 
-@atexit.register
-def _cleanup():
-    for cam in PCO_Camera.open_cameras:
-        try:
-            cam.close()
-        except:
-            pass
+def _instrument(paramset):
+    # Because opening devices is so slow, we override the default implementation which
+    # calls list_instruments. This instead just tries to open the camera
+    return PCO_Camera(paramset)
