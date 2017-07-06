@@ -243,6 +243,13 @@ class Instrument(object):
         self._instances.append(self)
 
     def _fill_out_paramset(self):
+        mod_params = driver_info[self._driver_name]['params']
+        for mod_param_name in mod_params:
+            if mod_param_name not in self._paramset.keys(): break
+        else:
+            log.info("Paramset has all params listed in its driver module, not filling it out")
+            return
+
         if hasattr(self._module, 'list_instruments'):
             for paramset in self._module.list_instruments():
                 if self._paramset.matches(paramset):
