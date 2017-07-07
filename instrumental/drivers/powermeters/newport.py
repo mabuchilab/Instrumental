@@ -277,3 +277,15 @@ class Newport_1830_C(PowerMeter):
         val = int(self._inst.query('U?'))
         units = {1: 'watts', 2: 'db', 3: 'dbm', 4: 'rel'}
         return units[val]
+
+    @property
+    def local_lockout(self):
+        """Whether local-lockout is enabled"""
+        return bool(self._inst.query('L?'))
+
+    @local_lockout.setter
+    def local_lockout(self, enable):
+        self._inst.write("L{}".format(int(enable)))
+
+    range = property(get_range, set_range)
+    wavelength = property(get_wavelength, set_wavelength)
