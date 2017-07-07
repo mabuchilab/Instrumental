@@ -5,7 +5,6 @@ Driver module for Newport power meters. Supports:
 
 * 1830-C
 """
-
 from . import PowerMeter
 from ..util import visa_timeout_context
 from ... import Q_
@@ -46,6 +45,9 @@ class Newport_1830_C(PowerMeter):
         visa_inst.read_termination = '\n'
         visa_inst.write_termination = '\n'
         self._inst = visa_inst
+
+    def close(self):
+        self.local_lockout = False
 
     def get_status_byte(self):
         """Query the status byte register and return it as an int"""
