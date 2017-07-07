@@ -76,23 +76,26 @@ class TekScope(Scope):
         inst.timeout = 10000
         inst.read_termination = None
         inst.end_input = visa.constants.SerialTermination.none
-        # TODO: Change this to be more efficient for huge datasets
         inst.write("curve?")
+
         with inst.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
-            s = inst.visalib.read(inst.session, 2)  # read first 2 bytes
-            num_bytes = int(inst.visalib.read(inst.session, int(s[0][1]))[0])
-            buf = ''
-            while len(buf) < num_bytes:
-                raw_bin, _ = inst.visalib.read(inst.session, num_bytes-len(buf))
-                buf += raw_bin
-                print(len(raw_bin))
-        inst.end_input = visa.constants.SerialTermination.termination_char
-        inst.read_termination = '\n'
+            (_, width), _ = inst.visalib.read(inst.session, 2)  # read first 2 bytes
+            num_bytes = int(inst.visalib.read(inst.session, int(width))[0])
+            buf = bytearray(num_bytes)
+            cursor = 0
+            while cursor < num_bytes:
+                raw_bin, _ = inst.visalib.read(inst.session, num_bytes-cursor)
+                buf[cursor:cursor+len(raw_bin)] = raw_bin
+                cursor += len(raw_bin)
+                print(cursor)
+
         inst.end_input = old_end_input
         inst.read_termination = old_read_termination
         inst.timeout = old_timeout
         inst.read()  # Eat termination
-        raw_data_y = np.frombuffer(buf, dtype='>i2', count=int(num_bytes//2))
+
+        num_points = int(num_bytes // 2)
+        raw_data_y = np.frombuffer(buf, dtype='>i2', count=num_points)
 
         # Get scale and offset factors
         x_scale = float(inst.query("wfmpre:xincr?"))
@@ -122,7 +125,7 @@ class TekScope(Scope):
         except UndefinedUnitError:
             y_unit = u.dimensionless
 
-        raw_data_x = np.arange(1, stop+1)
+        raw_data_x = np.arange(1, num_points+1)
 
         data_x = Q_((raw_data_x - x_offset)*x_scale + x_zero, x_unit)
         data_y = Q_((raw_data_y - y_offset)*y_scale + y_zero, y_unit)
