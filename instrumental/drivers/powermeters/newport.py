@@ -110,7 +110,7 @@ class Newport_1830_C(PowerMeter):
         range : int
             the current range setting. Possible values are from 1-8.
         """
-        val = self._inst.read("R?")
+        val = self._inst.query("R?")
         return int(val)
 
     def set_wavelength(self, wavelength):
