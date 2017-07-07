@@ -10,8 +10,6 @@ from . import PowerMeter
 from ... import Q_
 
 _INST_PARAMS = ['visa_address']
-_INST_VISA_MANUFACTURER = 'Thorlabs'
-_INST_VISA_MODEL = ['PM100D']
 _INST_VISA_INFO = {
     'PM100D': ('Thorlabs', ['PM100D'])
 }
