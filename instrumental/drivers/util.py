@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2016 Nate Bogdanowicz
+# Copyright 2015-2017 Nate Bogdanowicz
 """
 Helpful utilities for wrapping libraries in Python
 """
-import sys
-import warnings
-from inspect import getargspec, isfunction
+import contextlib
+from inspect import getargspec
 import pint
 
 from past.builtins import basestring
@@ -268,3 +267,12 @@ def _unit_decorator(in_map, out_map, pos_args, named_args):
                 return out_map(result, ret_units)
         return decorator.decorate(func, wrapper)
     return wrap
+
+
+@contextlib.contextmanager
+def visa_timeout_context(visa_inst, timeout):
+    """Context manager for temporarily setting a visa instrument timeout"""
+    old_timeout = visa_inst.timeout
+    visa_inst.timeout = timeout
+    yield
+    visa_inst.timeout = old_timeout
