@@ -7,12 +7,13 @@ Driver module for Tektronix function generators. Currently supports:
 """
 import numpy as np
 from . import FunctionGenerator
-from .. import _get_visa_instrument
 from ... import u, Q_
-from ...errors import InstrumentTypeError
 
-AFG_3000_models = ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102',
-                   'AFG3251', 'AFG3252']
+_INST_PARAMS = ['visa_address']
+_INST_VISA_INFO = {
+    'AFG_3000': ('TEKTRONIX',
+                 ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102', 'AFG3251', 'AFG3252'])
+}
 
 _shapes = ['sinusoid', 'square', 'pulse', 'ramp', 'prnoise', 'dc', 'sinc',
            'gaussian', 'lorentz', 'erise', 'edecay', 'haversine']
@@ -20,21 +21,6 @@ _abbrev_shapes = ['sin', 'squ', 'puls', 'ramp', 'prn', 'dc', 'sinc', 'gaus',
                   'lor', 'eris', 'edec', 'hav']
 _amp_keys = ['vpp', 'vrms', 'dbm']
 _volt_keys = ['vpp', 'vrms', 'dbm', 'offset', 'high', 'low']
-
-
-def _instrument(params):
-    inst = _get_visa_instrument(params)
-    idn = inst.query("*IDN?")
-    idn_list = idn.split(',')
-
-    if len(idn_list) != 4:
-        raise InstrumentTypeError("Not a AFG 3000 series function generator")
-    manufacturer, model, serial, firmware = idn_list
-
-    if manufacturer != 'TEKTRONIX' or model not in AFG_3000_models:
-        raise InstrumentTypeError("Not a AFG 3000 series function generator")
-
-    return AFG_3000(inst)
 
 
 def _is_valid_shape(test_shape):
@@ -68,7 +54,7 @@ def _verify_sweep_args(kwargs):
 
 
 class AFG_3000(FunctionGenerator):
-    def __init__(self, visa_inst):
+    def __init__(self, paramset, visa_inst):
         """
         Constructor for an AFG 3000 Function Generator object. End users should
         not use this directly, and should instead use
