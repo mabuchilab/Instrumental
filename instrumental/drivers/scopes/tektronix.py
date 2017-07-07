@@ -6,8 +6,8 @@ Driver module for Tektronix oscilloscopes. Currently supports
 * TDS 3000 series
 * MSO/DPO 4000 series
 """
-
 import visa
+from pyvisa.constants import InterfaceType
 import numpy as np
 from pint import UndefinedUnitError
 from . import Scope
@@ -29,7 +29,16 @@ class TekScope(Scope):
     def __init__(self, paramset, visa_inst):
         self.inst = visa_inst
 
-        self.inst.read_termination = "\n"  # Needed for stripping termination
+        if self.inst.interface_type == InterfaceType.asrl:
+            terminator = self.inst.query('RS232:trans:term?').strip()
+            self.inst.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
+        elif self.inst.interface_type == InterfaceType.usb:
+            pass
+        elif self.inst.interface_type == InterfaceType.tcpip:
+            pass
+        else:
+            pass
+
         self.inst.write("header OFF")
 
     def get_data(self, channel=1):
@@ -60,12 +69,15 @@ class TekScope(Scope):
         inst.write("data:stop {}".format(stop))
 
         #inst.flow_control = 1  # Soft flagging (XON/XOFF flow control)
-        tmo = inst.timeout
+        old_read_termination = inst.read_termination
+        old_end_input = inst.end_input
+        old_timeout = inst.timeout
+
         inst.timeout = 10000
-        inst.write("curve?")
         inst.read_termination = None
         inst.end_input = visa.constants.SerialTermination.none
         # TODO: Change this to be more efficient for huge datasets
+        inst.write("curve?")
         with inst.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
             s = inst.visalib.read(inst.session, 2)  # read first 2 bytes
             num_bytes = int(inst.visalib.read(inst.session, int(s[0][1]))[0])
@@ -76,8 +88,10 @@ class TekScope(Scope):
                 print(len(raw_bin))
         inst.end_input = visa.constants.SerialTermination.termination_char
         inst.read_termination = '\n'
+        inst.end_input = old_end_input
+        inst.read_termination = old_read_termination
+        inst.timeout = old_timeout
         inst.read()  # Eat termination
-        inst.timeout = tmo
         raw_data_y = np.frombuffer(buf, dtype='>i2', count=int(num_bytes//2))
 
         # Get scale and offset factors
