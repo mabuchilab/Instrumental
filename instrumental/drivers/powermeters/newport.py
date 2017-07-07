@@ -7,20 +7,21 @@ Driver module for Newport power meters. Supports:
 """
 
 from . import PowerMeter
-from .. import _get_visa_instrument
+from ..util import visa_timeout_context
 from ... import Q_
 
+_INST_PRIORITY = 8  # IDN isn't supported
+_INST_PARAMS = ['visa_address']
 
-def _instrument(params):
-    # Not sure yet how to verify this is actually an 1830-C...
-    # Maybe use the status register?
-    inst = _get_visa_instrument(params)
 
-    # Will have to restore original term_chars later...
-    inst.read_termination = '\n'
-    inst.write_termination = '\n'
-
-    return Newport_1830_C(inst)
+def _check_visa_support(visa_inst):
+    with visa_timeout_context(visa_inst, 100):
+        try:
+            if int(visa_inst.query('Z?')) in (0, 1):
+                return 'Newport_1830_C'
+        except:
+            pass
+    return None
 
 
 class Newport_1830_C(PowerMeter):
@@ -41,8 +42,10 @@ class Newport_1830_C(PowerMeter):
     MEDIUM_FILTER = 2
     NO_FILTER = 3
 
-    def __init__(self, inst):
-        self._inst = inst
+    def __init__(self, paramset, visa_inst):
+        visa_inst.read_termination = '\n'
+        visa_inst.write_termination = '\n'
+        self._inst = visa_inst
 
     def get_status_byte(self):
         """Query the status byte register and return it as an int"""
