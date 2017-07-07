@@ -114,7 +114,7 @@ class Params(object):
                              if k not in ('module', 'classname'))
         return "<Params[{}] {}>".format(self._cls.__name__, param_str)
 
-    def instantiate(self):
+    def create(self):
         return instrument(self._dict)
 
     def matches(self, other):
@@ -770,7 +770,7 @@ def find_visa_instrument_by_module(driver_name):
     # instead of filtering based on address type. That would require extra machinery though
     for paramset in gen_visa_instruments():
         if paramset['module'] == driver_name:
-            return paramset.instantiate()
+            return paramset.create()
     raise Exception("No instrument from driver {} detected".format(driver_name))
 
 
