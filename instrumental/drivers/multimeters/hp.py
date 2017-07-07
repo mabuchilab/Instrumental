@@ -5,12 +5,13 @@ Driver module for HP/Agilent 34401A multimeters.
 """
 from enum import Enum
 from . import Multimeter
-from .. import _get_visa_instrument
 from ..util import as_enum, check_enums
 from ... import u, Q_
-from ...errors import InstrumentTypeError
 
-supported_models = ['34401A']
+_INST_PARAMS = ['visa_address']
+_INST_VISA_INFO = {
+    'HPMultimeter': ('HEWLETT-PACKARD', ['34401A'])
+}
 
 
 class TriggerSource(Enum):
@@ -20,29 +21,12 @@ class TriggerSource(Enum):
     external = 2
 
 
-def _instrument(params):
-    inst = _get_visa_instrument(params)
-    idn = inst.query("*IDN?")
-    idn_list = idn.split(',')
-
-    if len(idn_list) != 4:
-        raise InstrumentTypeError("Not a supported Hewlett-Packard multimeter")
-    manufac, model, serial, firmware = idn_list
-
-    if manufac != 'HEWLETT-PACKARD':
-        raise InstrumentTypeError("Not a Hewlett-Packard device")
-    elif model not in supported_models:
-        raise InstrumentTypeError("Not a supported Hewlett-Packard multimeter model")
-
-    return HPMultimeter(visa_inst=inst)
-
-
 class MultimeterError(Exception):
     pass
 
 
 class HPMultimeter(Multimeter):
-    def __init__(self, visa_inst):
+    def __init__(self, paramset, visa_inst):
         self.inst = visa_inst
         self.inst.write_termination = '\r\n'
         self._meas_units = None
