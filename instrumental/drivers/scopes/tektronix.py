@@ -11,33 +11,14 @@ import visa
 import numpy as np
 from pint import UndefinedUnitError
 from . import Scope
-from .. import _get_visa_instrument
 from ... import u, Q_
-from ...errors import InstrumentTypeError
 
-_tds_3000_models = ['TDS 3032', 'TDS 3034B']
-_mso_dpo_4000_models = ['MSO4034', 'DPO4034']
-
-
-def _instrument(params):
-    inst = _get_visa_instrument(params)
-    idn = inst.query("*IDN?")
-    idn_list = idn.split(',')
-
-    if len(idn_list) != 4:
-        raise InstrumentTypeError("Not a supported Tektronix oscilloscope")
-    manufac, model, serial, firmware = idn_list
-
-    if manufac == 'TEKTRONIX':
-        if model in _tds_3000_models:
-            return TDS_3000(visa_inst=inst)
-        elif model in _mso_dpo_4000_models:
-            return MSO_DPO_4000(visa_inst=inst)
-        elif model == 'TDS 210':
-            return TDS_3000(visa_inst=inst)
-
-    raise InstrumentTypeError("Error: unsupported scope with IDN = " +
-                              "'{}'".format(idn))
+_INST_PARAMS = ['visa_address']
+_INST_VISA_INFO = {
+    'TDS_200': ('TEKTRONIX', ['TDS 210']),
+    'TDS_3000': ('TEKTRONIX', ['TDS 3032', 'TDS 3034B']),
+    'MSO_DPO_4000': ('TEKTRONIX', ['MSO4034', 'DPO4034'])
+}
 
 
 class TekScope(Scope):
@@ -45,17 +26,8 @@ class TekScope(Scope):
     A base class for Tektronix scopes. Supports at least TDS 3000 series as
     well as MSO/DPO 4000 series scopes.
     """
-    def __init__(self, name=None, visa_inst=None):
-        """
-        Create a scope object that has the given VISA name *name* and connect
-        to it. You can find available instrument names using the VISA
-        Instrument Manager.
-        """
-        if visa_inst:
-            self.inst = visa_inst
-        else:
-            rm = visa.ResourceManager()
-            self.inst = rm.open_resource(name)
+    def __init__(self, paramset, visa_inst):
+        self.inst = visa_inst
 
         self.inst.read_termination = "\n"  # Needed for stripping termination
         self.inst.write("header OFF")
@@ -266,6 +238,11 @@ class TekScope(Scope):
             Number of samples used to compute measurements
         """
         self.inst.write("measu:stati:weighting {}".format(nsamps))
+
+
+class TDS_200(TekScope):
+    """A Tektronix TDS 200 series oscilloscope"""
+    pass
 
 
 class TDS_3000(TekScope):
