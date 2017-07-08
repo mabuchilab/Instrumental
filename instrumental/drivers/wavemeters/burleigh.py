@@ -1,17 +1,19 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014 Nate Bogdanowicz
+# Copyright 2014-2017 Nate Bogdanowicz
 """
 Driver module for Burleigh wavemeters. Supports:
 
 * WA-1000/1500
 """
-
 import warnings
 import time
 
 from . import Wavemeter
-from .. import _get_visa_instrument
+from ..util import visa_timeout_context
 from ... import Q_
+
+_INST_PRIORITY = 9
+_INST_PARAMS = ['visa_address']
 
 # Constants; See Appendix A of WA-1000/1500 manual for details
 # 'Hard' command codes
@@ -107,21 +109,25 @@ _SYS_MASK_TO_CMD = {
 }
 
 
-def _instrument(params):
-    # Not sure yet how to verify this is actually a WA-1000/1500
-    inst = _get_visa_instrument(params)
-
-    # Will have to restore original termination chars later...
-    inst.read_termination = '\r\n'
-    inst.write_termination = '\r\n'
-
-    return WA_1000(inst)
+def _check_visa_support(visa_inst):
+    with visa_timeout_context(visa_inst, 50):
+        try:
+            # Check that we get a vaguely Burleigh-like response
+            resp = visa_inst.query(_SET_QUERY)
+            if resp.count(b',') == 2:
+                visa_inst.clear()
+                return 'WA_1000'
+        except:
+            pass
+    return None
 
 
 class WA_1000(Wavemeter):
     """A Burleigh WA-1000/1500 wavemeter"""
-    def __init__(self, inst):
-        self._inst = inst
+    def __init__(self, paramset, visa_inst):
+        visa_inst.read_termination = '\r\n'
+        visa_inst.write_termination = '\r\n'
+        self._inst = visa_inst
         self.reload_needed = False
 
         # Disable broadcast mode and clear the buffer
