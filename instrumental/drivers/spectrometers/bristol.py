@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2015 Nikolas Tezak, Nate Bogdanowicz
+# Copyright 2014-2017 Nikolas Tezak, Nate Bogdanowicz
 """
 Driver for Bristol 721 spectrum analyzers.
 """
-
 import os
 import sys
 from contextlib import contextmanager
@@ -13,9 +12,11 @@ import numpy as np
 from numpy.ctypeslib import ndpointer
 
 from . import Spectrometer
-from .. import _ParamDict
-from ...errors import InstrumentTypeError
+from .. import Params
 from ... import u
+
+_INST_PARAMS = ['port']
+_INST_CLASSES = ['Bristol_721']
 
 bristol_dll = ctypes.WinDLL("BristolFFT.dll", use_errno=True, use_last_error=True)
 bristol_lv_dll = ctypes.WinDLL("BristolLV.dll", use_errno=True, use_last_error=True)
@@ -95,8 +96,8 @@ def bin_index(fft_size, dec, fold, lamb):
 
 
 class Bristol_721(Spectrometer):
-    def __init__(self, port=None):
-        self._com_port = port if port is not None else find_comm_port()
+    def __init__(self, paramset):
+        self._com_port = paramset.get('port') or find_comm_port()
         self._dll = bristol_dll
         self._lv = bristol_lv_dll
         self._handle = open_device(self._com_port)
@@ -111,11 +112,6 @@ class Bristol_721(Spectrometer):
         # Hard-coded for now, ideally we'd auto-detect this via a model byte or something
         self._model = 'IR'
         self._range_num = 0
-
-        # For saving
-        self._param_dict = _ParamDict("<Bristol_721 Spectrometer '{}'>".format(self._com_port))
-        self._param_dict['module'] = 'spectrometers.bristol'
-        self._param_dict['bristol_port'] = self._com_port
 
     def _fft_range(self):
         fft_size, dec, fold, low_wav, hi_wav = FFT_INFO[(self._model, self._range_num)]
@@ -166,21 +162,4 @@ class Bristol_721(Spectrometer):
 
 def list_instruments():
     com_ports = [find_comm_port()]  # TODO: Add support for multiple connected devices
-    spectrometers = []
-
-    for port in com_ports:
-        params = _ParamDict("<Bristol_721 Spectrometer '{}'>".format(port))
-        params['module'] = 'spectrometers.bristol'
-        params['bristol_port'] = port
-        spectrometers.append(params)
-    return spectrometers
-
-
-def _instrument(params):
-    if 'bristol_port' in params:
-        spec = Bristol_721(params['bristol_port'])
-    elif params['module'] == 'spectrometers.bristol':
-        spec = Bristol_721()
-    else:
-        raise InstrumentTypeError()
-    return spec
+    return [Params(__name__, Bristol_721, port=port) for port in com_ports]
