@@ -761,7 +761,7 @@ def find_visa_instrument(params):
                 raise Exception("Couldn't find class in the given module that supports this "
                                 "VISA instrument")
 
-        return getattr(driver_module, classname)(params, visa_inst)
+        return create_instrument(driver_module, classname, params, visa_inst)
 
     else:
         log.info("Opening VISA resource '{}'".format(visa_address))
@@ -776,10 +776,20 @@ def find_visa_instrument(params):
         if hasattr(driver_module, '_instrument'):
             return driver_module._instrument(params)
         else:
-            return getattr(driver_module, classname)(params, visa_inst)
+            return create_instrument(driver_module, classname, params, visa_inst)
 
 
 def find_visa_instrument_by_module(driver_name):
+def create_instrument(driver_module, classname, paramset, visa_inst=None):
+    log.info("Creating instrument using default method")
+    cls = getattr(driver_module, classname)
+    settings = paramset.get('settings', {})
+    if visa_inst is not None:
+        return cls(paramset, visa_inst, **settings)
+    else:
+        return cls(paramset, **settings)
+
+
     # This may be slower than strictly necessary, since it tries all visa addresses in order,
     # instead of filtering based on address type. That would require extra machinery though
     for paramset in gen_visa_instruments():
@@ -876,7 +886,7 @@ def find_nonvisa_instrument(params):
         classnames = driver_info[params['module']]['classes']
         for classname in classnames:
             try:
-                return getattr(driver_module, classname)(paramset=normalized_params)
+                return create_instrument(driver_module, classname, normalized_params)
             except (InstrumentTypeError, InstrumentNotFoundError):
                 log.info("Failed to create instrument using '%s'", classname)
 
@@ -908,7 +918,7 @@ def find_nonvisa_instrument(params):
                 classnames = driver_info[driver_name]['classes']
                 for classname in classnames:
                     try:
-                        return getattr(driver_module, classname)(paramset=normalized_params)
+                        return create_instrument(driver_module, classname, normalized_params)
                     except Exception as e:
                         log.info("Failed to create instrument using '%s'", classname)
                         log.info(str(e))
