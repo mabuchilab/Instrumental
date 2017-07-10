@@ -292,7 +292,7 @@ error_dict = {
     34: 'NOT_IMPLEMENTED - This function has not been implemented.',
     35: 'FAULT_REPORTED - The device has reported a fault.',
     36: 'INVALID_OPERATION - The function could not be completed at this time.',
-    36: 'DISCONNECTING - The function could not be completed because the device is disconnected.',
+    40: 'DISCONNECTING - The function could not be completed because the device is disconnected.',
     41: 'FIRMWARE_BUG - The firmware has thrown an error.',
     42: 'INITIALIZATION_FAILURE - The device has failed to initialize',
     43: 'INVALID_CHANNEL - An Invalid channel address was supplied.',
