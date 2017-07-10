@@ -1,26 +1,21 @@
-# Copyright Christopher Rogers (2016)
+# Copyright 2016-2017 Christopher Rogers, Nate Bogdanowicz
 """
 Driver for SRS model SR850 lock-in amplifier.
+
+Note that the sr850 will not usually work with `list_instruments()`, because it uses a non-standard
+termination character, and because one must first send the 'OUTX' command to specify which type of
+output to use.
 """
 from numpy import fromstring, float32
 from enum import Enum
 import visa
 from ..util import check_units, check_enums
-from .. import _get_visa_instrument
 from ...errors import InstrumentTypeError
 from ... import Q_
 
-def _instrument(params):
-    """ Possible params include 'visa_address', or 'module'"""
-    params['read_termination']='\r'
-    params['write_termination']='\r'
-    if params.has_key('rs232_interface'):
-        rs232_interface = params['rs232_interface']
-    else:
-        rs232_interface = True
+_INST_PARAMS = ['visa_address']
+_INST_VISA_INFO = {'SR850': ('Stanford_Research_Systems', ['SR850'])}
 
-    inst = _get_visa_instrument(params)
-    return SR850(inst, rs232_interface)
 
 BYTES_PER_POINT = 4
 BINARY_TIME_PER_POINT = Q_('5 ms')
@@ -281,14 +276,14 @@ class StatusByte(Enum):
     service_request = 6
 
 class SR850:
-    """ Interfaces with the SRS model SR850 Lock-in Amplifier
-    """
-    
-    def __init__(self, inst, rs232_interface=True):
+    """ Interfaces with the SRS model SR850 Lock-in Amplifier"""
+    def __init__(self, paramset, visa_inst, rs232=True):
         """ Connects to SRS850
-        
-        rs232_interface is a bool which indicates which communication mode
-        (RS-232 or GPIB) the sr850 is connected to.
+
+        Parameters
+        ----------
+        rs232 : bool, optional
+            Whether to use RS-232 or GPIB to communicate. Uses RS-232 by default
         """
         self.AlarmMode = AlarmMode
         self.ReferenceSource = ReferenceSource
@@ -319,8 +314,8 @@ class SR850:
         self.Parameter = Parameter
         self.StatusByte = StatusByte
         
-        self._inst = inst
-        self.set_output_interface(rs232_interface)
+        self._inst = visa_inst
+        self.set_output_interface(rs232)
         self.ID = self._inst.query('*IDN?')
         vendor, model, SN, version = self.ID.split(',')
         if model != 'SR850':
