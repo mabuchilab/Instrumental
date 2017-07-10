@@ -101,21 +101,31 @@ _visa_models = OrderedDict((
 
 
 class Params(object):
-    def __init__(self, module_name, cls, **params):
+    def __init__(self, module_name=None, cls=None, **params):
         self._dict = params
         self._cls = cls
 
-        submodule_name = module_name.split('instrumental.drivers.', 1)[-1]
-        self._dict['module'] = submodule_name
-        self._dict['classname'] = self._cls.__name__
+        if module_name:
+            submodule_name = module_name.split('instrumental.drivers.', 1)[-1]
+            self._dict['module'] = submodule_name
+            self._dict['classname'] = self._cls.__name__
+
+    @staticmethod
+    def from_dict(data):
+        obj = Params()
+        obj._dict = data.copy()
+        return obj
 
     def __repr__(self):
         param_str = ' '.join('{}={!r}'.format(k, v) for k,v in self._dict.items()
                              if k not in ('module', 'classname'))
-        return "<Params[{}] {}>".format(self._cls.__name__, param_str)
+        if self._cls:
+            return "<Params[{}] {}>".format(self._cls.__name__, param_str)
+        else:
+            return "<Params {}>".format(param_str)
 
     def create(self):
-        return instrument(self._dict)
+        return instrument(self)
 
     def matches(self, other):
         """True iff all common keys have matching values"""
@@ -133,6 +143,9 @@ class Params(object):
     def __getitem__(self, key):
         return self._dict[key]
 
+    def __contains__(self, item):
+        return item in self._dict
+
     def get(self, key, default=None):
         return self._dict.get(key, default)
 
@@ -143,6 +156,7 @@ class Params(object):
         self._dict.update(other)
 
     def lazyupdate(self, other):
+        """Add values from `other` for keys that are missing"""
         for key, value in other.items():
             if key not in self._dict.keys():
                 self._dict[key] = value
