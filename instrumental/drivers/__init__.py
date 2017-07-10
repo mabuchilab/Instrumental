@@ -779,7 +779,6 @@ def find_visa_instrument(params):
             return create_instrument(driver_module, classname, params, visa_inst)
 
 
-def find_visa_instrument_by_module(driver_name):
 def create_instrument(driver_module, classname, paramset, visa_inst=None):
     log.info("Creating instrument using default method")
     cls = getattr(driver_module, classname)
@@ -790,11 +789,14 @@ def create_instrument(driver_module, classname, paramset, visa_inst=None):
         return cls(paramset, **settings)
 
 
+def find_visa_instrument_by_module(in_paramset):
+    driver_name = in_paramset['module']
     # This may be slower than strictly necessary, since it tries all visa addresses in order,
     # instead of filtering based on address type. That would require extra machinery though
-    for paramset in gen_visa_instruments():
-        if paramset['module'] == driver_name:
-            return paramset.create()
+    for test_paramset in gen_visa_instruments():
+        if test_paramset['module'] == driver_name:
+            in_paramset.lazyupdate(test_paramset)
+            return in_paramset.create()
     raise Exception("No instrument from driver {} detected".format(driver_name))
 
 
@@ -991,7 +993,7 @@ def instrument(inst=None, **kwargs):
     elif 'visa_address' in params:
         inst = find_visa_instrument(params)
     elif 'module' in params and 'visa_address' in driver_info[params['module']]['params']:
-        inst = find_visa_instrument_by_module(params['module'])
+        inst = find_visa_instrument_by_module(params)
     else:
         inst = find_nonvisa_instrument(params)
 
