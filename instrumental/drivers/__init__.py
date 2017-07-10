@@ -124,7 +124,11 @@ class Params(object):
         else:
             return "<Params {}>".format(param_str)
 
-    def create(self):
+    def create(self, **settings):
+        if settings:
+            if 'settings' not in self._dict:
+                self._dict['settings'] = {}
+            self._dict['settings'].update(settings)
         return instrument(self)
 
     def matches(self, other):
