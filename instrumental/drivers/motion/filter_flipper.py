@@ -80,13 +80,12 @@ class NiceFilterFlipper(NiceLib):
     _prefix = ('FF_', 'TLI_')
     _buflen = 512
 
-    def _ret_bool_error_code(retval):
-        retval = bool(retval)
-        if retval==False:
+    def _ret_bool_error_code(success):
+        if not success:
             raise FilterFlipperError('The function did not execute successfully')
 
     def _ret_error_code(retval):
-        if not (retval == 0 or retval==None):
+        if not (retval == 0 or retval is None):
             raise FilterFlipperError(error_dict[retval])
 
     BuildDeviceList = ()
