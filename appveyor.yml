@@ -24,4 +24,6 @@ install:
   - pip install pint future
   - pip install .
 
-test_script: py.test
+test_script:
+  - conda install pytest
+  - py.test
