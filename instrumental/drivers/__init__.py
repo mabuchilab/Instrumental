@@ -580,31 +580,31 @@ def _extract_params(inst, kwargs):
     # Look for params in a bunch of ways
     alias = None
     if inst is None:
-        params = {}
+        raw_params = {}
     elif isinstance(inst, Instrument):
         return inst
     elif isinstance(inst, Params):
-        params = inst._dict
+        raw_params = inst._dict
     elif isinstance(inst, dict):
-        params = inst
+        raw_params = inst
     elif isinstance(inst, basestring):
         name = inst
-        params = conf.instruments.get(name, None)
-        if params is None:
+        raw_params = conf.instruments.get(name, None)
+        if raw_params is None:
             # Try looking for the string in the output of list_instruments()
             test_str = name.lower()
             for inst_params in list_instruments():
                 if test_str in str(inst_params).lower():
-                    params = inst_params
+                    raw_params = inst_params
                     break
         else:
             alias = name
 
-        if params is None:
+        if raw_params is None:
             raise Exception("Instrument with alias `{}` not ".format(name) +
                             "found in config file")
 
-    params = params.copy()  # Make sure we don't modify any existing dicts
+    params = Params.from_dict(raw_params)  # Copy first to avoid modifying input dicts
     params.update(kwargs)
     return params, alias
 
