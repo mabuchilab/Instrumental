@@ -24,10 +24,13 @@ from enum import Enum
 from ctypes import (c_int32, c_bool, byref, create_string_buffer,
                     Structure, POINTER, oledll)
 from . import Motion
-from .. import _ParamDict
+from .. import Params
 from ..util import check_units, check_enums
-from ...errors import InstrumentTypeError, InstrumentNotFoundError
+from ...errors import InstrumentNotFoundError
 from ... import Q_
+
+_INST_PARAMS = ['id']
+_INST_CLASSES = ['ECC100']
 
 # __all__ = ['LinearStage', 'Goniometer', 'RotationStage', 'ECC100']
 
@@ -42,31 +45,10 @@ _err_map = {
     10: 'Feature only available in pro version.'
 }
 
-def _instrument(params):
-    """ Possible params include 'ecc100_id', 'module'
-
-    Note that ecc100_id should be a string"""
-    d = {}
-    if 'ecc100_id' in params:
-        d['device_id'] = params['ecc100_id']
-    elif 'module' in params:
-        pass
-    else:
-        raise InstrumentTypeError()
-
-    return ECC100(**d)
-
 
 def list_instruments():
-    controllers = []
-    N, info_list = check_for_devices()
-    for i in range(N):
-        device_id = info_list[i].id
-        params = _ParamDict("<Attocube ECC100 Controller '{}'>".format(device_id))
-        params['module'] = 'motion.ecc100'
-        params['ecc100_id'] = device_id
-        controllers.append(params)
-    return controllers
+    _, info_list = check_for_devices()
+    return [Params(__name__, ECC100, id=info.id) for info in info_list]
 
 
 def check_for_devices():
@@ -327,7 +309,7 @@ class ECC100(Motion):
     """
     Interfaces with the Attocube ECC100 controller. Windows-only.
     """
-    def __init__(self, device_id=None):
+    def __init__(self, paramset):
         """ Connects to the attocube controller.
 
         id is the id of the device to be connected to
@@ -342,11 +324,11 @@ class ECC100(Motion):
         if num < 1:
             raise Exception("No Devices Detected")
 
-        if device_id is None:
+        if 'id' not in paramset:
             # Attempt to connect to the first device
             self._dev_num = 0
         else:
-            self._dev_num = self._get_dev_num_from_id(int(device_id))
+            self._dev_num = self._get_dev_num_from_id(int(paramset['device_id']))
         self._Connect()
         self._load_actors()
         self._default_actors = self.actors
