@@ -27,21 +27,23 @@ param_list = ['ccs_usb_address', 'ccs_serial_number', 'ccs_model']
 
 ffi = FFI()
 
+
 def _instrument(params):
     """ Possible params include 'ccs_usb_address', 'ccs_serial_number',
     'ccs_model', 'module'.
-    """    
+    """
     spectrometers = list_instruments()
-    
+
     for param_name in param_list:
         if param_name in params:
             for spectrometer in spectrometers:
-                if spectrometer[param_name]==params[param_name]:
+                if spectrometer[param_name] == params[param_name]:
                     return CCS(spectrometer)
     if ('module' in params) and spectrometers:
         return CCS(spectrometers[0])
     else:
         raise InstrumentNotFoundError("No Thorlabs CCS spectrometer matching the parameters was found")
+
 
 def list_instruments():
     """
@@ -65,6 +67,7 @@ def list_instruments():
         params['ccs_serial_number'] = serial_number
         spectrometers.append(params)
     return spectrometers
+
 
 class ThorlabsCCSError(Error):
     pass
@@ -140,7 +143,7 @@ class ID_Info():
         self.device_name = device_name
         self.serial_number = serial_number
         self.firmware_version = firmware_version
-        self.driver_version = driver_version   
+        self.driver_version = driver_version
 
 class Status():
     def __init__(self, status):
@@ -161,7 +164,7 @@ class Status():
 class CCS(Spectrometer):
     """
     A CCS-series Thorlabs spectrometer.
-    
+
     If this construcor is called, it will
     connect to the first available spectrometer (if there is at least one).
     It can also be accessed by calling get_spectrometer using any one of the
@@ -187,7 +190,6 @@ class CCS(Spectrometer):
         self._NiceCCSLib = NiceCCSLib
         self._open(self._address)
         self._wavelength_array = self.calibrate_wavelength(calibration_type=Calibration.Factory)
-
 
     def __del__(self):
         self.close()
@@ -215,7 +217,7 @@ class CCS(Spectrometer):
 
     def get_integration_time(self):
         """ Returns the integration time."""
-        int_time =  self._NiceCCS.getIntegrationTime()
+        int_time = self._NiceCCS.getIntegrationTime()
         return Q_(int_time, 's')
 
     @check_units(integration_time = 's')
@@ -235,24 +237,24 @@ class CCS(Spectrometer):
     def start_scan_trg(self):
         """Arms spectrometer to wait for a signal from the external trigger
         before executing scan.
-        
+
         Note that the function returns immediately, and does not wait for the
         trigger or for the scan to finish.
-        
+
         Note also that this cancels other scans in progress.
         """
         self._NiceCCS.startScanExtTrig()
 
     def start_cont_scan_trg(self):
         """Arms spectrometer for continuous external triggering.
-        
+
         The spectrometer will wait for a signal from the external trigger before
         executing a  scan, will rearm immediatley after that scan has completed,
-        and so on.        
-        
+        and so on.
+
         Note that the function returns immediately, and does not wait for the
         trigger or for the scan to finish.
-        
+
         Note also that this cancels other scans in progress.
         """
         self._NiceCCS.startScanContExtTrig()
@@ -275,7 +277,7 @@ class CCS(Spectrometer):
         (default), the method gets the current status directly from the
         spectrometer.
         """
-        status= self._NiceCCS.getDeviceStatus()
+        status = self._NiceCCS.getDeviceStatus()
         return Status(status)
 
     def is_data_ready(self):
@@ -286,9 +288,9 @@ class CCS(Spectrometer):
     def is_idle(self):
         """
         Supposedly returns 'True' if the spectrometer is idle.
-        
+
         The status bit on the spectrometer this driver was tested with
-        did not seem to work properly.  This may or may not be a genereal issue. 
+        did not seem to work properly.  This may or may not be a genereal issue.
         """
         status = self.get_status()
         return status.idle
@@ -311,7 +313,7 @@ class CCS(Spectrometer):
         """Returns the processed scan data.
 
         Contains the pixel values from the last completed scan.
-               
+
         Returns
         -------
         data : numpy array of type float with of length NUM_RAW_PIXELS = 3648,
@@ -327,10 +329,10 @@ class CCS(Spectrometer):
 
     def _get_raw_scan_data(self):
         """Reads out the raw scan data.
-        
+
         No amplitude correction is applied."""
         data = self._NiceCCS.getRawScanData()
-        return self._cdata_to_numpy(data)        
+        return self._cdata_to_numpy(data)
 
     def reset(self):
         """ Resets the device."""
@@ -342,19 +344,18 @@ class CCS(Spectrometer):
         while self.is_data_ready():
             self.get_scan_data()
 
-    def take_data(self, integration_time=None, num_avg=1,
-                 use_background=False):
+    def take_data(self, integration_time=None, num_avg=1, use_background=False):
         """Returns scan data.
-        
+
         The data can be averaged over a number of trials 'num_Avg' if desired.
         The stored backgorund spectra can also be subtracted from the data.
-        
+
         Parameters
         ----------
         integration_time : float, optional
             The integration time in seconds.
-            If not specified, the current integration time is used. 
-            
+            If not specified, the current integration time is used.
+
             Note that in practice, times greater than 50 seconds do
             not seem to work properly.
         num_avg : int, Default=1
@@ -400,7 +401,7 @@ class CCS(Spectrometer):
 
     def set_background(self, integration_time=None, num_avg=1):
         """Collects a background spectrum using the given settings.
-        
+
         Both the integration time and the number of spectra to average over can
         be specified as paramters.
         The background spectra itself is returned.
@@ -419,10 +420,10 @@ class CCS(Spectrometer):
     def calibrate_wavelength(self, calibration_type=Calibration.User,
                              wavelength_array=None, pixel_array=None):
         """Sets a custom pixel-wavelength calibration.
-        
+
         The wavelength and pixel points are used to interpolate the correlation between pixel
         and wavelength.
-        
+
         Note that the given values must be strictly increasing as a function of
         wavelength, and that the lenght of the arrays must be equal and be
         between 4 and 10 (inclusive).  Note that there are also some other
@@ -430,13 +431,13 @@ class CCS(Spectrometer):
         being somewhat'smooth' that are not specified in the documentation and
         may result in the not very descriptive 'Invalid user wavelength
         adjustment data' error.
-        
+
         If calibration_type is Calibration.User, then the last 3 arguments must
         be given, and are used to set the wavelength calibration.
-        
+
         If calibration_type is Calibration.Factory, then the last three arguments
         are ignored, and the default factory wavelength calibration is used.
-        
+
         Parameters
         ----------
         pixel_data : array of int
@@ -445,10 +446,10 @@ class CCS(Spectrometer):
             The wavelengths (in nm) to be used in the interpolation.
         calibration_type : Calibration
         """
-        if calibration_type==Calibration.User:
+        if calibration_type == Calibration.User:
             num_points = len(pixel_array)
             print(num_points)
-            if len(wavelength_array)!= num_points:
+            if len(wavelength_array) != num_points:
                 raise ValueError("The wavelength and pixel arrays passed to calibrate_wavelength must be of the same length")
             if wavelength_array is None or pixel_array is None:
                 raise ValueError("wavelength_array and pixel_array must be passed to calibrate_wavelength if calibration_type is Calibration.User")
@@ -460,10 +461,10 @@ class CCS(Spectrometer):
     @check_enums(mode=CorrectionType)
     def set_amplitude_data(self, correction_factors, start_index=0, mode=CorrectionType.Store):
         """Sets the amplitude correction factors.
-        
+
         These factors multiply the pixels intensities to correct for variations
         between pixels.
-        
+
         On start-up, these are all set to unity.  The factors are set by the values in
         correction_factors, starting with pixel start_index.
 
@@ -510,8 +511,7 @@ class CCS(Spectrometer):
         return self._cdata_to_numpy(factors)
 
     def get_device_info(self):
-        """Returns and instance of ID_Infor, containing various device 
+        """Returns and instance of ID_Infor, containing various device
         information."""
         rets = self._NiceCCS.identificationQuery()
-        return ID_Info(*list(rets)) 
-
+        return ID_Info(*list(rets))
