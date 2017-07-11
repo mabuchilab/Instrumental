@@ -296,13 +296,12 @@ class NiceTDC001(NiceLib):
     _prefix = ('CC_', 'TLI_')
     _buflen = 512
 
-    def _ret_bool_error_code(retval):
-        retval = bool(retval)
-        if retval==False:
+    def _ret_bool_error_code(success):
+        if not success:
             raise TDC001Error('The function did not execute successfully')
 
     def _ret_error_code(retval):
-        if not (retval == 0 or retval==None):
+        if not (retval == 0 or retval is None):
             raise TDC001Error(error_dict[retval])
 
     BuildDeviceList = ()
@@ -415,27 +414,29 @@ class TDC001Error(Error):
     pass
 
 
-error_dict = {0: 'OK - Success  ',
-              1: 'InvalidHandle - The FTDI functions have not been initialized.',
-              2: 'DeviceNotFound - The Device could not be found.',
-              3: 'DeviceNotOpened - The Device must be opened before it can be accessed ',
-              4: 'IOError - An I/O Error has occured in the FTDI chip.',
-              5: 'InsufficientResources - There are Insufficient resources to run this application.',
-              6: 'InvalidParameter - An invalid parameter has been supplied to the device.' ,
-              7: 'DeviceNotPresent - The Device is no longer present',
-              8: 'IncorrectDevice - The device detected does not match that expected./term>',
-              32: 'ALREADY_OPEN - Attempt to open a device that was already open.',
-              33: 'NO_RESPONSE - The device has stopped responding.',
-              34: 'NOT_IMPLEMENTED - This function has not been implemented.',
-              35: 'FAULT_REPORTED - The device has reported a fault.',
-              36: 'INVALID_OPERATION - The function could not be completed at this time.',
-              36: 'DISCONNECTING - The function could not be completed because the device is disconnected.',
-              41: 'FIRMWARE_BUG - The firmware has thrown an error.',
-              42: 'INITIALIZATION_FAILURE - The device has failed to initialize',
-              43: 'INVALID_CHANNEL - An Invalid channel address was supplied.',
-              37: 'UNHOMED - The device cannot perform this function until it has been Homed.',
-              38: 'INVALID_POSITION - The function cannot be performed as it would result in an illegal position.',
-              39: 'INVALID_VELOCITY_PARAMETER - An invalid velocity parameter was supplied',
-              44: 'CANNOT_HOME_DEVICE - This device does not support Homing ',
-              45: 'TL_JOG_CONTINOUS_MODE - An invalid jog mode was supplied for the jog function.'
+error_dict = {
+    0: 'OK - Success  ',
+    1: 'InvalidHandle - The FTDI functions have not been initialized.',
+    2: 'DeviceNotFound - The Device could not be found.',
+    3: 'DeviceNotOpened - The Device must be opened before it can be accessed ',
+    4: 'IOError - An I/O Error has occured in the FTDI chip.',
+    5: 'InsufficientResources - There are Insufficient resources to run this application.',
+    6: 'InvalidParameter - An invalid parameter has been supplied to the device.',
+    7: 'DeviceNotPresent - The Device is no longer present',
+    8: 'IncorrectDevice - The device detected does not match that expected./term>',
+    32: 'ALREADY_OPEN - Attempt to open a device that was already open.',
+    33: 'NO_RESPONSE - The device has stopped responding.',
+    34: 'NOT_IMPLEMENTED - This function has not been implemented.',
+    35: 'FAULT_REPORTED - The device has reported a fault.',
+    36: 'INVALID_OPERATION - The function could not be completed at this time.',
+    40: 'DISCONNECTING - The function could not be completed because the device is disconnected.',
+    41: 'FIRMWARE_BUG - The firmware has thrown an error.',
+    42: 'INITIALIZATION_FAILURE - The device has failed to initialize',
+    43: 'INVALID_CHANNEL - An Invalid channel address was supplied.',
+    37: 'UNHOMED - The device cannot perform this function until it has been Homed.',
+    38: ('INVALID_POSITION - The function cannot be performed as it would result in an illegal '
+         'position.'),
+    39: 'INVALID_VELOCITY_PARAMETER - An invalid velocity parameter was supplied',
+    44: 'CANNOT_HOME_DEVICE - This device does not support Homing ',
+    45: 'TL_JOG_CONTINOUS_MODE - An invalid jog mode was supplied for the jog function.'
 }
