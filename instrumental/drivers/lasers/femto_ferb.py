@@ -1,5 +1,5 @@
 # -*- coding: utf-8  -*-
-# Copyright 2016 Nate Bogdanowicz and Christopher Rogers
+# Copyright 2016-2017 Nate Bogdanowicz and Christopher Rogers
 """
 Driver for Tobtica FemtoFiber Lasers.
 
@@ -7,34 +7,34 @@ The femtofiber drivers, which among
 other things make the usb connection appear as a serial port, must be
 installed (available from http://www.toptica.com/products/ultrafast_fiber_lasers/femtofiber_smart/femtosecond_erbium_fiber_laser_1560_nm_femtoferb)
 """
-
-import visa
 from . import Laser
-from ...errors import InstrumentTypeError
+from ..util import visa_timeout_context
+
+_INST_PRIORITY = 6
+_INST_PARAMS = ['visa_address']
 
 TRUE = '#t'
 FALSE = '#f'
 bool_dict = {'#t': True, '#f': False}
 
-def _instrument(params):
-    """ params must include 'femto_ferb_port'. """
-    d = {}
-    if 'femto_ferb_port' in params:
-        d['port'] = params['femto_ferb_port']
-    if not d:
-        raise InstrumentTypeError()
 
-    return FemtoFiber(**d)
+def _check_visa_support(visa_inst):
+    with visa_timeout_context(visa_inst, 50):
+        try:
+            visa_inst.query('(param-ref system-type)')
+            return 'FemtoFiber'
+        except:
+            pass
+    return None
 
 
 class FemtoFiber(Laser):
-    """
-    A femtoFiber laser.
-    
+    """ A femtoFiber laser.
+
     Lasers can only be accessed by their serial port address.
     """
-    def __init__(self, port):
-        self._inst = visa.instrument(port)
+    def __init__(self, paramset, visa_inst):
+        self._inst = visa_inst
         self.set_control(True)
 
     def is_control_on(self):
