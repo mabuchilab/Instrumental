@@ -512,13 +512,12 @@ def list_instruments(server=None, module=None, blacklist=None):
 
     try:
         import visa
+        try:
+            inst_list = list_visa_instruments()
+        except visa.VisaIOError:
+            inst_list = []  # Hide visa errors
     except (ImportError, ConfigError):
         inst_list = []  # Ignore if PyVISA not installed or configured
-
-    try:
-        inst_list = list_visa_instruments()
-    except visa.VisaIOError:
-        inst_list = []  # Hide visa errors
 
     for mod_name in driver_info:
         if module and module not in mod_name:
