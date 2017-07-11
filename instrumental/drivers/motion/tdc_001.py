@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016 Christopher Rogers
-
+# Copyright 2016-2017 Christopher Rogers, Nate Bogdanowicz
 """
-Driver for controlling Thorlabs TDC001 T-Cube DC Servo Motor Controllers using
-the Kinesis SDK.
+Driver for controlling Thorlabs TDC001 T-Cube DC Servo Motor Controllers using the Kinesis SDK.
 
 One must place Thorlabs.MotionControl.DeviceManager.dll and Thorlabs.MotionControl.TCube.DCServo.dll
 in the path.
@@ -15,10 +13,13 @@ import os.path
 from nicelib import NiceLib, NiceObjectDef
 from cffi import FFI
 from . import Motion
-from .. import _ParamDict
+from .. import Params
 from ... import Q_, u
-from ...errors import InstrumentTypeError, Error
+from ...errors import Error
 from ..util import check_units, check_enums
+
+_INST_PARAMS = ['serial']
+_INST_CLASSES = ['TDC001']
 
 lib_name = 'Thorlabs.MotionControl.TCube.DCServo.dll'
 
@@ -46,29 +47,12 @@ with open(os.path.join(os.path.dirname(__file__), '_tdc_001', 'tdc_001.h')) as f
 lib = ffi.dlopen(lib_name)
 
 
-def _instrument(params):
-    """ Possible params include 'tdc_serial'"""
-    d = {}
-    if 'tdc_serial' in params:
-        d['serial'] = str(params['tdc_serial'])
-    if not d:
-        raise InstrumentTypeError()
-
-    return TDC001(**d)
-
-
 def list_instruments():
-    tdcs = []
-    NiceTDC = NiceTDC001
-    NiceTDC.BuildDeviceList()
-    device_list = list(NiceTDC.GetDeviceListByTypeExt(TDC001_TYPE).split(','))
-    for serial_number in device_list:
-        if serial_number[0:2] == str(TDC001_TYPE):
-            params = _ParamDict("<Thorlabs_DC_Servo_T-Cube '{}'>".format(serial_number))
-            params['module'] = 'motion.tdc_001'
-            params['tdc_serial'] = str(serial_number)
-            tdcs.append(params)
-    return tdcs
+    NiceTDC001.BuildDeviceList()
+    device_list = NiceTDC001.GetDeviceListByTypeExt(TDC001_TYPE).split(',')
+    return [Params(__name__, TDC001, serial=serial_str)
+            for serial_str in device_list
+            if serial_str and int(serial_str[:2]) == TDC001_TYPE]
 
 
 class TravelMode(Enum):
@@ -86,24 +70,22 @@ class SoftwareApproachPolicy(Enum):
 class TDC001(Motion):
     """ Controlling Thorlabs TDC001 T-Cube DC Servo Motor Controllers
 
-    Takes the serial number of the device as a string.
-
     The polling period, which is how often the device updates its status, is
     passed as a pint pint quantity with units of time and is optional argument,
     with a default of 200ms
     """
 
-    def __init__(self, serial, polling_period=Q_('200ms'),
-                 allow_all_moves=True):
-        """Parameters
+    @check_units(polling_period='ms')
+    def __init__(self, paramset, polling_period='200ms', allow_all_moves=True):
+        """
+        Parameters
         ----------
-        serial_number: str
-
-        polling_period: pint quantity with units of time """
+        polling_period : pint Quantity with units of time
+        """
         self.SoftwareApproachPolicy = SoftwareApproachPolicy
         self.TravelMode = TravelMode
-        self._NiceTDC = NiceTDC001.TDC001(serial)
-        self.serial_number = serial
+        self.serial_number = paramset['serial']
+        self._NiceTDC = NiceTDC001.TDC001(self.serial_number)
 
         self._open()
         self._start_polling(polling_period)
