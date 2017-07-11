@@ -8,7 +8,6 @@ the Kinesis SDK.
 One must place Thorlabs.MotionControl.DeviceManager.dll and Thorlabs.MotionControl.TCube.DCServo.dll
 in the path.
 """
-
 from enum import Enum
 from time import sleep
 from numpy import zeros
@@ -30,7 +29,7 @@ ffi.cdef("""
     typedef struct tagSAFEARRAYBOUND {
       ULONG cElements;
       LONG  lLbound;
-    } SAFEARRAYBOUND, *LPSAFEARRAYBOUND;    
+    } SAFEARRAYBOUND, *LPSAFEARRAYBOUND;
 
         typedef struct tagSAFEARRAY {
       USHORT         cDims;
@@ -46,6 +45,7 @@ with open(os.path.join(os.path.dirname(__file__), '_tdc_001', 'tdc_001.h')) as f
     ffi.cdef(f.read())
 lib = ffi.dlopen(lib_name)
 
+
 def _instrument(params):
     """ Possible params include 'tdc_serial'"""
     d = {}
@@ -53,8 +53,9 @@ def _instrument(params):
         d['serial'] = str(params['tdc_serial'])
     if not d:
         raise InstrumentTypeError()
-    
+
     return TDC001(**d)
+
 
 def list_instruments():
     tdcs = []
@@ -84,9 +85,9 @@ class SoftwareApproachPolicy(Enum):
 
 class TDC001(Motion):
     """ Controlling Thorlabs TDC001 T-Cube DC Servo Motor Controllers
-    
+
     Takes the serial number of the device as a string.
-    
+
     The polling period, which is how often the device updates its status, is
     passed as a pint pint quantity with units of time and is optional argument,
     with a default of 200ms
@@ -97,18 +98,18 @@ class TDC001(Motion):
         """Parameters
         ----------
         serial_number: str
-        
+
         polling_period: pint quantity with units of time """
         self.SoftwareApproachPolicy = SoftwareApproachPolicy
         self.TravelMode = TravelMode
         self._NiceTDC = NiceTDC001.TDC001(serial)
         self.serial_number = serial
-        
+
         self._open()
         self._start_polling(polling_period)
         self._NiceTDC.LoadSettings()
         self._set_real_world_units()
-        
+
         if allow_all_moves:
             self._set_software_approach_policy(self.SoftwareApproachPolicy.AllowAll)
             stage_max_pos = 2**30
@@ -120,7 +121,7 @@ class TDC001(Motion):
         steps_per_rev, gearbox_ratio, pitch = self.get_motor_params()
         cf = Q_(pitch/steps_per_rev/float(gearbox_ratio), self.real_world_units)
         self.encoder_to_real_world_units_conversion_factor = cf
-  
+
     def _open(self):
         return self._NiceTDC.Open()
 
@@ -130,8 +131,8 @@ class TDC001(Motion):
 
     @check_units(polling_period = 'ms')
     def _start_polling(self, polling_period='200ms'):
-        """Starts polling to periodically update the device status. 
-        
+        """Starts polling to periodically update the device status.
+
         Parameters
         ----------
         polling_period: pint quantity with units of time """
@@ -145,7 +146,7 @@ class TDC001(Motion):
         if travel_mode == self.TravelMode.Rotational:
             real_world_units = u('degrees')
         self.real_world_units = real_world_units
-        
+
         self._set_real_world_unit_conversion()
         return
 
@@ -157,7 +158,7 @@ class TDC001(Motion):
 
     def set_motor_params(self, steps_per_rev, gearbox_ratio, pitch):
         """ Sets the motor stage parameters.
-        
+
         Parameters
         ----------
         steps_per_rev: int
@@ -172,7 +173,7 @@ class TDC001(Motion):
 
     def get_motor_params(self):
         """ Gets the stage motor parameters.
-        
+
         Returns
         -------
         (steps_per_rev: int,
@@ -183,19 +184,19 @@ class TDC001(Motion):
 
     def get_position(self):
         """ Returns the position of the motor.
-        
+
         Note that this represents the position at the most recent polling
         event."""
         self._NiceTDC.RequestPosition()
-        position =  self._NiceTDC.GetPosition()
+        position = self._NiceTDC.GetPosition()
         return position*self.encoder_to_real_world_units_conversion_factor
 
     def move_to(self, position):
         """ Moves to the indicated position
-        
-        
+
+
         Returns immediately.
-        
+
         Parameters
         ----------
         position: pint quantity of units self.real_world_units """
@@ -216,7 +217,7 @@ class TDC001(Motion):
 
         Parameters
         ----------
-        position: pint quantity of units self.real_world_units 
+        position: pint quantity of units self.real_world_units
         delay: pint quantity with units of time
             the period with which the position of the motor is checked.
         tol: int
@@ -229,8 +230,8 @@ class TDC001(Motion):
 
     def at_position(self, position, tol=1):
         """Indicates whether the motor is at the given position.
-        
-        
+
+
 
         Parameters
         ----------
@@ -250,13 +251,13 @@ class TDC001(Motion):
     @check_enums(software_approach_policy=SoftwareApproachPolicy)
     def _set_software_approach_policy(self, software_approach_policy):
         """ Controls what range of values the motor is allowed to move to.
-        
+
         This is done using the SoftwareApproachPolicy enumerator """
         self._NiceTDC.SetLimitsSoftwareApproachPolicy(software_approach_policy.value)
 
     def _get_software_approach_policy(self):
         """ Gets the range of values the motor is allowed to move to.
-        
+
         Returns an instance of SoftwareApproachPolicy enumerator """
         software_approach_policy = self._NiceTDC.GetSoftLimitMode()
         return self.SoftwareApproachPolicy(software_approach_policy)
@@ -265,7 +266,7 @@ class TDC001(Motion):
         """ Stores information about the status of the device from the status
         bits. """
         def __init__(self, status_bits):
-            nbits=32
+            nbits = 32
             self._status_bits = status_bits
             self._bits = zeros(nbits)
             for i in range(nbits):
@@ -280,7 +281,7 @@ class TDC001(Motion):
             self.MotorHomed = bool(self._bits[10])
             self.isActive = bool(self._bits[29])
             self.isEnabled = bool(self._bits[31])
-            
+
             temp = self.MotorHoming or self.MotorJoggingCCW or self.MotorJoggingCW
             self.isMoving = temp or self.MotorMovingCCW or self.MotorMovingCW
 
@@ -302,7 +303,7 @@ class NiceTDC001(NiceLib):
 
     def _ret_error_code(retval):
         if not (retval == 0 or retval==None):
-            raise TDC001Error(error_dict[retval]) 
+            raise TDC001Error(error_dict[retval])
 
     BuildDeviceList = ()
     GetDeviceListSize = ({'ret': 'return'},)
@@ -320,8 +321,7 @@ class NiceTDC001(NiceLib):
         'Identify': ('in', {'ret': 'return'}),
         'GetLEDswitches': ('in', {'ret': 'return'}),
         'SetLEDswitches': ('in', 'in'),
-        'GetHardwareInfo': ('in', 'buf', 'len', 'out', 'out', 'buf', 'len',
-                              'out', 'out', 'out'),
+        'GetHardwareInfo': ('in', 'buf', 'len', 'out', 'out', 'buf', 'len', 'out', 'out', 'out'),
         'GetHardwareInfoBlock': ('in', 'out'),
         'GetHubBay': ('in', {'ret': 'return'}),
         'GetSoftwareVersion': ('in', {'ret': 'return'}),
@@ -389,7 +389,7 @@ class NiceTDC001(NiceLib):
         'ResumeMoveMessages': ('in'),
         'RequestPosition': ('in'),
         'RequestStatusBits': ('in', {'ret': 'return'}),
-        'GetStatusBits': ('in', {'ret': 'return'}),    
+        'GetStatusBits': ('in', {'ret': 'return'}),
         'StartPolling': ('in', 'in', {'ret': 'bool_error_code'}),
         'PollingDuration': ('in', {'ret': 'return'}),
         'StopPolling': ('in', {'ret': 'return'}),
@@ -417,16 +417,16 @@ class TDC001Error(Error):
 
 error_dict = {0: 'OK - Success  ',
               1: 'InvalidHandle - The FTDI functions have not been initialized.',
-              2: 'DeviceNotFound - The Device could not be found.',  
+              2: 'DeviceNotFound - The Device could not be found.',
               3: 'DeviceNotOpened - The Device must be opened before it can be accessed ',
               4: 'IOError - An I/O Error has occured in the FTDI chip.',
               5: 'InsufficientResources - There are Insufficient resources to run this application.',
-              6: 'InvalidParameter - An invalid parameter has been supplied to the device.' , 
+              6: 'InvalidParameter - An invalid parameter has been supplied to the device.' ,
               7: 'DeviceNotPresent - The Device is no longer present',
               8: 'IncorrectDevice - The device detected does not match that expected./term>',
               32: 'ALREADY_OPEN - Attempt to open a device that was already open.',
               33: 'NO_RESPONSE - The device has stopped responding.',
-              34: 'NOT_IMPLEMENTED - This function has not been implemented.', 
+              34: 'NOT_IMPLEMENTED - This function has not been implemented.',
               35: 'FAULT_REPORTED - The device has reported a fault.',
               36: 'INVALID_OPERATION - The function could not be completed at this time.',
               36: 'DISCONNECTING - The function could not be completed because the device is disconnected.',
