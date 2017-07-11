@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016 Christopher Rogers
+# Copyright 2016-2017 Christopher Rogers, Nate Bogdanowicz
 """
 Driver for controlling Thorlabs Flipper Filters using the Kinesis SDK.
 
 One must place Thorlabs.MotionControl.DeviceManager.dll and Thorlabs.MotionControl.FilterFlipper.dll
 in the path
-
 """
 from enum import Enum
 from time import sleep
@@ -13,10 +12,13 @@ import os.path
 from cffi import FFI
 from nicelib import NiceLib, NiceObjectDef
 from . import Motion
-from .. import _ParamDict
+from .. import Params
 from ... import Q_
-from ...errors import InstrumentTypeError, Error
+from ...errors import Error
 from ..util import check_units, check_enums
+
+_INST_PARAMS = ['serial']
+_INST_CLASSES = ['Filter_Flipper']
 
 FILTER_FLIPPER_TYPE = 37
 
@@ -45,29 +47,13 @@ with open(os.path.join(os.path.dirname(__file__), '_filter_flipper', 'FilterFlip
 lib = ffi.dlopen(lib_name)
 
 
-def _instrument(params):
-    """ Possible params include 'ff_serial'"""
-    d = {}
-    if 'ff_serial' in params:
-        d['serial'] = str(params['ff_serial'])
-    if not d:
-        raise InstrumentTypeError()
-
-    return Filter_Flipper(**d)
-
-
 def list_instruments():
-    flippers = []
     NiceFF = NiceFilterFlipper
     NiceFF.BuildDeviceList()
-    device_list = list(NiceFF.GetDeviceListByTypeExt(FILTER_FLIPPER_TYPE).split(','))
-    for serial_number in device_list:
-        if serial_number[0:2] == str(FILTER_FLIPPER_TYPE):
-            params = _ParamDict("<Thorlabs_Filter_Flipper '{}'>".format(serial_number))
-            params['module'] = 'motion.filter_flipper'
-            params['ff_serial'] = str(serial_number)
-            flippers.append(params)
-    return flippers
+    device_list = NiceFF.GetDeviceListByTypeExt(FILTER_FLIPPER_TYPE).split(',')
+    return [Params(__name__, Filter_Flipper, serial=serial_str)
+            for serial_str in device_list
+            if serial_str and int(serial_str[:2]) == FILTER_FLIPPER_TYPE]
 
 
 class NiceFilterFlipper(NiceLib):
@@ -148,15 +134,15 @@ class Filter_Flipper(Motion):
     with a default of 200ms
     """
     @check_units(polling_period='ms')
-    def __init__(self, serial, polling_period='200ms'):
+    def __init__(self, paramset, polling_period='200ms'):
         """Parameters
         ----------
         serial_number: str
 
         polling_period: pint quantity with units of time """
         self.Position = Position
-        self._NiceFF = NiceFilterFlipper.Flipper(serial);
-        self.serial = serial
+        self.serial = paramset['serial']
+        self._NiceFF = NiceFilterFlipper.Flipper(self.serial)
 
         self._open()
         self._NiceFF.LoadSettings()
