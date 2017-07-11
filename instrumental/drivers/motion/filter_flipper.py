@@ -74,7 +74,8 @@ class NiceFilterFlipper(NiceLib):
     _ret = 'error_code'
     _struct_maker = None
     _ffi = ffi
-    _lib = lib
+    _ffilib = lib
+    # _lib = lib
     _prefix = ('FF_', 'TLI_')
     _buflen = 512
 

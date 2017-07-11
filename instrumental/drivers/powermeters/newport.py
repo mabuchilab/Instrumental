@@ -4,6 +4,16 @@
 Driver module for Newport power meters. Supports:
 
 * 1830-C
+
+For example, suppose a power meter is connected on port COM1.
+One can then connect and measure the power using the following sequence::
+
+    >>> from instrumental import instrument
+    >>> newport_power_meter = instrument(visa_address='COM1',
+                                         module='powermeters.newport')
+    >>> newport_power_meter.get_power()
+    <Quantity(3.003776, 'W')>
+
 """
 
 from . import PowerMeter
