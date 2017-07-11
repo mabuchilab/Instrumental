@@ -328,7 +328,7 @@ class ECC100(Motion):
             # Attempt to connect to the first device
             self._dev_num = 0
         else:
-            self._dev_num = self._get_dev_num_from_id(int(paramset['device_id']))
+            self._dev_num = self._get_dev_num_from_id(int(paramset['id']))
         self._Connect()
         self._load_actors()
         self._default_actors = self.actors
