@@ -1,21 +1,24 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016-2017 Christopher Rogers, Nate Bogdanowicz
 """
 Driver Module for Thorlabs CCSXXX series spectrometers.  Currently Windows
 only.
-
-Copyright Christopher Rogers 2016
 """
-import numpy as np
 import time
 from enum import Enum
+import numpy as np
 from visa import ResourceManager
 from cffi import FFI
 from nicelib import NiceLib, NiceObjectDef, load_lib
+
 from . import Spectrometer
 from ..util import check_units, check_enums
-from .. import _ParamDict
-from ...errors import Error, InstrumentNotFoundError
+from .. import Params
+from ...errors import Error
 from ... import Q_
+
+_INST_PARAMS = ['serial', 'usb', 'model']
+_INST_CLASSES = ['CCS']
 
 IDLE = 2
 CONT_SCAN = 4
@@ -23,50 +26,27 @@ DATA_READY = 16
 WAITING_FOR_TRIG = 128
 NUM_RAW_PIXELS = 3648
 BYTES_PER_DOUBLE = 8
-param_list = ['ccs_usb_address', 'ccs_serial_number', 'ccs_model']
 
 ffi = FFI()
-
-
-def _instrument(params):
-    """ Possible params include 'ccs_usb_address', 'ccs_serial_number',
-    'ccs_model', 'module'.
-    """
-    spectrometers = list_instruments()
-
-    for param_name in param_list:
-        if param_name in params:
-            for spectrometer in spectrometers:
-                if spectrometer[param_name] == params[param_name]:
-                    return CCS(spectrometer)
-    if ('module' in params) and spectrometers:
-        return CCS(spectrometers[0])
-    else:
-        raise InstrumentNotFoundError("No Thorlabs CCS spectrometer matching the parameters was found")
 
 
 def list_instruments():
     """
     Get a list of all spectrometers currently attached.
     """
-    spectrometers = []
+    paramsets = []
     search_string = "USB?*?{VI_ATTR_MANF_ID==0x1313 && ((VI_ATTR_MODEL_CODE==0x8081) || (VI_ATTR_MODEL_CODE==0x8083) || (VI_ATTR_MODEL_CODE==0x8085) || (VI_ATTR_MODEL_CODE==0x8087) || (VI_ATTR_MODEL_CODE==0x8089))}"
     rm = ResourceManager()
     try:
         raw_spec_list = rm.list_resources(search_string)
     except:
-        return spectrometers
+        return paramsets
 
     for spec in raw_spec_list:
-        _, _, model, serial_number, _ = spec.split("::")
+        _, _, model, serial, _ = spec.split('::', 4)
         model = SpecTypes(int(model, 0))
-        params = _ParamDict("<Thorlabs_CCS_Spectrometer '{}-{}'>".format(model.name, serial_number))
-        params['module'] = 'spectrometers.thorlabs_ccs'
-        params['ccs_usb_address'] = spec
-        params['ccs_model'] = model
-        params['ccs_serial_number'] = serial_number
-        spectrometers.append(params)
-    return spectrometers
+        paramsets.append(Params(__name__, CCS, usb=spec, serial=serial, model=model))
+    return paramsets
 
 
 class ThorlabsCCSError(Error):
@@ -173,7 +153,7 @@ class CCS(Spectrometer):
     the parameters 'ccs_usb_address', 'ccs_serial_number', or 'ccs_model'
     will also return a CCS instance (if successful).
     """
-    def __init__(self, spectrometer_attributes=None):
+    def __init__(self, paramset):
         """
         Create a spectrometer object by connecting to the spectrometer has the
         serial number in spectrometer_attributes.
@@ -183,9 +163,9 @@ class CCS(Spectrometer):
         self.CorrectionType = CorrectionType
         self.Calibration = Calibration
         self.SpecTypes = SpecTypes
-        self._address = spectrometer_attributes['ccs_usb_address']
-        self._serial_number = spectrometer_attributes['ccs_serial_number']
-        self._model = spectrometer_attributes['ccs_model']
+        self._address = paramset['usb']
+        self._serial_number = paramset['serial']
+        self._model = paramset['model']
         self._background = np.zeros((NUM_RAW_PIXELS, 1))
         self._NiceCCSLib = NiceCCSLib
         self._open(self._address)
