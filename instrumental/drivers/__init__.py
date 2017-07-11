@@ -24,6 +24,9 @@ _legacy_params = {
     'ueye_cam_id': 'uc480_camera_id',
     'pixelfly_board_num': 'pixelfly_camera_number',
     'nidaq_devname': 'ni_daq_name',
+    'ccs_usb_address': 'ccs_spectrometer_usb',
+    'ccs_serial_number': 'ccs_spectrometer_serial',
+    'ff_serial': 'flipper_motion_serial',
 }
 
 # Listing of acceptable parameters for each driver module
