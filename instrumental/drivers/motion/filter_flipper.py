@@ -127,19 +127,17 @@ class Position(Enum):
 class Filter_Flipper(Motion):
     """ Driver for controlling Thorlabs Filter Flippers
 
-    Takes the serial number of the device as a string.
-
     The polling period, which is how often the device updates its status, is
     passed as a pint quantity with units of time and is optional argument,
     with a default of 200ms
     """
     @check_units(polling_period='ms')
     def __init__(self, paramset, polling_period='200ms'):
-        """Parameters
+        """
+        Parameters
         ----------
-        serial_number: str
-
-        polling_period: pint quantity with units of time """
+        polling_period : pint Quantity with units of time
+        """
         self.Position = Position
         self.serial = paramset['serial']
         self._NiceFF = NiceFilterFlipper.Flipper(self.serial)
