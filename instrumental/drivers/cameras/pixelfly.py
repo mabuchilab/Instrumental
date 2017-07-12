@@ -123,9 +123,13 @@ class Pixelfly(Camera):
 
         try:
             self.set_mode()
-        except:
+        except PixelflyLibError as e:
+            self._dev.STOP_CAMERA()
             self._dev.CLOSEBOARD()
-            raise
+            if e.code != 0x80202032:
+                raise
+            self._dev = NicePixelfly.Board(number)
+            self.set_mode()
 
         self._open_cameras.append(self)
         self._last_kwds = {}
