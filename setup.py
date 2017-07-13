@@ -22,6 +22,13 @@ about = {}
 with open(os.path.join(base_dir, 'instrumental', '__about__.py')) as f:
     exec(f.read(), about)
 
+# Load driver info
+with open(os.path.join(base_dir, 'instrumental', 'driver_info.py')) as f:
+    namespace = {}
+    exec(f.read(), namespace)
+    driver_info = namespace['driver_info']
+extras = {k:v['imports'] for k,v in driver_info.items()}
+
 # Check for cffi
 try:
     import cffi
@@ -59,6 +66,7 @@ if __name__ == '__main__':
         license = about['__license__'],
         classifiers = classifiers,
         install_requires = ['numpy', 'scipy', 'pint>=0.7', 'future'],
+        extras_require = extras,
         **keywords
     )
 
