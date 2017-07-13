@@ -5,7 +5,7 @@ from past.builtins import unicode
 
 import sys
 import time
-from enum import Enum
+from enum import Enum, EnumMeta
 from collections import OrderedDict
 import numpy as np
 from nicelib import NiceLib, NiceObjectDef, load_lib
@@ -257,55 +257,82 @@ for name, attr in NiceNI.__dict__.items():
         setattr(Val, name[4:], attr)
 
 
-class SampleMode(Enum):
-    finite = Val.FiniteSamps
-    continuous = Val.ContSamps
-    hwtimed = Val.HWTimedSinglePoint
+class ValEnumMeta(EnumMeta):
+    """Enum metaclass that looks up values and removes undefined members"""
+    @classmethod
+    def __prepare__(metacls, cls, bases, **kwds):
+        return {}
+
+    def __init__(cls, *args, **kwds):
+        super(ValEnumMeta, cls).__init__(*args)
+
+    def __new__(metacls, cls, bases, clsdict, **kwds):
+        # Look up values, exclude nonexistent ones
+        for name, value in list(clsdict.items()):
+            try:
+                clsdict[name] = getattr(Val, value)
+            except AttributeError:
+                del clsdict[name]
+
+        enum_dict = super(ValEnumMeta, metacls).__prepare__(cls, bases, **kwds)
+        # Must add members this way because _EnumDict.update() doesn't do everything needed
+        for name, value in clsdict.items():
+            enum_dict[name] = value
+        return super(ValEnumMeta, metacls).__new__(metacls, cls, bases, enum_dict, **kwds)
 
 
-class EdgeSlope(Enum):
-    rising = Val.RisingSlope
-    falling = Val.FallingSlope
+ValEnum = ValEnumMeta('ValEnum', (Enum,), {})
 
 
-class TerminalConfig(Enum):
-    default = Val.Cfg_Default
-    RSE = Val.RSE
-    NRSE = Val.NRSE
-    diff = Val.Diff
-    pseudo_diff = Val.PseudoDiff
+class SampleMode(ValEnum):
+    finite = 'FiniteSamps'
+    continuous = 'ContSamps'
+    hwtimed = 'HWTimedSinglePoint'
 
 
-class RelativeTo(Enum):
-    FirstSample = Val.FirstSample
-    CurrReadPos = Val.CurrReadPos
-    RefTrig = Val.RefTrig
-    FirstPretrigSamp = Val.FirstPretrigSamp
-    MostRecentSamp = Val.MostRecentSamp
+class EdgeSlope(ValEnum):
+    rising = 'RisingSlope'
+    falling = 'FallingSlope'
 
 
-class ProductCategory(Enum):
-    MSeriesDAQ = Val.MSeriesDAQ
-    XSeriesDAQ = Val.XSeriesDAQ
-    ESeriesDAQ = Val.ESeriesDAQ
-    SSeriesDAQ = Val.SSeriesDAQ
-    BSeriesDAQ = Val.BSeriesDAQ
-    SCSeriesDAQ = Val.SCSeriesDAQ
-    USBDAQ = Val.USBDAQ
-    AOSeries = Val.AOSeries
-    DigitalIO = Val.DigitalIO
-    TIOSeries = Val.TIOSeries
-    DynamicSignalAcquisition = Val.DynamicSignalAcquisition
-    Switches = Val.Switches
-    CompactDAQChassis = Val.CompactDAQChassis
-    CSeriesModule = Val.CSeriesModule
-    SCXIModule = Val.SCXIModule
-    SCCConnectorBlock = Val.SCCConnectorBlock
-    SCCModule = Val.SCCModule
-    NIELVIS = Val.NIELVIS
-    NetworkDAQ = Val.NetworkDAQ
-    SCExpress = Val.SCExpress
-    Unknown = Val.Unknown
+class TerminalConfig(ValEnum):
+    default = 'Cfg_Default'
+    RSE = 'RSE'
+    NRSE = 'NRSE'
+    diff = 'Diff'
+    pseudo_diff = 'PseudoDiff'
+
+
+class RelativeTo(ValEnum):
+    FirstSample = 'FirstSample'
+    CurrReadPos = 'CurrReadPos'
+    RefTrig = 'RefTrig'
+    FirstPretrigSamp = 'FirstPretrigSamp'
+    MostRecentSamp = 'MostRecentSamp'
+
+
+class ProductCategory(ValEnum):
+    MSeriesDAQ = 'MSeriesDAQ'
+    XSeriesDAQ = 'XSeriesDAQ'
+    ESeriesDAQ = 'ESeriesDAQ'
+    SSeriesDAQ = 'SSeriesDAQ'
+    BSeriesDAQ = 'BSeriesDAQ'
+    SCSeriesDAQ = 'SCSeriesDAQ'
+    USBDAQ = 'USBDAQ'
+    AOSeries = 'AOSeries'
+    DigitalIO = 'DigitalIO'
+    TIOSeries = 'TIOSeries'
+    DynamicSignalAcquisition = 'DynamicSignalAcquisition'
+    Switches = 'Switches'
+    CompactDAQChassis = 'CompactDAQChassis'
+    CSeriesModule = 'CSeriesModule'
+    SCXIModule = 'SCXIModule'
+    SCCConnectorBlock = 'SCCConnectorBlock'
+    SCCModule = 'SCCModule'
+    NIELVIS = 'NIELVIS'
+    NetworkDAQ = 'NetworkDAQ'
+    SCExpress = 'SCExpress'
+    Unknown = 'Unknown'
 
 
 # Manually taken from NI's support docs since there doesn't seem to be a DAQmx function to do
