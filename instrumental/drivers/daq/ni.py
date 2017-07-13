@@ -91,7 +91,7 @@ info = load_lib('ni', __package__)
 
 class NiceNI(NiceLib):
     _info = info
-    _prefix = ('DAQmx_', 'DAQmx')
+    _prefix = ('DAQmxBase_', 'DAQmx_', 'DAQmx')
     _buflen = 512
     _use_numpy = True
 
