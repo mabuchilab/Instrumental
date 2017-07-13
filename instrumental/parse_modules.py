@@ -55,6 +55,7 @@ def parse_module(module_name):
     source = load_module_source(module_name)
     values = DEFAULT_VALUES.copy()
     root = ast.parse(source)
+    has_special_vars = False
 
     assignments = (n for n in root.body if isinstance(n, ast.Assign) and len(n.targets) == 1)
     for assignment in assignments:
@@ -64,6 +65,7 @@ def parse_module(module_name):
             if var_name in VAR_NAMES:
                 try:
                     values[var_name] = ast.literal_eval(assignment.value)
+                    has_special_vars = True
                 except:
                     log.info("Failed to eval value of %s in module '%s'", var_name, module_name)
 
@@ -80,15 +82,22 @@ def parse_module(module_name):
     imports = (fullpkg.split('.', 1)[0] for fullpkg in imports if fullpkg is not None)
     values['nonstd_imports'] = filter_std_modules(imports)
 
-    return values
+    return has_special_vars, values
 
 
 def generate_info_file():
+    num_missing = 0
     mod_info = []
     for module_name in list_drivers():
-        values = parse_module(module_name)
+        has_special_vars, values = parse_module(module_name)
         mod_info.append((values['_INST_PRIORITY'], module_name, values))
+        if not has_special_vars:
+            num_missing += 1
+            print("Module '{}' is missing its '_INST_*' variables".format(module_name))
     mod_info.sort()
+
+    print("{} of {} modules are missing their '_INST_*' variables".format(num_missing,
+                                                                          len(mod_info)))
 
     file_path = os.path.join(THIS_DIR, 'driver_info.py')
     with open(file_path, 'w') as f:
