@@ -168,6 +168,8 @@ class Params(object):
             if key not in self._dict.keys():
                 self._dict[key] = value
 
+    def to_ini(self, name):
+        return '{} = {}'.format(name, self._dict)
 
 
 
@@ -323,12 +325,12 @@ class Instrument(object):
                 warnings.warn("Commenting out existing entry for '{}'".format(name))
 
         try:
-            pdict = self._param_dict
+            paramset = self._paramset
         except AttributeError:
             raise NotImplementedError("Class '{}' does not yet support saving".format(type(self)))
 
         date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        new_entry = '\n# Entry auto-created ' + date_str + '\n' + pdict.to_ini(name) + '\n'
+        new_entry = '\n# Entry auto-created ' + date_str + '\n' + paramset.to_ini(name) + '\n'
         old_fname = os.path.join(conf.user_conf_dir, 'instrumental.conf')
         new_fname = os.path.join(conf.user_conf_dir, 'instrumental_new.conf')
         bak_fname = os.path.join(conf.user_conf_dir, 'instrumental.conf.bak')
