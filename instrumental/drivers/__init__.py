@@ -8,7 +8,6 @@ import socket
 import logging as log
 from inspect import isfunction
 from importlib import import_module
-from collections import OrderedDict
 
 from past.builtins import basestring
 
@@ -97,10 +96,6 @@ class Params(object):
 
     def to_ini(self, name):
         return '{} = {}'.format(name, self._dict)
-
-
-
-
 
 
 class InstrumentMeta(abc.ABCMeta):
