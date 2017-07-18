@@ -11,8 +11,11 @@ import socket
 import logging as log
 from inspect import isfunction
 from importlib import import_module
+from collections import OrderedDict, Mapping
 
-from .. import conf
+from past.builtins import basestring
+
+from .. import conf, u, Q_
 from ..driver_info import driver_info
 from ..errors import (InstrumentTypeError, InstrumentNotFoundError, ConfigError,
                       InstrumentExistsError)
@@ -96,6 +99,180 @@ class ParamSet(object):
         return '{} = {}'.format(name, self._dict)
 
 
+class FacetInstance(object):
+    def __init__(self):
+        self.dirty = True
+        self.cached_val = None
+
+
+class Facet(object):
+    def __init__(self, fget=None, fset=None, doc=None, cached=True, type=None, units=None,
+                 value=None, limits=None, name=None):
+        if fget is not None:
+            self.name = fget.__name__
+
+        self.fget = fget
+        self.fset = fset
+
+        if doc is None and fget is not None:
+            doc = fget.__doc__
+        self.__doc__ = doc
+
+        self.cacheable = cached
+        self.type = type
+        self.units = None if units is None else u(units)
+        self.name = name  # This is auto-filled by InstrumentMeta.__new__ later
+        self._set_limits(limits)
+
+        if value is None:
+            self.values = None
+            self.in_map = None
+            self.out_map = None
+        elif isinstance(value, Mapping):
+            self.values = set(value)
+            self.in_map = value
+            self.out_map = {v:k for k,v in value.items()}
+        else:
+            self.values = set(value)
+            self.in_map = None
+            self.out_map = None
+
+    def _set_limits(self, limits):
+        if limits is None:
+            self.limits = (None, None, None)
+        elif len(limits) == 1:
+            self.limits = (0, limits[0], None)
+        elif len(limits) == 2:
+            self.limits = (limits[0], limits[1], None)
+        elif len(limits) == 3:
+            self.limits = (limits[0], limits[1], limits[2])
+        else:
+            raise ValueError("`limits` must be a sequence of length 1 to 3")
+
+    def instance(self, obj):
+        """Get the FacetInstance associated with `obj`"""
+        try:
+            return obj.__dict__[self.name]
+        except KeyError:
+            inst = FacetInstance()
+            obj.__dict__[self.name] = inst
+            return inst
+
+    def conv_in(self, value):
+        """Convert nice value to representation that fset takes"""
+        if isinstance(value, Q_):
+            value = value.magnitude
+        #if self.type is not None:
+        #    value = self.type(value)
+        if self.in_map:
+            value = self.in_map[value]
+        return value
+
+    def conv_out(self, value):
+        """Convert what fget returns to a nice output value"""
+        if self.out_map:
+            value = self.out_map[value]
+        if self.type is not None:
+            value = self.type(value)
+        if self.units is not None:
+            value = Q_(value, self.units)
+        return value
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return self.get_value(obj)
+
+    def get_value(self, obj, use_cache=True):
+        if self.fget is None:
+            raise AttributeError
+
+        instance = self.instance(obj)
+
+        if not (self.cacheable and use_cache) or instance.dirty:
+            log.info('Getting value of facet %s', self.name)
+            instance.cached_val = self.conv_out(self.fget(obj))
+            instance.dirty = False
+        else:
+            log.info('Using cached value of facet %s', self.name)
+
+        log.info('Facet value was %s', instance.cached_val)
+        return instance.cached_val
+
+    def __set__(self, obj, qty):
+        self.set_value(obj, qty)
+
+    def convert_input(self, value):
+        """Validate and convert an input value to its 'external' form"""
+        if self.units is not None:
+            q = Q_(value)
+            return Q_(self.convert_raw_input(q.magnitude), q.units)
+        else:
+            return self.convert_raw_input(value)
+
+    def convert_raw_input(self, input_value):
+        value = input_value if self.type is None else self.type(input_value)
+        return self.check_limits(value)
+
+    def check_limits(self, value):
+        start, stop, step = self.limits
+        if start is not None and value < start:
+            if self.units:
+                start = start * self.units
+            raise ValueError("Value below lower limit of {}".format(start))
+        if stop is not None and value > stop:
+            if self.units:
+                stop = stop * self.units
+            raise ValueError("Value above upper limit of {}".format(stop))
+
+        if step is not None:
+            offset = value - start
+            if offset % step != 0:
+                new_value = start + (offset // step) * step
+                log.info("Coercing value from %s to %s due to limit step", value, new_value)
+                return new_value
+
+        return value
+
+    def set_value(self, obj, value, use_cache=True):
+        if self.fset is None:
+            raise AttributeError
+
+        instance = self.instance(obj)
+
+        if not (self.cacheable and use_cache) or instance.cached_val != value:
+            log.info('Setting value of facet %s', self.name)
+            self.fset(obj, self.conv_in(value))
+        else:
+            log.info('Skipping set of facet %s, cached value matches', self.name)
+
+        instance.cached_val = value
+        log.info('Facet value is %s', value)
+
+    def __call__(self, fget):
+        return self.getter(fget)
+
+    def getter(self, fget):
+        self.fget = fget
+        return self
+
+    def setter(self, fset):
+        self.fset = fset
+        return self
+
+
+class AbstractFacet(Facet):
+    __isabstractmethod__ = True
+
+
+def SCPI_Facet(msg, convert=None, **kwds):
+    def fget(obj):
+        return convert(obj._inst.query(msg + '?'))
+    def fset(obj, value):
+        obj._inst.write('{} {}'.format(msg, value))
+    return Facet(fget, fset, **kwds)
+
+
 class InstrumentMeta(abc.ABCMeta):
     """Instrument metaclass.
 
@@ -108,7 +285,18 @@ class InstrumentMeta(abc.ABCMeta):
     specifying signatures for methods that are wrapped by a decorator.
     """
     def __new__(metacls, clsname, bases, classdict):
+        props = []
+        prop_funcs = {}
         for name, value in classdict.items():
+            if isinstance(value, Facet):
+                value.name = name
+                props.append(value)
+                if hasattr(value, 'fget'):
+                    classdict['get_' + name] = value.fget
+                if hasattr(value, 'fset'):
+                    classdict['set_' + name] = value.fset
+
+            # Docstring stuff
             if not name.startswith('_') and (isfunction(value) or isinstance(value, property)):
                 cur_doc = value.__doc__
                 if cur_doc is None or (cur_doc.startswith(name) and '\n' not in cur_doc):
@@ -129,6 +317,9 @@ class InstrumentMeta(abc.ABCMeta):
         if '__init__' in classdict:
             raise TypeError("Subclasses of Instrument may not reimplement __init__. You should "
                             "implement _initialize instead.")
+
+        classdict['_props'] = props
+        classdict['_prop_funcs'] = prop_funcs
         return super(InstrumentMeta, metacls).__new__(metacls, clsname, bases, classdict)
 
 
