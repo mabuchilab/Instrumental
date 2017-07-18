@@ -169,21 +169,9 @@ class Params(object):
                 self._dict[key] = value
 
 
-class _ParamDict(dict):
-    def __init__(self, name):
-        self.name = name
-        self['module'] = None
 
-    def __str__(self):
-        if self.name:
-            return self.name
-        return "<_ParamDict>"
 
-    def __repr__(self):
-        return self.__str__()
 
-    def to_ini(self, name):
-        return '{} = {}'.format(name, dict(self))
 
 
 class InstrumentMeta(abc.ABCMeta):
