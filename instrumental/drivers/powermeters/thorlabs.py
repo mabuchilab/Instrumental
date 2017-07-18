@@ -7,6 +7,7 @@ Driver module for Thorlabs power meters. Supports:
 """
 import numpy
 from . import PowerMeter
+from .. import SCPI_Facet
 from ... import Q_
 
 _INST_PARAMS = ['visa_address']
@@ -102,6 +103,11 @@ class PM100D(PowerMeter):
         """
         val = int(num_averaged)
         self._rsrc.write('sense:average:count {}'.format(val))
+
+    auto_range = SCPI_Facet('power:dc:range:auto', convert=int, value={False:0, True:1},
+                            doc="Whether auto-ranging is enabled")
+    wavelength = SCPI_Facet('sense:corr:wav', units='nm', convert=float, doc="Input signal wavelength")
+    num_averaged = SCPI_Facet('sense:average:count', convert=int, doc="Number of samples to average")
 
     def measure(self, n_samples=100):
         """Make a multi-sample power measurement
