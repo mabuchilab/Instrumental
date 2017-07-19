@@ -30,26 +30,19 @@ _legacy_params = {
 
 
 class Params(object):
-    def __init__(self, module_name=None, cls=None, **params):
+    def __init__(self, cls=None, **params):
         self._dict = params
-        self._cls = cls
 
-        if module_name:
-            submodule_name = module_name.split('instrumental.drivers.', 1)[-1]
+        if cls:
+            submodule_name = cls.__module__.split('instrumental.drivers.', 1)[-1]
             self._dict['module'] = submodule_name
-            self._dict['classname'] = self._cls.__name__
-
-    @staticmethod
-    def from_dict(data):
-        obj = Params()
-        obj._dict = data.copy()
-        return obj
+            self._dict['classname'] = cls.__name__
 
     def __repr__(self):
         param_str = ' '.join('{}={!r}'.format(k, v) for k,v in self._dict.items()
                              if k not in ('module', 'classname'))
-        if self._cls:
-            return "<Params[{}] {}>".format(self._cls.__name__, param_str)
+        if 'classname' in self._dict:
+            return "<Params[{}] {}>".format(self._dict['classname'], param_str)
         else:
             return "<Params {}>".format(param_str)
 
@@ -522,7 +515,7 @@ def _extract_params(inst, kwargs):
             raise Exception("Instrument with alias `{}` not ".format(name) +
                             "found in config file")
 
-    params = Params.from_dict(raw_params)  # Copy first to avoid modifying input dicts
+    params = Params(**raw_params)  # Copy first to avoid modifying input dicts
     params.update(kwargs)
     return params, alias
 
