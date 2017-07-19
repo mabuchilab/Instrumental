@@ -643,35 +643,6 @@ def find_matching_drivers(in_params):
     return matching_drivers
 
 
-# find_visa_instrument(params):
-#   if module given:
-#     if _instrument in module:
-#       open using _instrument() and return
-#     else:
-#       open visa_inst
-#       if classname not given:
-#         try:
-#           module, class = find_visa_module(visa_inst)
-#         except:
-#           close visa_inst
-#           raise exception(Couldn't find matching instrument given this module)
-#
-#       open directly using class and return
-#   else:
-#     open visa_inst
-#     try:
-#       module, class = find_visa_module(visa_inst)
-#     except:
-#       close visa_inst
-#       raise
-#
-#     import module
-#
-#     if _instrument in module:
-#       open using _instrument() and return
-#     else:
-#       open directly using class and return
-#
 def find_visa_instrument(params):
     import visa
     rm = visa.ResourceManager()
@@ -733,18 +704,6 @@ def find_visa_instrument_by_module(in_paramset):
     raise Exception("No instrument from driver {} detected".format(driver_name))
 
 
-# find_visa_module(visa_inst, module=None):
-#   modules = [module] if module else all-visa-drivers
-#   try to get idn
-#   if successful:
-#     for driver in visa drivers with manufac/model:
-#       return (driver, classname) if manufac/model match idn
-#
-#   for driver in visa drivers:
-#     return (driver, classname) if _check_visa_support returns them (catch exceptions?)
-#
-#   raise exception("No matching visa driver found")
-#
 def find_visa_driver_class(visa_inst, module=None):
     """Search for the appropriate VISA driver, returning (driver_module, classname)
 
@@ -789,23 +748,6 @@ def find_visa_driver_class(visa_inst, module=None):
     raise Exception("No matching VISA driver found")
 
 
-# find_nonvisa_instrument(params):
-#   if module given:
-#     if _instrument not in module:
-#       raise exception(Driver module is missing _instrument)
-#     else:
-#       open using _instrument()
-#   else:
-#     filter drivers by the given params
-#     if no such drivers:
-#       raise exception(No drivers found matching those params)
-#
-#     for each param-matching nonvisa driver module:
-#       try opening using _instrument()
-#       return if successful, else continue
-#     else:
-#       raise exception(No instrument matching these params was found)
-#
 def find_nonvisa_instrument(params):
     if 'module' in params:
         driver_module = import_driver(params['module'], raise_errors=True)
@@ -895,17 +837,6 @@ def find_full_params(normalized_params, driver_module):
             return inst_params
 
 
-# Pseudocode:
-#
-# Handle input params
-#
-# if 'server' in params:
-#   return remote instrument
-# elif 'visa_address' in params:
-#   return find_visa_instrument(params)
-# else:
-#   return find_nonvisa_instrument(params)
-#
 def instrument(inst=None, **kwargs):
     """
     Create any Instrumental instrument object from an alias, parameters,
