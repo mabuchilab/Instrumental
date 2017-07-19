@@ -34,7 +34,7 @@ def driver_submodule_name(full_module_name):
     return full_module_name.rsplit('instrumental.drivers.', 1)[-1]
 
 
-class Params(object):
+class ParamSet(object):
     def __init__(self, cls=None, **params):
         self._dict = params
 
@@ -47,9 +47,9 @@ class Params(object):
         param_str = ' '.join('{}={!r}'.format(k, v) for k,v in self._dict.items()
                              if k not in ('module', 'classname'))
         if 'classname' in self._dict:
-            return "<Params[{}] {}>".format(self._dict['classname'], param_str)
+            return "<ParamSet[{}] {}>".format(self._dict['classname'], param_str)
         else:
-            return "<Params {}>".format(param_str)
+            return "<ParamSet {}>".format(param_str)
 
     def create(self, **settings):
         if settings:
@@ -146,7 +146,7 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         obj = object.__new__(cls)  # Avoid our version of __new__
         for name, value in other_attrs.items():
             setattr(obj, name, value)
-        obj._paramset = Params(cls.__module__, cls, **paramset)
+        obj._paramset = ParamSet(cls.__module__, cls, **paramset)
         obj._fill_out_paramset()
 
         obj._before_init(paramset)
@@ -375,7 +375,7 @@ def gen_visa_instruments():
         try:
             driver_module, classname = find_visa_driver_class(visa_inst)
             cls = getattr(driver_module, classname)
-            params = Params(driver_module.__name__, cls, visa_address=addr)
+            params = ParamSet(driver_module.__name__, cls, visa_address=addr)
         except:
             continue
         else:
@@ -517,7 +517,7 @@ def _extract_params(inst, kwargs):
     alias = None
     if inst is None:
         raw_params = {}
-    elif isinstance(inst, Params):
+    elif isinstance(inst, ParamSet):
         raw_params = inst._dict
     elif isinstance(inst, dict):
         raw_params = inst
@@ -538,7 +538,7 @@ def _extract_params(inst, kwargs):
             raise Exception("Instrument with alias `{}` not ".format(name) +
                             "found in config file")
 
-    params = Params(**raw_params)  # Copy first to avoid modifying input dicts
+    params = ParamSet(**raw_params)  # Copy first to avoid modifying input dicts
     params.update(kwargs)
     return params, alias
 
@@ -815,7 +815,7 @@ def find_nonvisa_instrument(params):
 
         full_params = find_full_params(normalized_params, driver_module)
         if not full_params:
-            raise Exception("{} does not match any known Params from driver module "
+            raise Exception("{} does not match any known ParamSet from driver module "
                             "{}.".format(params, params['module']))
 
         classnames = driver_info[params['module']]['classes']
@@ -846,7 +846,7 @@ def find_nonvisa_instrument(params):
             else:
                 full_params = find_full_params(normalized_params, driver_module)
                 if not full_params:
-                    log.info("%s does not match any known Params from driver module %s",
+                    log.info("%s does not match any known ParamSet from driver module %s",
                              params, driver_name)
                     continue
 
