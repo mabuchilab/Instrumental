@@ -315,6 +315,21 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         conf.load_config_file()
 
 
+class VisaMixin(Instrument):
+    def write(self, message, *args, **kwds):
+        """Write `message` to the instrument's VISA resource"""
+        self._rsrc.write(message.format(*args, **kwds))
+
+    def query(self, message, *args, **kwds):
+        """Query the instrument's VISA resource with `message`"""
+        return self._rsrc.query(message.format(*args, **kwds))
+
+    @property
+    def resource(self):
+        """VISA resource"""
+        return self._rsrc
+
+
 def open_visa_inst(visa_address, raise_errors=False):
     """Try to open a visa instrument.
 
