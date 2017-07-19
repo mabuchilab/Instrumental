@@ -29,12 +29,16 @@ _legacy_params = {
 }
 
 
+def driver_submodule_name(full_module_name):
+    return full_module_name.rsplit('instrumental.drivers.', 1)[-1]
+
+
 class Params(object):
     def __init__(self, cls=None, **params):
         self._dict = params
 
         if cls:
-            submodule_name = cls.__module__.split('instrumental.drivers.', 1)[-1]
+            submodule_name = driver_submodule_name(cls.__module__)
             self._dict['module'] = submodule_name
             self._dict['classname'] = cls.__name__
 
