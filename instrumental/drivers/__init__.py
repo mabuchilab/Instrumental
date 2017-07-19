@@ -126,20 +126,8 @@ class InstrumentMeta(abc.ABCMeta):
 
         classdict['_instances'] = []
         if '__init__' in classdict:
-            original_init = classdict['__init__']
-
-            def __init__(self, paramset, *args, **kwds):
-                if self._init_nest_level == 0:
-                    Instrument._before_init(self, paramset, *args, **kwds)
-                paramset = self._paramset  # This should have been set by _before_init
-
-                self._init_nest_level += 1
-                original_init(self, paramset, *args, **kwds)
-                self._init_nest_level -= 1
-
-                if self._init_nest_level == 0:
-                    Instrument._after_init(self, paramset, *args, **kwds)
-            classdict['__init__'] = __init__
+            raise TypeError("Subclasses of Instrument may not reimplement __init__. You should "
+                            "implement _initialize instead.")
         return super(InstrumentMeta, metacls).__new__(metacls, clsname, bases, classdict)
 
 
@@ -151,24 +139,41 @@ class Instrument(object):
     _instruments_to_close = []
     _all_instances = {}
     _allow_sharing = False  # Should we allow returning existing instruments?
-    _init_nest_level = 0
 
-    def _before_init(self, paramset, *args, **kwds):
-        """Called just before __init__, with the same parameters"""
-        cls = self.__class__
-        _, _, self._driver_name = cls.__module__.rpartition('instrumental.drivers.')
+    @classmethod
+    def _create(cls, paramset, **other_attrs):
+        """Factory method meant to be used by `instrument()`"""
+        obj = object.__new__(cls)  # Avoid our version of __new__
+        for name, value in other_attrs.items():
+            setattr(obj, name, value)
+        obj._paramset = Params(cls.__module__, cls, **paramset)
+        obj._fill_out_paramset()
+
+        obj._before_init(paramset)
+        obj._initialize(**paramset.get('settings', {}))
+        obj._after_init()
+
+    def __new__(cls, inst=None, **kwds):
+        # TODO: Is there a more efficient way to implement this behavior?
+        kwds['module'] = driver_submodule_name(cls.__module__)
+        kwds['classname'] = cls.__name__
+        return instrument(inst, **kwds)
+
+    def _initialize(self, **settings):
+        pass
+
+    def _before_init(self):
+        """Called just before _init, with the same parameters"""
+        self._driver_name = driver_submodule_name(self.__class__.__module__)
         self._module = import_driver(self._driver_name)
-
-        self._paramset = Params(cls.__module__, cls, **paramset)
-        self._fill_out_paramset()
 
         if not self._allow_sharing:
             for open_inst in self._instances:
                 if self._paramset.matches(open_inst._paramset):
                     raise InstrumentExistsError("Device already open")
 
-    def _after_init(self, paramset, *args, **kwds):
-        """Called just after __init__, with the same parameters"""
+    def _after_init(self):
+        """Called just after _init, with the same parameters"""
         cls = self.__class__
 
         # Only add the instrument after init, to ensure it hasn't failed to open
@@ -696,11 +701,10 @@ def find_visa_instrument(params):
 def create_instrument(driver_module, classname, paramset, visa_inst=None):
     log.info("Creating instrument using default method")
     cls = getattr(driver_module, classname)
-    settings = paramset.get('settings', {})
     if visa_inst is not None:
-        return cls(paramset, visa_inst, **settings)
+        return cls._create(paramset, _rsrc=visa_inst)
     else:
-        return cls(paramset, **settings)
+        return cls._create(paramset)
 
 
 def find_visa_instrument_by_module(in_paramset):
