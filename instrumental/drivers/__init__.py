@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright 2013-2017 Nate Bogdanowicz
 
+from past.builtins import basestring
+from future.utils import with_metaclass
+
 import re
 import abc
 import atexit
@@ -8,8 +11,6 @@ import socket
 import logging as log
 from inspect import isfunction
 from importlib import import_module
-
-from past.builtins import basestring
 
 from .. import conf
 from ..driver_info import driver_info
@@ -131,11 +132,10 @@ class InstrumentMeta(abc.ABCMeta):
         return super(InstrumentMeta, metacls).__new__(metacls, clsname, bases, classdict)
 
 
-class Instrument(object):
+class Instrument(with_metaclass(InstrumentMeta, object)):
     """
     Base class for all instruments.
     """
-    __metaclass__ = InstrumentMeta
     _instruments_to_close = []
     _all_instances = {}
     _allow_sharing = False  # Should we allow returning existing instruments?
