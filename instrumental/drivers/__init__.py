@@ -492,8 +492,6 @@ def _extract_params(inst, kwargs):
     alias = None
     if inst is None:
         raw_params = {}
-    elif isinstance(inst, Instrument):
-        return inst
     elif isinstance(inst, Params):
         raw_params = inst._dict
     elif isinstance(inst, dict):
@@ -894,6 +892,8 @@ def instrument(inst=None, **kwargs):
     >>> inst3 = instrument({'visa_address': 'TCPIP:192.168.1.35::INSTR'})
     >>> inst4 = instrument(inst1)
     """
+    if isinstance(inst, Instrument):
+        return inst
     params, alias = _extract_params(inst, kwargs)
 
     if 'server' in params:
