@@ -13,7 +13,7 @@ from nicelib import NiceLib, NiceObjectDef, load_lib
 
 from . import Spectrometer
 from ..util import check_units, check_enums
-from .. import Params
+from .. import ParamSet
 from ...errors import Error
 from ... import Q_
 
@@ -45,7 +45,7 @@ def list_instruments():
     for spec in raw_spec_list:
         _, _, model, serial, _ = spec.split('::', 4)
         model = SpecTypes(int(model, 0))
-        paramsets.append(Params(__name__, CCS, usb=spec, serial=serial, model=model))
+        paramsets.append(ParamSet(__name__, CCS, usb=spec, serial=serial, model=model))
     return paramsets
 
 

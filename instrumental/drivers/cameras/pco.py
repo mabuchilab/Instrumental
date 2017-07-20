@@ -20,7 +20,7 @@ from nicelib import NiceLib, NiceObjectDef
 from ._pixelfly import errortext
 from . import Camera
 from ..util import as_enum, unit_mag, check_units
-from .. import Params
+from .. import ParamSet
 from ...errors import Error, TimeoutError
 from ... import Q_, u
 
@@ -667,8 +667,8 @@ def list_instruments():
             _cam.CloseCamera()
             break
         else:
-            paramset = Params(__name__, PCO_Camera, number=openStruct.wCameraNumber,
-                              interface=openStruct.wInterfaceType)
+            paramset = ParamSet(__name__, PCO_Camera, number=openStruct.wCameraNumber,
+                                interface=openStruct.wInterfaceType)
             paramsets.append(paramset)
             _cam.CloseCamera()
             prev_handle = hCam

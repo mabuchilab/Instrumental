@@ -15,7 +15,7 @@ from nicelib import NiceLib, NiceObjectDef, load_lib
 
 from ._pixelfly import errortext
 from . import Camera
-from .. import Params
+from .. import ParamSet
 from ..util import check_units
 from ...errors import Error, TimeoutError, LibError
 from ... import Q_, u
@@ -465,7 +465,7 @@ class Pixelfly(Camera):
 
 def list_instruments():
     board_nums = Pixelfly._list_boards()
-    return [Params(__name__, Pixelfly, number=n) for n in board_nums]
+    return [ParamSet(__name__, Pixelfly, number=n) for n in board_nums]
 
 
 def close_all():

@@ -13,7 +13,7 @@ import os.path
 from nicelib import NiceLib, NiceObjectDef
 from cffi import FFI
 from . import Motion
-from .. import Params
+from .. import ParamSet
 from ... import Q_, u
 from ...errors import Error
 from ..util import check_units, check_enums
@@ -50,7 +50,7 @@ lib = ffi.dlopen(lib_name)
 def list_instruments():
     NiceTDC001.BuildDeviceList()
     device_list = NiceTDC001.GetDeviceListByTypeExt(TDC001_TYPE).split(',')
-    return [Params(__name__, TDC001, serial=serial_str)
+    return [ParamSet(__name__, TDC001, serial=serial_str)
             for serial_str in device_list
             if serial_str and int(serial_str[:2]) == TDC001_TYPE]
 

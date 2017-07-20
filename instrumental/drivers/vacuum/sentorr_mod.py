@@ -13,7 +13,7 @@ import threading
 from serial import Serial
 from serial.threaded import ReaderThread, Packetizer
 
-from .. import Instrument, Params
+from .. import Instrument, ParamSet
 from ...errors import Error
 from ... import u
 
@@ -296,5 +296,5 @@ def list_instruments():
     # TODO: This just lists my one Arduino, but it'd be nice to have a better way of
     # IDing these if anyone else ever makes one.
     from serial.tools.list_ports import comports
-    return [Params(__name__, SenTorrMod, port=p.device) for p in comports()
+    return [ParamSet(__name__, SenTorrMod, port=p.device) for p in comports()
             if (p.vid, p.pid, p.serial_number) == (0x2A03, 0x0043, '8553130333135141A141')]

@@ -18,7 +18,7 @@ from nicelib import NiceLib, NiceObjectDef, load_lib
 
 from . import Camera
 from ..util import check_units
-from .. import Params
+from .. import ParamSet
 from ...errors import InstrumentNotFoundError, Error, TimeoutError, LibError
 from ... import Q_
 
@@ -345,7 +345,7 @@ def camera_info_list():
 
 
 def _cameras():
-    """Get a list of Params for all cameras currently attached"""
+    """Get a list of ParamSet for all cameras currently attached"""
     cam_list = camera_info_list()
     if not cam_list:
         return []
@@ -361,10 +361,10 @@ def _cameras():
 
     if not repeated:
         for info in cam_list:
-            params = Params(__name__, UC480_Camera,
-                            serial=ffi.string(info.SerNo),
-                            model=ffi.string(info.Model),
-                            id=int(info.dwCameraID))
+            params = ParamSet(__name__, UC480_Camera,
+                              serial=ffi.string(info.SerNo),
+                              model=ffi.string(info.Model),
+                              id=int(info.dwCameraID))
             cams.append(params)
 
     else:
@@ -395,7 +395,7 @@ def _cameras():
 
 def _get_legit_params(params):
     """
-    Get the Params of the camera that matches params. Useful for e.g.
+    Get the ParamSet of the camera that matches params. Useful for e.g.
     checking that a camera with the given id exists and for getting its serial
     and model numbers.
     """

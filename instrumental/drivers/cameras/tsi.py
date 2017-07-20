@@ -11,7 +11,7 @@ from cffi import FFI
 from enum import Enum
 from . import Camera
 from ..util import as_enum, unit_mag, check_units
-from .. import Params
+from .. import ParamSet
 from ...errors import Error, TimeoutError
 from ... import u
 
@@ -577,6 +577,6 @@ def list_instruments():
     cameras = []
     for i in range(sdk.GetNumberOfCameras()):
         cam_ser = sdk.GetCameraSerialNumStr(i)
-        params = Params(__name__, TSI_Camera, serial=cam_ser, number=i)
+        params = ParamSet(__name__, TSI_Camera, serial=cam_ser, number=i)
         cameras.append(params)
     return cameras

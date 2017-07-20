@@ -24,7 +24,7 @@ from enum import Enum
 from ctypes import (c_int32, c_bool, byref, create_string_buffer,
                     Structure, POINTER, oledll)
 from . import Motion
-from .. import Params
+from .. import ParamSet
 from ..util import check_units, check_enums
 from ...errors import InstrumentNotFoundError
 from ... import Q_
@@ -48,7 +48,7 @@ _err_map = {
 
 def list_instruments():
     _, info_list = check_for_devices()
-    return [Params(__name__, ECC100, id=info.id) for info in info_list]
+    return [ParamSet(__name__, ECC100, id=info.id) for info in info_list]
 
 
 def check_for_devices():

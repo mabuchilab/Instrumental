@@ -12,7 +12,7 @@ import os.path
 from cffi import FFI
 from nicelib import NiceLib, NiceObjectDef
 from . import Motion
-from .. import Params
+from .. import ParamSet
 from ... import Q_
 from ...errors import Error
 from ..util import check_units, check_enums
@@ -51,7 +51,7 @@ def list_instruments():
     NiceFF = NiceFilterFlipper
     NiceFF.BuildDeviceList()
     device_list = NiceFF.GetDeviceListByTypeExt(FILTER_FLIPPER_TYPE).split(',')
-    return [Params(__name__, Filter_Flipper, serial=serial_str)
+    return [ParamSet(__name__, Filter_Flipper, serial=serial_str)
             for serial_str in device_list
             if serial_str and int(serial_str[:2]) == FILTER_FLIPPER_TYPE]
 

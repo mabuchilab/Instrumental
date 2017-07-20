@@ -13,7 +13,7 @@ from nicelib import NiceLib, NiceObjectDef, load_lib
 from ... import Q_, u
 from ...errors import Error, TimeoutError
 from ..util import check_units, check_enums
-from .. import Params
+from .. import ParamSet
 from . import DAQ
 
 _INST_PARAMS = ['name', 'serial', 'model']
@@ -64,10 +64,10 @@ def list_instruments():
         if not dev_name:
             continue
 
-        paramset = Params(__name__, NIDAQ,
-                          name=dev_name,
-                          serial=NiceNI.GetDevSerialNum(dev_name),
-                          model=NiceNI.GetDevProductType(dev_name))
+        paramset = ParamSet(__name__, NIDAQ,
+                            name=dev_name,
+                            serial=NiceNI.GetDevSerialNum(dev_name),
+                            model=NiceNI.GetDevProductType(dev_name))
         paramsets.append(paramset)
     return paramsets
 

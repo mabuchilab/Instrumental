@@ -9,7 +9,7 @@ from enum import Enum
 from nicelib import NiceLib, NiceObjectDef, load_lib
 
 from . import Motion
-from .. import Params
+from .. import ParamSet
 from ..util import check_units
 from ... import u, Q_
 
@@ -65,7 +65,7 @@ MessageIDs = {
 def list_instruments():
     NiceKinesisISC.BuildDeviceList()
     serial_nums = NiceKinesisISC.GetDeviceListExt().split(',')
-    return [Params(__name__, K10CR1, serial=serial)
+    return [ParamSet(__name__, K10CR1, serial=serial)
             for serial in serial_nums
             if serial]
 

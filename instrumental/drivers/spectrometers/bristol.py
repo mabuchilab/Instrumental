@@ -12,7 +12,7 @@ import numpy as np
 from numpy.ctypeslib import ndpointer
 
 from . import Spectrometer
-from .. import Params
+from .. import ParamSet
 from ... import u
 
 _INST_PARAMS = ['port']
@@ -162,4 +162,4 @@ class Bristol_721(Spectrometer):
 
 def list_instruments():
     com_ports = [find_comm_port()]  # TODO: Add support for multiple connected devices
-    return [Params(__name__, Bristol_721, port=port) for port in com_ports]
+    return [ParamSet(__name__, Bristol_721, port=port) for port in com_ports]
