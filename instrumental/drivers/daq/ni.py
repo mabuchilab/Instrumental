@@ -132,6 +132,8 @@ class NiceNI(NiceLib):
         'GetReadRelativeTo': ('in', 'out'),
         'SetReadOverWrite': ('in', 'in'),
         'GetReadOverWrite': ('in', 'out'),
+        'GetAOUseOnlyOnBrdMem': ('in', 'in', 'out'),
+        'SetAOUseOnlyOnBrdMem': ('in', 'in', 'in')
     })
 
     Device = NiceObjectDef({
@@ -684,6 +686,9 @@ class MiniTask(object):
         self.chans.append(do_path)
         self._mx_task.CreateDOChan(do_path, '', Val.ChanForAllLines)
 
+    def set_AO_only_onboard_mem(self, channel, onboard_only):
+        self._mx_task.SetAOUseOnlyOnBrdMem(channel, onboard_only)
+
     @check_units(timeout='?s')
     def read_AI_scalar(self, timeout=None):
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
@@ -731,7 +736,7 @@ class MiniTask(object):
     @check_units(timeout='?s')
     def wait_until_done(self, timeout=None):
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
-        self._mx_task.WAitUntilTaskDone(timeout_s)
+        self._mx_task.WaitUntilTaskDone(timeout_s)
 
     def overwrite(self, overwrite):
         val = Val.OverwriteUnreadSamps if overwrite else Val.DoNotOverwriteUnreadSamps
@@ -743,6 +748,13 @@ class MiniTask(object):
 
     def offset(self, offset):
         self._mx_task.SetReadOffset(offset)
+
+    def write_AO_channels(self, data, timeout=-1.0, autostart=True):
+        if timeout != -1.0:
+            timeout = float(Q_(timeout).m_as('s'))
+        arr = np.concatenate([data[ao].m_as('V') for ao in self.AOs]).astype(np.float64)
+        n_samples = data.values()[0].magnitude.size
+        self._mx_task.WriteAnalogF64(n_samples, autostart, timeout, Val.GroupByChannel, arr)
 
 
 class Channel(object):
