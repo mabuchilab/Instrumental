@@ -58,8 +58,8 @@ class Mock(object):
 # Include ctypes due to Windows-specific imports
 MOCK_MODULES = ['numpy', 'numpy.ctypeslib','scipy', 'scipy.special', 'scipy.interpolate',
                 'scipy.optimize', 'matplotlib', 'matplotlib.pyplot', 'matplotlib.widgets',
-                'matplotlib.transforms', 'matplotlib.cbook', 'pint', 'PyDAQmx', 'ctypes',
-                'ctypes.wintypes', 'visa', 'cffi', 'nicelib']
+                'matplotlib.transforms', 'matplotlib.cbook', 'ctypes', 'ctypes.wintypes', 'visa',
+                'pyvisa', 'pyvisa.constants', 'cffi', 'nicelib', 'win32event']
 
 import sphinx.builders.linkcheck  # Force import before ctypes is mocked
 
