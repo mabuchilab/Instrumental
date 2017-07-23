@@ -1132,8 +1132,8 @@ class VirtualDigitalChannel(Channel):
 class NIDAQ(DAQ):
     mx = NiceNI
 
-    def __init__(self, paramset):
-        self.name = paramset['name']
+    def _initialize(self):
+        self.name = self._paramset['name']
         self._dev = self.mx.Device(self.name)
         self._load_analog_channels()
         self._load_internal_channels()

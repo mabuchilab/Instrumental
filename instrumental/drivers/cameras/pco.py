@@ -163,7 +163,7 @@ class PCO_Camera(Camera):
     DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
     DEFAULT_KWDS.update(trig='software', rising=True)
 
-    def __init__(self, paramset):
+    def _initialize(self):
         self.buffers = []
         self.queue = []
         self._partial_sequence = []
@@ -171,7 +171,7 @@ class PCO_Camera(Camera):
         self.shutter = None
         self._trig_mode = self.TriggerMode.software
 
-        self._open(paramset.get('cam_num', 0))
+        self._open(self._paramset.get('cam_num', 0))
         self._paramset['interface'] = self.interface_type
         self._paramset['number'] = self.cam_num
 

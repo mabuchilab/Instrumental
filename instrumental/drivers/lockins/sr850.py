@@ -278,7 +278,36 @@ class StatusByte(Enum):
 
 class SR850:
     """ Interfaces with the SRS model SR850 Lock-in Amplifier"""
-    def __init__(self, paramset, visa_inst, rs232=True):
+    AlarmMode = AlarmMode
+    ReferenceSource = ReferenceSource
+    SweepType = SweepType
+    ReferenceSlope = ReferenceSlope
+    InputConfiguration = InputConfiguration
+    CurrentGain = CurrentGain
+    InputGround = InputGround
+    InputCoupling = InputCoupling
+    LineFilter = LineFilter
+    Sensitivity = Sensitivity
+    ReserveMode = ReserveMode
+    TimeConstant = TimeConstant
+    LowPassSlope = LowPassSlope
+    SynchronousFilter = SynchronousFilter
+    Ch1OutputSource = Ch1OutputSource
+    Ch2OutputSource = Ch2OutputSource
+    OffsetSelector = OffsetSelector
+    Store = Store
+    Multiply = Multiply
+    Divide = Divide
+    ScanSampleRate = ScanSampleRate
+    ScanMode = ScanMode
+    TriggerStartScanMode = TriggerStartScanMode
+    OutputType = OutputType
+    TraceNumber = TraceNumber
+    AuxInput = AuxInput
+    Parameter = Parameter
+    StatusByte = StatusByte
+
+    def _initialize(self, rs232=True):
         """ Connects to SRS850
 
         Parameters
@@ -286,38 +315,9 @@ class SR850:
         rs232 : bool, optional
             Whether to use RS-232 or GPIB to communicate. Uses RS-232 by default
         """
-        self.AlarmMode = AlarmMode
-        self.ReferenceSource = ReferenceSource
-        self.SweepType = SweepType
-        self.ReferenceSlope = ReferenceSlope
-        self.InputConfiguration = InputConfiguration
-        self.CurrentGain = CurrentGain
-        self.InputGround = InputGround
-        self.InputCoupling = InputCoupling
-        self.LineFilter = LineFilter
-        self.Sensitivity = Sensitivity
-        self.ReserveMode = ReserveMode
-        self.TimeConstant = TimeConstant
-        self.LowPassSlope = LowPassSlope
-        self.SynchronousFilter = SynchronousFilter
-        self.Ch1OutputSource = Ch1OutputSource
-        self.Ch2OutputSource = Ch2OutputSource
-        self.OffsetSelector = OffsetSelector
-        self.Store = Store
-        self.Multiply = Multiply
-        self.Divide = Divide
-        self.ScanSampleRate = ScanSampleRate
-        self.ScanMode = ScanMode
-        self.TriggerStartScanMode = TriggerStartScanMode
-        self.OutputType = OutputType
-        self.TraceNumber = TraceNumber
-        self.AuxInput = AuxInput
-        self.Parameter = Parameter
-        self.StatusByte = StatusByte
 
-        self._inst = visa_inst
         self.set_output_interface(rs232)
-        self.ID = self._inst.query('*IDN?')
+        self.ID = self._rsrc.query('*IDN?')
         vendor, model, SN, version = self.ID.split(',')
         if model != 'SR850':
             raise InstrumentTypeError('Instrument not SR580')
@@ -329,7 +329,7 @@ class SR850:
         Set rs232_interface to False for GPIB
         """
         string = "OUTX {}".format((int(rs232_interface)+1)%2)
-        self._inst.write(string)
+        self._rsrc.write(string)
 
     @check_units(frequency='Hz')
     def set_reference_frequency(self, frequency):
@@ -591,7 +591,7 @@ class SR850:
         command_string = "OEXP {}, {}, {}"
         command_string = command_string.format(offset_selector.value,
                                                offset, int(expand))
-        val = self._inst.write(command_string)
+        val = self._rsrc.write(command_string)
         assert val == len(command_string)
 
     @check_enums(offset_selector=OffsetSelector)
@@ -600,7 +600,7 @@ class SR850:
 
         offset_selector should be of type OffsetSelector"""
         command_string = "OEXP? {}".format(offset_selector.value)
-        value = self._inst.query(command_string)
+        value = self._rsrc.query(command_string)
         offset, expand = value.split(',')
         return offset, expand
 
@@ -633,7 +633,7 @@ class SR850:
 
         command_string = command_string.format(trace, m1, m2,
                                                d, store)
-        self._inst.write(command_string)
+        self._rsrc.write(command_string)
 
     @check_enums(trace=TraceNumber)
     def get_trace_definitions(self, trace):
@@ -650,7 +650,7 @@ class SR850:
         store of type Store
         """
         command_string = "TRCD? {}".format(trace.value)
-        value = self._inst.query(command_string)
+        value = self._rsrc.query(command_string)
         m1, m2, d, store = value.split(',')
         m1 = Multiply(int(m1))
         m2 = Multiply(int(m2))
@@ -789,7 +789,7 @@ class SR850:
             else:
                 command_string = command_string + ',{}'.format(parameter.value)
             i = i + 1
-        value = self._inst.query(command_string)
+        value = self._rsrc.query(command_string)
         outputs = value.split(',')
         for i in range(len(outputs)):
             parameter = parameters[i]
@@ -835,30 +835,30 @@ class SR850:
                                                  points[0], points[1])
         if binary:
             self._send_command(command_string)
-            timeout = self._inst.timeout
-            read_termination = self._inst.read_termination
-            end_input = self._inst.end_input
+            timeout = self._rsrc.timeout
+            read_termination = self._rsrc.read_termination
+            end_input = self._rsrc.end_input
 
             #Factor of 2 is so that the transfer completes before timing out
-            self._inst.timeout = 2*BINARY_TIME_PER_POINT.to('ms').magnitude*points[1] + timeout
-            self._inst.read_termination = None
-            self._inst.end_input = visa.constants.SerialTermination.none
-            with self._inst.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
-                raw_binary, _ = self._inst.visalib.read(self._inst.session,
+            self._rsrc.timeout = 2*BINARY_TIME_PER_POINT.to('ms').magnitude*points[1] + timeout
+            self._rsrc.read_termination = None
+            self._rsrc.end_input = visa.constants.SerialTermination.none
+            with self._rsrc.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
+                raw_binary, _ = self._rsrc.visalib.read(self._rsrc.session,
                                                         points[1]*BYTES_PER_POINT)
             trace = fromstring(raw_binary, dtype=float32)
             trace = trace.astype(float)
-            self._inst.read_termination = read_termination
-            self._inst.end_input = end_input
-            self._inst.timeout = timeout
+            self._rsrc.read_termination = read_termination
+            self._rsrc.end_input = end_input
+            self._rsrc.timeout = timeout
         else:
-            timeout = self._inst.timeout
+            timeout = self._rsrc.timeout
 
             #Factor of 2 is so that the transfer completes before timing out
-            self._inst.timeout = 2*ASCII_TIME_PER_POINT.to('ms').magnitude*points[1] + timeout
-            value = self._inst.query(command_string)
+            self._rsrc.timeout = 2*ASCII_TIME_PER_POINT.to('ms').magnitude*points[1] + timeout
+            value = self._rsrc.query(command_string)
             trace = fromstring(value, sep=',')
-            self._inst.timeout = timeout
+            self._rsrc.timeout = timeout
         assert len(trace) == points[1]
         return Q_(trace, units)
 
@@ -897,7 +897,7 @@ class SR850:
     def _get(self, command_string, unit_string, QM=True):
         if QM:
             command_string = command_string + '?'
-        value = self._inst.query(command_string)
+        value = self._rsrc.query(command_string)
         return Q_(value, unit_string)
 
     def _set(self, command_string, unit_string, value):
@@ -920,11 +920,11 @@ class SR850:
         """ Returns a bool indicating the status byte indicated by status_byte,
         which should be a memeber of enumerator class StatusByte """
         command_string = "*STB? {}".format(status_byte.value)
-        value = self._inst.query(command_string)
+        value = self._rsrc.query(command_string)
         return bool(int(value))
 
     def _send_command(self, command_string):
-        self._inst.write(command_string)
+        self._rsrc.write(command_string)
 
     def close(self):
-        self._inst.close()
+        self._rsrc.close()

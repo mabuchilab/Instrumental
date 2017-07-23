@@ -105,8 +105,8 @@ class Pixelfly(Camera):
     _qe_low = load_qe_curve('QELow.tsv')
     _qe_vga = load_qe_curve('VGA.tsv')
 
-    def __init__(self, paramset):
-        number = paramset.get('number', 0)
+    def _initialize(self):
+        number = self._paramset.get('number', 0)
         self._dev = NicePixelfly.Board(number)
         self._cam_started = False
         self._mode_set = False

@@ -76,7 +76,7 @@ class TDC001(Motion):
     """
 
     @check_units(polling_period='ms')
-    def __init__(self, paramset, polling_period='200ms', allow_all_moves=True):
+    def _initialize(self, polling_period='200ms', allow_all_moves=True):
         """
         Parameters
         ----------
@@ -84,7 +84,7 @@ class TDC001(Motion):
         """
         self.SoftwareApproachPolicy = SoftwareApproachPolicy
         self.TravelMode = TravelMode
-        self.serial_number = paramset['serial']
+        self.serial_number = self._paramset['serial']
         self._NiceTDC = NiceTDC001.TDC001(self.serial_number)
 
         self._open()
@@ -108,7 +108,6 @@ class TDC001(Motion):
         return self._NiceTDC.Open()
 
     def close(self):
-        """Closes the connectin to the device"""
         return self._NiceTDC.Close()
 
     @check_units(polling_period = 'ms')

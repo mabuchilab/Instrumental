@@ -421,7 +421,7 @@ class UC480_Camera(Camera):
     DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
     DEFAULT_KWDS.update(vsub=1, hsub=1)
 
-    def __init__(self, paramset, **kwds):
+    def _initialize(self):
         """Create a UC480_Camera object.
 
         A camera can be identified by its id, serial number, or both. If no

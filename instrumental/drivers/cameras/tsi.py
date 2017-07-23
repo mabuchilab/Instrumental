@@ -370,7 +370,7 @@ class TSI_Camera(Camera):
         pulse
         """
 
-    def __init__(self, paramset):
+    def _initialize(self):
         sdk.GetNumberOfCameras()
         self._partial_sequence = []
         self._next_frame_idx = 0

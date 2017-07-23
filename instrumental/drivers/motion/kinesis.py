@@ -195,14 +195,11 @@ class K10CR1(Motion):
     GenericDCMotor = GenericDCMotor
 
     @check_units(polling_period='ms')
-    def __init__(self, paramset):
-        gear_box_ratio = paramset.get('gear_box_ratio', 120)
-        steps_per_rev = paramset.get('steps_per_rev', 200)
-        micro_steps_per_step = paramset.get('micro_steps_per_step', 2048)
-        polling_period = Q_(paramset.get('polling_period', '200ms')).to('ms')
-        offset = paramset.get('offset', '0 deg')
+    def _initialize(self, gear_box_ratio=120, steps_per_rev=200, micro_steps_per_step=2048,
+                    polling_period='200ms'):
+        offset = self._paramset.get('offset', '0 deg')
 
-        self.serial = paramset['serial']
+        self.serial = self._paramset['serial']
         self.offset = offset
         self._unit_scaling = (gear_box_ratio * micro_steps_per_step *
                               steps_per_rev / (360.0 * u.deg))

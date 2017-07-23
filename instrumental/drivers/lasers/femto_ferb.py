@@ -33,8 +33,7 @@ class FemtoFiber(Laser):
 
     Lasers can only be accessed by their serial port address.
     """
-    def __init__(self, paramset, visa_inst):
-        self._inst = visa_inst
+    def _initialize(self):
         self.set_control(True)
 
     def is_control_on(self):
@@ -137,8 +136,8 @@ class FemtoFiber(Laser):
         return self._set_emission(False)
 
     def _ask(self, message, return_error=False):
-        self._inst.ask(message)
-        message = self._inst.read(termination='\n')
+        self._rsrc.ask(message)
+        message = self._rsrc.read(termination='\n')
         if return_error:
             error = message
             if error == '0':
@@ -150,4 +149,4 @@ class FemtoFiber(Laser):
         """
         Closes the connection to the laser.
         """
-        self._inst.close()
+        self._rsrc.close()

@@ -132,14 +132,14 @@ class Filter_Flipper(Motion):
     with a default of 200ms
     """
     @check_units(polling_period='ms')
-    def __init__(self, paramset, polling_period='200ms'):
+    def _initialize(self, polling_period='200ms'):
         """
         Parameters
         ----------
         polling_period : pint Quantity with units of time
         """
         self.Position = Position
-        self.serial = paramset['serial']
+        self.serial = self._paramset['serial']
         self._NiceFF = NiceFilterFlipper.Flipper(self.serial)
 
         self._open()
