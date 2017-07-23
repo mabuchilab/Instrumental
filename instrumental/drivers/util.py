@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright 2015-2017 Nate Bogdanowicz
 """
-Helpful utilities for wrapping libraries in Python
+Helpful utilities for writing drivers.
 """
 import contextlib
 from inspect import getargspec
@@ -12,9 +12,11 @@ from past.builtins import basestring
 from . import decorator
 from .. import Q_, u
 
+__all__ = ['check_units', 'unit_mag', 'check_enums', 'as_enum', 'visa_timeout_context']
+
 
 def as_enum(enum_type, arg):
-    """Checks if arg is an instance or key of enum_type, and returns that enum"""
+    """Check if arg is an instance or key of enum_type, and return that enum"""
     if isinstance(arg, enum_type):
         return arg
     try:
@@ -24,7 +26,13 @@ def as_enum(enum_type, arg):
 
 
 def check_units(*pos, **named):
-    """Decorator to enforce the dimensionality of input args and return values
+    """Decorator to enforce the dimensionality of input args and return values.
+
+    Allows strings and anything that can be passed as a single arg to `pint.Quantity`.
+    ::
+        @check_units(value='V')
+        def set_voltage(value):
+            pass  # `value` will be a pint.Quantity with Volt-like units
     """
     def inout_map(arg, unit_info, name=None):
         if unit_info is None:
@@ -60,7 +68,14 @@ def check_units(*pos, **named):
 
 
 def unit_mag(*pos, **named):
-    """Decorator to extract the magnitudes of input args and return values
+    """Decorator to extract the magnitudes of input args and return values.
+
+    Allows strings and anything that can be passed as a single arg to `pint.Quantity`.
+    ::
+        @unit_mag(value='V')
+        def set_voltage(value):
+            pass  # The input must be in Volt-like units and `value` will be a raw number
+                  # expressing the magnitude in Volts
     """
     def in_map(arg, unit_info, name):
         if unit_info is None:
@@ -107,6 +122,14 @@ def unit_mag(*pos, **named):
 
 
 def check_enums(**kw_args):
+    """Decorator to type-check input arguments as enums.
+
+    Allows strings and anything that can be passed to `~instrumental.drivers.util.as_enum`.
+    ::
+        @check_enums(mode=SampleMode)
+        def set_mode(mode):
+            pass  # `mode` will be of type SampleMode
+    """
     def checker_factory(enum_type, arg_name):
         def checker(arg):
             return as_enum(enum_type, arg)
@@ -270,9 +293,13 @@ def _unit_decorator(in_map, out_map, pos_args, named_args):
 
 
 @contextlib.contextmanager
-def visa_timeout_context(visa_inst, timeout):
-    """Context manager for temporarily setting a visa instrument timeout"""
-    old_timeout = visa_inst.timeout
-    visa_inst.timeout = timeout
+def visa_timeout_context(resource, timeout):
+    """Context manager for temporarily setting a visa resource's timeout.
+    ::
+        with visa_timeout_context(rsrc, 100):
+             ...  # `rsrc` will have a timeout of 100 ms within this block
+    """
+    old_timeout = resource.timeout
+    resource.timeout = timeout
     yield
-    visa_inst.timeout = old_timeout
+    resource.timeout = old_timeout
