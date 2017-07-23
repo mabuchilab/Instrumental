@@ -41,14 +41,12 @@ average user can actually understand and do something with.
 
 Make units standard
 ~~~~~~~~~~~~~~~~~~~
-Units in scientific code can be a big issue. Look no further than the
-commonly-cited `Mars Climate Orbiter mishap`_. Instrumental incorporates
-unitful quantities using the very nice `Pint`_ module. While units are great,
+Units in scientific code can be a big issue. Instrumental incorporates
+unitful quantities using the very nice `Pint`_ package. While units are great,
 it can seem like extra work to start using them. Instrumental strives to use
 units everywhere to encourage their widespread use. Part of this is making
 units a joy to use with matplotlib.
 
-.. _Mars Climate Orbiter mishap: http://en.wikipedia.org/wiki/Mars_Climate_Orbiter
 .. _Pint: http://pint.readthedocs.org
 
 -------------------------------------------------------------------------------

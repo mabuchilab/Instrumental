@@ -5,6 +5,7 @@ API Documentation
     :maxdepth: 2
 
     drivers
+    driver-utils
     fitting
     plotting
     tools

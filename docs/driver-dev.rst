@@ -1,28 +1,54 @@
-:orphan:
+Writing Drivers
+===============
 
-Developing Drivers
-==================
-What we call a 'driver' in Instrumental is a high-level python interface to a hardware device.
-These can be implemented in a number of ways. Frequently they are python bindings to lower-level C
-hardware APIs, which can be simplified by using NiceLib. Another type of driver common to the lab
-is an interface to an instrument that uses VISA (or SCPI). In this case, we can use PyVISA to
-interface with the hardware, and focus on providing a high-level pythonic API.
+.. toctree::
+   :maxdepth: 2
+
+   self
+   visa-drivers
+   nicelib-drivers
+   integrating-drivers
+   driver-params
+
+-----------------------------------------------------------------------------------------------------
+
+.. contents::
+    :local:
+    :depth: 2
 
 
-Developing VISA Drivers
------------------------
-Since VISA uses a system-wide library to talk to a plethora of instruments, an Instrumental VISA
-driver should use Instrumental's system-wide functions. See existing VISA-based drivers for how this
-is done
+Overview
+--------
+An `Instrumental` *driver* is a high-level Python interface to a hardware device. These can be implemented in a number of ways, but usually fall into one of two categories: message-based drivers and foreign function interface (ffi)-based drivers.
+
+Many lab instruments--whether they use GPIB, RS-232, TCPIP, or USB--communicate using text-based messaging protocols. In this case, we can use `PyVISA`_ to interface with the hardware, and focus on providing a high-level pythonic API. See :doc:`visa-drivers` for more details.
+
+Otherwise, the instrument is likely controlled via a library which is designed to be used by an application written in C. In this case, we can use `NiceLib`_ to greatly simplify the wrapping of the library. See :doc:`nicelib-drivers` for more details.
+
+Generally a driver module should correspond to a single API/library which is being wrapped. For example, there are two separate drivers for Thorlabs cameras, `cameras.uc480` and `cameras.tsi`, each corresponding to a separate library.
+
+.. _PyVISA: https://pyvisa.readthedocs.io/
+.. _NiceLib: https://nicelib.readthedocs.io/
 
 
-Developing NiceLib Drivers
---------------------------
-If you need to wrap a library or SDK with a C-style interface (most DLLs), you will probably want to
-use NiceLib, which simplifies the process. You'll first write some code to generate mid-level
-bindings for the library, then write your high-level bindings as a separate class, which will
-inherit from the proper `Instrument` subclass. See the NiceLib documentation for details on how to
-use it, and check out other NiceLib-based drivers to see how to integrate with Instrumental.
+`Instrument` Goodies
+--------------------
+By subclassing `Instrument`, your class gets a number of features for free:
+
+- Auto-closing on program exit (just provide a `close()` method)
+- Saving of instruments via `save_instrument()`
+- A context manager which automatically closes the instrument
+
+
+Useful Utilities
+----------------
+Instrumental provides some commonly-used utilities for helping you to write drivers, including decorators and functions for helping to handle unitful arguments and enums. 
+
+.. autofunction:: instrumental.drivers.util.check_units
+.. autofunction:: instrumental.drivers.util.unit_mag
+.. autofunction:: instrumental.drivers.util.check_enums
+.. autofunction:: instrumental.drivers.util.as_enum
+.. autofunction:: instrumental.drivers.util.visa_timeout_context
 
 
 Driver Checklist
@@ -33,17 +59,13 @@ Instrumental:
 - Add documentation
 
   - Document methods using numpy-style docstrings
-
-    - Use Instrumental docstring style guide
-
   - Add extra docs to show common usage patterns, if applicable
+  - List dependencies following a template (both Python packages and external libraries)
 
 - Add supported device(s) to the list in ``overview.rst``
 - Add support for `instrument()`
 - Add support for `list_instruments()`
-- Add support for saving
 - Add a `close()` method if appropriate
-- Add context manager support if appropriate
 - Implement any required methods from the base class
 - Ensure Python 3 compatibility
 - Use Pint Units in your API

@@ -60,5 +60,6 @@ User Guide
    overview
    quickstart
    instruments
+   driver-dev
    api
    developer
