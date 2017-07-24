@@ -26,20 +26,18 @@ class TekScope(Scope):
     A base class for Tektronix scopes. Supports at least TDS 3000 series as
     well as MSO/DPO 4000 series scopes.
     """
-    def __init__(self, paramset, visa_inst):
-        self.inst = visa_inst
-
-        if self.inst.interface_type == InterfaceType.asrl:
-            terminator = self.inst.query('RS232:trans:term?').strip()
-            self.inst.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
-        elif self.inst.interface_type == InterfaceType.usb:
+    def _initialize(self):
+        if self._rsrc.interface_type == InterfaceType.asrl:
+            terminator = self._rsrc.query('RS232:trans:term?').strip()
+            self._rsrc.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
+        elif self._rsrc.interface_type == InterfaceType.usb:
             pass
-        elif self.inst.interface_type == InterfaceType.tcpip:
+        elif self._rsrc.interface_type == InterfaceType.tcpip:
             pass
         else:
             pass
 
-        self.inst.write("header OFF")
+        self._rsrc.write("header OFF")
 
     def get_data(self, channel=1):
         """Retrieve a trace from the scope.
@@ -58,7 +56,7 @@ class TekScope(Scope):
             Unitful arrays of data from the scope. ``t`` is in seconds, while
             ``y`` is in volts.
         """
-        inst = self.inst
+        inst = self._rsrc
 
         inst.write("data:source ch{}".format(channel))
         stop = int(inst.query("wfmpre:nr_pt?"))  # Get source's number of points
@@ -145,8 +143,8 @@ class TekScope(Scope):
             Number of the channel to measure.
         """
         prefix = 'measurement:meas{}'.format(num)
-        self.inst.write("{}:type {};source ch{}".format(prefix, mtype,
-                                                        channel))
+        self._rsrc.write("{}:type {};source ch{}".format(prefix, mtype,
+                                                         channel))
 
     def read_measurement_stats(self, num):
         """
@@ -173,11 +171,11 @@ class TekScope(Scope):
         # are they guaranteed to be taken from the same statistical set?
         # Perhaps we should stop_acquire(), then run_acquire()...
         keys = ['value', 'mean', 'stddev', 'minimum', 'maximum']
-        res = self.inst.query(prefix+':value?;mean?;stddev?;minimum?;maximum?;units?').split(';')
+        res = self._rsrc.query(prefix+':value?;mean?;stddev?;minimum?;maximum?;units?').split(';')
         units = res.pop(-1).strip('"')
         stats = {k: Q_(rval+units) for k, rval in zip(keys, res)}
 
-        num_samples = int(self.inst.query('measurement:statistics:weighting?'))
+        num_samples = int(self._rsrc.query('measurement:statistics:weighting?'))
         stats['nsamps'] = num_samples
         return stats
 
@@ -196,7 +194,7 @@ class TekScope(Scope):
         """
         prefix = 'measurement:meas{}'.format(num)
 
-        raw_value, raw_units = self.inst.query('{}:value?;units?'.format(prefix)).split(';')
+        raw_value, raw_units = self._rsrc.query('{}:value?;units?'.format(prefix)).split(';')
         units = raw_units.strip('"')
         return Q_(raw_value+units)
 
@@ -209,23 +207,23 @@ class TekScope(Scope):
             a string representing the MATH expression, using channel variables
             CH1, CH2, etc. eg. 'CH1/CH2+CH3'
         """
-        self.inst.write("math:type advanced")
-        self.inst.write('math:define "{}"'.format(expr))
+        self._rsrc.write("math:type advanced")
+        self._rsrc.write('math:define "{}"'.format(expr))
 
     def get_math_function(self):
-        return self.inst.query("math:define?").strip('"')
+        return self._rsrc.query("math:define?").strip('"')
 
     def run_acquire(self):
         """Sets the acquire state to 'run'"""
-        self.inst.write("acquire:state run")
+        self._rsrc.write("acquire:state run")
 
     def stop_acquire(self):
         """Sets the acquire state to 'stop'"""
-        self.inst.write("acquire:state stop")
+        self._rsrc.write("acquire:state stop")
 
     def are_measurement_stats_on(self):
         """Returns whether measurement statistics are currently enabled"""
-        res = self.inst.query("measu:statistics:mode?")
+        res = self._rsrc.query("measu:statistics:mode?")
         return res not in ['OFF', '0']
 
     def enable_measurement_stats(self, enable=True):
@@ -240,7 +238,7 @@ class TekScope(Scope):
             Whether measurement statistics should be enabled
         """
         # For some reason, the DPO 4034 uses ALL instead of ON
-        self.inst.write("measu:statistics:mode {}".format('ALL' if enable else 'OFF'))
+        self._rsrc.write("measu:statistics:mode {}".format('ALL' if enable else 'OFF'))
 
     def disable_measurement_stats(self):
         """Disables measurement statistics"""
@@ -254,7 +252,7 @@ class TekScope(Scope):
         nsamps : int
             Number of samples used to compute measurements
         """
-        self.inst.write("measu:stati:weighting {}".format(nsamps))
+        self._rsrc.write("measu:stati:weighting {}".format(nsamps))
 
 
 class TDS_200(TekScope):

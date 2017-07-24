@@ -26,12 +26,11 @@ class MultimeterError(Exception):
 
 
 class HPMultimeter(Multimeter):
-    def __init__(self, paramset, visa_inst):
-        self.inst = visa_inst
-        self.inst.write_termination = '\r\n'
+    def _initialize(self):
         self._meas_units = None
-        self.inst.write('system:remote')
-        self.inst.write('trig:count 512')
+        self._rsrc.write_termination = '\r\n'
+        self._rsrc.write('system:remote')
+        self._rsrc.write('trig:count 512')
 
     def _handle_err_info(self, err_info):
         code, msg = err_info.strip().split(',')
@@ -40,12 +39,12 @@ class HPMultimeter(Multimeter):
             raise MultimeterError(msg[1:-1])
 
     def _query(self, message):
-        resp, err_info = self.inst.query(message + ';:syst:err?').split(';')
+        resp, err_info = self._rsrc.query(message + ';:syst:err?').split(';')
         self._handle_err_info(err_info)
         return resp
 
     def _write(self, message):
-        err_info = self.inst.query(message + ';:syst:err?')
+        err_info = self._rsrc.query(message + ';:syst:err?')
         self._handle_err_info(err_info)
 
     def _make_rr_str(self, val):
@@ -102,7 +101,7 @@ class HPMultimeter(Multimeter):
         self._write('*TRG')
 
     def clear(self):
-        self.inst.write('\x03')
+        self._rsrc.write('\x03')
 
     @property
     def trigger_source(self):

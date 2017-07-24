@@ -124,19 +124,18 @@ def _check_visa_support(visa_inst):
 
 class WA_1000(Wavemeter):
     """A Burleigh WA-1000/1500 wavemeter"""
-    def __init__(self, paramset, visa_inst):
-        visa_inst.read_termination = '\r\n'
-        visa_inst.write_termination = '\r\n'
-        self._inst = visa_inst
+    def _initialize(self):
+        self._rsrc.read_termination = '\r\n'
+        self._rsrc.write_termination = '\r\n'
         self.reload_needed = False
 
         # Disable broadcast mode and clear the buffer
-        self._inst.query(_SET_QUERY)  # Use query to dump the response
-        self._inst.clear()
+        self._rsrc.query(_SET_QUERY)  # Use query to dump the response
+        self._rsrc.clear()
 
     def _load_state(self):
         """Query the meter and set self.(disp_str, disp_leds, sys_leds)"""
-        response = self._inst.query(_SET_QUERY)
+        response = self._rsrc.query(_SET_QUERY)
         self.disp_str, disp_leds, sys_leds = response.split(b',')
         self.disp_leds = int(disp_leds, 16)
         self.sys_leds = int(sys_leds, 16)
@@ -147,80 +146,80 @@ class WA_1000(Wavemeter):
             self._load_state()
 
     def _write_float(self, num):
-        self._inst.write(_BTN_CLEAR)
+        self._rsrc.write(_BTN_CLEAR)
 
         num_str = '{:.4f}'.format(float(num))
         for char in num_str:
-            self._inst.write(_CHAR_TO_BTN[char])
+            self._rsrc.write(_CHAR_TO_BTN[char])
 
             # Need to wait for button presses to register
             time.sleep(0.01)
 
-        self._inst.write(_BTN_ENTER)
+        self._rsrc.write(_BTN_ENTER)
 
     def _write_int(self, num):
-        self._inst.write(_BTN_CLEAR)
+        self._rsrc.write(_BTN_CLEAR)
 
         num_str = '{:d}'.format(int(num))
         for char in num_str:
-            self._inst.write(_CHAR_TO_BTN[char])
+            self._rsrc.write(_CHAR_TO_BTN[char])
 
             # Need to wait for button presses to register
             time.sleep(0.01)
 
-        self._inst.write(_BTN_ENTER)
+        self._rsrc.write(_BTN_ENTER)
 
     def _clear_sys_state(self):
         """Unset any system state that is selected"""
         if self.sys_leds & _MASK_DISPLAYING_STATES:
             cmd_byte = _SYS_MASK_TO_CMD[self.sys_leds & _MASK_DISPLAYING_STATES]
-            self._inst.write(cmd_byte)
+            self._rsrc.write(cmd_byte)
             self.reload_needed = True
 
     def _show_setpoint(self):
         if not (self.sys_leds & _MASK_SETPOINT):
-            self._inst.write(_BTN_SETPOINT)
+            self._rsrc.write(_BTN_SETPOINT)
             self.reload_needed = True
 
     def _show_num_averaged(self):
         if not (self.sys_leds & _MASK_NUM_AVERAGED):
-            self._inst.write(_BTN_NUM_AVERAGED)
+            self._rsrc.write(_BTN_NUM_AVERAGED)
             self.reload_needed = True
 
     def _show_temperature(self):
         if not (self.sys_leds & _MASK_TEMPERATURE):
-            self._inst.write(_BTN_TEMPERATURE)
+            self._rsrc.write(_BTN_TEMPERATURE)
             self.reload_needed = True
 
     def _show_pressure(self):
         if not (self.sys_leds & _MASK_PRESSURE):
-            self._inst.write(_BTN_PRESSURE)
+            self._rsrc.write(_BTN_PRESSURE)
             self.reload_needed = True
 
     def _toggle_to_wavelength(self):
         """Toggles the deviation/wavelength setting to wavelength"""
         if self.disp_leds & _MASK_DISPLAY_DEVIATION:
-            self._inst.write(_BTN_DISPLAY)
+            self._rsrc.write(_BTN_DISPLAY)
             self.reload_needed = True
 
     def _toggle_to_deviation(self):
         """Toggles the deviation/wavelength setting to deviation"""
         if self.disp_leds & _MASK_DISPLAY_WAVELENGTH:
-            self._inst.write(_BTN_DISPLAY)
+            self._rsrc.write(_BTN_DISPLAY)
             self.reload_needed = True
 
     def _toggle_units_to_nm(self):
         if self.disp_leds & _MASK_UNITS_WAVENUMBER:
-            self._inst.write(_BTN_UNITS)
-            self._inst.write(_BTN_UNITS)
+            self._rsrc.write(_BTN_UNITS)
+            self._rsrc.write(_BTN_UNITS)
             self.reload_needed = True
         elif self.disp_leds & _MASK_UNITS_GHZ:
-            self._inst.write(_BTN_UNITS)
+            self._rsrc.write(_BTN_UNITS)
             self.reload_needed = True
 
     def _toggle_medium_to_vacuum(self):
         if self.disp_leds & _MASK_MEDIUM_AIR:
-            self._inst.write(_BTN_MEDIUM)
+            self._rsrc.write(_BTN_MEDIUM)
             self.reload_needed = True
 
     def _handle_bad_disp_str(self):
@@ -363,7 +362,7 @@ class WA_1000(Wavemeter):
         """Enable averaging mode"""
         if not (enable == self.averaging_enabled()):
             self._clear_sys_state()
-            self._inst.write(_BTN_AVERAGING)
+            self._rsrc.write(_BTN_AVERAGING)
 
     def disable_averaging(self):
         """Disable averaging mode"""
@@ -422,7 +421,7 @@ class WA_1000(Wavemeter):
         wavemeter's front panel.
         """
         if not (lock == self.is_locked()):
-            self._inst.write(_BTN_REMOTE)
+            self._rsrc.write(_BTN_REMOTE)
 
     def unlock(self):
         """Unlock the front panel of the wavemeter, allowing manual input"""

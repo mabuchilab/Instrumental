@@ -153,19 +153,15 @@ class CCS(Spectrometer):
     the parameters 'ccs_usb_address', 'ccs_serial_number', or 'ccs_model'
     will also return a CCS instance (if successful).
     """
-    def __init__(self, paramset):
-        """
-        Create a spectrometer object by connecting to the spectrometer has the
-        serial number in spectrometer_attributes.
-        """
+    def _initialize(self):
         self.Status = Status
         self.ID_Info = ID_Info
         self.CorrectionType = CorrectionType
         self.Calibration = Calibration
         self.SpecTypes = SpecTypes
-        self._address = paramset['usb']
-        self._serial_number = paramset['serial']
-        self._model = paramset['model']
+        self._address = self._paramset['usb']
+        self._serial_number = self._paramset['serial']
+        self._model = self._paramset['model']
         self._background = np.zeros((NUM_RAW_PIXELS, 1))
         self._NiceCCSLib = NiceCCSLib
         self._open(self._address)
@@ -190,9 +186,7 @@ class CCS(Spectrometer):
         self._NiceCCS = self._NiceCCSLib.NiceCCS(handle)
 
     def close(self):
-        """
-        Closes the spectrometer.
-        """
+        """Close the spectrometer"""
         self._NiceCCS.close()
 
     def get_integration_time(self):

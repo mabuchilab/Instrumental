@@ -41,17 +41,16 @@ class Newport_1830_C(PowerMeter):
     MEDIUM_FILTER = 2
     NO_FILTER = 3
 
-    def __init__(self, paramset, visa_inst):
-        visa_inst.read_termination = '\n'
-        visa_inst.write_termination = '\n'
-        self._inst = visa_inst
+    def _initialize(self):
+        self._rsrc.read_termination = '\n'
+        self._rsrc.write_termination = '\n'
 
     def close(self):
         self.local_lockout = False
 
     def get_status_byte(self):
         """Query the status byte register and return it as an int"""
-        status = self._inst.query('Q?')
+        status = self._rsrc.query('Q?')
         return int(status)
 
     def get_power(self):
@@ -63,13 +62,13 @@ class Newport_1830_C(PowerMeter):
             Power in units of watts, regardless of the power meter's current
             'units' setting.
         """
-        original_units = self._inst.query('U?')
+        original_units = self._rsrc.query('U?')
         if original_units != '1':
-            self._inst.write('U1')  # Measure in watts
-            power = float(self._inst.query('D?'))
-            self._inst.write('U' + original_units)
+            self._rsrc.write('U1')  # Measure in watts
+            power = float(self._rsrc.query('D?'))
+            self._rsrc.write('U' + original_units)
         else:
-            power = float(self._inst.query('D?'))
+            power = float(self._rsrc.query('D?'))
 
         return Q_(power, 'watts')
 
@@ -97,7 +96,7 @@ class Newport_1830_C(PowerMeter):
         n : int
             Sets the signal range for the input signal.
         """
-        self._inst.write('R{}'.format(int(range_num)))
+        self._rsrc.write('R{}'.format(int(range_num)))
 
     def get_range(self):
         """Return the current range setting as an int
@@ -112,7 +111,7 @@ class Newport_1830_C(PowerMeter):
         range : int
             the current range setting. Possible values are from 1-8.
         """
-        val = self._inst.query("R?")
+        val = self._rsrc.query("R?")
         return int(val)
 
     def set_wavelength(self, wavelength):
@@ -124,16 +123,16 @@ class Newport_1830_C(PowerMeter):
             wavelength of the input signal, in units of [length]
         """
         wavelength = int(Q_(wavelength).to('nm').magnitude)
-        self._inst.write("W{}".format(wavelength))
+        self._rsrc.write("W{}".format(wavelength))
 
     def get_wavelength(self):
         """Get the input wavelength setting"""
-        val = int(self._inst.query("W?"))
+        val = int(self._rsrc.query("W?"))
         return Q_(val, 'nm')
 
     def enable_attenuator(self, enabled=True):
         """Enable the power meter attenuator"""
-        self._inst.write('A{}'.format(int(enabled)))
+        self._rsrc.write('A{}'.format(int(enabled)))
 
     def disable_attenuator(self):
         """Disable the power meter attenuator"""
@@ -147,7 +146,7 @@ class Newport_1830_C(PowerMeter):
         enabled : bool
             whether the attenuator is enabled
         """
-        val = self._inst.write('A?')
+        val = self._rsrc.write('A?')
         return bool(val)
 
     def set_slow_filter(self):
@@ -155,18 +154,18 @@ class Newport_1830_C(PowerMeter):
 
         The slow filter uses a 16-measurement running average.
         """
-        self._inst.write('F1')
+        self._rsrc.write('F1')
 
     def set_medium_filter(self):
         """Set the averaging filter to medium mode
 
         The medium filter uses a 4-measurement running average.
         """
-        self._inst.write('F2')
+        self._rsrc.write('F2')
 
     def set_no_filter(self):
         """Set the averaging filter to fast mode, i.e. no averaging"""
-        self._inst.write('F3')
+        self._rsrc.write('F3')
 
     def get_filter(self):
         """Get the current setting for the averaging filter
@@ -176,12 +175,12 @@ class Newport_1830_C(PowerMeter):
         SLOW_FILTER, MEDIUM_FILTER, NO_FILTER
             the current averaging filter
         """
-        val = self._inst.query("F?")
+        val = self._rsrc.query("F?")
         return int(val)
 
     def enable_hold(self, enable=True):
         """Enable hold mode"""
-        self._inst.write('G{}'.format(int(not enable)))
+        self._rsrc.write('G{}'.format(int(not enable)))
 
     def disable_hold(self):
         """Disable hold mode"""
@@ -195,7 +194,7 @@ class Newport_1830_C(PowerMeter):
         enabled : bool
             True if in hold mode, False if in run mode
         """
-        val = int(self._inst.query('G?'))
+        val = int(self._rsrc.query('G?'))
         return (val == 0)
 
     def is_measurement_valid(self):
@@ -217,7 +216,7 @@ class Newport_1830_C(PowerMeter):
         Sets the current power measurement as the reference power for future dB
         or relative measurements.
         """
-        self._inst.write('S')
+        self._rsrc.write('S')
 
     def enable_zero(self, enable=True):
         """Enable the zero function
@@ -225,7 +224,7 @@ class Newport_1830_C(PowerMeter):
         When enabled, the next power reading is stored as a background value
         and is subtracted off of all subsequent power readings.
         """
-        self._inst.write("Z{}".format(int(enable)))
+        self._rsrc.write("Z{}".format(int(enable)))
 
     def disable_zero(self):
         """Disable the zero function"""
@@ -233,7 +232,7 @@ class Newport_1830_C(PowerMeter):
 
     def zero_enabled(self):
         """Whether the zero function is enabled"""
-        val = int(self._inst.query('Z?'))  # Need to cast to int first
+        val = int(self._rsrc.query('Z?'))  # Need to cast to int first
         return bool(val)
 
     def set_units(self, units):
@@ -266,7 +265,7 @@ class Newport_1830_C(PowerMeter):
         if units not in valid_units:
             raise Exception("`units` must be one of 'watts', 'dbm', 'db', or 'rel")
 
-        self._inst.write('U{}'.format(valid_units[units]))
+        self._rsrc.write('U{}'.format(valid_units[units]))
 
     def get_units(self):
         """Get the units used for displaying power measurements
@@ -276,18 +275,18 @@ class Newport_1830_C(PowerMeter):
         units : str
             'watts', 'db', 'dbm', or 'rel'
         """
-        val = int(self._inst.query('U?'))
+        val = int(self._rsrc.query('U?'))
         units = {1: 'watts', 2: 'db', 3: 'dbm', 4: 'rel'}
         return units[val]
 
     @property
     def local_lockout(self):
         """Whether local-lockout is enabled"""
-        return bool(self._inst.query('L?'))
+        return bool(self._rsrc.query('L?'))
 
     @local_lockout.setter
     def local_lockout(self, enable):
-        self._inst.write("L{}".format(int(enable)))
+        self._rsrc.write("L{}".format(int(enable)))
 
     range = property(get_range, set_range)
     wavelength = property(get_wavelength, set_wavelength)

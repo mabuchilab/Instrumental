@@ -96,8 +96,8 @@ def bin_index(fft_size, dec, fold, lamb):
 
 
 class Bristol_721(Spectrometer):
-    def __init__(self, paramset):
-        self._com_port = paramset.get('port') or find_comm_port()
+    def _initialize(self):
+        self._com_port = self._paramset.get('port') or find_comm_port()
         self._dll = bristol_dll
         self._lv = bristol_lv_dll
         self._handle = open_device(self._com_port)

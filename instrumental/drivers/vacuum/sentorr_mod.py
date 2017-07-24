@@ -173,7 +173,7 @@ class LEDDriver(object):
 
 
 class SenTorrMod(Instrument):
-    def __init__(self, paramset):
+    def _initialize(self):
         self._rlock = threading.RLock()
         self._driver_A = LEDDriver()
         self._driver_B = LEDDriver()
@@ -181,7 +181,7 @@ class SenTorrMod(Instrument):
         self._driver_A.decoders[Address.Digit1] = LEDDriver.decode_digit
         self._driver_A.decoders[Address.Digit2] = sign_map.__getitem__
         self._driver_A.decoders[Address.Digit3] = LEDDriver.decode_digit
-        self._ser = Serial(paramset['port'], timeout=1.0)
+        self._ser = Serial(self._paramset['port'], timeout=1.0)
         self._thread = None
 
     def close(self):
