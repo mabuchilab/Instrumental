@@ -654,12 +654,12 @@ class MiniTask(object):
 
     def __exit__(self, type, value, traceback):
         try:
-            self._mx_task.StopTask()
+            self.stop()
         except:
             if value is None:
                 raise  # Only raise new error from StopTask if we started with one
         finally:
-            self._mx_task.ClearTask()  # Always clean up our memory
+            self.clear()  # Always clean up our memory
 
     @check_enums(mode=SampleMode, edge=EdgeSlope)
     @check_units(fsamp='Hz')
@@ -700,6 +700,9 @@ class MiniTask(object):
 
     def stop(self):
         self._mx_task.StopTask()
+
+    def clear(self):
+        self._mx_task.ClearTask()
 
     @check_enums(term_cfg=TerminalConfig)
     @check_units(vmin='?V', vmax='?V')
