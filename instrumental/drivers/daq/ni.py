@@ -424,7 +424,8 @@ def num_not_none(*args):
 
 
 class Task(object):
-    """
+    """A high-level task that can synchronize use of multiple channel types.
+
     Note that true DAQmx tasks can only include one type of channel (e.g. AI).
     To run multiple synchronized reads/writes, we need to make one MiniTask for
     each type, then use the same sample clock for each.
@@ -540,32 +541,68 @@ class Task(object):
         # self.write_CO_channels()
 
     def verify(self):
+        """Verify the Task.
+
+        This transitions all subtasks to the `verified` state. See the NI documentation for details
+        on the Task State model.
+        """
         for mtask in self._mtasks.values():
             mtask.verify()
 
     def reserve(self):
+        """Reserve the Task.
+
+        This transitions all subtasks to the `reserved` state. See the NI documentation for details
+        on the Task State model.
+        """
         for mtask in self._mtasks.values():
             mtask.reserve()
 
     def unreserve(self):
+        """Unreserve the Task.
+
+        This transitions all subtasks to the `verified` state. See the NI documentation for details
+        on the Task State model.
+        """
         for mtask in self._mtasks.values():
             mtask.unreserve()
 
     def abort(self):
+        """Abort the Task.
+
+        This transitions all subtasks to the `verified` state. See the NI documentation for details
+        on the Task State model.
+        """
         for mtask in self._mtasks.values():
             mtask.abort()
 
     def commit(self):
+        """Commit the Task.
+
+        This transitions all subtasks to the `committed` state. See the NI documentation for details
+        on the Task State model.
+        """
         for mtask in self._mtasks.values():
             mtask.commit()
 
     def start(self):
+        """Start the Task.
+
+        This transitions all subtasks to the `running` state. See the NI documentation for details
+        on the Task State model.
+        """
         for ch_type, mtask in self._mtasks.items():
             if ch_type != self.master_type:
                 mtask.start()
         self._mtasks[self.master_type].start()  # Start the master last
 
     def stop(self):
+        """Stop the Task and return it to the state it was in before it started.
+
+        This transitions all subtasks to the state they in were before they were started, either due
+        to an explicit `start()` or a call to `write()` with `autostart` set to True. See the NI
+        documentation for details on the Task State model.
+        """
         self._mtasks[self.master_type].stop()  # Stop the master first
         for ch_type, mtask in self._mtasks.items():
             if ch_type != self.master_type:
