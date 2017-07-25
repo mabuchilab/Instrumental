@@ -511,7 +511,7 @@ class Task(object):
         if not self._trig_set_up:
             self._setup_triggers()
 
-        self.write(write_data)
+        self.write(write_data, autostart=False)
         self.start()
         read_data = self.read()
         self.stop()
@@ -524,7 +524,7 @@ class Task(object):
         read_data = self._read_AI_channels(timeout_s)
         return read_data
 
-    def write(self, write_data):
+    def write(self, write_data, autostart=True):
         """Write data to the output channels"""
         # Need to make sure we get data array for each output channel (AO, DO, CO...)
         for ch_name, ch in self.channels.items():
@@ -536,7 +536,7 @@ class Task(object):
                                      .format(ch_name))
 
         # Then set up writes for each channel, don't auto-start
-        self._write_AO_channels(write_data)
+        self._write_AO_channels(write_data, autostart=autostart)
         # self.write_DO_channels()
         # self.write_CO_channels()
 
