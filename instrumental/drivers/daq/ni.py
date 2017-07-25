@@ -659,6 +659,9 @@ class Task(object):
         finally:
             self.clear()  # Always clean up our memory
 
+    def __del__(self):
+        self.clear()
+
 
 class MiniTask(object):
     def __init__(self, daq):
