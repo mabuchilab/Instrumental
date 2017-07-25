@@ -608,6 +608,14 @@ class Task(object):
             if ch_type != self.master_type:
                 mtask.stop()
 
+    def clear(self):
+        """Clear the task and release its resources.
+
+        This clears all subtasks and releases their resources, aborting them first if necessary.
+        """
+        for mtask in self._mtasks.values():
+            mtask.clear()
+
     def _read_AI_channels(self, timeout_s):
         """ Returns a dict containing the AI buffers. """
         is_scalar = self.fsamp is None
@@ -638,6 +646,18 @@ class Task(object):
         arr = arr.astype(np.float64)
         n_samps_per_chan = list(data.values())[0].magnitude.size
         mx_task.WriteAnalogF64(n_samps_per_chan, False, -1., Val.GroupByChannel, arr)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        try:
+            self.stop()
+        except:
+            if value is None:
+                raise  # Only raise new error from StopTask if we started with one
+        finally:
+            self.clear()  # Always clean up our memory
 
 
 class MiniTask(object):
