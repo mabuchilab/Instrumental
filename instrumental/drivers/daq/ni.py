@@ -1303,18 +1303,18 @@ class VirtualDigitalChannel(Channel):
     def _parse_DI_int(self, value):
         if self.num_lines == 1:
             return bool(value)
-        else:
-            port_bytes = {}
-            for i, port_name in enumerate(self.ports):
-                byte = ((0xFF << 8*i) & value) >> 8*i
-                port_bytes[port_name] = byte
 
-            out = 0
-            for i, (port_name, line_name) in enumerate(self.line_pairs):
-                line_num = int(line_name.replace('line', ''))
-                byte = port_bytes[port_name]
-                out += ((byte & (1 << line_num)) >> line_num) << i
-            return out
+        port_bytes = {}
+        for i, port_name in enumerate(self.ports):
+            port_byte = ((0xFF << 8*i) & value) >> 8*i
+            port_bytes[port_name] = int(port_byte)
+
+        out = 0
+        for i, (port_name, line_name) in enumerate(self.line_pairs):
+            line_num = int(line_name.replace('line', ''))
+            port_byte = port_bytes[port_name]
+            out += ((port_byte & (1 << line_num)) >> line_num) << i
+        return out
 
     @check_units(duration='?s', fsamp='?Hz')
     def read(self, duration=None, fsamp=None, n_samples=None):
