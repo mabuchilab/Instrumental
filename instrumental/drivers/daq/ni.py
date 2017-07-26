@@ -739,27 +739,34 @@ class MiniTask(object):
 
     @check_enums(term_cfg=TerminalConfig)
     @check_units(vmin='?V', vmax='?V')
-    def add_AI_channel(self, ai_path, term_cfg='default', vmin=None, vmax=None):
-        self.AIs.append(ai_path)
+    def add_AI_channel(self, ai, term_cfg='default', vmin=None, vmax=None):
         self._assert_io_type('AI')
+        ai_path = ai if isinstance(ai, basestring) else ai.path
+        self.chans.append(ai_path)
         default_min, default_max = self.daq._max_AI_range()
         vmin = default_min if vmin is None else vmin
         vmax = default_max if vmax is None else vmax
         self._mx_task.CreateAIVoltageChan(ai_path, '', term_cfg.value, vmin.m_as('V'),
                                           vmax.m_as('V'), Val.Volts, '')
 
-    def add_AO_channel(self, ao_path):
-        self.AOs.append(ao_path)
+    def add_AO_channel(self, ao):
         self._assert_io_type('AO')
+        ao_path = ao if isinstance(ao, basestring) else ao.path
+        self.chans.append(ao_path)
         min, max = self.daq._max_AI_range()
         self._mx_task.CreateAOVoltageChan(ao_path, '', min.m_as('V'), max.m_as('V'), Val.Volts, '')
 
-    def add_DI_channel(self, di_path):
-        self._mx_task.CreateDIChan(di_path, '', Val.ChanForAllLines)
+    def add_DI_channel(self, di, split_lines=False):
         self._assert_io_type('DI')
+        di_path = di if isinstance(di, basestring) else di.path
+        chan_paths = di_path.split(',') if split_lines else (di_path,)
+        for chan_path in chan_paths:
+            self.chans.append(chan_path)
+            self._mx_task.CreateDIChan(chan_path, '', Val.ChanForAllLines)
 
-    def add_DO_channel(self, do_path):
+    def add_DO_channel(self, do):
         self._assert_io_type('DO')
+        do_path = do if isinstance(do, basestring) else do.path
         self.chans.append(do_path)
         self._mx_task.CreateDOChan(do_path, '', Val.ChanForAllLines)
 
@@ -781,14 +788,14 @@ class MiniTask(object):
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
 
         if samples == -1:
-            buf_size = self._mx_task.GetBufInputBufSize() * len(self.AIs)
+            buf_size = self._mx_task.GetBufInputBufSize() * len(self.chans)
         else:
-            buf_size = samples * len(self.AIs)
+            buf_size = samples * len(self.chans)
 
         data, n_samples_read = self._mx_task.ReadAnalogF64(samples, timeout_s, Val.GroupByChannel,
                                                            buf_size)
         res = {}
-        for i, ch_name in enumerate(self.AIs):
+        for i, ch_name in enumerate(self.chans):
             start = i * n_samples_read
             stop = (i+1) * n_samples_read
             res[ch_name] = Q_(data[start:stop], 'V')
@@ -840,7 +847,14 @@ class MiniTask(object):
 
 
 class Channel(object):
-    pass
+    def __hash__(self):
+        return hash(self.path)
+
+    def __eq__(self, other):
+        if isinstance(other, Channel):
+            return self.path == other.path
+        else:
+            return self.path == other
 
 
 class AnalogIn(Channel):
@@ -883,8 +897,8 @@ class AnalogIn(Channel):
         data : scalar or array Quantity
             The data that was read from analog input.
         """
-            mtask.add_AI_channel(self.path, vmin=vmin, vmax=vmax)
         with self.daq._create_mini_task('AI') as mtask:
+            mtask.add_AI_channel(self, vmin=vmin, vmax=vmax)
 
             num_args_specified = num_not_none(duration, fsamp, n_samples)
             if num_args_specified == 0:
@@ -903,8 +917,8 @@ class AnalogIn(Channel):
 
     def start_reading(self, fsamp=None, vmin=None, vmax=None, overwrite=False,
                       relative_to=RelativeTo.CurrReadPos, offset=0, buf_size=10):
-        mtask.add_AI_channel(self.path, vmin=vmin, vmax=vmax)
         self._mtask = mtask = self.daq._create_mini_task('AI')
+        mtask.add_AI_channel(self, vmin=vmin, vmax=vmax)
         mtask.config_timing(fsamp, buf_size, mode=SampleMode.continuous)
         mtask.overwrite(overwrite)
         mtask.relative_to(relative_to)
@@ -1039,16 +1053,16 @@ class AnalogOut(Channel):
 
         fsamp, n_samples = handle_timing_params(duration, fsamp, len(data))
 
-            mtask.add_AO_channel(self.path)
         with self.daq._create_mini_task('AO') as mtask:
+            mtask.add_AO_channel(self)
             mtask.set_AO_only_onboard_mem(self.path, onboard)
             mtask.config_timing(fsamp, n_samples)
             mtask.write_AO_channels({self.path: data})
             mtask.wait_until_done()
 
     def _write_scalar(self, value):
-            mtask.add_AO_channel(self.path)
         with self.daq._create_mini_task('AO') as mtask:
+            mtask.add_AO_channel(self)
             mtask.write_AO_scalar(value)
 
 
@@ -1108,7 +1122,8 @@ class VirtualDigitalChannel(Channel):
         name = name.replace('.0:7', '')
         return name[1:]
 
-    def _get_name(self):
+    @property
+    def path(self):
         """Get DAQmx-style name of this channel"""
         return ','.join([self._get_line_path(pair) for pair in self.line_pairs])
 
@@ -1169,10 +1184,10 @@ class VirtualDigitalChannel(Channel):
             return out
 
     def read(self):
-            t.add_DI_channel(self._get_name())
             data = t.read_DI_scalar()
         return self._parse_DI_int(data)
         with self.daq._create_mini_task('DI') as t:
+            t.add_DI_channel(self)
 
     def write(self, value):
         """Write a value to the digital output channel
@@ -1235,9 +1250,9 @@ class VirtualDigitalChannel(Channel):
             duration = (reps or 1)*len(data)/fsamp
         fsamp, n_samples = handle_timing_params(duration, fsamp, len(data))
 
-            t.add_DO_channel(self._get_name())
-            t.set_DO_only_onboard_mem(self._get_name(), onboard)
         with self.daq._create_mini_task('DO') as t:
+            t.add_DO_channel(self)
+            t.set_DO_only_onboard_mem(self.path, onboard)
             t.config_timing(fsamp, n_samples, clock=clock)
             t.write_DO_channels({self.name: data}, [self])
             t.t.WaitUntilTaskDone(-1)
