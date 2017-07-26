@@ -12,7 +12,7 @@ from nicelib import NiceLib, NiceObjectDef, load_lib
 
 from ... import Q_, u
 from ...errors import Error, InstrumentTypeError, TimeoutError
-from ..util import check_units, check_enums
+from ..util import check_units, check_enums, as_enum
 from .. import _ParamDict
 from . import DAQ
 
@@ -703,6 +703,32 @@ class Task(object):
         self.clear()
 
 
+def mk_property(name, conv_in, conv_out, doc=None):
+    getter_name = 'Get' + name
+    setter_name = 'Set' + name
+
+    def fget(mtask):
+        getter = getattr(mtask._mx_task, getter_name)
+        return conv_out(getter())
+
+    def fset(mtask, value):
+        setter = getattr(mtask._mx_task, setter_name)
+        setter(conv_in(value))
+
+    return property(fget, fset, doc=doc)
+
+
+def enum_property(name, enum_type, doc=None):
+    return mk_property(name,
+                       conv_in=lambda x: as_enum(enum_type, x).value,
+                       conv_out=enum_type,
+                       doc=doc)
+
+
+def int_property(name, doc=None):
+    return mk_property(name, conv_in=int, conv_out=int, doc=doc)
+
+
 class MiniTask(object):
     def __init__(self, daq, io_type):
         self.daq = daq
@@ -723,6 +749,17 @@ class MiniTask(object):
                 raise  # Only raise new error from StopTask if we started with one
         finally:
             self.clear()  # Always clean up our memory
+
+    sample_timing_type = enum_property('SampTimingType', SampleTiming)
+    sample_mode = enum_property('SampQuantSampMode', SampleMode)
+    samples_per_channel = int_property('SampQuantSampPerChan')
+    input_buf_size = int_property('BufInputBufSize')
+    output_buf_size = int_property('BufOutputBufSize')
+    output_onboard_buf_size = int_property('BufOutputOnbrdBufSize')
+
+    @property
+    def input_onboard_buf_size(self):
+        return self._mx_task.GetBufInputOnbrdBufSize()
 
     @check_enums(mode=SampleMode, edge=EdgeSlope)
     @check_units(fsamp='Hz')
