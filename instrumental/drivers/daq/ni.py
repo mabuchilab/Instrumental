@@ -21,6 +21,24 @@ __all__ = ['NIDAQ', 'AnalogIn', 'AnalogOut', 'VirtualDigitalChannel', 'SampleMod
            'TerminalConfig', 'RelativeTo', 'ProductCategory', 'DAQError']
 
 
+# Monkey patch NiceObjectDef until it supports a similar method
+def add_sig_pattern(self, sigs, names):
+    """
+    `sigs` : sequence of pairs (`pattern`, `sig`)
+        Each `sig` is an ordinary sig, and `pattern` is a string pattern which will be completed
+        with each of the names given, using `str.format()`
+    `names` : sequence of strings
+    """
+    for name in names:
+        for pattern, sig in sigs:
+            func_name = pattern.format(name)
+            self.attrs[func_name] = sig
+    self.names = set(self.attrs.keys())
+
+
+NiceObjectDef.add_sig_pattern = add_sig_pattern
+
+
 def to_bytes(value, codec='utf-8'):
     """Encode a unicode string as bytes or pass through an existing bytes object"""
     if isinstance(value, bytes):
@@ -122,21 +140,29 @@ class NiceNI(NiceLib):
         'WriteAnalogF64': ('in', 'in', 'in', 'in', 'in', 'in', 'out', 'ignore'),
         'WriteAnalogScalarF64': ('in', 'in', 'in', 'in', 'ignore'),
         'WriteDigitalScalarU32': ('in', 'in', 'in', 'in', 'ignore'),
-        'GetBufInputBufSize': ('in', 'out'),
-        'GetBufInputOnbrdBufSize': ('in', 'out'),
         'CfgSampClkTiming': ('in', 'in', 'in', 'in', 'in', 'in'),
         'CfgImplicitTiming': ('in', 'in', 'in'),
         'CfgOutputBuffer': ('in', 'in'),
         'CfgDigEdgeStartTrig': ('in', 'in', 'in'),
-        'SetReadOffset': ('in', 'in'),
-        'GetReadOffset': ('in', 'out'),
-        'SetReadRelativeTo': ('in', 'in'),
-        'GetReadRelativeTo': ('in', 'out'),
-        'SetReadOverWrite': ('in', 'in'),
-        'GetReadOverWrite': ('in', 'out'),
         'GetAOUseOnlyOnBrdMem': ('in', 'in', 'out'),
-        'SetAOUseOnlyOnBrdMem': ('in', 'in', 'in')
+        'SetAOUseOnlyOnBrdMem': ('in', 'in', 'in'),
+        'GetBufInputOnbrdBufSize': ('in', 'out'),
     })
+
+    Task.add_sig_pattern((
+        ('Get{}', ('in', 'out')),
+        ('Set{}', ('in', 'in')),
+    ),(
+        'SampTimingType',
+        'SampQuantSampMode',
+        'ReadOffset',
+        'ReadRelativeTo',
+        'ReadOverWrite',
+        'SampQuantSampPerChan',
+        'BufInputBufSize',
+        'BufOutputBufSize',
+        'BufOutputOnbrdBufSize',
+    ))
 
     Device = NiceObjectDef({
         # Device properties
