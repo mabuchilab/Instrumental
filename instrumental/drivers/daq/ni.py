@@ -137,6 +137,8 @@ class NiceNI(NiceLib):
         'ReadAnalogF64': ('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'ignore'),
         'ReadAnalogScalarF64': ('in', 'in', 'out', 'ignore'),
         'ReadDigitalScalarU32': ('in', 'in', 'out', 'ignore'),
+        'ReadDigitalU32': ('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'ignore'),
+        'ReadDigitalLines': ('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'out', 'ignore'),
         'WriteAnalogF64': ('in', 'in', 'in', 'in', 'in', 'in', 'out', 'ignore'),
         'WriteAnalogScalarF64': ('in', 'in', 'in', 'in', 'ignore'),
         'WriteDigitalScalarU32': ('in', 'in', 'in', 'in', 'ignore'),
@@ -889,6 +891,64 @@ class MiniTask(object):
         return value
 
     @check_units(timeout='?s')
+    def read_DI_channels(self, samples=-1, timeout=None):
+        """Perform a DI read and get a dict containing the DI buffers"""
+        self._assert_io_type('DI')
+        is_scalar = False  # self.fsamp is None
+        samples = int(samples)
+        timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
+
+        if is_scalar:
+            buf_size = 1 * len(self.chans)
+        elif samples == -1:
+            buf_size = self.input_buf_size * len(self.chans)
+        else:
+            buf_size = samples * len(self.chans)
+
+        #res = self._mx_task.ReadDigitalLines(samples, timeout_s, Val.GroupByChannel, buf_size)
+        #data, n_samples_per_chan_read, n_bytes_per_samp = res
+        res = self._mx_task.ReadDigitalU32(samples, timeout_s, Val.GroupByChannel, buf_size)
+        data, n_samples_per_chan_read = res
+        res = {}
+        for i, ch_name in enumerate(self.chans):
+            start = i * n_samples_per_chan_read
+            stop = (i+1) * n_samples_per_chan_read
+            ch_res = data[start] if is_scalar else data[start:stop]
+            res[ch_name] = self._reorder_digital_int(ch_res)
+
+        if self.fsamp is not None:
+            end_t = (n_samples_per_chan_read-1) / self.fsamp.m_as('Hz')
+            res['t'] = Q_(np.linspace(0., end_t, n_samples_per_chan_read), 's')
+        return res
+
+    def _reorder_digital_int(self, data):
+        """Reorders the bits of a digital int returned by DAQmx based on the line order."""
+        # TODO: Support multiple DI channels
+        lines = self.chans[0].split(',')
+        if len(lines) == 1:
+            return data.astype(bool)
+
+        line_pairs = []
+        ports = []
+        for line_path in lines:
+            dev, port, line = line_path.split('/')
+            line_pairs.append((port, line))
+            if port not in ports:
+                ports.append(port)
+
+        port_bytes = {}
+        for i, port_name in enumerate(ports):
+            port_byte = ((0xFF << 8*i) & data) >> 8*i
+            port_bytes[port_name] = port_byte
+
+        out = np.zeros(data.shape)
+        for i, (port_name, line_name) in enumerate(line_pairs):
+            line_num = int(line_name.replace('line', ''))
+            port_byte = port_bytes[port_name]
+            out += ((port_byte & (1 << line_num)) >> line_num) << i
+        return out
+
+    @check_units(timeout='?s')
     def write_DO_scalar(self, value, timeout=None):
         self._assert_io_type('DO')
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
@@ -1256,11 +1316,50 @@ class VirtualDigitalChannel(Channel):
                 out += ((byte & (1 << line_num)) >> line_num) << i
             return out
 
-    def read(self):
-            data = t.read_DI_scalar()
-        return self._parse_DI_int(data)
+    @check_units(duration='?s', fsamp='?Hz')
+    def read(self, duration=None, fsamp=None, n_samples=None):
+        """Read one or more digital input samples.
+
+        - By default, reads and returns a single sample
+        - If only `n_samples` is given, uses `OnDemand` (software) timing
+        - If two of `duration`, `fsamp`, and `n_samples` are given, uses hardware timing
+
+        Parameters
+        ----------
+        duration : Quantity
+            How long to read from the digital input, specified as a Quantity. Use with `fsamp` or
+            `n_samples`.
+        fsamp : Quantity
+            The sample frequency, specified as a Quantity. Use with `duration` or `n_samples`.
+        n_samples : int
+            The number of samples to read.
+
+        Returns
+        -------
+        data : int or int array
+            The data that was read from analog output.
+
+        For a single-line channel, each sample is a bool. For a multi-line channel, each sample is
+        an int--the lowest bit of the int was read from the first digital line, the second from the
+        second line, and so forth.
+        """
         with self.daq._create_mini_task('DI') as t:
             t.add_DI_channel(self)
+            num_args_specified = sum(int(arg is not None) for arg in (duration, fsamp, n_samples))
+
+            if num_args_specified == 0:
+                data = minitask.read_DI_scalar()
+                data = self._parse_DI_int(data)
+            elif num_args_specified == 2:
+                fsamp, n_samples = handle_timing_params(duration, fsamp, n_samples)
+                minitask.config_timing(fsamp, n_samples)
+                data = minitask.read_DI_channels()
+            elif n_samples is not None:
+                data = minitask.read_DI_channels(samples=n_samples)
+            else:
+                raise DAQError("Must specify nothing, fsamp only, or two of duration, fsamp, "
+                               "and n_samples")
+        return data
 
     def write(self, value):
         """Write a value to the digital output channel
