@@ -527,7 +527,10 @@ class Task(object):
         return read_data
 
     def write(self, write_data, autostart=True):
-        """Write data to the output channels"""
+        """Write data to the output channels.
+
+        Useful when you need finer-grained control than `run()` provides.
+        """
         # Need to make sure we get data array for each output channel (AO, DO, CO...)
         for ch_name, ch in self.channels.items():
             if ch.type in ('AO', 'DO', 'CO'):
