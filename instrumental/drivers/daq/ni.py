@@ -77,7 +77,7 @@ def list_instruments():
 
 class DAQError(Error):
     def __init__(self, code):
-        msg = "({}) {}".format(code, NiceNI.GetErrorString(code))
+        msg = "({}) {}".format(code, NiceNI.GetExtendedErrorInfo())
         self.code = code
         super(DAQError, self).__init__(msg)
 
@@ -87,6 +87,7 @@ class NotSupportedError(DAQError):
 
 
 info = load_lib('ni', __package__)
+ffilib = info._ffilib
 
 
 class NiceNI(NiceLib):
@@ -101,6 +102,7 @@ class NiceNI(NiceLib):
 
     GetErrorString = ('in', 'buf', 'len')
     GetSysDevNames = ('buf', 'len')
+    GetExtendedErrorInfo = ('buf', 'len=2048')
     CreateTask = ('in', 'out')
 
     Task = NiceObjectDef(doc="A Nice-wrapped NI Task", attrs={
