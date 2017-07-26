@@ -732,10 +732,16 @@ class MiniTask(object):
     def clear(self):
         self._mx_task.ClearTask()
 
+    def _assert_io_type(self, io_type):
+        if io_type != self.io_type:
+            raise TypeError("MiniTask must have io_type '{}' for this operation, but is of "
+                            "type '{}'".format(io_type, self.io_type))
+
     @check_enums(term_cfg=TerminalConfig)
     @check_units(vmin='?V', vmax='?V')
     def add_AI_channel(self, ai_path, term_cfg='default', vmin=None, vmax=None):
         self.AIs.append(ai_path)
+        self._assert_io_type('AI')
         default_min, default_max = self.daq._max_AI_range()
         vmin = default_min if vmin is None else vmin
         vmax = default_max if vmax is None else vmax
@@ -744,13 +750,16 @@ class MiniTask(object):
 
     def add_AO_channel(self, ao_path):
         self.AOs.append(ao_path)
+        self._assert_io_type('AO')
         min, max = self.daq._max_AI_range()
         self._mx_task.CreateAOVoltageChan(ao_path, '', min.m_as('V'), max.m_as('V'), Val.Volts, '')
 
     def add_DI_channel(self, di_path):
         self._mx_task.CreateDIChan(di_path, '', Val.ChanForAllLines)
+        self._assert_io_type('DI')
 
     def add_DO_channel(self, do_path):
+        self._assert_io_type('DO')
         self.chans.append(do_path)
         self._mx_task.CreateDOChan(do_path, '', Val.ChanForAllLines)
 
@@ -759,6 +768,7 @@ class MiniTask(object):
 
     @check_units(timeout='?s')
     def read_AI_scalar(self, timeout=None):
+        self._assert_io_type('AI')
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
         value = self._mx_task.ReadAnalogScalarF64(timeout_s)
         return Q_(value, 'V')
@@ -766,6 +776,7 @@ class MiniTask(object):
     @check_units(timeout='?s')
     def read_AI_channels(self, samples=-1, timeout=None):
         """Perform an AI read and get a dict containing the AI buffers"""
+        self._assert_io_type('AI')
         samples = int(samples)
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
 
@@ -787,17 +798,20 @@ class MiniTask(object):
 
     @check_units(value='V', timeout='?s')
     def write_AO_scalar(self, value, timeout=None):
+        self._assert_io_type('AO')
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
         self._mx_task.WriteAnalogScalarF64(True, timeout_s, float(value.m_as('V')))
 
     @check_units(timeout='?s')
     def read_DI_scalar(self, timeout=None):
+        self._assert_io_type('DI')
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
         value = self._mx_task.ReadDigitalScalarU32(timeout_s)
         return value
 
     @check_units(timeout='?s')
     def write_DO_scalar(self, value, timeout=None):
+        self._assert_io_type('DO')
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
         self._mx_task.WriteDigitalScalarU32(True, timeout_s, value)
 
