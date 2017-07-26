@@ -294,6 +294,15 @@ class SampleMode(ValEnum):
     hwtimed = 'HWTimedSinglePoint'
 
 
+class SampleTiming(ValEnum):
+    sample_clk = 'SampClk'
+    burst_handshake = 'BurstHandshake'
+    handshake = 'Handshake'
+    on_demand = 'OnDemand'
+    change_detection = 'ChangeDetection'
+    pipelined_sample_clk = 'PipelinedSampClk'
+
+
 class EdgeSlope(ValEnum):
     rising = 'RisingSlope'
     falling = 'FallingSlope'
