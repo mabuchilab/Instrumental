@@ -828,6 +828,7 @@ class MiniTask(object):
         self._mx_task.WaitUntilTaskDone(timeout_s)
 
     def overwrite(self, overwrite):
+        """Set whether to overwrite samples in the buffer that have not been read yet."""
         val = Val.OverwriteUnreadSamps if overwrite else Val.DoNotOverwriteUnreadSamps
         self._mx_task.SetReadOverWrite(val)
 
