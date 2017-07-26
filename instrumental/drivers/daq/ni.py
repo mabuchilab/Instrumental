@@ -637,7 +637,7 @@ class Task(object):
             res['t'] = Q_(np.linspace(0., end_t, n_samps_read), 's')
         return res
 
-    def _write_AO_channels(self, data):
+    def _write_AO_channels(self, data, autostart=True):
         if 'AO' not in self._mtasks:
             return
         mx_task = self._mtasks['AO']._mx_task
@@ -645,7 +645,7 @@ class Task(object):
         arr = np.concatenate([Q_(data[ao]).to('V').magnitude for ao in ao_names])
         arr = arr.astype(np.float64)
         n_samps_per_chan = list(data.values())[0].magnitude.size
-        mx_task.WriteAnalogF64(n_samps_per_chan, False, -1., Val.GroupByChannel, arr)
+        mx_task.WriteAnalogF64(n_samps_per_chan, autostart, -1., Val.GroupByChannel, arr)
 
     def __enter__(self):
         return self
