@@ -458,7 +458,7 @@ class Task(object):
                 raise Exception("Duplicate channel name {}".format(name))
 
             if channel.type not in self._mtasks:
-                self._mtasks[channel.type] = MiniTask(channel.daq)
+                self._mtasks[channel.type] = MiniTask(channel.daq, channel.type)
 
             self.channels[name] = channel
             channel._add_to_minitask(self._mtasks[channel.type])
@@ -669,13 +669,13 @@ class Task(object):
 
 
 class MiniTask(object):
-    def __init__(self, daq):
+    def __init__(self, daq, io_type):
         self.daq = daq
         handle = NiceNI.CreateTask('')
         self._mx_task = NiceNI.Task(handle)
-        self.AIs = []
-        self.AOs = []
+        self.io_type = io_type
         self.chans = []
+        self.fsamp = None
 
     def __enter__(self):
         return self
@@ -869,8 +869,8 @@ class AnalogIn(Channel):
         data : scalar or array Quantity
             The data that was read from analog input.
         """
-        with self.daq._create_mini_task() as mtask:
             mtask.add_AI_channel(self.path, vmin=vmin, vmax=vmax)
+        with self.daq._create_mini_task('AI') as mtask:
 
             num_args_specified = num_not_none(duration, fsamp, n_samples)
             if num_args_specified == 0:
@@ -889,8 +889,8 @@ class AnalogIn(Channel):
 
     def start_reading(self, fsamp=None, vmin=None, vmax=None, overwrite=False,
                       relative_to=RelativeTo.CurrReadPos, offset=0, buf_size=10):
-        self._mtask = mtask = self.daq._create_mini_task()
         mtask.add_AI_channel(self.path, vmin=vmin, vmax=vmax)
+        self._mtask = mtask = self.daq._create_mini_task('AI')
         mtask.config_timing(fsamp, buf_size, mode=SampleMode.continuous)
         mtask.overwrite(overwrite)
         mtask.relative_to(relative_to)
@@ -948,7 +948,7 @@ class AnalogOut(Channel):
         data : scalar or array Quantity
             The data that was read from analog output.
         """
-        with self.daq._create_mini_task() as mtask:
+        with self.daq._create_mini_task('AO') as mtask:
             internal_ch_name = '{}/_{}_vs_aognd'.format(self.daq.name, self.name)
             try:
                 mtask.add_AI_channel(internal_ch_name)
@@ -1025,16 +1025,16 @@ class AnalogOut(Channel):
 
         fsamp, n_samples = handle_timing_params(duration, fsamp, len(data))
 
-        with self.daq._create_mini_task() as mtask:
             mtask.add_AO_channel(self.path)
+        with self.daq._create_mini_task('AO') as mtask:
             mtask.set_AO_only_onboard_mem(self.path, onboard)
             mtask.config_timing(fsamp, n_samples)
             mtask.write_AO_channels({self.path: data})
             mtask.wait_until_done()
 
     def _write_scalar(self, value):
-        with self.daq._create_mini_task() as mtask:
             mtask.add_AO_channel(self.path)
+        with self.daq._create_mini_task('AO') as mtask:
             mtask.write_AO_scalar(value)
 
 
@@ -1155,10 +1155,10 @@ class VirtualDigitalChannel(Channel):
             return out
 
     def read(self):
-        with self.daq._create_mini_task() as t:
             t.add_DI_channel(self._get_name())
             data = t.read_DI_scalar()
         return self._parse_DI_int(data)
+        with self.daq._create_mini_task('DI') as t:
 
     def write(self, value):
         """Write a value to the digital output channel
@@ -1170,8 +1170,8 @@ class VirtualDigitalChannel(Channel):
             the int is written to the first digital line, the second to the
             second, and so forth. For a single-line DO channel, can be a bool.
         """
-        with self.daq._create_mini_task() as t:
-            t.add_DO_channel(self._get_name())
+        with self.daq._create_mini_task('DO') as t:
+            t.add_DO_channel(self)
             t.write_DO_scalar(self._create_DO_int(value))
 
     def write_sequence(self, data, duration=None, reps=None, fsamp=None, freq=None, onboard=True,
@@ -1221,9 +1221,9 @@ class VirtualDigitalChannel(Channel):
             duration = (reps or 1)*len(data)/fsamp
         fsamp, n_samples = handle_timing_params(duration, fsamp, len(data))
 
-        with self.daq._create_mini_task() as t:
             t.add_DO_channel(self._get_name())
             t.set_DO_only_onboard_mem(self._get_name(), onboard)
+        with self.daq._create_mini_task('DO') as t:
             t.config_timing(fsamp, n_samples, clock=clock)
             t.write_DO_channels({self.name: data}, [self])
             t.t.WaitUntilTaskDone(-1)
@@ -1252,8 +1252,8 @@ class NIDAQ(DAQ):
     def Task(self, *args):
         return Task(*args)
 
-    def _create_mini_task(self):
-        return MiniTask(self)
+    def _create_mini_task(self, io_type):
+        return MiniTask(self, io_type)
 
     def _load_analog_channels(self):
         for ai_name in self._basenames(self._dev.GetDevAIPhysicalChans()):
