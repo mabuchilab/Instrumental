@@ -9,10 +9,6 @@ inst_names = []
 inst_map = {}
 
 
-def pytest_addoption(parser):
-    parser.addoption("--instrument", action="store", help="Name of instrument to test")
-
-
 def pytest_collection_modifyitems(session, config, items):
     global instruments
     inst_names_str = config.getoption('--instrument')
