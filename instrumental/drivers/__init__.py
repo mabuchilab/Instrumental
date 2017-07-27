@@ -338,11 +338,12 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         for name, value in other_attrs.items():
             setattr(obj, name, value)
         obj._paramset = ParamSet(cls, **paramset)
-        obj._fill_out_paramset()
 
-        obj._before_init(paramset)
+        obj._before_init()
+        obj._fill_out_paramset()
         obj._initialize(**paramset.get('settings', {}))
         obj._after_init()
+        return obj
 
     def __new__(cls, inst=None, **kwds):
         # TODO: Is there a more efficient way to implement this behavior?
@@ -354,7 +355,7 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         pass
 
     def _before_init(self):
-        """Called just before _init, with the same parameters"""
+        """Called just before _initialize"""
         self._driver_name = driver_submodule_name(self.__class__.__module__)
         self._module = import_driver(self._driver_name)
 
@@ -364,7 +365,7 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
                     raise InstrumentExistsError("Device already open")
 
     def _after_init(self):
-        """Called just after _init, with the same parameters"""
+        """Called just after _initialize"""
         cls = self.__class__
 
         # Only add the instrument after init, to ensure it hasn't failed to open
