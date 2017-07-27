@@ -1343,8 +1343,8 @@ class VirtualDigitalChannel(Channel):
         an int--the lowest bit of the int was read from the first digital line, the second from the
         second line, and so forth.
         """
-        with self.daq._create_mini_task('DI') as t:
-            t.add_DI_channel(self)
+        with self.daq._create_mini_task('DI') as minitask:
+            minitask.add_DI_channel(self)
             num_args_specified = sum(int(arg is not None) for arg in (duration, fsamp, n_samples))
 
             if num_args_specified == 0:
