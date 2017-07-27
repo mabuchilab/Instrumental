@@ -51,7 +51,7 @@ def list_instruments():
     NiceFF = NiceFilterFlipper
     NiceFF.BuildDeviceList()
     device_list = NiceFF.GetDeviceListByTypeExt(FILTER_FLIPPER_TYPE).split(',')
-    return [ParamSet(__name__, Filter_Flipper, serial=serial_str)
+    return [ParamSet(Filter_Flipper, serial=serial_str)
             for serial_str in device_list
             if serial_str and int(serial_str[:2]) == FILTER_FLIPPER_TYPE]
 

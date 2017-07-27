@@ -64,7 +64,7 @@ def list_instruments():
         if not dev_name:
             continue
 
-        paramset = ParamSet(__name__, NIDAQ,
+        paramset = ParamSet(NIDAQ,
                             name=dev_name,
                             serial=NiceNI.GetDevSerialNum(dev_name),
                             model=NiceNI.GetDevProductType(dev_name))

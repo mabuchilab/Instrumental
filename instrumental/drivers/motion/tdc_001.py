@@ -50,7 +50,7 @@ lib = ffi.dlopen(lib_name)
 def list_instruments():
     NiceTDC001.BuildDeviceList()
     device_list = NiceTDC001.GetDeviceListByTypeExt(TDC001_TYPE).split(',')
-    return [ParamSet(__name__, TDC001, serial=serial_str)
+    return [ParamSet(TDC001, serial=serial_str)
             for serial_str in device_list
             if serial_str and int(serial_str[:2]) == TDC001_TYPE]
 

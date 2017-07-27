@@ -48,7 +48,7 @@ _err_map = {
 
 def list_instruments():
     _, info_list = check_for_devices()
-    return [ParamSet(__name__, ECC100, id=info.id) for info in info_list]
+    return [ParamSet(ECC100, id=info.id) for info in info_list]
 
 
 def check_for_devices():

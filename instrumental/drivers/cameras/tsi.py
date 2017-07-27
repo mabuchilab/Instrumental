@@ -577,6 +577,6 @@ def list_instruments():
     cameras = []
     for i in range(sdk.GetNumberOfCameras()):
         cam_ser = sdk.GetCameraSerialNumStr(i)
-        params = ParamSet(__name__, TSI_Camera, serial=cam_ser, number=i)
+        params = ParamSet(TSI_Camera, serial=cam_ser, number=i)
         cameras.append(params)
     return cameras

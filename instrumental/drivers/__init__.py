@@ -337,7 +337,7 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         obj = object.__new__(cls)  # Avoid our version of __new__
         for name, value in other_attrs.items():
             setattr(obj, name, value)
-        obj._paramset = ParamSet(cls.__module__, cls, **paramset)
+        obj._paramset = ParamSet(cls, **paramset)
         obj._fill_out_paramset()
 
         obj._before_init(paramset)
@@ -566,7 +566,7 @@ def gen_visa_instruments():
         try:
             driver_module, classname = find_visa_driver_class(visa_inst)
             cls = getattr(driver_module, classname)
-            params = ParamSet(driver_module.__name__, cls, visa_address=addr)
+            params = ParamSet(cls, visa_address=addr)
         except:
             continue
         else:

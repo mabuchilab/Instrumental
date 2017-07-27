@@ -65,7 +65,7 @@ MessageIDs = {
 def list_instruments():
     NiceKinesisISC.BuildDeviceList()
     serial_nums = NiceKinesisISC.GetDeviceListExt().split(',')
-    return [ParamSet(__name__, K10CR1, serial=serial)
+    return [ParamSet(K10CR1, serial=serial)
             for serial in serial_nums
             if serial]
 

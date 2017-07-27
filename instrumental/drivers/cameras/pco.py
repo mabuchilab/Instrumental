@@ -667,7 +667,7 @@ def list_instruments():
             _cam.CloseCamera()
             break
         else:
-            paramset = ParamSet(__name__, PCO_Camera, number=openStruct.wCameraNumber,
+            paramset = ParamSet(PCO_Camera, number=openStruct.wCameraNumber,
                                 interface=openStruct.wInterfaceType)
             paramsets.append(paramset)
             _cam.CloseCamera()

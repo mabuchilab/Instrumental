@@ -465,7 +465,7 @@ class Pixelfly(Camera):
 
 def list_instruments():
     board_nums = Pixelfly._list_boards()
-    return [ParamSet(__name__, Pixelfly, number=n) for n in board_nums]
+    return [ParamSet(Pixelfly, number=n) for n in board_nums]
 
 
 def close_all():

@@ -361,7 +361,7 @@ def _cameras():
 
     if not repeated:
         for info in cam_list:
-            params = ParamSet(__name__, UC480_Camera,
+            params = ParamSet(UC480_Camera,
                               serial=ffi.string(info.SerNo),
                               model=ffi.string(info.Model),
                               id=int(info.dwCameraID))

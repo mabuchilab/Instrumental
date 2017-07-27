@@ -162,4 +162,4 @@ class Bristol_721(Spectrometer):
 
 def list_instruments():
     com_ports = [find_comm_port()]  # TODO: Add support for multiple connected devices
-    return [ParamSet(__name__, Bristol_721, port=port) for port in com_ports]
+    return [ParamSet(Bristol_721, port=port) for port in com_ports]
