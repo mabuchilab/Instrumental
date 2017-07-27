@@ -2,21 +2,22 @@ import os
 import os.path
 import sys
 import pytest
+import py.path
 from instrumental import instrument, conf
 
 sys.path.append(os.path.dirname(__file__))
+DRIVER_DIR = py.path.local(__file__).dirpath()
+instruments = {}
 inst_names = []
 inst_map = {}
 
 
 def pytest_collection_modifyitems(session, config, items):
     global instruments
-    inst_names_str = config.getoption('--instrument')
-    if not inst_names_str:
-        return
-
     instruments = {}
-    inst_names = inst_names_str.split(',')
+    inst_names_str = config.getoption('--instrument')
+
+    inst_names = inst_names_str.split(',') if inst_names_str else ()
     for inst_name in inst_names:
         params = conf.instruments[inst_name]
         try:
@@ -28,8 +29,13 @@ def pytest_collection_modifyitems(session, config, items):
     deselected = []
     remaining = []
     for item in items:
-        inst_key = inst_key_from_item(item)
+        # Leave non-driver tests alone
+        item_dir = item.getparent(pytest.Module).fspath.dirpath()
+        if DRIVER_DIR not in item_dir.parts():
+            remaining.append(item)
+            continue
 
+        inst_key = inst_key_from_item(item)
         if inst_key in instruments:
             remaining.append(item)
         else:
