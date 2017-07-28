@@ -175,7 +175,7 @@ class Facet(object):
             obj.__dict__[self.name] = inst
             return inst
 
-    def conv_in(self, value):
+    def conv_set(self, value):
         """Convert nice value to representation that fset takes"""
         if isinstance(value, Q_):
             value = value.magnitude
@@ -185,7 +185,7 @@ class Facet(object):
             value = self.in_map[value]
         return value
 
-    def conv_out(self, value):
+    def conv_get(self, value):
         """Convert what fget returns to a nice output value"""
         if self.out_map:
             value = self.out_map[value]
@@ -208,7 +208,7 @@ class Facet(object):
 
         if not (self.cacheable and use_cache) or instance.dirty:
             log.info('Getting value of facet %s', self.name)
-            instance.cached_val = self.conv_out(self.fget(obj))
+            instance.cached_val = self.conv_get(self.fget(obj))
             instance.dirty = False
         else:
             log.info('Using cached value of facet %s', self.name)
@@ -219,7 +219,7 @@ class Facet(object):
     def __set__(self, obj, qty):
         self.set_value(obj, qty)
 
-    def convert_input(self, value):
+    def convert_user_input(self, value):
         """Validate and convert an input value to its 'external' form"""
         if self.units is not None:
             q = Q_(value)
@@ -256,10 +256,11 @@ class Facet(object):
             raise AttributeError("Cannot set a read-only Facet")
 
         instance = self.instance(obj)
+        value = self.convert_user_input(value)
 
         if not (self.cacheable and use_cache) or instance.cached_val != value:
             log.info('Setting value of facet %s', self.name)
-            self.fset(obj, self.conv_in(value))
+            self.fset(obj, self.conv_set(value))
         else:
             log.info('Skipping set of facet %s, cached value matches', self.name)
 
