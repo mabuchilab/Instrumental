@@ -236,7 +236,7 @@ class Facet(object):
 
     def set_value(self, obj, value, use_cache=True):
         if self.fset is None:
-            raise AttributeError
+            raise AttributeError("Cannot set a read-only Facet")
 
         instance = self.instance(obj)
 
@@ -265,11 +265,17 @@ class AbstractFacet(Facet):
     __isabstractmethod__ = True
 
 
-def SCPI_Facet(msg, convert=None, **kwds):
+def SCPI_Facet(msg, convert=None, readonly=False, **kwds):
+    """Facet factory for use in VisaMixin subclasses"""
     def fget(obj):
-        return convert(obj._inst.query(msg + '?'))
-    def fset(obj, value):
-        obj._inst.write('{} {}'.format(msg, value))
+        return convert(obj.query(msg + '?'))
+
+    if readonly:
+        fset = None
+    else:
+        def fset(obj, value):
+            obj.write('{} {}', msg, value)
+
     return Facet(fget, fset, **kwds)
 
 
