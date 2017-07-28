@@ -7,7 +7,7 @@ Driver module for Thorlabs power meters. Supports:
 """
 import numpy
 from . import PowerMeter
-from .. import SCPI_Facet
+from .. import Facet, SCPI_Facet, VisaMixin, deprecated
 from ... import Q_
 
 _INST_PARAMS = ['visa_address']
@@ -16,46 +16,31 @@ _INST_VISA_INFO = {
 }
 
 
-class PM100D(PowerMeter):
+class PM100D(PowerMeter, VisaMixin):
     """A Thorlabs PM100D series power meter"""
-    def close(self):
-        self._rsrc.control_ren(False)  # Disable remote mode
 
+    @deprecated('power')
     def get_power(self):
-        """Get the current power measurement
+        return self.power
 
-        Returns
-        -------
-        power : Quantity
-            the current power measurement
-        """
-        self._rsrc.write('power:dc:unit W')
-        val = float(self._rsrc.query('measure:power?'))
-        return Q_(val, 'watts')
-
+    @deprecated('range')
     def get_range(self):
-        """Get the current input range's max power"""
-        val = float(self._rsrc.query('power:dc:range?'))
-        return Q_(val, 'watts')
+        return self.range
 
+    @deprecated('auto_range')
     def enable_auto_range(self, enable=True):
-        """Enable auto-ranging"""
-        enable = bool(enable)
-        self._rsrc.write('pow:range:auto {}'.format(int(enable)))
+        self.auto_range = enable
 
+    @deprecated('auto_range')
     def disable_auto_range(self):
-        """Disable auto-ranging"""
-        self.enable_auto_range(False)
+        self.auto_range = False
 
+    @deprecated('auto_range')
     def auto_range_enabled(self):
-        """Whether auto-ranging is enabled
+        return self.auto_range
 
-        Returns
-        -------
-        bool : enabled
-        """
-        val = int(self._rsrc.query('power:dc:range:auto?'))
-        return bool(val)
+    range = SCPI_Facet('power:dc:range', units='W', convert=float, readonly=True,
+                       doc="The current input range's max power")
 
     def get_wavelength(self):
         """Get the input signal wavelength setting
@@ -106,8 +91,21 @@ class PM100D(PowerMeter):
 
     auto_range = SCPI_Facet('power:dc:range:auto', convert=int, value={False:0, True:1},
                             doc="Whether auto-ranging is enabled")
-    wavelength = SCPI_Facet('sense:corr:wav', units='nm', convert=float, doc="Input signal wavelength")
-    num_averaged = SCPI_Facet('sense:average:count', convert=int, doc="Number of samples to average")
+
+    wavelength = SCPI_Facet('sense:corr:wav', units='nm', convert=float,
+                            doc="Input signal wavelength")
+
+    num_averaged = SCPI_Facet('sense:average:count', convert=int,
+                              doc="Number of samples to average")
+
+    def close(self):
+        self._rsrc.control_ren(False)  # Disable remote mode
+
+    @Facet(units='W', cached=False)
+    def power(self):
+        """The measured optical power"""
+        self.write('power:dc:unit W')
+        return float(self.query('measure:power?'))
 
     def measure(self, n_samples=100):
         """Make a multi-sample power measurement
@@ -124,11 +122,11 @@ class PM100D(PowerMeter):
         """
         n_avg = self.get_num_averaged()  # Save for later
         self.set_num_averaged(1)
-        self._rsrc.write('power:dc:unit W')
+        self.write('power:dc:unit W')
 
         raw_arr = numpy.empty((n_samples,), dtype='f')
         for i in range(n_samples):
-            raw_arr[i] = float(self._rsrc.query('measure:power?'))
+            raw_arr[i] = float(self.query('measure:power?'))
         self.set_num_averaged(n_avg)
 
         return Q_(raw_arr.mean(), 'W').plus_minus(raw_arr.std())
