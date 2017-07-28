@@ -457,6 +457,12 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         else:
             log.info("Driver module missing `list_instruments()`, not filling out paramset")
 
+    def get(self, facet_name, use_cache=False):
+        facet = getattr(self.__class__, facet_name)
+        if not isinstance(facet, Facet):
+            raise ValueError("'{}' is not a Facet".format(facet_name))
+        return facet.get_value(self, use_cache=use_cache)
+
     def __enter__(self):
         return self
 
