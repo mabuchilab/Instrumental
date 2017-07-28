@@ -291,10 +291,10 @@ class InstrumentMeta(abc.ABCMeta):
             if isinstance(value, Facet):
                 value.name = name
                 props.append(value)
-                if hasattr(value, 'fget'):
-                    classdict['get_' + name] = value.fget
-                if hasattr(value, 'fset'):
-                    classdict['set_' + name] = value.fset
+                #if hasattr(value, 'fget'):
+                #    classdict['get_' + name] = value.fget
+                #if hasattr(value, 'fset'):
+                #    classdict['set_' + name] = value.fset
 
             # Docstring stuff
             if not name.startswith('_') and (isfunction(value) or isinstance(value, property)):
