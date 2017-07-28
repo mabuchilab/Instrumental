@@ -8,6 +8,7 @@ import re
 import abc
 import atexit
 import socket
+import warnings
 import logging as log
 from inspect import isfunction
 from importlib import import_module
@@ -35,6 +36,22 @@ _legacy_params = {
 
 def driver_submodule_name(full_module_name):
     return full_module_name.rsplit('instrumental.drivers.', 1)[-1]
+
+
+def deprecated(name):
+    """Deprecation decorator that warns on a function's first invokation"""
+    def wrap(func):
+        warned = []
+        def wrapper(*args, **kwds):
+            if not warned:
+                warned.append(True)
+                old_name = func.__name__
+                msg = ("'{}' is deprecated and will be removed in future versions of "
+                       "Instrumental. Please use '{}' instead.".format(old_name, name))
+                warnings.warn(msg, DeprecationWarning, stacklevel=2)
+            return func(*args, **kwds)
+        return wrapper
+    return wrap
 
 
 class ParamSet(object):
