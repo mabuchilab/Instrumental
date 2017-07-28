@@ -283,18 +283,61 @@ class AbstractFacet(Facet):
     __isabstractmethod__ = True
 
 
-def SCPI_Facet(msg, convert=None, readonly=False, **kwds):
-    """Facet factory for use in VisaMixin subclasses"""
-    def fget(obj):
-        return convert(obj.query(msg + '?'))
+def MessageFacet(get_msg=None, set_msg=None, convert=None, **kwds):
+    """Convenience function for creating message-based Facets.
 
-    if readonly:
+    Creates `fget` and `fset` functions that are passed to `Facet`, based on message templates.
+    This is primarily used for writing your own Facet-creating helper functions for message-based
+    drivers that have a unique message format. For standard SCPI-style messages, you can use
+    `SCPI_Facet()` directly.
+
+    This is for use with `VisaMixin`, as it assumes the instrument has `write` and `query` methods.
+
+    Parameters
+    ----------
+    get_msg : str, optional
+        Message used to query the facet's value. If omitted, getting is unsupported.
+    set_msg : str, optional
+        Message used to set the facet's value. This is filled in with `set_msg.format(value)`, where
+        value is the user-given value being set.
+    convert : function or callable
+        Function that converts both the string returned by querying the instrument and the set-value
+        before it is passed to `str.format()`. Usually something like `int` or `float`.
+    """
+
+    if get_msg is None:
+        fget = None
+    else:
+        def fget(obj):
+            return convert(obj.query(get_msg))
+
+    if set_msg is None:
         fset = None
     else:
         def fset(obj, value):
-            obj.write('{} {}', msg, value)
+            obj.write(set_msg.format(convert(value)))
 
     return Facet(fget, fset, **kwds)
+
+
+def SCPI_Facet(msg, convert=None, readonly=False, **kwds):
+    """Facet factory for use in VisaMixin subclasses that use SCPI messages
+
+    Parameters
+    ----------
+    msg : str
+        Base message used to create SCPI get- and set-messages. For example, if `msg='voltage'`, the
+        get-message is `'voltage?'` and the set-message becomes `'voltage {}'`, where `{}` gets
+        filled in by the value being set.
+    convert : function or callable
+        Function that converts both the string returned by querying the instrument and the set-value
+        before it is passed to `str.format()`. Usually something like `int` or `float`.
+    readonly : bool, optional
+        Whether the Facet should be read-only.
+    """
+    get_msg = msg + '?'
+    set_msg = None if readonly else msg + ' {}'
+    return MessageFacet(get_msg, set_msg, convert=convert, **kwds)
 
 
 class InstrumentMeta(abc.ABCMeta):
