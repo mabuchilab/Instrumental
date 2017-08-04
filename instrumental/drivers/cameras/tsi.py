@@ -3,7 +3,6 @@
 from future.utils import PY2
 
 import sys
-import atexit
 import os.path
 from time import clock
 import numpy as np
@@ -11,7 +10,7 @@ from cffi import FFI
 from enum import Enum
 from . import Camera
 from ..util import as_enum, unit_mag, check_units
-from .. import ParamSet
+from .. import ParamSet, register_cleanup
 from ...errors import Error, TimeoutError
 from ... import u
 
@@ -197,7 +196,7 @@ class TSI_DLL_SDK(object):
 
 sdk = TSI_DLL_SDK()
 sdk.Open()
-atexit.register(sdk.destroy)
+register_cleanup(sdk.destroy)
 
 
 class TSI_DLL_Camera(object):
