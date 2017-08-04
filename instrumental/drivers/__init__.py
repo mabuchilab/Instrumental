@@ -24,6 +24,7 @@ from ..errors import (InstrumentTypeError, InstrumentNotFoundError, ConfigError,
 
 __all__ = ['Instrument', 'instrument', 'list_instruments', 'list_visa_instruments']
 
+cleanup_funcs = []
 _legacy_params = {
     'ueye_cam_id': 'uc480_camera_id',
     'pixelfly_board_num': 'pixelfly_camera_number',
@@ -394,7 +395,6 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
     """
     Base class for all instruments.
     """
-    _instruments_to_close = []
     _all_instances = {}
     _allow_sharing = False  # Should we allow returning existing instruments?
 
@@ -449,7 +449,7 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
             return
 
         if hasattr(self._module, 'list_instruments'):
-            log.info("Filling out paramset")
+            log.info("Filling out paramset using `list_instruments()`")
             for paramset in self._module.list_instruments():
                 if self._paramset.matches(paramset):
                     self._paramset.lazyupdate(paramset)
@@ -471,23 +471,6 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
 
     def close(self):
         pass
-
-    def _register_close_atexit(self):
-        """Register this instrument to be auto-closed upon program termination
-
-        The instrument must have a `close()` method.
-        """
-        Instrument._instruments_to_close.append(self)
-
-    @staticmethod
-    def _close_atexit():
-        for class_instances in Instrument._all_instances.values():
-            for instances in class_instances.values():
-                for inst in instances:
-                    try:
-                        inst.close()
-                    except:
-                        pass  # Instrument may have already been closed
 
     def save_instrument(self, name, force=False):
         """ Save an entry for this instrument in the config file.
@@ -1138,4 +1121,37 @@ def instrument(inst=None, **kwargs):
     return inst
 
 
-atexit.register(Instrument._close_atexit)
+def register_cleanup(func):
+    """Register a cleanup function to be called after Instrument cleanup.
+
+    This is for module and class-level cleanup (e.g. for closing a library), to ensure it is called
+    *after* all Instruments are cleaned up. Can be used as a decorator.
+    """
+    cleanup_funcs.append(func)
+    return func
+
+
+@atexit.register
+def _close_atexit():
+    log.info('Program is exiting, closing all instruments...')
+    for class_instances in Instrument._all_instances.values():
+        for instances in class_instances.values():
+            for inst in instances:
+                log.info('Closing %s', inst)
+                try:
+                    inst.close()
+                except:
+                    pass  # Instrument may have already been closed
+    log.info('Done closing instruments')
+
+    log.info('Doing driver module-level cleanup...')
+    for cleanup_func in cleanup_funcs:
+        try:
+            if hasattr(cleanup_func, '__name__'):
+                log.info("Calling '%s'", cleanup_func.__name__)
+            else:
+                log.info("Calling cleanup function")
+
+            cleanup_func()
+        except Exception as e:
+            log.error(str(e))
