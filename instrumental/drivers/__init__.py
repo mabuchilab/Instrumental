@@ -10,6 +10,7 @@ import atexit
 import socket
 import warnings
 import logging as log
+from weakref import WeakSet
 from inspect import isfunction
 from importlib import import_module
 from collections import OrderedDict, Mapping
@@ -381,7 +382,7 @@ class InstrumentMeta(abc.ABCMeta):
                                 value.__doc__ = doc
                             break
 
-        classdict['_instances'] = []
+        classdict['_instances'] = WeakSet()
         if '__init__' in classdict:
             raise TypeError("Subclasses of Instrument may not reimplement __init__. You should "
                             "implement _initialize instead.")
@@ -436,8 +437,8 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         cls = self.__class__
 
         # Only add the instrument after init, to ensure it hasn't failed to open
-        Instrument._all_instances.setdefault(self._driver_name, {}).setdefault(cls, []).append(self)
-        self._instances.append(self)
+        Instrument._all_instances.setdefault(self._driver_name, {}).setdefault(cls, WeakSet()).add(self)
+        self._instances.add(self)
 
     def _fill_out_paramset(self):
         mod_params = driver_info[self._driver_name]['params']
