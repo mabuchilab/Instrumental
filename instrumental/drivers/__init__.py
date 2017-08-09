@@ -720,8 +720,8 @@ def list_instruments(server=None, module=None, blacklist=None):
     return inst_list
 
 
-def saved_instruments():
-    return conf.instruments.keys()
+def list_saved_instruments():
+    return {k: ParamSet(**v) for k,v in conf.instruments.items()}
 
 
 def _get_visa_instrument(params):
