@@ -6,6 +6,7 @@ Driver module for Newport power meters. Supports:
 * 1830-C
 """
 from . import PowerMeter
+from .. import Facet, MessageFacet, VisaMixin, deprecated
 from ..util import visa_timeout_context
 from ... import Q_
 
@@ -23,7 +24,14 @@ def _check_visa_support(visa_inst):
     return None
 
 
-class Newport_1830_C(PowerMeter):
+def MyFacet(msg, readonly=False, **kwds):
+    """Like SCPI_Facet, but without a space before the set-value"""
+    get_msg = msg + '?'
+    set_msg = None if readonly else (msg + '{}')
+    return MessageFacet(get_msg, set_msg, convert=int, **kwds)
+
+
+class Newport_1830_C(PowerMeter, VisaMixin):
     """A Newport 1830-C power meter"""
 
     # Status byte codes
@@ -48,12 +56,15 @@ class Newport_1830_C(PowerMeter):
     def close(self):
         self.local_lockout = False
 
+    status_byte = MyFacet('Q', readonly=True)
+
+    @deprecated('status_byte')
     def get_status_byte(self):
         """Query the status byte register and return it as an int"""
-        status = self._rsrc.query('Q?')
-        return int(status)
+        return self.status_byte
 
-    def get_power(self):
+    @Facet(units='W', cached=False)
+    def power(self):
         """Get the current power measurement
 
         Returns
@@ -72,6 +83,12 @@ class Newport_1830_C(PowerMeter):
 
         return Q_(power, 'watts')
 
+    @deprecated('power')
+    def get_power(self):
+        return self.power()
+
+    range = MyFacet('R', doc="The current input range, [1-8], where 1 is lowest signal.")
+
     def enable_auto_range(self):
         """Enable auto-range"""
         self.set_range(0)
@@ -84,6 +101,7 @@ class Newport_1830_C(PowerMeter):
         cur_range = self.get_range()
         self.set_range(cur_range)
 
+    @deprecated('range')
     def set_range(self, range_num):
         """Set the range for power measurements
 
@@ -96,8 +114,9 @@ class Newport_1830_C(PowerMeter):
         n : int
             Sets the signal range for the input signal.
         """
-        self._rsrc.write('R{}'.format(int(range_num)))
+        self.range = range_num
 
+    @deprecated('range')
     def get_range(self):
         """Return the current range setting as an int
 
@@ -111,9 +130,11 @@ class Newport_1830_C(PowerMeter):
         range : int
             the current range setting. Possible values are from 1-8.
         """
-        val = self._rsrc.query("R?")
-        return int(val)
+        return self.range
 
+    wavelength = MyFacet('W', units='nm')
+
+    @deprecated('wavelength')
     def set_wavelength(self, wavelength):
         """Set the input signal wavelength setting
 
@@ -122,22 +143,26 @@ class Newport_1830_C(PowerMeter):
         wavelength : Quantity
             wavelength of the input signal, in units of [length]
         """
-        wavelength = int(Q_(wavelength).to('nm').magnitude)
-        self._rsrc.write("W{}".format(wavelength))
+        self.wavelength = wavelength
 
+    @deprecated('wavelength')
     def get_wavelength(self):
         """Get the input wavelength setting"""
-        val = int(self._rsrc.query("W?"))
-        return Q_(val, 'nm')
+        return self.wavelength
 
+    attenuator = MyFacet('A', value={False:0, True:1}, doc="Whether the attenuator is enabled")
+
+    @deprecated('attenuator')
     def enable_attenuator(self, enabled=True):
         """Enable the power meter attenuator"""
         self._rsrc.write('A{}'.format(int(enabled)))
 
+    @deprecated('attenuator')
     def disable_attenuator(self):
         """Disable the power meter attenuator"""
         self.enable_attenuator(False)
 
+    @deprecated('attenuator')
     def attenuator_enabled(self):
         """Whether the attenuator is enabled
 
@@ -287,6 +312,3 @@ class Newport_1830_C(PowerMeter):
     @local_lockout.setter
     def local_lockout(self, enable):
         self._rsrc.write("L{}".format(int(enable)))
-
-    range = property(get_range, set_range)
-    wavelength = property(get_wavelength, set_wavelength)
