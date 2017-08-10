@@ -99,7 +99,6 @@ def load_qe_curve(fname):
 class Pixelfly(Camera):
     DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
     DEFAULT_KWDS.update(trig='software', gain='low')
-    _open_cameras = []
 
     _qe_high = load_qe_curve('QEHigh.tsv')
     _qe_low = load_qe_curve('QELow.tsv')
@@ -131,7 +130,6 @@ class Pixelfly(Camera):
             self._dev = NicePixelfly.Board(number)
             self.set_mode()
 
-        self._open_cameras.append(self)
         self._last_kwds = {}
 
     @staticmethod
