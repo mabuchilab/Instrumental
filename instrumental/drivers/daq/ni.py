@@ -111,7 +111,7 @@ ffilib = info._ffilib
 class NiceNI(NiceLib):
     _info = info
     _prefix = ('DAQmxBase_', 'DAQmx_', 'DAQmx')
-    _buflen = 512
+    _buflen = 1024
     _use_numpy = True
 
     def _ret(code):
