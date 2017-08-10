@@ -5,9 +5,12 @@ from future.utils import PY2
 import sys
 import os.path
 from time import clock
+import logging as log
+
 import numpy as np
 from cffi import FFI
 from enum import Enum
+
 from . import Camera
 from ..util import as_enum, unit_mag, check_units
 from .. import ParamSet, register_cleanup
@@ -150,6 +153,7 @@ class TSI_DLL_SDK(object):
         self._ll = lib.tsi_create_sdk()
 
     def destroy(self):
+        log.info("Destroying TSI_DLL_SDK")
         self.Close()
         lib.tsi_destroy_sdk(self._ll)
 
@@ -157,6 +161,7 @@ class TSI_DLL_SDK(object):
         self._ll.vptr.Open(self._ll)
 
     def Close(self):
+        log.info("Closing TSI_DLL_SDK")
         self._ll.vptr.Close(self._ll)
 
     def GetNumberOfCameras(self):
@@ -209,6 +214,7 @@ class TSI_DLL_Camera(object):
             raise Exception("Opening camera failed")
 
     def Close(self):
+        log.info("Closing TSI_DLL_Camera")
         success = self._ll.vptr.Close(self._ll)
         if not success:
             raise Exception("Closing camera failed")
@@ -384,6 +390,8 @@ class TSI_Camera(Camera):
         self._set_parameter(Param.EXPOSURE_UNIT, ExpUnit.MILLISECONDS)
 
     def close(self):
+        log.info('Closing TSI camera...')
+        self._dev.Stop()
         self._dev.Close()
 
     def _get_parameter(self, param_id):
