@@ -487,9 +487,9 @@ class TSI_Camera(Camera):
                 return False
 
         self._latest_tsi_img = self._dev.GetPendingImage()
+        self._next_frame_idx += 1
         if self._latest_tsi_img == ffi.NULL:
             raise Error("Got a null image")
-        self._next_frame_idx += 1
 
         return True
 
