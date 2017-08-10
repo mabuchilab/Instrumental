@@ -680,4 +680,4 @@ def list_instruments():
 def _instrument(paramset):
     # Because opening devices is so slow, we override the default implementation which
     # calls list_instruments. This instead just tries to open the camera
-    return PCO_Camera(paramset)
+    return PCO_Camera._create(paramset)  # FIXME
