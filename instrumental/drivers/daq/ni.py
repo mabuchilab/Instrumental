@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright 2016-2017 Nate Bogdanowicz
 from __future__ import division
-from past.builtins import unicode
+from past.builtins import unicode, basestring
 
 import sys
 import time
@@ -974,8 +974,8 @@ class MiniTask(object):
     def write_AO_channels(self, data, timeout=-1.0, autostart=True):
         if timeout != -1.0:
             timeout = float(Q_(timeout).m_as('s'))
-        arr = np.concatenate([data[ao].m_as('V') for ao in self.AOs]).astype(np.float64)
-        n_samples = data.values()[0].magnitude.size
+        arr = np.concatenate([data[ao].m_as('V') for ao in self.chans]).astype(np.float64)
+        n_samples = list(data.values())[0].magnitude.size
         self._mx_task.WriteAnalogF64(n_samples, autostart, timeout, Val.GroupByChannel, arr)
 
 
