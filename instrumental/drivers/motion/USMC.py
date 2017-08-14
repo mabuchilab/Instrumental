@@ -27,8 +27,17 @@ ffi = info._ffi
 #             'driver_version':ffi.string(ffi.unpack(_dev_list.Version,n_devs)[dev_ind]),} for dev_ind in range(n_devs)]
 
 class USMC_Exception(Exception):
-    """Base exception class for USMC errors"""
-    pass
+    """Base exception class for USMC errors. Stops motor motion and reports position."""
+    def __init__(self,msg,motor=None,stop=True):
+        if stop:
+            motor.stop()
+            pos = motor.get_current_position()
+            serial = motor.serial
+            stop_msg = 'USMC board with serial ' + serial + ' stopped with motor at position {}'.format(pos)
+            msg = msg + '\n' + stop_msg
+        super(self.__class__,self).__init__(msg)
+
+
 
 
 class NiceUSMC(NiceLib):
@@ -38,7 +47,7 @@ class NiceUSMC(NiceLib):
 
     def _ret_err_check(retval):
         if retval != 0:
-            raise USMC_Exception(NiceUSMC.GetLastErr())
+            raise USMC_Exception(NiceUSMC.GetLastErr(),stop=False)
 
     Init = ('out')
     Close = ()
@@ -97,9 +106,9 @@ class USMC(Motion):
                 self.travel_per_microstep = travel_per_microstep.to(self.units)
                 self.travel_per_step = self.travel_per_microstep * self.step_divisor
             elif travel_per_microstep and travel_per_step:
-                raise USMC_Exception('USMC initialization attempted supplying both travel_per_step and travel_per_microstep. Please supply only one or the other.')
+                raise USMC_Exception('USMC initialization attempted supplying both travel_per_step and travel_per_microstep. Please supply only one or the other.',stop=False)
             else:
-                raise USMC_Exception('USMC initialization attempted without supplying either travel_per_step or travel_per_microstep parameter. Please supply one or the other for motor position calibration.')
+                raise USMC_Exception('USMC initialization attempted without supplying either travel_per_step or travel_per_microstep parameter. Please supply one or the other for motor position calibration.',stop=False)
 
         def _state(self):
             return self._dev.GetState()
@@ -119,7 +128,7 @@ class USMC(Motion):
                     pos = ((pos_enc - self.limit_switch_1_pos) * self.travel_per_microstep).to(self.units)
                     return pos
                 else:
-                    raise USMC_Exception('Cannot provide unitful position because limit switch calibration has not been run. Current encoder value is {}'.format(self.get_current_position(unitful=False)))
+                    raise USMC_Exception('Cannot provide unitful position because limit switch calibration has not been run. Current encoder value is {}'.format(self.get_current_position(unitful=False)),stop=False)
             else:
                 return self._state().CurPos
 
@@ -161,21 +170,21 @@ class USMC(Motion):
                 if self.calibration:
                     pos_enc = int((pos / self.travel_per_microstep ).to(u.dimensionless).magnitude) + self.limit_switch_1_pos
                 else:
-                    raise USMC_Exception('Cannot move to unitful target position because calibration has not been run')
+                    raise USMC_Exception('Cannot move to unitful target position because calibration has not been run',stop=False)
             else:
                 pos_enc = int(pos)
 
             if not ls_override:
                 if pos_enc < self.limit_switch_1_pos:
-                    raise USMC_Exception('Cannot move to target position {:3.3g} because it is below the lower-limit limit switch'.format(pos))
+                    raise USMC_Exception('Cannot move to target position {:3.3g} because it is below the lower-limit limit switch'.format(pos),stop=False)
 
                 if pos_enc > self.limit_switch_2_pos:
-                    raise USMC_Exception('Cannot move to target position {:3.3g} because it is beyond the upper-limit limit switch'.format(pos))
+                    raise USMC_Exception('Cannot move to target position {:3.3g} because it is beyond the upper-limit limit switch'.format(pos),stop=False)
 
             if self.get_power():
                 self._dev.Start(pos_enc,speed)
             else:
-                raise USMC_Exception('Motor currently off. Cannot move.')
+                raise USMC_Exception('Motor currently off. Cannot move.',stop=False)
 
         def wait_for_move(self,verbose=False,polling_period=5*u.ms,unitful=True):
             if self.get_running():
@@ -188,7 +197,7 @@ class USMC(Motion):
                 if verbose:
                     print('move to pos = {:3.3g} complete after {:3.3g} sec'.format(self.get_current_position(unitful=unitful),time()-t0))
             else:
-                raise USMC_Exception('wait_for_move called while not currently moving. Perhaps polling period is longer than travel time?')
+                raise USMC_Exception('wait_for_move called while not currently moving. Perhaps polling period is longer than travel time?',motor=self,stop=True)
 
         def go_and_wait(self,pos,speed=5000,ls_override=False,verbose=False,polling_period=5*u.ms,unitful=True):
             self.go(pos,speed=speed,ls_override=ls_override)
@@ -271,3 +280,27 @@ n_devs = int(_dev_list.NOD) # number of USMC devices seen by the driver
 dev_list = [{'dev_num':dev_ind,
             'serial':ffi.string(ffi.unpack(_dev_list.Serial,n_devs)[dev_ind]),
             'driver_version':ffi.string(ffi.unpack(_dev_list.Version,n_devs)[dev_ind]),} for dev_ind in range(n_devs)]
+
+def list_instruments():
+    instruments = []
+    for dev in dev_list:
+        params = _ParamDict("<Standa MicroSMC motor ID '{}'>".format(dev['dev_num']))
+        params['smc_dev_num'] = dev['dev_num']
+        params['module'] = 'motion.USMC'
+        params['serial'] = dev['serial']
+        params['driver_version'] = dev['driver_version']
+        instruments.append(params)
+    return instruments
+
+
+def _instrument(params):
+    if 'smc_dev_num' in params:
+        if 'travel_per_step' in params:
+            inst = USMC(params['smc_dev_num'],travel_per_step=params['travel_per_step'])
+        elif 'travel_per_microstep' in params:
+            inst = USMC(params['smc_dev_num'],travel_per_microstep=params['travel_per_microstep'])
+        else:
+            raise Exception('either travel_per_step or travel_per_microstep parameter must be supplied to initialize USMC instrument')
+    else:
+        raise InstrumentTypeError()
+    return inst
