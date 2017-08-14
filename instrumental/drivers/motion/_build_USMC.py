@@ -156,9 +156,8 @@ typedef struct USMC_Info_st{
 def build():
     build_lib(header_info,
             lib_names,
-            '_USMCDLLlib',
+            '_USMClib',
             __file__,
-            #token_hooks=(declspec_hook,),
             ignore_system_headers=True,
             hook_groups='C++')
 

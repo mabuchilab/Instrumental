@@ -14,10 +14,10 @@ from ..util import check_units
 from ... import u, Q_
 from ...errors import InstrumentTypeError
 
-__all__ = ['USMCDLL']
+__all__ = ['USMC']
 
 # Developed using version 2.1.0.29 of pf_cam.dll
-info = load_lib('USMCDLL', __package__)
+info = load_lib('USMC', __package__)
 ffi = info._ffi
 
 # _dev_list = NiceUSMC.Init()
@@ -64,7 +64,7 @@ class USMC(Motion):
         """
         # self._lib = NiceUSMC
 
-        def __init__(self, dev_id, travel_per_step):
+        def __init__(self, dev_id, travel_per_step=None, step_divisor=None, travel_per_microstep=None):
             """
             Parameters
             ----------
@@ -90,8 +90,16 @@ class USMC(Motion):
                                             # initialize as False
             self.limit_switch_1_pos = False
             self.limit_switch_2_pos = False
-            self.travel_per_step = travel_per_step.to(self.units)
-            self.travel_per_microstep = self.travel_per_step / self.step_divisor
+            if travel_per_step and not travel_per_microstep:
+                self.travel_per_step = travel_per_step.to(self.units)
+                self.travel_per_microstep = self.travel_per_step / self.step_divisor
+            elif travel_per_microstep and not travel_per_step:
+                self.travel_per_microstep = travel_per_microstep.to(self.units)
+                self.travel_per_step = self.travel_per_microstep * self.step_divisor
+            elif travel_per_microstep and travel_per_step:
+                raise USMC_Exception('USMC initialization attempted supplying both travel_per_step and travel_per_microstep. Please supply only one or the other.')
+            else:
+                raise USMC_Exception('USMC initialization attempted without supplying either travel_per_step or travel_per_microstep parameter. Please supply one or the other for motor position calibration.')
 
         def _state(self):
             return self._dev.GetState()
@@ -169,6 +177,29 @@ class USMC(Motion):
             else:
                 raise USMC_Exception('Motor currently off. Cannot move.')
 
+        def wait_for_move(self,verbose=False,polling_period=5*u.ms,unitful=True):
+            if self.get_running():
+                t0 = time()
+                sleep(polling_period.to(u.second).magnitude)
+                while self.get_running():
+                    if verbose:
+                        print('t: {:3.3g} sec, pos: {:3.3g}'.format(time()-t0, self.get_current_position(unitful=unitful)))
+                    sleep(polling_period.to(u.second).magnitude)
+                if verbose:
+                    print('move to pos = {:3.3g} complete after {:3.3g} sec'.format(self.get_current_position(unitful=unitful),time()-t0))
+            else:
+                raise USMC_Exception('wait_for_move called while not currently moving. Perhaps polling period is longer than travel time?')
+
+        def go_and_wait(self,pos,speed=5000,ls_override=False,verbose=False,polling_period=5*u.ms,unitful=True):
+            self.go(pos,speed=speed,ls_override=ls_override)
+            sleep(polling_period.to(u.second).magnitude)
+            self.wait_for_move(verbose=verbose,polling_period=polling_period,unitful=unitful)
+
+        def stop(self,verbose=False,unitful=True):
+            self._dev.Stop()
+            if verbose:
+                print('USMC motor stopped at position {:3.3g}'.format(self.get_current_position()))
+
         def power_on(self):
             """Function to turn the motor power on."""
             mode = self._dev.GetMode()
@@ -221,143 +252,22 @@ class USMC(Motion):
             print('limit switches found. moving back to initial position...')
             self.go(init_pos)                   # return to initial position
 
+        def step_foreward(self):
+            """Function to take one microstep forward (increase actuator length),
+            thus creating the smallest possible change in that direction. This
+            might be useful for software feedback loops.
+            """
+            self.go(self.get_current_position(unitful=False)+1)
 
+        def step_backward(self):
+            """Function to take one microstep forward (increase actuator length),
+            thus creating the smallest possible change in that direction. This
+            might be useful for software feedback loops.
+            """
+            self.go(self.get_current_position(unitful=False)-1)
 
 _dev_list = NiceUSMC.Init()
 n_devs = int(_dev_list.NOD) # number of USMC devices seen by the driver
 dev_list = [{'dev_num':dev_ind,
             'serial':ffi.string(ffi.unpack(_dev_list.Serial,n_devs)[dev_ind]),
             'driver_version':ffi.string(ffi.unpack(_dev_list.Version,n_devs)[dev_ind]),} for dev_ind in range(n_devs)]
-
-        #     self._unit_scaling = (gear_box_ratio * micro_steps_per_step *
-        #                           steps_per_rev / (360.0 * u.deg))
-        #     self._open()
-        #     self._start_polling(polling_period)
-        #     self._wait_for_message(0, 0)  # Make sure status has been loaded before we return
-        #
-        # @property
-        # def _param_dict(self):
-        #     param_dict = _ParamDict(self.__class__.__name__)
-        #     param_dict['module'] = 'motion.kinesis'
-        #     param_dict['kinesis_serial'] = self.serial
-        #     param_dict['offset'] = str(self.offset)
-        #     return param_dict
-        #
-        # def _open(self):
-        #     NiceKinesisISC.BuildDeviceList()  # Necessary?
-        #     self.dev = NiceKinesisISC.Device(self.serial)
-        #     self.dev.Open()
-        #
-        # def close(self):
-        #     self.dev.StopPolling()
-        #     self.dev.Close()
-        #
-        # @check_units(polling_period='ms')
-        # def _start_polling(self, polling_period='200ms'):
-        #     """Starts polling the device to update its status with the given period provided, rounded
-        #     to the nearest millisecond
-        #
-        #     Parameters
-        #     ----------
-        #     polling_period: pint quantity with units of time
-        #     """
-        #     self.polling_period = polling_period
-        #     self.dev.StartPolling(self.polling_period.m_as('ms'))
-        #
-        # @check_units(angle='deg')
-        # def move_to(self, angle, wait=False):
-        #     """Rotate the stage to the given angle
-        #
-        #     Parameters
-        #     ----------
-        #     angle : Quantity
-        #         Angle that the stage will rotate to. Takes the stage offset into account.
-        #     """
-        #     log.debug("Moving stage to {}".format(angle))
-        #     log.debug("Current position is {}".format(self.position))
-        #     self.dev.ClearMessageQueue()
-        #     self.dev.MoveToPosition(self._to_dev_units(angle + self.offset))
-        #     if wait:
-        #         self.wait_for_move()
-        #
-        # def _wait_for_message(self, match_type, match_id):
-        #     msg_type, msg_id, msg_data = self.dev.WaitForMessage()
-        #     log.debug("Received kinesis message ({},{},{})".format(msg_type, msg_id, msg_data))
-        #     while msg_type != match_type or msg_id != match_id:
-        #         msg_type, msg_id, msg_data = self.dev.WaitForMessage()
-        #         log.debug("Received kinesis message ({},{},{})".format(msg_type, msg_id, msg_data))
-        #
-        # def _check_for_message(self, match_type, match_id):
-        #     """Check if a message of the given type and id is in the queue"""
-        #     while True:
-        #         try:
-        #             msg_type, msg_id, msg_data = self.dev.GetNextMessage()
-        #         except KinesisError:
-        #             return False
-        #
-        #         log.debug("Received kinesis message ({},{},{})".format(msg_type, msg_id, msg_data))
-        #         if msg_type == match_type and msg_id == match_id:
-        #             return True
-        #
-        # def wait_for_move(self):
-        #     """Wait for the most recent move to complete"""
-        #     self._wait_for_message(2, 1)
-        #
-        # def move_finished(self):
-        #     """Check if the most recent move has finished"""
-        #     return self._check_for_message(2, 1)
-        #
-        # def _to_real_units(self, dev_units):
-        #     return (dev_units / self._unit_scaling).to('deg')
-        #
-        # @check_units(real_units='deg')
-        # def _to_dev_units(self, real_units):
-        #     return int(round(float(real_units * self._unit_scaling)))
-        #
-        # def home(self, wait=False):
-        #     """Home the stage
-        #
-        #     Parameters
-        #     ----------
-        #     wait : bool, optional
-        #         Wait until the stage has finished homing to return
-        #     """
-        #     self.dev.ClearMessageQueue()
-        #     self.dev.Home()
-        #
-        #     if wait:
-        #         self.wait_for_home()
-        #
-        # def wait_for_home(self):
-        #     """Wait for the most recent homing operation to complete"""
-        #     self._wait_for_message(2, 0)
-        #
-        # def homing_finished(self):
-        #     """Check if the most recent homing operation has finished"""
-        #     return self._check_for_message(2, 0)
-        #
-        # @property
-        # def needs_homing(self):
-        #     """True if the device needs to be homed before a move can be performed"""
-        #     return bool(self.dev.NeedsHoming())
-        #
-        # @property
-        # def offset(self):
-        #     return self._offset
-        #
-        # @offset.setter
-        # @check_units(offset='deg')
-        # def offset(self, offset):
-        #     self._offset = offset
-        #
-        # @property
-        # def position(self):
-        #     return self._to_real_units(self.dev.GetPosition()) - self.offset
-        #
-        # @property
-        # def is_homing(self):
-        #     return bool(self.dev.GetStatusBits() & 0x00000200)
-        #
-        # @property
-        # def is_moving(self):
-        #     return bool(self.dev.GetStatusBits() & 0x00000030)
