@@ -265,7 +265,9 @@ class Pixelfly(Camera):
         return True
 
     def _frame_size(self):
-        return self._binned_width * self._binned_height * (self.bit_depth//8 + 1)
+        nimgs = 2 if self._shutter == 'double' else 1
+        nbytes = ((self.bit_depth+7)//8)
+        return self._binned_width * self._binned_height * nbytes * nimgs
 
     def _allocate_buffers(self, nbufs=None):
         if nbufs is None:
@@ -429,7 +431,8 @@ class Pixelfly(Camera):
         self._height = self._binned_height
 
         if self._shutter == 'double':
-            self._height = self._height / 2  # Give the height of *each* image individually
+            self._height = self._height // 2  # Give the height of *each* image individually
+            self._binned_height = self._binned_height // 2
 
     def _version(self, typ):
         return self._dev.READVERSION(typ)
