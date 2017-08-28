@@ -9,7 +9,7 @@ supports:
 
 * Cameras
 
-  - PCO SDK(tested on PCO.Edge)
+  - PCO SDK (tested on PCO.Edge)
   - PCO Pixelfly
   - Photometrics PVCAM
   - Thorlabs TSI
