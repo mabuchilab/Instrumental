@@ -436,6 +436,10 @@ class TSI_Camera(Camera):
             self._dev.Stop()
         return images
 
+    def cancel_capture(self):
+        """Cancel a capture sequence, cleaning up and stopping the camera"""
+        self._dev.Stop()
+
     @check_units(timeout='?ms')
     def get_captured_image(self, timeout='1s', copy=True, wait_for_all=True, **kwds):
         image_arrs = []
