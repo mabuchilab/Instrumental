@@ -120,6 +120,8 @@ class Pixelfly(Camera):
         self._nbufs = 0
         self._buf_i = 0
 
+        self._double_img = None  # Used for latest_frame
+
         try:
             self.set_mode()
         except PixelflyLibError as e:
@@ -240,6 +242,9 @@ class Pixelfly(Camera):
 
     @check_units(timeout='?ms')
     def wait_for_frame(self, timeout=None):
+        if self._double_img is not None:
+            return True
+
         timeout = win32event.INFINITE if timeout is None else max(0, timeout.m_as('ms'))
 
         buf_i = (self._buf_i) % self._nbufs  # Most recently triggered buffer
@@ -319,21 +324,34 @@ class Pixelfly(Camera):
         self._dev.TRIGGER_CAMERA()
 
     def latest_frame(self, copy=True):
+        if self._double_img is not None:
+            img = self._double_img
+            self._double_img = None
+            return self._crop_roi(img)
+
         buf_i = (self._buf_i - 1) % self._nbufs
         if copy:
             buf = memoryview(ffi.buffer(self._bufptrs[buf_i], self._frame_size())[:])
         else:
             buf = memoryview(ffi.buffer(self._bufptrs[buf_i], self._frame_size()))
 
-        arr = self._array_from_buffer(buf)
+        if self._shutter == 'double':
+            arr, self._double_img = self._arrays_from_buffer(buf)
+        else:
+            arr, = self._arrays_from_buffer(buf)
 
-        # Software ROI
-        kwds = self._last_kwds
+        return self._crop_roi(arr)
+
+    def _crop_roi(self, arr, kwds=None):
+        kwds = self._last_kwds if kwds is None else kwds
         return arr[kwds['top']:kwds['bot'], kwds['left']:kwds['right']]
 
     def start_capture(self, **kwds):
         self._handle_kwds(kwds)
         self._last_kwds = kwds
+
+        # Clear any old capture data
+        self._double_img = None
 
         #if kwds['n_frames'] > 1:
         #    raise Error("Pixelfly camera does not support multi-image capture sequences")
@@ -378,16 +396,16 @@ class Pixelfly(Camera):
             else:
                 buf = memoryview(ffi.buffer(self._bufptrs[self._buf_i], self._frame_size()))
 
-            array = self._array_from_buffer(buf)
+            arrays = self._arrays_from_buffer(buf)
 
             if kwds['fix_hotpixels']:
-                array = self._correct_hot_pixels(array)
+                arrays = [self._correct_hot_pixels(a) for a in arrays]
 
             # Software ROI
             kwds = self._last_kwds
-            array = array[kwds['top']:kwds['bot'], kwds['left']:kwds['right']]
+            arrays = [a[kwds['top']:kwds['bot'], kwds['left']:kwds['right']] for a in arrays]
 
-            image_arrs.append(array)
+            image_arrs.extend(arrays)
             self._buf_i += 1
 
             # FIXME: HACK -- remove me
@@ -402,14 +420,14 @@ class Pixelfly(Camera):
         else:
             return tuple(image_arrs)
 
-    def _array_from_buffer(self, buf):
+    def _arrays_from_buffer(self, buf):
         dtype = np.uint8 if self.bit_depth <= 8 else np.uint16
         if self._shutter != 'double':
             arr = np.frombuffer(buf, dtype)
-            return arr.reshape((self._binned_height, self._binned_width))
+            return (arr.reshape((self._binned_height, self._binned_width)),)
         else:
             px_per_frame = self._binned_width*self._binned_height
-            byte_per_px = self.bit_depth/8 + 1
+            byte_per_px = (self.bit_depth+7)//8
             arr1 = np.frombuffer(buf, dtype, px_per_frame, 0)
             arr2 = np.frombuffer(buf, dtype, px_per_frame, px_per_frame*byte_per_px)
             return (arr1.reshape((self._binned_height, self._binned_width)),
