@@ -58,7 +58,6 @@ User Guide
 
    install
    overview
-   quickstart
    instruments
    driver-dev
    api
