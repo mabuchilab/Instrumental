@@ -102,6 +102,14 @@ def load_qe_curve(fname):
                     assume_sorted=True)
 
 
+def support_checker(mask):
+    return property(lambda self: bool(mask & self._dev.GETBOARDVAL(0x00)))
+
+
+def unitful_boardval(pcc_val, units):
+    return property(lambda self: Q_(self._dev.GETBOARDVAL(pcc_val), units))
+
+
 class Pixelfly(Camera):
     DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
     DEFAULT_KWDS.update(trig='software', shutter='single', gain='low')
@@ -480,6 +488,19 @@ class Pixelfly(Camera):
         """ The temperature of the CCD. """
         temp_C = self._dev.READTEMPERATURE()
         return Q_(temp_C, 'degC')
+
+    frame_time = unitful_boardval(0x40, 'us')
+    readout_time = unitful_boardval(0x41, 'us')
+    last_exposure_time = unitful_boardval(0x0C, 'ms')
+
+    supports_svga = support_checker(0x2000)
+    supports_hvga = support_checker(0x4000)
+    supports_ir_mode = support_checker(0x8000)
+    supports_double_mode = support_checker(0x10000)
+    supports_set_exposure = support_checker(0x20000)
+    supports_vga2 = support_checker(0x40000)
+    supports_qe = support_checker(0x80000)
+    supports_5us_exposure = support_checker(0x200000)
 
     width = property(lambda self: self._width)
     height = property(lambda self: self._height)
