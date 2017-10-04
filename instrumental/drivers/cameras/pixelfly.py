@@ -51,6 +51,12 @@ class NicePixelfly(NiceLib):
     INITBOARD = ('in', 'out')  # Second arg should really be 'inout'
     CHECK_BOARD_AVAILABILITY = ('in')
 
+    def _GETBOARDVAL(pcc_val):
+        data = ffi.new('DWORD*')
+        NicePixelfly._GETBOARDVAL.orig(pcc_val, ffi.cast('void*', data))
+        return data[0]
+    _GETBOARDVAL.sig = ('in', 'in', 'inout')
+
     Board = NiceObjectDef(init='INITBOARD', attrs=dict(
         CLOSEBOARD = ('inout'),
         START_CAMERA = ('in'),
@@ -60,7 +66,7 @@ class NicePixelfly(NiceLib):
         SET_EXPOSURE = ('in', 'in'),
         GETMODE = ('in', 'out', 'out', 'out', 'out', 'out', 'out', 'out', 'out', 'out'),
         GETSIZES = ('in', 'out', 'out', 'out', 'out', 'out'),
-        GETBOARDVAL = ('in', 'in', 'inout'),  # TODO: deal with void pointer properly
+        GETBOARDVAL = _GETBOARDVAL,
         READVERSION = ('in', 'in', 'buf', 'len=64'),
         READTEMPERATURE = ('in', 'out'),
         WRRDORION = ('in', 'in', 'out'),
