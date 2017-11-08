@@ -329,8 +329,8 @@ class CroppableCameraView(QGraphicsView):
     def _wait_for_frame(self):
         frame_ready = self.cam.wait_for_frame(timeout='0 ms')
         if frame_ready:
-            arr = self.cam.latest_frame(copy=False)
-            self.set_image(self._array_to_qimage(arr))
+            arr = self.cam.latest_frame(copy=True)
+            self.set_image(arr)
             self.latest_array = arr
             self.imageDisplayed.emit(arr)
 
