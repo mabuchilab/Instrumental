@@ -284,8 +284,8 @@ class CroppableCameraView(QGraphicsView):
         return QPoint(px_pt.x() + self.settings.get('left', 0),
                       px_pt.y() + self.settings.get('top', 0))
 
-    def set_image(self, image):
-        pixmap = QPixmap(image)
+    def set_image(self, image_arr):
+        pixmap = QPixmap(self._array_to_qimage(image_arr))
         if not self.pixmapitem:
             self.pixmapitem = self.scene.addPixmap(pixmap)
         else:
@@ -307,7 +307,7 @@ class CroppableCameraView(QGraphicsView):
 
     def grab_image(self):
         arr = self.cam.grab_image(**self.settings)
-        self.set_image(self._array_to_qimage(arr))
+        self.set_image(arr)
         self.latest_array = arr
         self.imageDisplayed.emit(arr)
 
