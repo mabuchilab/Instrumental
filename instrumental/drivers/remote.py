@@ -300,7 +300,7 @@ class ServerSession(Session):
                 del self.shared_obj_table[key]
 
     def handle_create(self, request):
-        params = request['params'].copy()
+        params = request['params']._dict.copy()
         params.pop('server')  # Needed to force instrument() to look locally
         share = params.pop('share', False)
 
@@ -312,7 +312,8 @@ class ServerSession(Session):
             lock = FAKE_LOCK
 
         obj_id = id(inst)
-        remote_obj = RemoteInstrument(request['params'], obj_id, None, dir(inst), repr(inst))
+        remote_obj = RemoteInstrument._create_remote(request['params'], obj_id, None, dir(inst),
+                                                     repr(inst))
         self.obj_table[obj_id] = ObjectEntry(inst, remote_obj, lock, share)
         return remote_obj, lock
 
@@ -478,9 +479,12 @@ class RemoteObject(object):
 
 
 class RemoteInstrument(RemoteObject, Instrument):
-    def __init__(self, params, id, session, dirlist, reprname):
-        super(RemoteInstrument, self).__init__(id, dirlist, reprname, session)
-        self._local_setattr('_param_dict', params)
+    @classmethod
+    def _create_remote(cls, params, id, session, dirlist, reprname):
+        obj = RemoteInstrument(params)
+        RemoteObject.__init__(obj, id, dirlist, reprname, session)
+        obj._local_setattr('_paramset', params)
+        return obj
 
 
 def client_session(server):
