@@ -1,5 +1,6 @@
 import sys
 import os.path
+import setuptools  # Fix distutils issues
 from cffi import FFI
 
 ffi = FFI()
