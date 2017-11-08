@@ -5,10 +5,11 @@ import os.path
 import ast
 import datetime as dt
 import logging as log
+from pathlib import Path
 
 from . import std_modules
 
-THIS_DIR = os.path.split(__file__)[0] or '.'
+PKG_DIR = Path(__file__).parent
 
 IGNORED_IMPORTS = ['numpy', 'scipy', 'pint', 'future', 'past']
 VAR_NAMES = ['_INST_PARAMS', '_INST_PRIORITY', '_INST_CLASSES', '_INST_VISA_INFO']
@@ -18,6 +19,100 @@ DEFAULT_VALUES = {
     '_INST_CLASSES': [],
     '_INST_VISA_INFO': None,
 }
+
+
+class ClassInfo(object):
+    def __init__(self, name, bases, module, tree):
+        self.name = name
+        self.bases = bases
+        self.module = module
+        self.ast = tree
+        self.children = []
+
+    def __repr__(self):
+        return '<{}.{}: {}>'.format(self.module, self.name, self.children)
+
+
+def get_subclass_tree():
+    base = []
+    for cat_name in os.listdir(str(PKG_DIR / 'drivers')):
+        category_path = PKG_DIR / 'drivers' / cat_name
+        if not category_path.is_dir() or cat_name.startswith('_'):
+            continue
+        print(category_path)
+
+        cat_info_list = get_subclasses_of('Instrument', cat_name)
+        print(cat_info_list)
+
+        for cat_info in cat_info_list:
+            for d_name in os.listdir(str(category_path)):
+                if d_name.startswith('_') or not d_name.endswith('.py'):
+                    continue
+                mod_name = cat_name + '.' + d_name[:-3]
+                driver_info_list = get_subclasses_of(cat_info.name, mod_name)
+                cat_info.children.extend(driver_info_list)
+
+        # Exclude categories
+        base.extend(cat_info_list)
+    return base
+
+
+def parse_subclasses():
+    subclasses = []
+    for name in os.listdir(str(PKG_DIR / 'drivers')):
+        path = PKG_DIR / 'drivers' / name
+        if not path.is_dir() or name.startswith('_'):
+            continue
+        analyze_driver_category(path)
+
+    return subclasses
+
+
+def parse_file(path):
+    with open(str(path)) as f:
+        return ast.parse(f.read())
+
+
+def analyze_driver_category(path):
+    root = parse_file(path / '__init__.py')
+    get_subclasses_of('Instrument', root)
+
+
+def analyze_driver_module():
+    pass
+
+
+def analyze_driver_class():
+    pass
+
+
+def parse_module2(module_name):
+    parts = module_name.split('.')
+
+    if len(parts) == 1:
+        category, = parts
+        path = PKG_DIR / 'drivers' / category / '__init__.py'
+    elif len(parts) == 2:
+        category, driver = parts
+        path = PKG_DIR / 'drivers' / category / (driver + '.py')
+    else:
+        raise ValueError('Unknown module {}'.format(module_name))
+
+    with open(str(path)) as f:
+        return ast.parse(f.read())
+
+
+def get_subclasses_of(name, module_name):
+    root = parse_module2(module_name)
+    subclasses = []
+    for node in root.body:
+        if not isinstance(node, ast.ClassDef):
+            continue
+        base_names = [base.id for base in node.bases]
+        if name in base_names:
+            info = ClassInfo(node.name, base_names, module_name, root)
+            subclasses.append(info)
+    return subclasses
 
 
 def load_module_source(module):
