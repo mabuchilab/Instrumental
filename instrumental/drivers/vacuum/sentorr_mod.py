@@ -167,7 +167,10 @@ class LEDDriver(object):
 
     @staticmethod
     def decode_digit(reg_val):
-        digit = digit_map[reg_val & 0b01111111]
+        try:
+            digit = digit_map[reg_val & 0b01111111]
+        except KeyError:
+            raise ValueError("Byte code 0b{:08b} does not exist in the digit_map decoder")
         dot = '.' if (reg_val & 0b10000000) else ''
         return digit + dot
 
