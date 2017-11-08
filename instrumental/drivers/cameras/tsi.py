@@ -493,17 +493,17 @@ class TSI_Camera(Camera):
     def wait_for_frame(self, timeout=None):
         timeout_s = timeout
         start_time = clock()
-        while self._dev.GetFrameCount() <= self._next_frame_idx:
+
+        while True:
+            img = self._dev.GetPendingImage()
+            if img != ffi.NULL:
+                self._latest_tsi_img = img
+                self._next_frame_idx += 1
+                return True
+
             elapsed_time = clock() - start_time
             if timeout_s is not None and elapsed_time > timeout_s:
                 return False
-
-        self._latest_tsi_img = self._dev.GetPendingImage()
-        self._next_frame_idx += 1
-        if self._latest_tsi_img == ffi.NULL:
-            raise Error("Got a null image")
-
-        return True
 
     def latest_frame(self, copy=True):
         # Frees the TSI image buffer if `copy` is true. Otherwise, it's the user's responsibility
