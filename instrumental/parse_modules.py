@@ -5,11 +5,10 @@ import os.path
 import ast
 import datetime as dt
 import logging as log
-from pathlib import Path
 
 from . import std_modules
 
-PKG_DIR = Path(__file__).parent
+THIS_DIR = os.path.dirname(__file__) or os.path.curdir
 
 IGNORED_IMPORTS = ['numpy', 'scipy', 'pint', 'future', 'past']
 VAR_NAMES = ['_INST_PARAMS', '_INST_PRIORITY', '_INST_CLASSES', '_INST_VISA_INFO']
@@ -35,8 +34,8 @@ class ClassInfo(object):
 
 def get_subclass_tree():
     base = []
-    for cat_name in os.listdir(str(PKG_DIR / 'drivers')):
-        category_path = PKG_DIR / 'drivers' / cat_name
+    for cat_name in os.listdir(os.path.join(THIS_DIR, 'drivers')):
+        category_path = os.path.join(THIS_DIR, 'drivers', cat_name)
         if not category_path.is_dir() or cat_name.startswith('_'):
             continue
         print(category_path)
@@ -45,7 +44,7 @@ def get_subclass_tree():
         print(cat_info_list)
 
         for cat_info in cat_info_list:
-            for d_name in os.listdir(str(category_path)):
+            for d_name in os.listdir(category_path):
                 if d_name.startswith('_') or not d_name.endswith('.py'):
                     continue
                 mod_name = cat_name + '.' + d_name[:-3]
@@ -59,9 +58,9 @@ def get_subclass_tree():
 
 def parse_subclasses():
     subclasses = []
-    for name in os.listdir(str(PKG_DIR / 'drivers')):
-        path = PKG_DIR / 'drivers' / name
-        if not path.is_dir() or name.startswith('_'):
+    for name in os.listdir(os.path.join(THIS_DIR, 'drivers')):
+        path = os.path.join(THIS_DIR, 'drivers', name)
+        if not os.path.isdir(path) or name.startswith('_'):
             continue
         analyze_driver_category(path)
 
@@ -69,12 +68,12 @@ def parse_subclasses():
 
 
 def parse_file(path):
-    with open(str(path)) as f:
+    with open(path) as f:
         return ast.parse(f.read())
 
 
 def analyze_driver_category(path):
-    root = parse_file(path / '__init__.py')
+    root = parse_file(os.path.join(path, '__init__.py'))
     get_subclasses_of('Instrument', root)
 
 
@@ -91,14 +90,14 @@ def parse_module2(module_name):
 
     if len(parts) == 1:
         category, = parts
-        path = PKG_DIR / 'drivers' / category / '__init__.py'
+        path = os.path.join(THIS_DIR, 'drivers', category, '__init__.py')
     elif len(parts) == 2:
         category, driver = parts
-        path = PKG_DIR / 'drivers' / category / (driver + '.py')
+        path = os.path.join(THIS_DIR, 'drivers', category, (driver + '.py'))
     else:
         raise ValueError('Unknown module {}'.format(module_name))
 
-    with open(str(path)) as f:
+    with open(path) as f:
         return ast.parse(f.read())
 
 
