@@ -299,7 +299,7 @@ class CCS(Spectrometer):
         if size is None:
             size = self._NiceCCSLib.TLCCS_NUM_PIXELS*BYTES_PER_DOUBLE
         buf = buffer(ffi.buffer(ffi.addressof(cdata), size)[:])
-        return np.frombuffer(buf, float)
+        return np.frombuffer(buf, data_type)
 
     def _get_raw_scan_data(self):
         """Reads out the raw scan data.

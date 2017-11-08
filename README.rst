@@ -1,3 +1,20 @@
+.. image:: https://img.shields.io/travis/mabuchilab/Instrumental/master.svg
+    :target: https://travis-ci.org/mabuchilab/Instrumental
+    :alt: Travis CI
+
+.. image:: https://img.shields.io/appveyor/ci/natezb/Instrumental/master.svg
+    :target: https://ci.appveyor.com/project/natezb/instrumental
+    :alt: AppVeyor CI
+
+.. image:: https://img.shields.io/pypi/v/Instrumental-lib.svg
+    :target: https://pypi.python.org/pypi/Instrumental-lib
+    :alt: PyPI
+
+.. image:: https://readthedocs.org/projects/instrumental-lib/badge/
+   :target: https://instrumental-lib.readthedocs.io
+   :alt: Documentation
+
+
 |logo| Instrumental
 ===================
 

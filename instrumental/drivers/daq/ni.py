@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 # Copyright 2016-2017 Nate Bogdanowicz
 from __future__ import division
-from past.builtins import unicode
+from past.builtins import unicode, basestring
 
 import sys
 import time
-from enum import Enum
+from enum import Enum, EnumMeta
 from collections import OrderedDict
 import numpy as np
 from nicelib import NiceLib, NiceObjectDef, load_lib
 
 from ... import Q_, u
-from ...errors import Error, TimeoutError
-from ..util import check_units, check_enums
 from .. import ParamSet
+from ...errors import Error, TimeoutError
+from ..util import check_units, check_enums, as_enum
 from . import DAQ
 
 _INST_PARAMS = ['name', 'serial', 'model']
@@ -21,6 +21,24 @@ _INST_CLASSES = ['NIDAQ']
 
 __all__ = ['NIDAQ', 'AnalogIn', 'AnalogOut', 'VirtualDigitalChannel', 'SampleMode', 'EdgeSlope',
            'TerminalConfig', 'RelativeTo', 'ProductCategory', 'DAQError']
+
+
+# Monkey patch NiceObjectDef until it supports a similar method
+def add_sig_pattern(self, sigs, names):
+    """
+    `sigs` : sequence of pairs (`pattern`, `sig`)
+        Each `sig` is an ordinary sig, and `pattern` is a string pattern which will be completed
+        with each of the names given, using `str.format()`
+    `names` : sequence of strings
+    """
+    for name in names:
+        for pattern, sig in sigs:
+            func_name = pattern.format(name)
+            self.attrs[func_name] = sig
+    self.names = set(self.attrs.keys())
+
+
+NiceObjectDef.add_sig_pattern = add_sig_pattern
 
 
 def to_bytes(value, codec='utf-8'):
@@ -74,7 +92,7 @@ def list_instruments():
 
 class DAQError(Error):
     def __init__(self, code):
-        msg = "({}) {}".format(code, NiceNI.GetErrorString(code))
+        msg = "({}) {}".format(code, NiceNI.GetExtendedErrorInfo())
         self.code = code
         super(DAQError, self).__init__(msg)
 
@@ -84,12 +102,13 @@ class NotSupportedError(DAQError):
 
 
 info = load_lib('ni', __package__)
+ffilib = info._ffilib
 
 
 class NiceNI(NiceLib):
     _info = info
-    _prefix = ('DAQmx_', 'DAQmx')
-    _buflen = 512
+    _prefix = ('DAQmxBase_', 'DAQmx_', 'DAQmx')
+    _buflen = 1024
     _use_numpy = True
 
     def _ret(code):
@@ -98,6 +117,7 @@ class NiceNI(NiceLib):
 
     GetErrorString = ('in', 'buf', 'len')
     GetSysDevNames = ('buf', 'len')
+    GetExtendedErrorInfo = ('buf', 'len=2048')
     CreateTask = ('in', 'out')
 
     Task = NiceObjectDef(doc="A Nice-wrapped NI Task", attrs={
@@ -114,22 +134,34 @@ class NiceNI(NiceLib):
         'ReadAnalogF64': ('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'ignore'),
         'ReadAnalogScalarF64': ('in', 'in', 'out', 'ignore'),
         'ReadDigitalScalarU32': ('in', 'in', 'out', 'ignore'),
+        'ReadDigitalU32': ('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'ignore'),
+        'ReadDigitalLines': ('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'out', 'ignore'),
         'WriteAnalogF64': ('in', 'in', 'in', 'in', 'in', 'in', 'out', 'ignore'),
         'WriteAnalogScalarF64': ('in', 'in', 'in', 'in', 'ignore'),
         'WriteDigitalScalarU32': ('in', 'in', 'in', 'in', 'ignore'),
-        'GetBufInputBufSize': ('in', 'out'),
-        'GetBufInputOnbrdBufSize': ('in', 'out'),
         'CfgSampClkTiming': ('in', 'in', 'in', 'in', 'in', 'in'),
         'CfgImplicitTiming': ('in', 'in', 'in'),
         'CfgOutputBuffer': ('in', 'in'),
         'CfgDigEdgeStartTrig': ('in', 'in', 'in'),
-        'SetReadOffset': ('in', 'in'),
-        'GetReadOffset': ('in', 'out'),
-        'SetReadRelativeTo': ('in', 'in'),
-        'GetReadRelativeTo': ('in', 'out'),
-        'SetReadOverWrite': ('in', 'in'),
-        'GetReadOverWrite': ('in', 'out'),
+        'GetAOUseOnlyOnBrdMem': ('in', 'in', 'out'),
+        'SetAOUseOnlyOnBrdMem': ('in', 'in', 'in'),
+        'GetBufInputOnbrdBufSize': ('in', 'out'),
     })
+
+    Task.add_sig_pattern((
+        ('Get{}', ('in', 'out')),
+        ('Set{}', ('in', 'in')),
+    ),(
+        'SampTimingType',
+        'SampQuantSampMode',
+        'ReadOffset',
+        'ReadRelativeTo',
+        'ReadOverWrite',
+        'SampQuantSampPerChan',
+        'BufInputBufSize',
+        'BufOutputBufSize',
+        'BufOutputOnbrdBufSize',
+    ))
 
     Device = NiceObjectDef({
         # Device properties
@@ -254,55 +286,91 @@ for name, attr in NiceNI.__dict__.items():
         setattr(Val, name[4:], attr)
 
 
-class SampleMode(Enum):
-    finite = Val.FiniteSamps
-    continuous = Val.ContSamps
-    hwtimed = Val.HWTimedSinglePoint
+class ValEnumMeta(EnumMeta):
+    """Enum metaclass that looks up values and removes undefined members"""
+    @classmethod
+    def __prepare__(metacls, cls, bases, **kwds):
+        return {}
+
+    def __init__(cls, *args, **kwds):
+        super(ValEnumMeta, cls).__init__(*args)
+
+    def __new__(metacls, cls, bases, clsdict, **kwds):
+        # Look up values, exclude nonexistent ones
+        for name, value in list(clsdict.items()):
+            try:
+                clsdict[name] = getattr(Val, value)
+            except AttributeError:
+                del clsdict[name]
+
+        enum_dict = super(ValEnumMeta, metacls).__prepare__(cls, bases, **kwds)
+        # Must add members this way because _EnumDict.update() doesn't do everything needed
+        for name, value in clsdict.items():
+            enum_dict[name] = value
+        return super(ValEnumMeta, metacls).__new__(metacls, cls, bases, enum_dict, **kwds)
 
 
-class EdgeSlope(Enum):
-    rising = Val.RisingSlope
-    falling = Val.FallingSlope
+ValEnum = ValEnumMeta('ValEnum', (Enum,), {})
 
 
-class TerminalConfig(Enum):
-    default = Val.Cfg_Default
-    RSE = Val.RSE
-    NRSE = Val.NRSE
-    diff = Val.Diff
-    pseudo_diff = Val.PseudoDiff
+class SampleMode(ValEnum):
+    finite = 'FiniteSamps'
+    continuous = 'ContSamps'
+    hwtimed = 'HWTimedSinglePoint'
 
 
-class RelativeTo(Enum):
-    FirstSample = Val.FirstSample
-    CurrReadPos = Val.CurrReadPos
-    RefTrig = Val.RefTrig
-    FirstPretrigSamp = Val.FirstPretrigSamp
-    MostRecentSamp = Val.MostRecentSamp
+class SampleTiming(ValEnum):
+    sample_clk = 'SampClk'
+    burst_handshake = 'BurstHandshake'
+    handshake = 'Handshake'
+    on_demand = 'OnDemand'
+    change_detection = 'ChangeDetection'
+    pipelined_sample_clk = 'PipelinedSampClk'
 
 
-class ProductCategory(Enum):
-    MSeriesDAQ = Val.MSeriesDAQ
-    XSeriesDAQ = Val.XSeriesDAQ
-    ESeriesDAQ = Val.ESeriesDAQ
-    SSeriesDAQ = Val.SSeriesDAQ
-    BSeriesDAQ = Val.BSeriesDAQ
-    SCSeriesDAQ = Val.SCSeriesDAQ
-    USBDAQ = Val.USBDAQ
-    AOSeries = Val.AOSeries
-    DigitalIO = Val.DigitalIO
-    TIOSeries = Val.TIOSeries
-    DynamicSignalAcquisition = Val.DynamicSignalAcquisition
-    Switches = Val.Switches
-    CompactDAQChassis = Val.CompactDAQChassis
-    CSeriesModule = Val.CSeriesModule
-    SCXIModule = Val.SCXIModule
-    SCCConnectorBlock = Val.SCCConnectorBlock
-    SCCModule = Val.SCCModule
-    NIELVIS = Val.NIELVIS
-    NetworkDAQ = Val.NetworkDAQ
-    SCExpress = Val.SCExpress
-    Unknown = Val.Unknown
+class EdgeSlope(ValEnum):
+    rising = 'RisingSlope'
+    falling = 'FallingSlope'
+
+
+class TerminalConfig(ValEnum):
+    default = 'Cfg_Default'
+    RSE = 'RSE'
+    NRSE = 'NRSE'
+    diff = 'Diff'
+    pseudo_diff = 'PseudoDiff'
+
+
+class RelativeTo(ValEnum):
+    FirstSample = 'FirstSample'
+    CurrReadPos = 'CurrReadPos'
+    RefTrig = 'RefTrig'
+    FirstPretrigSamp = 'FirstPretrigSamp'
+    MostRecentSamp = 'MostRecentSamp'
+
+
+class ProductCategory(ValEnum):
+    MSeriesDAQ = 'MSeriesDAQ'
+    XSeriesDAQ = 'XSeriesDAQ'
+    ESeriesDAQ = 'ESeriesDAQ'
+    SSeriesDAQ = 'SSeriesDAQ'
+    BSeriesDAQ = 'BSeriesDAQ'
+    SCSeriesDAQ = 'SCSeriesDAQ'
+    USBDAQ = 'USBDAQ'
+    AOSeries = 'AOSeries'
+    DigitalIO = 'DigitalIO'
+    TIOSeries = 'TIOSeries'
+    DynamicSignalAcquisition = 'DynamicSignalAcquisition'
+    Switches = 'Switches'
+    CompactDAQChassis = 'CompactDAQChassis'
+    CSeriesModule = 'CSeriesModule'
+    SCXIModule = 'SCXIModule'
+    SCCConnectorBlock = 'SCCConnectorBlock'
+    SCCModule = 'SCCModule'
+    NIELVIS = 'NIELVIS'
+    NetworkDAQ = 'NetworkDAQ'
+    SCExpress = 'SCExpress'
+    Unknown = 'Unknown'
 
 
 # Manually taken from NI's support docs since there doesn't seem to be a DAQmx function to do
@@ -392,7 +460,8 @@ def num_not_none(*args):
 
 
 class Task(object):
-    """
+    """A high-level task that can synchronize use of multiple channel types.
+
     Note that true DAQmx tasks can only include one type of channel (e.g. AI).
     To run multiple synchronized reads/writes, we need to make one MiniTask for
     each type, then use the same sample clock for each.
@@ -423,7 +492,7 @@ class Task(object):
                 raise Exception("Duplicate channel name {}".format(name))
 
             if channel.type not in self._mtasks:
-                self._mtasks[channel.type] = MiniTask(channel.daq)
+                self._mtasks[channel.type] = MiniTask(channel.daq, channel.type)
 
             self.channels[name] = channel
             channel._add_to_minitask(self._mtasks[channel.type])
@@ -478,7 +547,7 @@ class Task(object):
         if not self._trig_set_up:
             self._setup_triggers()
 
-        self.write(write_data)
+        self.write(write_data, autostart=False)
         self.start()
         read_data = self.read()
         self.stop()
@@ -491,8 +560,11 @@ class Task(object):
         read_data = self._read_AI_channels(timeout_s)
         return read_data
 
-    def write(self, write_data):
-        """Write data to the output channels"""
+    def write(self, write_data, autostart=True):
+        """Write data to the output channels.
+
+        Useful when you need finer-grained control than `run()` provides.
+        """
         # Need to make sure we get data array for each output channel (AO, DO, CO...)
         for ch_name, ch in self.channels.items():
             if ch.type in ('AO', 'DO', 'CO'):
@@ -503,41 +575,85 @@ class Task(object):
                                      .format(ch_name))
 
         # Then set up writes for each channel, don't auto-start
-        self._write_AO_channels(write_data)
+        self._write_AO_channels(write_data, autostart=autostart)
         # self.write_DO_channels()
         # self.write_CO_channels()
 
     def verify(self):
+        """Verify the Task.
+
+        This transitions all subtasks to the `verified` state. See the NI documentation for details
+        on the Task State model.
+        """
         for mtask in self._mtasks.values():
             mtask.verify()
 
     def reserve(self):
+        """Reserve the Task.
+
+        This transitions all subtasks to the `reserved` state. See the NI documentation for details
+        on the Task State model.
+        """
         for mtask in self._mtasks.values():
             mtask.reserve()
 
     def unreserve(self):
+        """Unreserve the Task.
+
+        This transitions all subtasks to the `verified` state. See the NI documentation for details
+        on the Task State model.
+        """
         for mtask in self._mtasks.values():
             mtask.unreserve()
 
     def abort(self):
+        """Abort the Task.
+
+        This transitions all subtasks to the `verified` state. See the NI documentation for details
+        on the Task State model.
+        """
         for mtask in self._mtasks.values():
             mtask.abort()
 
     def commit(self):
+        """Commit the Task.
+
+        This transitions all subtasks to the `committed` state. See the NI documentation for details
+        on the Task State model.
+        """
         for mtask in self._mtasks.values():
             mtask.commit()
 
     def start(self):
+        """Start the Task.
+
+        This transitions all subtasks to the `running` state. See the NI documentation for details
+        on the Task State model.
+        """
         for ch_type, mtask in self._mtasks.items():
             if ch_type != self.master_type:
                 mtask.start()
         self._mtasks[self.master_type].start()  # Start the master last
 
     def stop(self):
+        """Stop the Task and return it to the state it was in before it started.
+
+        This transitions all subtasks to the state they in were before they were started, either due
+        to an explicit `start()` or a call to `write()` with `autostart` set to True. See the NI
+        documentation for details on the Task State model.
+        """
         self._mtasks[self.master_type].stop()  # Stop the master first
         for ch_type, mtask in self._mtasks.items():
             if ch_type != self.master_type:
                 mtask.stop()
+
+    def clear(self):
+        """Clear the task and release its resources.
+
+        This clears all subtasks and releases their resources, aborting them first if necessary.
+        """
+        for mtask in self._mtasks.values():
+            mtask.clear()
 
     def _read_AI_channels(self, timeout_s):
         """ Returns a dict containing the AI buffers. """
@@ -560,7 +676,7 @@ class Task(object):
             res['t'] = Q_(np.linspace(0., end_t, n_samps_read), 's')
         return res
 
-    def _write_AO_channels(self, data):
+    def _write_AO_channels(self, data, autostart=True):
         if 'AO' not in self._mtasks:
             return
         mx_task = self._mtasks['AO']._mx_task
@@ -568,29 +684,81 @@ class Task(object):
         arr = np.concatenate([Q_(data[ao]).to('V').magnitude for ao in ao_names])
         arr = arr.astype(np.float64)
         n_samps_per_chan = list(data.values())[0].magnitude.size
-        mx_task.WriteAnalogF64(n_samps_per_chan, False, -1., Val.GroupByChannel, arr)
-
-
-class MiniTask(object):
-    def __init__(self, daq):
-        self.daq = daq
-        handle = NiceNI.CreateTask('')
-        self._mx_task = NiceNI.Task(handle)
-        self.AIs = []
-        self.AOs = []
-        self.chans = []
+        mx_task.WriteAnalogF64(n_samps_per_chan, autostart, -1., Val.GroupByChannel, arr)
 
     def __enter__(self):
         return self
 
     def __exit__(self, type, value, traceback):
         try:
-            self._mx_task.StopTask()
+            self.stop()
         except:
             if value is None:
                 raise  # Only raise new error from StopTask if we started with one
         finally:
-            self._mx_task.ClearTask()  # Always clean up our memory
+            self.clear()  # Always clean up our memory
+
+    def __del__(self):
+        self.clear()
+
+
+def mk_property(name, conv_in, conv_out, doc=None):
+    getter_name = 'Get' + name
+    setter_name = 'Set' + name
+
+    def fget(mtask):
+        getter = getattr(mtask._mx_task, getter_name)
+        return conv_out(getter())
+
+    def fset(mtask, value):
+        setter = getattr(mtask._mx_task, setter_name)
+        setter(conv_in(value))
+
+    return property(fget, fset, doc=doc)
+
+
+def enum_property(name, enum_type, doc=None):
+    return mk_property(name,
+                       conv_in=lambda x: as_enum(enum_type, x).value,
+                       conv_out=enum_type,
+                       doc=doc)
+
+
+def int_property(name, doc=None):
+    return mk_property(name, conv_in=int, conv_out=int, doc=doc)
+
+
+class MiniTask(object):
+    def __init__(self, daq, io_type):
+        self.daq = daq
+        handle = NiceNI.CreateTask('')
+        self._mx_task = NiceNI.Task(handle)
+        self.io_type = io_type
+        self.chans = []
+        self.fsamp = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        try:
+            self.stop()
+        except:
+            if value is None:
+                raise  # Only raise new error from StopTask if we started with one
+        finally:
+            self.clear()  # Always clean up our memory
+
+    sample_timing_type = enum_property('SampTimingType', SampleTiming)
+    sample_mode = enum_property('SampQuantSampMode', SampleMode)
+    samples_per_channel = int_property('SampQuantSampPerChan')
+    input_buf_size = int_property('BufInputBufSize')
+    output_buf_size = int_property('BufOutputBufSize')
+    output_onboard_buf_size = int_property('BufOutputOnbrdBufSize')
+
+    @property
+    def input_onboard_buf_size(self):
+        return self._mx_task.GetBufInputOnbrdBufSize()
 
     @check_enums(mode=SampleMode, edge=EdgeSlope)
     @check_units(fsamp='Hz')
@@ -632,30 +800,53 @@ class MiniTask(object):
     def stop(self):
         self._mx_task.StopTask()
 
+    def clear(self):
+        self._mx_task.ClearTask()
+
+    def _assert_io_type(self, io_type):
+        if io_type != self.io_type:
+            raise TypeError("MiniTask must have io_type '{}' for this operation, but is of "
+                            "type '{}'".format(io_type, self.io_type))
+
     @check_enums(term_cfg=TerminalConfig)
     @check_units(vmin='?V', vmax='?V')
-    def add_AI_channel(self, ai_path, term_cfg='default', vmin=None, vmax=None):
-        self.AIs.append(ai_path)
+    def add_AI_channel(self, ai, term_cfg='default', vmin=None, vmax=None):
+        self._assert_io_type('AI')
+        ai_path = ai if isinstance(ai, basestring) else ai.path
+        self.chans.append(ai_path)
         default_min, default_max = self.daq._max_AI_range()
         vmin = default_min if vmin is None else vmin
         vmax = default_max if vmax is None else vmax
         self._mx_task.CreateAIVoltageChan(ai_path, '', term_cfg.value, vmin.m_as('V'),
                                           vmax.m_as('V'), Val.Volts, '')
 
-    def add_AO_channel(self, ao_path):
-        self.AOs.append(ao_path)
+    def add_AO_channel(self, ao):
+        self._assert_io_type('AO')
+        ao_path = ao if isinstance(ao, basestring) else ao.path
+        self.chans.append(ao_path)
         min, max = self.daq._max_AI_range()
         self._mx_task.CreateAOVoltageChan(ao_path, '', min.m_as('V'), max.m_as('V'), Val.Volts, '')
 
-    def add_DI_channel(self, di_path):
-        self._mx_task.CreateDIChan(di_path, '', Val.ChanForAllLines)
+    def add_DI_channel(self, di, split_lines=False):
+        self._assert_io_type('DI')
+        di_path = di if isinstance(di, basestring) else di.path
+        chan_paths = di_path.split(',') if split_lines else (di_path,)
+        for chan_path in chan_paths:
+            self.chans.append(chan_path)
+            self._mx_task.CreateDIChan(chan_path, '', Val.ChanForAllLines)
 
-    def add_DO_channel(self, do_path):
+    def add_DO_channel(self, do):
+        self._assert_io_type('DO')
+        do_path = do if isinstance(do, basestring) else do.path
         self.chans.append(do_path)
         self._mx_task.CreateDOChan(do_path, '', Val.ChanForAllLines)
 
+    def set_AO_only_onboard_mem(self, channel, onboard_only):
+        self._mx_task.SetAOUseOnlyOnBrdMem(channel, onboard_only)
+
     @check_units(timeout='?s')
     def read_AI_scalar(self, timeout=None):
+        self._assert_io_type('AI')
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
         value = self._mx_task.ReadAnalogScalarF64(timeout_s)
         return Q_(value, 'V')
@@ -663,18 +854,19 @@ class MiniTask(object):
     @check_units(timeout='?s')
     def read_AI_channels(self, samples=-1, timeout=None):
         """Perform an AI read and get a dict containing the AI buffers"""
+        self._assert_io_type('AI')
         samples = int(samples)
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
 
         if samples == -1:
-            buf_size = self._mx_task.GetBufInputBufSize() * len(self.AIs)
+            buf_size = self._mx_task.GetBufInputBufSize() * len(self.chans)
         else:
-            buf_size = samples * len(self.AIs)
+            buf_size = samples * len(self.chans)
 
         data, n_samples_read = self._mx_task.ReadAnalogF64(samples, timeout_s, Val.GroupByChannel,
                                                            buf_size)
         res = {}
-        for i, ch_name in enumerate(self.AIs):
+        for i, ch_name in enumerate(self.chans):
             start = i * n_samples_read
             stop = (i+1) * n_samples_read
             res[ch_name] = Q_(data[start:stop], 'V')
@@ -684,26 +876,88 @@ class MiniTask(object):
 
     @check_units(value='V', timeout='?s')
     def write_AO_scalar(self, value, timeout=None):
+        self._assert_io_type('AO')
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
         self._mx_task.WriteAnalogScalarF64(True, timeout_s, float(value.m_as('V')))
 
     @check_units(timeout='?s')
     def read_DI_scalar(self, timeout=None):
+        self._assert_io_type('DI')
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
         value = self._mx_task.ReadDigitalScalarU32(timeout_s)
         return value
 
     @check_units(timeout='?s')
+    def read_DI_channels(self, samples=-1, timeout=None):
+        """Perform a DI read and get a dict containing the DI buffers"""
+        self._assert_io_type('DI')
+        is_scalar = False  # self.fsamp is None
+        samples = int(samples)
+        timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
+
+        if is_scalar:
+            buf_size = 1 * len(self.chans)
+        elif samples == -1:
+            buf_size = self.input_buf_size * len(self.chans)
+        else:
+            buf_size = samples * len(self.chans)
+
+        #res = self._mx_task.ReadDigitalLines(samples, timeout_s, Val.GroupByChannel, buf_size)
+        #data, n_samples_per_chan_read, n_bytes_per_samp = res
+        res = self._mx_task.ReadDigitalU32(samples, timeout_s, Val.GroupByChannel, buf_size)
+        data, n_samples_per_chan_read = res
+        res = {}
+        for i, ch_name in enumerate(self.chans):
+            start = i * n_samples_per_chan_read
+            stop = (i+1) * n_samples_per_chan_read
+            ch_res = data[start] if is_scalar else data[start:stop]
+            res[ch_name] = self._reorder_digital_int(ch_res)
+
+        if self.fsamp is not None:
+            end_t = (n_samples_per_chan_read-1) / self.fsamp.m_as('Hz')
+            res['t'] = Q_(np.linspace(0., end_t, n_samples_per_chan_read), 's')
+        return res
+
+    def _reorder_digital_int(self, data):
+        """Reorders the bits of a digital int returned by DAQmx based on the line order."""
+        # TODO: Support multiple DI channels
+        lines = self.chans[0].split(',')
+        if len(lines) == 1:
+            return data.astype(bool)
+
+        line_pairs = []
+        ports = []
+        for line_path in lines:
+            dev, port, line = line_path.split('/')
+            line_pairs.append((port, line))
+            if port not in ports:
+                ports.append(port)
+
+        port_bytes = {}
+        for i, port_name in enumerate(ports):
+            port_byte = ((0xFF << 8*i) & data) >> 8*i
+            port_bytes[port_name] = port_byte
+
+        out = np.zeros(data.shape)
+        for i, (port_name, line_name) in enumerate(line_pairs):
+            line_num = int(line_name.replace('line', ''))
+            port_byte = port_bytes[port_name]
+            out += ((port_byte & (1 << line_num)) >> line_num) << i
+        return out
+
+    @check_units(timeout='?s')
     def write_DO_scalar(self, value, timeout=None):
+        self._assert_io_type('DO')
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
         self._mx_task.WriteDigitalScalarU32(True, timeout_s, value)
 
     @check_units(timeout='?s')
     def wait_until_done(self, timeout=None):
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
-        self._mx_task.WAitUntilTaskDone(timeout_s)
+        self._mx_task.WaitUntilTaskDone(timeout_s)
 
     def overwrite(self, overwrite):
+        """Set whether to overwrite samples in the buffer that have not been read yet."""
         val = Val.OverwriteUnreadSamps if overwrite else Val.DoNotOverwriteUnreadSamps
         self._mx_task.SetReadOverWrite(val)
 
@@ -714,9 +968,23 @@ class MiniTask(object):
     def offset(self, offset):
         self._mx_task.SetReadOffset(offset)
 
+    def write_AO_channels(self, data, timeout=-1.0, autostart=True):
+        if timeout != -1.0:
+            timeout = float(Q_(timeout).m_as('s'))
+        arr = np.concatenate([data[ao].m_as('V') for ao in self.chans]).astype(np.float64)
+        n_samples = list(data.values())[0].magnitude.size
+        self._mx_task.WriteAnalogF64(n_samples, autostart, timeout, Val.GroupByChannel, arr)
+
 
 class Channel(object):
-    pass
+    def __hash__(self):
+        return hash(self.path)
+
+    def __eq__(self, other):
+        if isinstance(other, Channel):
+            return self.path == other.path
+        else:
+            return self.path == other
 
 
 class AnalogIn(Channel):
@@ -759,8 +1027,8 @@ class AnalogIn(Channel):
         data : scalar or array Quantity
             The data that was read from analog input.
         """
-        with self.daq._create_mini_task() as mtask:
-            mtask.add_AI_channel(self.path, vmin=vmin, vmax=vmax)
+        with self.daq._create_mini_task('AI') as mtask:
+            mtask.add_AI_channel(self, vmin=vmin, vmax=vmax)
 
             num_args_specified = num_not_none(duration, fsamp, n_samples)
             if num_args_specified == 0:
@@ -779,8 +1047,8 @@ class AnalogIn(Channel):
 
     def start_reading(self, fsamp=None, vmin=None, vmax=None, overwrite=False,
                       relative_to=RelativeTo.CurrReadPos, offset=0, buf_size=10):
-        self._mtask = mtask = self.daq._create_mini_task()
-        mtask.add_AI_channel(self.path, vmin=vmin, vmax=vmax)
+        self._mtask = mtask = self.daq._create_mini_task('AI')
+        mtask.add_AI_channel(self, vmin=vmin, vmax=vmax)
         mtask.config_timing(fsamp, buf_size, mode=SampleMode.continuous)
         mtask.overwrite(overwrite)
         mtask.relative_to(relative_to)
@@ -838,7 +1106,7 @@ class AnalogOut(Channel):
         data : scalar or array Quantity
             The data that was read from analog output.
         """
-        with self.daq._create_mini_task() as mtask:
+        with self.daq._create_mini_task('AO') as mtask:
             internal_ch_name = '{}/_{}_vs_aognd'.format(self.daq.name, self.name)
             try:
                 mtask.add_AI_channel(internal_ch_name)
@@ -915,16 +1183,16 @@ class AnalogOut(Channel):
 
         fsamp, n_samples = handle_timing_params(duration, fsamp, len(data))
 
-        with self.daq._create_mini_task() as mtask:
-            mtask.add_AO_channel(self.path)
+        with self.daq._create_mini_task('AO') as mtask:
+            mtask.add_AO_channel(self)
             mtask.set_AO_only_onboard_mem(self.path, onboard)
             mtask.config_timing(fsamp, n_samples)
             mtask.write_AO_channels({self.path: data})
             mtask.wait_until_done()
 
     def _write_scalar(self, value):
-        with self.daq._create_mini_task() as mtask:
-            mtask.add_AO_channel(self.path)
+        with self.daq._create_mini_task('AO') as mtask:
+            mtask.add_AO_channel(self)
             mtask.write_AO_scalar(value)
 
 
@@ -984,7 +1252,8 @@ class VirtualDigitalChannel(Channel):
         name = name.replace('.0:7', '')
         return name[1:]
 
-    def _get_name(self):
+    @property
+    def path(self):
         """Get DAQmx-style name of this channel"""
         return ','.join([self._get_line_path(pair) for pair in self.line_pairs])
 
@@ -1031,24 +1300,63 @@ class VirtualDigitalChannel(Channel):
     def _parse_DI_int(self, value):
         if self.num_lines == 1:
             return bool(value)
-        else:
-            port_bytes = {}
-            for i, port_name in enumerate(self.ports):
-                byte = ((0xFF << 8*i) & value) >> 8*i
-                port_bytes[port_name] = byte
 
-            out = 0
-            for i, (port_name, line_name) in enumerate(self.line_pairs):
-                line_num = int(line_name.replace('line', ''))
-                byte = port_bytes[port_name]
-                out += ((byte & (1 << line_num)) >> line_num) << i
-            return out
+        port_bytes = {}
+        for i, port_name in enumerate(self.ports):
+            port_byte = ((0xFF << 8*i) & value) >> 8*i
+            port_bytes[port_name] = int(port_byte)
 
-    def read(self):
-        with self.daq._create_mini_task() as t:
-            t.add_DI_channel(self._get_name())
-            data = t.read_DI_scalar()
-        return self._parse_DI_int(data)
+        out = 0
+        for i, (port_name, line_name) in enumerate(self.line_pairs):
+            line_num = int(line_name.replace('line', ''))
+            port_byte = port_bytes[port_name]
+            out += ((port_byte & (1 << line_num)) >> line_num) << i
+        return out
+
+    @check_units(duration='?s', fsamp='?Hz')
+    def read(self, duration=None, fsamp=None, n_samples=None):
+        """Read one or more digital input samples.
+
+        - By default, reads and returns a single sample
+        - If only `n_samples` is given, uses `OnDemand` (software) timing
+        - If two of `duration`, `fsamp`, and `n_samples` are given, uses hardware timing
+
+        Parameters
+        ----------
+        duration : Quantity
+            How long to read from the digital input, specified as a Quantity. Use with `fsamp` or
+            `n_samples`.
+        fsamp : Quantity
+            The sample frequency, specified as a Quantity. Use with `duration` or `n_samples`.
+        n_samples : int
+            The number of samples to read.
+
+        Returns
+        -------
+        data : int or int array
+            The data that was read from analog output.
+
+        For a single-line channel, each sample is a bool. For a multi-line channel, each sample is
+        an int--the lowest bit of the int was read from the first digital line, the second from the
+        second line, and so forth.
+        """
+        with self.daq._create_mini_task('DI') as minitask:
+            minitask.add_DI_channel(self)
+            num_args_specified = sum(int(arg is not None) for arg in (duration, fsamp, n_samples))
+
+            if num_args_specified == 0:
+                data = minitask.read_DI_scalar()
+                data = self._parse_DI_int(data)
+            elif num_args_specified == 2:
+                fsamp, n_samples = handle_timing_params(duration, fsamp, n_samples)
+                minitask.config_timing(fsamp, n_samples)
+                data = minitask.read_DI_channels()
+            elif n_samples is not None:
+                data = minitask.read_DI_channels(samples=n_samples)
+            else:
+                raise DAQError("Must specify nothing, fsamp only, or two of duration, fsamp, "
+                               "and n_samples")
+        return data
 
     def write(self, value):
         """Write a value to the digital output channel
@@ -1060,8 +1368,8 @@ class VirtualDigitalChannel(Channel):
             the int is written to the first digital line, the second to the
             second, and so forth. For a single-line DO channel, can be a bool.
         """
-        with self.daq._create_mini_task() as t:
-            t.add_DO_channel(self._get_name())
+        with self.daq._create_mini_task('DO') as t:
+            t.add_DO_channel(self)
             t.write_DO_scalar(self._create_DO_int(value))
 
     def write_sequence(self, data, duration=None, reps=None, fsamp=None, freq=None, onboard=True,
@@ -1111,9 +1419,9 @@ class VirtualDigitalChannel(Channel):
             duration = (reps or 1)*len(data)/fsamp
         fsamp, n_samples = handle_timing_params(duration, fsamp, len(data))
 
-        with self.daq._create_mini_task() as t:
-            t.add_DO_channel(self._get_name())
-            t.set_DO_only_onboard_mem(self._get_name(), onboard)
+        with self.daq._create_mini_task('DO') as t:
+            t.add_DO_channel(self)
+            t.set_DO_only_onboard_mem(self.path, onboard)
             t.config_timing(fsamp, n_samples, clock=clock)
             t.write_DO_channels({self.name: data}, [self])
             t.t.WaitUntilTaskDone(-1)
@@ -1142,8 +1450,8 @@ class NIDAQ(DAQ):
     def Task(self, *args):
         return Task(*args)
 
-    def _create_mini_task(self):
-        return MiniTask(self)
+    def _create_mini_task(self, io_type):
+        return MiniTask(self, io_type)
 
     def _load_analog_channels(self):
         for ai_name in self._basenames(self._dev.GetDevAIPhysicalChans()):
