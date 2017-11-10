@@ -311,15 +311,21 @@ def MessageFacet(get_msg=None, set_msg=None, convert=None, **kwds):
 
     if get_msg is None:
         fget = None
-    else:
+    elif convert:
         def fget(obj):
             return convert(obj.query(get_msg))
+    else:
+        def fget(obj):
+            return obj.query(get_msg)
 
     if set_msg is None:
         fset = None
-    else:
+    elif convert:
         def fset(obj, value):
             obj.write(set_msg.format(convert(value)))
+    else:
+        def fset(obj, value):
+            obj.write(set_msg.format(value))
 
     return Facet(fget, fset, **kwds)
 
