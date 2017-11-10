@@ -1,6 +1,42 @@
 Change Log
 ==========
 
+Unreleased
+----------
+
+Added
+"""""
+- User-configurable driver blacklist for ``list_instruments()``
+- New parameter system using the new ``ParamSet`` class
+- Convenience module for parsing and analyzing driver modules
+- Default implementation of ``_instrument()`` for drivers
+- ``LibError`` exception type for propagating errors from wrapped libs
+- Default context manager in ``Instrument`` base class
+- Auto-closing at exit of instruments inheriting from ``Instrument``
+- ``visa_timeout_context`` context manager for setting VISA timeout
+- Windows-based testing via AppVeyor
+- Driver for the Princeton Instruments PICam interface
+- Support for NI-DAQmx Base in the existing driver
+- Context manager for ``daq.ni`` Tasks
+- ``VisaMixin`` instrument mixin class
+- ``Facet``s
+- A deprecation decorator
+
+
+Changed
+"""""""
+- Converted most drivers to use the new parameter system
+- Reimplemented ``list_visa_instruments`` using a generator
+- Improved developer-related docs
+- Various improvements and bugfixes to ``daq.ni``
+- Fixed bug in ``cameras.pixelfly`` doubleshutter mode
+
+
+Removed
+"""""""
+- ``_ParamDict`` class
+
+
 (0.3.1) - 2017-06-26
 --------------------
 
