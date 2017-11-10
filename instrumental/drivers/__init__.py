@@ -139,7 +139,7 @@ class Facet(object):
 
         self.cacheable = cached
         self.type = type
-        self.units = None if units is None else u(units)
+        self.units = None if units is None else u.parse_units(units)
         self.name = name  # This is auto-filled by InstrumentMeta.__new__ later
         self._set_limits(limits)
 
@@ -225,6 +225,8 @@ class Facet(object):
         """Validate and convert an input value to its 'external' form"""
         if self.units is not None:
             q = Q_(value)
+            if not q.dimensionality == self.units.dimensionality:
+                raise DimensionalityError(q.units, self.units)
             return Q_(self.convert_raw_input(q.magnitude), q.units)
         else:
             return self.convert_raw_input(value)
