@@ -92,10 +92,10 @@ class PM100D(PowerMeter, VisaMixin):
     auto_range = SCPI_Facet('power:dc:range:auto', convert=int, value={False:0, True:1},
                             doc="Whether auto-ranging is enabled")
 
-    wavelength = SCPI_Facet('sense:corr:wav', units='nm', convert=float,
+    wavelength = SCPI_Facet('sense:corr:wav', units='nm', type=float,
                             doc="Input signal wavelength")
 
-    num_averaged = SCPI_Facet('sense:average:count', convert=int,
+    num_averaged = SCPI_Facet('sense:average:count', type=int,
                               doc="Number of samples to average")
 
     def close(self):
