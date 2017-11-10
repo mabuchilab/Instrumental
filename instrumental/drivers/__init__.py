@@ -126,6 +126,37 @@ class FacetInstance(object):
 
 
 class Facet(object):
+    """Property-like class representing an attribute of an instrument.
+
+    Parameters
+    ----------
+    fget : callable, optional
+        A function to be used for getting the facet's value.
+    fset : callable, optional
+        A function to be used for setting the facet's value.
+    doc : str, optional
+        Docstring to describe the facet
+    cached : bool, optional
+        Whether the facet should use caching. If True, the repeated writes of the same value will
+        only write to the instrument once, while repeated reads of a value will only query the
+        instrument once. Therefore, one should be careful to use caching only when it makes sense.
+        Caching can be disabled on a per-get or per-set basis by using the `use_cache` parameter to
+        `get_value()` or `set_value()`.
+    type : callable, optional
+        Type of the outward-facing value of the facet. Typically an actual type like `int`, but can
+        be any callable that converts a value to the proper type.
+    units : pint.Units or corresponding str
+        Physical units of the facet's value. Used for converting both user input (when setting) and
+        the output of fget (when getting).
+    value : dict-like, optional
+        A map from 'external' values to 'internal' facet values. Used internally to convert input
+        values for use with fset and to convert values returned by fget into 'nice' values fit force
+        user consumption.
+    limits : sequence, optional
+        Limits specified in `[stop]`, `[start, stop]`, or `[start, stop, step]` format. When given,
+        raises a `ValueError` if a user tries to set a value that is out of range. `step`, if given,
+        is used to round an in-range value before passing it to fset.
+    """
     def __init__(self, fget=None, fset=None, doc=None, cached=True, type=None, units=None,
                  value=None, limits=None, name=None):
         if fget is not None:
@@ -303,8 +334,8 @@ def MessageFacet(get_msg=None, set_msg=None, convert=None, **kwds):
     get_msg : str, optional
         Message used to query the facet's value. If omitted, getting is unsupported.
     set_msg : str, optional
-        Message used to set the facet's value. This is filled in with `set_msg.format(value)`, where
-        value is the user-given value being set.
+        Message used to set the facet's value. This string is filled in with
+        `set_msg.format(value)`, where value is the user-given value being set.
     convert : function or callable
         Function that converts both the string returned by querying the instrument and the set-value
         before it is passed to `str.format()`. Usually something like `int` or `float`.
