@@ -17,6 +17,7 @@ from collections import OrderedDict, Mapping
 
 from past.builtins import basestring
 
+from pint import DimensionalityError
 from .. import conf, u, Q_
 from ..driver_info import driver_info
 from ..errors import (InstrumentTypeError, InstrumentNotFoundError, ConfigError,
