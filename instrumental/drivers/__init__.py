@@ -339,6 +339,8 @@ def MessageFacet(get_msg=None, set_msg=None, convert=None, **kwds):
     convert : function or callable
         Function that converts both the string returned by querying the instrument and the set-value
         before it is passed to `str.format()`. Usually something like `int` or `float`.
+    **kwds :
+        Any other keywords are passed along to the `Facet` constructor
     """
 
     if get_msg is None:
@@ -376,6 +378,8 @@ def SCPI_Facet(msg, convert=None, readonly=False, **kwds):
         before it is passed to `str.format()`. Usually something like `int` or `float`.
     readonly : bool, optional
         Whether the Facet should be read-only.
+    **kwds :
+        Any other keywords are passed along to the `Facet` constructor
     """
     get_msg = msg + '?'
     set_msg = None if readonly else msg + ' {}'
