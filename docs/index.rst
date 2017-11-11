@@ -60,5 +60,6 @@ User Guide
    overview
    instruments
    driver-dev
+   facets
    api
    developer
