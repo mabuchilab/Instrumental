@@ -7,6 +7,14 @@ Developer's Guide
 
 -------------------------------------------------------------------------------
 
+.. toctree::
+   :maxdepth: 2
+
+   driver-table
+   release-instructions
+
+-------------------------------------------------------------------------------
+
 The Manifesto
 -------------
 
@@ -91,7 +99,7 @@ Code in Instrumental is primarily documented using python docstrings.  Specifica
 `numpydoc conventions`_. In general, you should also follow the guidelines of `pep 257`_.
 
 - No spaces after the opening triple-quote
-- One-line docstrings should be on a single line, e.g. """Does good stuff"""
+- One-line docstrings should be on a single line, e.g. ``"""Does good stuff."""``
 - Multi-liners have a summary line, followed by a blank line, followed by the rest of the doc. The
   closing quote should be on its own line
 
@@ -122,9 +130,10 @@ Other notable changes include:
   denote integer division (e.g. ``3//4 == 0``)
 
 To help alleviate these transition pains, you should use python's built-in
-``__future__`` module. E.g.::
+``__future__`` module, as well as the third-party ``future`` package. E.g.::
 
     >>> from __future__ import division, print_function, unicode_literals
+    >>> from past.builtins import basestring
 
 
 Some useful links about Py2/3 compatibility

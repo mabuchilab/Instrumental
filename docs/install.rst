@@ -29,6 +29,9 @@ using git. Now install::
 Detailed Install Instructions
 -----------------------------
 
+Instrumental should install any core dependencies it requires, but if you're having problems, you may want to read this section over. Note that many *per-driver* dependencies are not installed automatically, so you can install them as-needed.
+
+
 Python Sci-Comp Stack
 ~~~~~~~~~~~~~~~~~~~~~
 To install the standard scientific computing stack, I recommend using `Anaconda

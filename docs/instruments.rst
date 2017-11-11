@@ -9,14 +9,16 @@ available to your computer. This is primarily accomplished using
 ``list_instruments()`` and ``instrument()``::
 
     >>> from instrumental import instrument, list_instruments
-    >>> insts = list_instruments()
-    >>> insts
-    [<TEKTRONIX 'DPO4034'>, <TEKTRONIX 'MSO4034'>, <NIDAQ 'Dev1'>]
+    >>> paramsets = list_instruments()
+    >>> paramsets
+    [<ParamSet[TSI_Camera] serial='05478' number=0>,
+     <ParamSet[K10CR1] serial='55000247'>
+     <ParamSet[NIDAQ] model='USB-6221 (BNC)' name='Dev1'>]
 
 You can then use the output of ``list_instruments()`` to open the instrument you
 want::
 
-    >>> daq = instrument(insts[2])
+    >>> daq = instrument(paramsets[2])
     >>> daq
     <instrumental.drivers.daq.ni.NIDAQ at 0xb61...>
 
@@ -54,11 +56,11 @@ You can even control instruments that are attached to a remote computer::
 This lists only the instruments located on the remote machine, not any local ones.
 
 The remote PC must be running as an Instrumental server (and its firewall configured to allow
-inbound connections on this port). To do this, run the script `tools/server.py` that comes packaged
+inbound connections on this port). To do this, run the script `tools/instr_server.py` that comes packaged
 with Instrumental. The client needs to specify the server's IP address (or hostname), and port
 number (if differs from the default of 28265). Alternatively, you may save an alias for this server
-in the `[servers]` section of you `instrumental.conf` file.  See :ref:`saved-instruments` for
-more information about `instrumental.conf`. Then you can list the remote instruments like this::
+in the `[servers]` section of you `instrumental.conf` file (see :ref:`saved-instruments` for
+more information about `instrumental.conf`). Then you can list the remote instruments like this::
 
     >>> list_instruments(server='myServer')
 
@@ -91,26 +93,36 @@ or enable logging before calling `list_instruments()`::
     >>> logging.basicConfig(level=logging.INFO)
 
 
-`list_instruments()` doesn't open instruments directly, but instead returns a list of
-dictionary-like elements that contain info about how to open the instrument. For example, for our
-DAQ::
+`list_instruments()` doesn't open instruments directly, but instead returns a list of dict-like `ParamSet` objects that contain info about how to open each instrument. For example, for our DAQ::
 
-    >>> dict(insts[2])
-    {u'nidaq_devname': u'Dev1'}
+    >>> dict(paramsets[2])
+    {'classname': 'NIDAQ',
+     'model': 'USB-6221 (BNC)',
+     'module': 'daq.ni',
+     'name': 'Dev1',
+     'serial': 20229473L}
 
-This tells us that the daq is uniquely identified by the parameter
-`nidaq_devname`. So, we could also open it with keyword arguments::
+We could also open it with keyword arguments::
 
-    >>> instrument(nidaq_devname='Dev1')
+    >>> instrument(name='Dev1')
     <instrumental.drivers.daq.ni.NIDAQ at 0xb69...>
 
 or a dictionary::
 
-    >>> instrument({'nidaq_devname': 'Dev1'})
-    <instrumental.drivers.daq.ni.NIDAQ at 0xb62...>
+    >>> instrument({'name': 'Dev1'})
+    <instrumental.drivers.daq.ni.NIDAQ at 0xb69...>
 
-Behind the scenes, ``instrument()`` uses the keywords to figure out what type
-of instrument you're talking about, and what class should be instantiated.
+Behind the scenes, ``instrument()`` uses the keywords to figure out what type of instrument you're talking about, and what class should be instantiated. If you don't give it much information to use, it may take awhile scanning through the available instruments. You can speed this up by providing the model and/or classname::
+
+    >>> instrument(module='daq.ni', classname='NIDAQ', name='Dev1')
+    <instrumental.drivers.daq.ni.NIDAQ at 0xb69...>
+
+In addition, a convenient shorthand exists for specifying the module (or category of module) when you pass a parameter. For example::
+
+    >>> instrument(ni_daq_name='Dev1')
+    <instrumental.drivers.daq.ni.NIDAQ at 0xb69...>
+
+only looks at instrument types in the `daq.ni` module that have a `name` parameter. These special parameter names support the format ``<module>_<category>_<parameter>``, ``<module>_<parameter>``, and ``<category>_<parameter>``. The parameter name is split by underscores, then used to filter which modules are checked. Note that each segment can be abbreviated, so e.g. `cam_serial` will match all drivers in the `cameras` category having a `serial` parameter (this works because 'cam' is a substring of 'cameras').
 
 
 .. _saved-instruments:
@@ -121,7 +133,7 @@ Saved Instruments
 Opening instruments using `list_instruments()` is really helpful when you're messing around in the
 shell and don't quite know what info you need yet, or you're checking what devices are available to
 you. But if you've found your device and want to write a script that reuses it constantly, it's
-nice to have it saved under an alias, which you can do easily with `save_instrument()` as we showed
+convenient (and more efficient) to have it saved under an alias, which you can do easily with `save_instrument()` as we showed
 above.
 
 When you do this, the instrument's info gets saved in your `instrumental.conf` config file. To find
@@ -131,16 +143,14 @@ where the file is located on your system, run::
     >>> user_conf_dir
     u'C:\\Users\\Lab\\AppData\\Local\\MabuchiLab\\Instrumental'
 
-To save your instrument for repeated use, add its parameters to the ``[instruments]``
-section of `instrumental.conf`. For our DAQ, that would look like::
+To save your instrument manually, you can add its parameters to the ``[instruments]`` section of `instrumental.conf`. For our DAQ, that would look like::
 
     # NI-DAQ device
-    myDAQ = {'nidaq_devname': 'Dev1'}
+    myDAQ = {'module': 'daq.ni', 'classname': 'NIDAQ', 'name': 'Dev1'}
 
 This gives our DAQ the alias `myDAQ`, which can then be used to open it easily::
 
     >>> instrument('myDAQ')
     <instrumental.drivers.daq.ni.NIDAQ at 0xb71...>
 
-The default version of `instrumental.conf` also provides some commented-out
-example entries to help make things clear.
+The default version of `instrumental.conf` also provides some commented-out example entries to help make things clear.
