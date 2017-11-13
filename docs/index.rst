@@ -46,8 +46,7 @@ To download Instrumental or browse its source, see our `GitHub page
 
 .. NOTE::
     Instrumental is currently still under heavy development, so its interfaces
-    are subject to change. Contributions are greatly appreciated, see the
-    :doc:`developer` for more info.
+    are subject to change. Contributions are greatly appreciated, see :doc:`driver-dev` and :doc:`developer` for more info.
 
 
 User Guide

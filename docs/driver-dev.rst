@@ -14,7 +14,7 @@ An Instrumental *driver* is a high-level Python interface to a hardware device. 
 
 Many lab instruments---whether they use GPIB, RS-232, TCPIP, or USB---communicate using text-based messaging protocols. In this case, we can use `PyVISA`_ to interface with the hardware, and focus on providing a high-level pythonic API. See :ref:`visa-drivers` for more details.
 
-Otherwise, the instrument is likely controlled via a library which is designed to be used by an application written in C. In this case, we can use `NiceLib`_ to greatly simplify the wrapping of the library. See :ref:`nicelib-drivers` for more details.
+Otherwise, the instrument is likely controlled via a library (DLL) which is designed to be used by an application written in C. In this case, we can use `NiceLib`_ to greatly simplify the wrapping of the library. See :ref:`nicelib-drivers` for more details.
 
 Generally a driver module should correspond to a single API/library which is being wrapped. For example, there are two separate drivers for Thorlabs cameras, `cameras.uc480` and `cameras.tsi`, each corresponding to a separate library.
 
@@ -27,15 +27,15 @@ By subclassing `Instrument`, your class gets a number of features for free:
 - Auto-closing on program exit (just provide a `close()` method)
 - A context manager which automatically closes the instrument
 - Saving of instruments via `save_instrument()`
-- Integration with `ParamSet`\s
-- Integration with `Facet`\s
+- Integration with `ParamSet`
+- Integration with `Facet`
 
 
 .. _visa-drivers:
 
 Writing VISA-based Drivers
 --------------------------
-To control instruments using message-based protocols, you should use `PyVISA`_, by making your driver class inherit from `VisaMixin`. You can then use `MessageFacet` or `SCPI_Facet` to easily implement a lot of common functionality. See :doc:`facets` for more information.
+To control instruments using message-based protocols, you should use `PyVISA`_, by making your driver class inherit from `VisaMixin`. You can then use `MessageFacet` or `SCPI_Facet` to easily implement a lot of common functionality (see :doc:`facets` for more information). `VisaMixin` provides a ``resource`` property as well as ``write`` and ``query`` methods for your class.
 
 If you're implementing ``_instrument()`` and need to open/access the VISA instrument/resource, you should use ``_get_visa_instrument()`` to take advantage of caching.
 
@@ -61,15 +61,13 @@ These variables should be defined at top of your driver module, just below the i
 `_INST_PARAMS`
     A list of strings indicating the parameter names which can be used to construct the instruments that this driver provides. The `ParamSet` objects returned by `list_instruments()` should provide each of these parameters.
 `_INST_CLASSES`
-    Not required for VISA-based drivers. A list of strings indicating the names of all `Instrument` subclasses the driver module provides (typically only one).
-
-    This enables you to avoid writing a driver-specific `_instrument()` function in most cases.
+    (*Not required for VISA-based drivers*) A list of strings indicating the names of all `Instrument` subclasses the driver module provides (typically only one). This allows you to avoid writing a driver-specific `_instrument()` function in most cases.
 `_INST_VISA_INFO`
-    Optional, and only applicable for VISA instruments. A dict mapping instrument class names to a tuple `(manufac, models)`, to be checked against the result of an `*IDN?` query. `manufac` is the manufacturer string, and `models` is a list of model strings.
+    (*Optional, only used for VISA instruments*) A dict mapping instrument class names to a tuple `(manufac, models)`, to be checked against the result of an `*IDN?` query. `manufac` is the manufacturer string, and `models` is a list of model strings.
 
     For instruments that support the `*IDN?` query, this allows us to directly find the correct driver and class to use.
 `_INST_PRIORITY`
-    Optional. An int (nominally 0-9) denoting the driver's priority. Lower-numbered drivers will be tried first. This is useful because some drivers are either slower, less reliable, or less commonly used than others, and should therefore be tried only after all other options are exhausted.
+    (*Optional*) An int (nominally 0-9) denoting the driver's priority. Lower-numbered drivers will be tried first. This is useful because some drivers are either slower, less reliable, or less commonly used than others, and should therefore be tried only after all other options are exhausted.
 
 
 .. _special-driver-functions:
@@ -79,20 +77,14 @@ Special Driver Functions
 These functions, if implemented, should be defined at the module level.
 
 `list_instruments()`
-    Optional for VISA-based drivers.
-
-    This must return a list of `ParamSet`\s which correspond to each available device that this driver sees attached. Each `ParamSet` should contain all of the params listed in this driver's `_INST_PARAMS`.
+    (*Optional for VISA-based drivers*) This must return a list of `ParamSet`\s which correspond to each available device that this driver sees attached. Each `ParamSet` should contain all of the params listed in this driver's `_INST_PARAMS`.
 
 `_instrument(paramset)`
-    Optional. 
-
-    Find and return the device corresponding to `paramset`. If this function is defined,
+    (*Optional*) Must find and return the device corresponding to `paramset`. If this function is defined,
     `instrumental.instrument()` will use it to open instruments. Otherwise, the appropriate driver class is instantiated directly.
 
 `_check_visa_support(visa_inst)`
-    Optional, only applies to VISA-based drivers.
-
-    Returns `True` if `visa_inst` is a device that is supported by this driver. This is only needed for VISA-based drivers where the device does not support the `*IDN?` query, and instead implements its own message-based protocol.
+    (*Optional, only applies to VISA-based drivers*) Must return ``True`` if `visa_inst` is a device that is supported by this driver. This is only needed for VISA-based drivers where the device does not support the `*IDN?` query, and instead implements its own message-based protocol.
 
 
 Writing Your `Instrument` Subclass
@@ -102,9 +94,9 @@ Each driver subpackage (e.g. ``instrumental.drivers.motion``) defines its own su
 
 Writing `_initialize()`
 ~~~~~~~~~~~~~~~~~~~~~~~
-`Instrument` subclasses should not implement `__init__()`, and instead should define an `_initialize()` method to perform any required initialization. For convenience, the special :ref:`settings parameter <settings-param>` is unpacked as individual keyword arguments (using `**`) into the constructor. Any optional settings should be given default values.
+`Instrument` subclasses should implement an `_initialize()` method to perform any required initialization (instead of `__init__`). For convenience, the special :ref:`settings parameter <settings-param>` is unpacked (using `**`) into this initializer. Any *optional* settings you support should be given default values in the function signature. No other arguments are passed to `_initialize()`.
 
-`_paramset` and other mixin-related attributes (e.g. `resource` for subclasses of `VisaMixin`) are already set before `_initialize()` is called, so you may access them if you need to.
+`_paramset` and other mixin-related attributes (e.g. ``resource`` for subclasses of `VisaMixin`) are already set before `_initialize()` is called, so you may access them if you need to.
 
 
 Special Methods
