@@ -1,8 +1,8 @@
 Change Log
 ==========
 
-Unreleased
-----------
+(0.4) - 2017-11-13
+------------------
 
 Added
 """""
@@ -21,6 +21,7 @@ Added
 - ``VisaMixin`` instrument mixin class
 - ``Facet``s
 - A deprecation decorator
+- Automatic PyPI deployment via TravisCI and AppVeyor
 
 
 Changed
