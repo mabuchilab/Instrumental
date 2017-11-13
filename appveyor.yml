@@ -9,6 +9,9 @@ environment:
     - PYTHON_VERSION: 3.6
       MINICONDA: C:\Miniconda3
 
+  PYPIPASSWORD:
+    secure: ZTf9RSUmSv3iJLQGIvdJCJ/k5tSESQDomCCdahYSsDs=
+
 init:
   - "ECHO %PYTHON_VERSION% %MINICONDA%"
 
@@ -25,3 +28,21 @@ install:
 test_script:
   - conda install pytest
   - py.test
+
+deploy_script:
+  - echo [distutils]                                 > %USERPROFILE%\\.pypirc
+  - echo index-servers =                            >> %USERPROFILE%\\.pypirc
+  - echo     pypi                                   >> %USERPROFILE%\\.pypirc
+  - echo [pypi]                                     >> %USERPROFILE%\\.pypirc
+  - echo repository = https://pypi.python.org/pypi  >> %USERPROFILE%\\.pypirc
+  - echo username = natezb                          >> %USERPROFILE%\\.pypirc
+  - echo password = %PYPIPASSWORD%                  >> %USERPROFILE%\\.pypirc
+
+  # Ensure setup.py finds .pypirc
+  - set HOME=%USERPROFILE%
+
+  # Don't do an sdist, since TravisCI handles that
+  - python setup.py bdist_wheel
+
+  # Only upload if tagged
+  - if "%APPVEYOR_REPO_TAG%"=="true" ( twine upload -r pypi dist/Instrumental_lib* ) else ( echo "Not deploying untagged commit" )
