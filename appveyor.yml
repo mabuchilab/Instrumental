@@ -45,4 +45,4 @@ deploy_script:
   - python setup.py bdist_wheel
 
   # Only upload if tagged
-  - if "%APPVEYOR_REPO_TAG%"=="true" ( twine upload -r pypi dist/Instrumental_lib* ) else ( echo "Not deploying untagged commit" )
+  - if "%APPVEYOR_REPO_TAG%"=="true" ( twine upload -r pypi dist/Instrumental* ) else ( echo "Not deploying untagged commit" )
