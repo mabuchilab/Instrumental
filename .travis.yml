@@ -11,3 +11,12 @@ install:
 
 script:
   - py.test
+
+deploy:
+  provider: pypi
+  user: "natezb"
+  password:
+    secure: "JD/72uHHLQ8Gf0gRLzaV8YQlmxIP1tNoO2J7+AaczfETMzb+xJQstoNGl07UCtrifyuDxF4ackP3iSHLNKYxockd4Vf/CC9w1sxRnMBF/CMq6YES3/NEexRRDm2y+HX6u7z1yXf2oB4xcVfMqZH87S6hNhtR6gWC4RwTL/qZLiU="
+  distributions: "sdist bdist_wheel"
+  on:
+    tags: true
