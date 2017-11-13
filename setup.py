@@ -1,7 +1,6 @@
 import os
 import os.path
 from setuptools import setup, find_packages
-from distutils.errors import DistutilsPlatformError
 from distutils.ccompiler import new_compiler
 
 description = "Library with high-level drivers for lab equipment"
@@ -30,12 +29,28 @@ with open(os.path.join(base_dir, 'instrumental', 'driver_info.py')) as f:
 extras = {k:v['imports'] for k,v in driver_info.items()}
 
 # Check for cffi
+post_install_msgs = []
 try:
     import cffi
-    new_compiler().compile(b'')
-    build_cffi_modules = True
-except (ImportError, DistutilsPlatformError):
+
+    try:
+        new_compiler().compile(b'')
+        build_cffi_modules = True
+    except:
+        build_cffi_modules = False
+        post_install_msgs.append(
+            "No C compiler was found, so cffi modules were not built. If you would like to use "
+            "cffi-based drivers that require compilation, first install a suitable compiler, "
+            "then reinstall Instrumental. See the cffi installation documentation for more details on "
+            "installing an appropriate compiler for your platform.")
+except:
     build_cffi_modules = False
+    post_install_msgs.append(
+        "Python cffi was not installed, so cffi modules were not built. If you would like to use "
+        "cffi-based drivers that require compilation, first install cffi and a suitable compiler, "
+        "then reinstall Instrumental. See the cffi installation documentation for more details on "
+        "installing an appropriate compiler for your platform.")
+
 
 # Find all cffi build scripts
 keywords = {}
@@ -70,9 +85,5 @@ if __name__ == '__main__':
         **keywords
     )
 
-    if not build_cffi_modules:
-        print("\nPython cffi is not installed or there was no C compiler found, so cffi modules "
-              "were not built. If you would like to use cffi-based drivers that require "
-              "compilation, first install cffi and a suitable compiler, then reinstall "
-              "Instrumental. See the cffi installation documentation for more details on "
-              "installing an appropriate compiler.")
+    if post_install_msgs:
+        print("\n" + "\n\n".join(post_install_msgs))
