@@ -30,6 +30,8 @@ test_script:
   - py.test
 
 deploy_script:
+  - pip install twine
+
   - echo [distutils]                                 > %USERPROFILE%\\.pypirc
   - echo index-servers =                            >> %USERPROFILE%\\.pypirc
   - echo     pypi                                   >> %USERPROFILE%\\.pypirc
@@ -45,4 +47,4 @@ deploy_script:
   - python setup.py bdist_wheel
 
   # Only upload if tagged
-  - if "%APPVEYOR_REPO_TAG%"=="true" ( twine upload -r pypi dist/Instrumental* ) else ( echo "Not deploying untagged commit" )
+  - if "%APPVEYOR_REPO_TAG%"=="true" ( twine upload --skip-existing -r pypi dist/* ) else ( echo "Not deploying untagged commit" )
