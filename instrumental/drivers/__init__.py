@@ -739,7 +739,7 @@ def list_instruments(server=None, module=None, blacklist=None):
     try:
         import visa
         try:
-            inst_list = list_visa_instruments()
+            inst_list = [p for p in list_visa_instruments() if module in p['module']]
         except visa.VisaIOError:
             inst_list = []  # Hide visa errors
     except (ImportError, ConfigError):
