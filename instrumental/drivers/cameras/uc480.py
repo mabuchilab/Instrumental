@@ -686,14 +686,13 @@ class UC480_Camera(Camera):
 
     @check_units(framerate='?Hz')
     def start_live_video(self, framerate=None, **kwds):
-        # Changed to be like start_capture 
-        # Otherwise, errors are thrown when running this function
         self._handle_kwds(kwds, fill_coords=False)
+
         self._set_binning(kwds['vbin'], kwds['hbin'])
         self._set_subsampling(kwds['vsub'], kwds['hsub'])
         self._refresh_sizes()
-        
-        # Same as above
+
+        # Fill coords now b/c max width/height may have changed
         self._handle_kwds(kwds, fill_coords=True)
         self._set_AOI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
         self._set_exposure(kwds['exposure_time'])
