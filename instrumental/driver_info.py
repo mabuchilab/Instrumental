@@ -1,7 +1,12 @@
-# Auto-generated 2017-07-11T14:49:10.138000
+# Auto-generated 2017-11-14T12:19:50.386000
 from collections import OrderedDict
 
 driver_info = OrderedDict([
+    ('cameras.picam', {
+        'params': [],
+        'classes': [],
+        'imports': ['nicelib'],
+    }),
     ('cameras.pixelfly', {
         'params': ['number'],
         'classes': ['Pixelfly'],
