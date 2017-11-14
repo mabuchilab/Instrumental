@@ -1,6 +1,15 @@
 Change Log
 ==========
 
+(0.4.2) - 2017-11-14
+--------------------
+
+Changed
+"""""""
+- Fixed bug ``list_instruments()`` bug introduced in 0.4.1
+- Updated more documentation
+
+
 (0.4.1) - 2017-11-14
 --------------------
 
