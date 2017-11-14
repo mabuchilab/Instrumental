@@ -34,16 +34,30 @@ Then you can simply open it by name::
 An Even Quicker Way
 ~~~~~~~~~~~~~~~~~~~
 
-Here's a shortcut for opening an instrument that means you don't have to assign the instrument list
-to a variable, or even know how to count--just use part of the instrument's string::
+Here's a shortcut for opening an instrument that means you don't have to assign the instrument list to a variable, or even know how to count---just use part of the instrument's string::
 
     >>> list_instruments()
-    [<TEKTRONIX 'DPO4034'>, <TEKTRONIX 'MSO4034'>, <NIDAQ 'Dev1'>]
-    >>> instrument('DPO')  # Opens the <TEKTRONIX 'DPO4034'>
-    >>> instrument('NIDAQ')  # Opens the <NIDAQ 'Dev1'>
+    [<ParamSet[TSI_Camera] serial='05478' number=0>,
+     <ParamSet[K10CR1] serial='55000247'>
+     <ParamSet[NIDAQ] model='USB-6221 (BNC)' name='Dev1'>]
+    >>> instrument('TSI')  # Opens the TSI_Camera
+    >>> instrument('NIDAQ')  # Opens the NIDAQ
 
 This will work as long as the string you use isn't saved as an instrument alias. If you use a
 string that matches multiple instruments, it just picks the first in the list.
+
+
+Filtering Results
+~~~~~~~~~~~~~~~~~
+
+If you're only interested in a specific driver or category of instrument, you can use the `module` argument to filter your results. This will also speed up the search for the instruments::
+
+    >>> list_instruments(module='cameras')
+    [<ParamSet[TSI_Camera] serial='05478' number=0>]
+    >>> list_instruments(module='cameras.tsi')
+    [<ParamSet[TSI_Camera] serial='05478' number=0>]
+
+`list_instruments()` checks if ``module`` is a substring of each driver module's name. Only modules whose names match are queried for available instruments.
 
 
 Remote Instruments
