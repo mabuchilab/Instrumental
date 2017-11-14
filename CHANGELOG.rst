@@ -4,6 +4,15 @@ Change Log
 Unreleased
 ----------
 
+Added
+"""""
+- Filtering of VISA instruments by module in ``list_instruments()``
+
+Changed
+"""""""
+- Fixed ``start_live_video`` AOI bug in ``cameras.uc480``
+  (Issue #33, thanks Ivan Galinskiy)
+
 
 (0.4) - 2017-11-13
 ------------------
