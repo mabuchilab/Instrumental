@@ -27,10 +27,12 @@ flexibility to perform complex tasks with relative ease. It also makes it easy t
 instruments in the shell. For example, to list the available instruments and open one of them::
 
     >>> from instrumental import instrument, list_instruments
-    >>> insts = list_instruments()
-    >>> insts
-    [<TEKTRONIX 'DPO4034'>, <TEKTRONIX 'MSO4034'>, <NIDAQ 'Dev1'>]
-    >>> daq = instrument(insts[2])
+    >>> paramsets = list_instruments()
+    >>> paramsets
+    [<ParamSet[TSI_Camera] serial='05478' number=0>,
+     <ParamSet[K10CR1] serial='55000247'>
+     <ParamSet[NIDAQ] model='USB-6221 (BNC)' name='Dev1'>]
+    >>> daq = instrument(paramsets[2])
     >>> daq
     <instrumental.drivers.daq.ni.NIDAQ at 0xb61...>
 
