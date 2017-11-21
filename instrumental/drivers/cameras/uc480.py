@@ -697,8 +697,10 @@ class UC480_Camera(Camera):
         self._set_AOI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
 
         # Framerate should be set *before* exposure time
-        if framerate is not None:
-            self._dev.SetFrameRate(framerate.m_as('Hz'))
+        if framerate is None:
+            # This is necessary to ensure that the exposure_time is within the reachable range
+            framerate = 1/Q_(kwds['exposure_time'])
+        self._dev.SetFrameRate(framerate.m_as('Hz'))
 
         self._set_exposure(kwds['exposure_time'])
         self._set_gain(kwds['gain'])
