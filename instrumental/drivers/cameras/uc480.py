@@ -695,18 +695,17 @@ class UC480_Camera(Camera):
         # Fill coords now b/c max width/height may have changed
         self._handle_kwds(kwds, fill_coords=True)
         self._set_AOI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
+
+        # Framerate should be set *before* exposure time
+        if framerate is not None:
+            self._dev.SetFrameRate(framerate.m_as('Hz'))
+
         self._set_exposure(kwds['exposure_time'])
         self._set_gain(kwds['gain'])
 
         self._free_image_mem_seq()
         self._allocate_mem_seq(num_bufs=2)
         self._set_queueing(False)
-
-        if framerate is None:
-            framerate = lib.GET_FRAMERATE
-        else:
-            framerate = framerate.m_as('Hz')
-        self.framerate = self._dev.SetFrameRate(framerate)
 
         self._trigger_mode = lib.SET_TRIGGER_OFF
         self._dev.SetExternalTrigger(self._trigger_mode)
@@ -888,3 +887,5 @@ class UC480_Camera(Camera):
 
     #: Trigger mode string. Read-only
     trigger_mode = property(lambda self: self._get_trigger())
+
+    framerate = property(lambda self: Q_(self._dev.SetFrameRate(lib.GET_FRAMERATE), 'Hz'))
