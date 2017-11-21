@@ -7,7 +7,7 @@ from __future__ import division
 import logging as log
 from enum import Enum
 from nicelib import NiceLib, NiceObjectDef, load_lib
-from time import sleep
+from time import sleep, time
 from . import Motion
 from .. import _ParamDict
 from ..util import check_units
@@ -89,8 +89,10 @@ class USMC(Motion):
             self.dev_id = dev_id
             self.serial = dev_list[dev_id]['serial']
             self.driver_version = dev_list[dev_id]['driver_version']
-            self._start_params = self._dev.GetStartParameters()
-            self.step_divisor = int(self._start_params.SDivisor)
+            self.step_divisor = step_divisor
+            #self._start_params = self._dev.GetStartParameters()
+            #self.step_divisor = int(self._start_params.SDivisor)
+            #print('step_divisor={}'.format(self.step_divisor))
             self.mode = self._dev.GetMode()
             self.power = not(self.mode.ResetD)
             self.units = u.mm               # default posotion units
@@ -186,7 +188,12 @@ class USMC(Motion):
             else:
                 raise USMC_Exception('Motor currently off. Cannot move.',stop=False)
 
-        def wait_for_move(self,verbose=False,polling_period=5*u.ms,unitful=True):
+        def wait_for_move(self,pos,verbose=False,polling_period=5*u.ms,unitful=True):
+            if unitful:
+                close_enough = 2*self.travel_per_microstep
+            else:
+                close_enough = 2 # encoder ticks
+
             if self.get_running():
                 t0 = time()
                 sleep(polling_period.to(u.second).magnitude)
@@ -196,13 +203,16 @@ class USMC(Motion):
                     sleep(polling_period.to(u.second).magnitude)
                 if verbose:
                     print('move to pos = {:3.3g} complete after {:3.3g} sec'.format(self.get_current_position(unitful=unitful),time()-t0))
+            elif (self.get_current_position(unitful=unitful) - pos) < close_enough:
+                if verbose:
+                    print('already at pos = {:3.3g}, no need to wait'.format(self.get_current_position(unitful=unitful)))
             else:
                 raise USMC_Exception('wait_for_move called while not currently moving. Perhaps polling period is longer than travel time?',motor=self,stop=True)
 
         def go_and_wait(self,pos,speed=5000,ls_override=False,verbose=False,polling_period=5*u.ms,unitful=True):
             self.go(pos,speed=speed,ls_override=ls_override)
             sleep(polling_period.to(u.second).magnitude)
-            self.wait_for_move(verbose=verbose,polling_period=polling_period,unitful=unitful)
+            self.wait_for_move(pos,verbose=verbose,polling_period=polling_period,unitful=unitful)
 
         def stop(self,verbose=False,unitful=True):
             self._dev.Stop()
@@ -260,6 +270,7 @@ class USMC(Motion):
             self.calibration = True
             print('limit switches found. moving back to initial position...')
             self.go(init_pos)                   # return to initial position
+            return self.limit_switch_1_pos, self.limit_switch_2_pos
 
         def step_foreward(self):
             """Function to take one microstep forward (increase actuator length),
