@@ -11,6 +11,7 @@ from pyvisa.constants import InterfaceType
 import numpy as np
 from pint import UndefinedUnitError
 from . import Scope
+from .. import VisaMixin, SCPI_Facet
 from ... import u, Q_
 
 _INST_PARAMS = ['visa_address']
@@ -25,7 +26,7 @@ _INST_VISA_INFO = {
 }
 
 
-class TekScope(Scope):
+class TekScope(Scope, VisaMixin):
     """
     A base class for Tektronix scopes. Supports at least TDS 3000 series as
     well as MSO/DPO 4000 series scopes.
@@ -60,55 +61,55 @@ class TekScope(Scope):
             Unitful arrays of data from the scope. ``t`` is in seconds, while
             ``y`` is in volts.
         """
-        inst = self._rsrc
-
-        inst.write("data:source ch{}".format(channel))
-        stop = int(inst.query("wfmpre:nr_pt?"))  # Get source's number of points
+        self.write("data:source ch{}".format(channel))
+        stop = int(self.query("wfmpre:nr_pt?"))  # Get source's number of points
         stop = 10000
-        inst.write("data:width 2")
-        inst.write("data:encdg RIBinary")
-        inst.write("data:start 1")
-        inst.write("data:stop {}".format(stop))
+        self.write("data:width 2")
+        self.write("data:encdg RIBinary")
+        self.write("data:start 1")
+        self.write("data:stop {}".format(stop))
 
-        #inst.flow_control = 1  # Soft flagging (XON/XOFF flow control)
-        old_read_termination = inst.read_termination
-        old_end_input = inst.end_input
-        old_timeout = inst.timeout
+        #self.resource.flow_control = 1  # Soft flagging (XON/XOFF flow control)
+        old_read_termination = self.resource.read_termination
+        old_end_input = self.resource.end_input
+        old_timeout = self.resource.timeout
 
-        inst.timeout = 10000
-        inst.read_termination = None
-        inst.end_input = visa.constants.SerialTermination.none
-        inst.write("curve?")
+        self.resource.timeout = 10000
+        self.resource.read_termination = None
+        self.resource.end_input = visa.constants.SerialTermination.none
+        self.write("curve?")
 
-        with inst.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
-            (_, width), _ = inst.visalib.read(inst.session, 2)  # read first 2 bytes
-            num_bytes = int(inst.visalib.read(inst.session, int(width))[0])
+        with self.resource.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
+            visalib = self.resource.visalib
+            session = self.resource.session
+            (_, width), _ = visalib.read(session, 2)  # read first 2 bytes
+            num_bytes = int(visalib.read(session, int(width))[0])
             buf = bytearray(num_bytes)
             cursor = 0
             while cursor < num_bytes:
-                raw_bin, _ = inst.visalib.read(inst.session, num_bytes-cursor)
+                raw_bin, _ = visalib.read(session, num_bytes-cursor)
                 buf[cursor:cursor+len(raw_bin)] = raw_bin
                 cursor += len(raw_bin)
                 print(cursor)
 
-        inst.end_input = old_end_input
-        inst.read_termination = old_read_termination
-        inst.timeout = old_timeout
-        inst.read()  # Eat termination
+        self.resource.end_input = old_end_input
+        self.resource.read_termination = old_read_termination
+        self.resource.timeout = old_timeout
+        self.resource.read()  # Eat termination
 
         num_points = int(num_bytes // 2)
         raw_data_y = np.frombuffer(buf, dtype='>i2', count=num_points)
 
         # Get scale and offset factors
-        x_scale = float(inst.query("wfmpre:xincr?"))
-        y_scale = float(inst.query("wfmpre:ymult?"))
-        x_zero = float(inst.query("wfmpre:xzero?"))
-        y_zero = float(inst.query("wfmpre:yzero?"))
-        x_offset = float(inst.query("wfmpre:pt_off?"))
-        y_offset = float(inst.query("wfmpre:yoff?"))
+        x_scale = float(self.query("wfmpre:xincr?"))
+        y_scale = float(self.query("wfmpre:ymult?"))
+        x_zero = float(self.query("wfmpre:xzero?"))
+        y_zero = float(self.query("wfmpre:yzero?"))
+        x_offset = float(self.query("wfmpre:pt_off?"))
+        y_offset = float(self.query("wfmpre:yoff?"))
 
-        x_unit_str = inst.query("wfmpre:xunit?")[1:-1]
-        y_unit_str = inst.query("wfmpre:yunit?")[1:-1]
+        x_unit_str = self.query("wfmpre:xunit?")[1:-1]
+        y_unit_str = self.query("wfmpre:yunit?")[1:-1]
 
         unit_map = {
             'U': '',
