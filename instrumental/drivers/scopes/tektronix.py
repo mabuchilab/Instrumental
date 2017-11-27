@@ -16,6 +16,10 @@ from ... import u, Q_
 _INST_PARAMS = ['visa_address']
 _INST_VISA_INFO = {
     'TDS_200': ('TEKTRONIX', ['TDS 210']),
+    'TDS_1000': ('TEKTRONIX', ['TDS 1001B', 'TDS 1002B', 'TDS 1012B']),
+    'TDS_2000': ('TEKTRONIX', ['TDS 2002B', 'TDS 2004B',
+                               'TDS 2012B', 'TDS 2014B',
+                               'TDS 2022B', 'TDS 2024B']),
     'TDS_3000': ('TEKTRONIX', ['TDS 3032', 'TDS 3034B']),
     'MSO_DPO_4000': ('TEKTRONIX', ['MSO4034', 'DPO4034'])
 }
@@ -257,6 +261,16 @@ class TekScope(Scope):
 
 class TDS_200(TekScope):
     """A Tektronix TDS 200 series oscilloscope"""
+    pass
+
+
+class TDS_1000(TekScope):
+    """A Tektronix TDS 1000 series oscilloscope"""
+    pass
+
+
+class TDS_2000(TekScope):
+    """A Tektronix TDS 2000 series oscilloscope"""
     pass
 
 
