@@ -12,6 +12,7 @@ import numpy as np
 from pint import UndefinedUnitError
 from . import Scope
 from .. import VisaMixin, SCPI_Facet
+from ..util import visa_context
 from ... import u, Q_
 
 _INST_PARAMS = ['visa_address']
@@ -70,16 +71,13 @@ class TekScope(Scope, VisaMixin):
         self.write("data:stop {}".format(stop))
 
         #self.resource.flow_control = 1  # Soft flagging (XON/XOFF flow control)
-        old_read_termination = self.resource.read_termination
-        old_end_input = self.resource.end_input
-        old_timeout = self.resource.timeout
 
-        self.resource.timeout = 10000
-        self.resource.read_termination = None
-        self.resource.end_input = visa.constants.SerialTermination.none
-        self.write("curve?")
+        with self.resource.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT),\
+             visa_context(self.resource, timeout=10000, read_termination=None,
+                          end_input=visa.constants.SerialTermination.none):
 
-        with self.resource.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
+            print(self.resource.timeout)
+            self.write("curve?")
             visalib = self.resource.visalib
             session = self.resource.session
             (_, width), _ = visalib.read(session, 2)  # read first 2 bytes
@@ -90,11 +88,7 @@ class TekScope(Scope, VisaMixin):
                 raw_bin, _ = visalib.read(session, num_bytes-cursor)
                 buf[cursor:cursor+len(raw_bin)] = raw_bin
                 cursor += len(raw_bin)
-                print(cursor)
 
-        self.resource.end_input = old_end_input
-        self.resource.read_termination = old_read_termination
-        self.resource.timeout = old_timeout
         self.resource.read()  # Eat termination
 
         num_points = int(num_bytes // 2)
