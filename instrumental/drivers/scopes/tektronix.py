@@ -27,6 +27,19 @@ _INST_VISA_INFO = {
 }
 
 
+MODEL_CHANNELS = {
+    'TDS 1001B': 2,
+    'TDS 1002B': 2,
+    'TDS 1012B': 2,
+    'TDS 2002B': 2,
+    'TDS 2004B': 4,
+    'TDS 2012B': 2,
+    'TDS 2014B': 4,
+    'TDS 2022B': 2,
+    'TDS 2024B': 4,
+}
+
+
 class TekScope(Scope, VisaMixin):
     """
     A base class for Tektronix scopes. Supports at least TDS 3000 series as
@@ -251,6 +264,26 @@ class TekScope(Scope, VisaMixin):
             Number of samples used to compute measurements
         """
         self.write("measu:stati:weighting {}".format(nsamps))
+
+    @property
+    def interface_type(self):
+        return self.resource.interface_type
+
+    @property
+    def model(self):
+        _, model, _, _ = self.query('*IDN?').split(',', 3)
+        return model
+
+    @property
+    def channels(self):
+        try:
+            return MODEL_CHANNELS[self.model]
+        except KeyError:
+            raise KeyError('Unknown number of channels for this scope model')
+
+    horizontal_scale = SCPI_Facet('hor:main:scale', convert=float, units='s')
+    horizontal_delay = SCPI_Facet('hor:delay:pos', convert=float, units='s')
+    math_function = property(get_math_function, set_math_function)
 
 
 class TDS_200(TekScope):
