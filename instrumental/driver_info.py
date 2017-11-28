@@ -1,4 +1,4 @@
-# Auto-generated 2017-11-14T12:19:50.386000
+# Auto-generated 2017-11-27T13:53:06.955000
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -80,7 +80,7 @@ driver_info = OrderedDict([
         'params': ['visa_address'],
         'classes': [],
         'imports': ['visa', 'pyvisa'],
-        'visa_info': {'TDS_3000': ('TEKTRONIX', ['TDS 3032', 'TDS 3034B']), 'MSO_DPO_4000': ('TEKTRONIX', ['MSO4034', 'DPO4034']), 'TDS_200': ('TEKTRONIX', ['TDS 210'])},
+        'visa_info': {'TDS_2000': ('TEKTRONIX', ['TDS 2002B', 'TDS 2004B', 'TDS 2012B', 'TDS 2014B', 'TDS 2022B', 'TDS 2024B']), 'TDS_1000': ('TEKTRONIX', ['TDS 1001B', 'TDS 1002B', 'TDS 1012B']), 'TDS_3000': ('TEKTRONIX', ['TDS 3032', 'TDS 3034B']), 'MSO_DPO_4000': ('TEKTRONIX', ['MSO4034', 'DPO4034']), 'TDS_200': ('TEKTRONIX', ['TDS 210'])},
     }),
     ('spectrometers.bristol', {
         'params': ['port'],
