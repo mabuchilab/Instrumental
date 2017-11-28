@@ -46,12 +46,13 @@ class TekScope(Scope, VisaMixin):
     well as MSO/DPO 4000 series scopes.
     """
     def _initialize(self):
-        if self._rsrc.interface_type == InterfaceType.asrl:
+        if self.interface_type == InterfaceType.asrl:
             terminator = self.query('RS232:trans:term?').strip()
             self._rsrc.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
-        elif self._rsrc.interface_type == InterfaceType.usb:
-            pass
-        elif self._rsrc.interface_type == InterfaceType.tcpip:
+        elif self.interface_type == InterfaceType.usb:
+            terminator = self.query('RS232:trans:term?').strip()
+            self._rsrc.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
+        elif self.interface_type == InterfaceType.tcpip:
             pass
         else:
             pass
