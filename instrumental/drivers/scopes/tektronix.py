@@ -17,17 +17,28 @@ from ... import u, Q_
 
 _INST_PARAMS = ['visa_address']
 _INST_VISA_INFO = {
-    'TDS_200': ('TEKTRONIX', ['TDS 210']),
+    'TDS_200': ('TEKTRONIX', ['TDS 210', 'TDS 220', 'TDS 224']),
     'TDS_1000': ('TEKTRONIX', ['TDS 1001B', 'TDS 1002B', 'TDS 1012B']),
     'TDS_2000': ('TEKTRONIX', ['TDS 2002B', 'TDS 2004B',
                                'TDS 2012B', 'TDS 2014B',
                                'TDS 2022B', 'TDS 2024B']),
-    'TDS_3000': ('TEKTRONIX', ['TDS 3032', 'TDS 3034B']),
-    'MSO_DPO_4000': ('TEKTRONIX', ['MSO4034', 'DPO4034'])
+    'TDS_3000': ('TEKTRONIX', ['TDS 3012', 'TDS 3012B', 'TDS 3012C',
+                               'TDS 3014', 'TDS 3014B', 'TDS 3014C',
+                               'TDS 3032', 'TDS 3032B', 'TDS 3032C',
+                               'TDS 3034', 'TDS 3034B', 'TDS 3034C',
+                               'TDS 3052', 'TDS 3052B', 'TDS 3052C',
+                               'TDS 3054', 'TDS 3054B', 'TDS 3054C',]),
+    'MSO_DPO_4000': ('TEKTRONIX', ['MSO4032', 'DPO4032',
+                                   'MSO4034', 'DPO4034',
+                                   'MSO4054', 'DPO4054',
+                                   'MSO4104', 'DPO4104',])
 }
 
 
 MODEL_CHANNELS = {
+    'TDS 210': 2,
+    'TDS 220': 2,
+    'TDS 224': 4,
     'TDS 1001B': 2,
     'TDS 1002B': 2,
     'TDS 1012B': 2,
@@ -37,6 +48,32 @@ MODEL_CHANNELS = {
     'TDS 2014B': 4,
     'TDS 2022B': 2,
     'TDS 2024B': 4,
+    'TDS 3012': 2,
+    'TDS 3012B': 2,
+    'TDS 3012C': 2,
+    'TDS 3014': 4,
+    'TDS 3014B': 4,
+    'TDS 3014C': 4,
+    'TDS 3032': 2,
+    'TDS 3032B': 2,
+    'TDS 3032C': 2,
+    'TDS 3034': 4,
+    'TDS 3034B': 4,
+    'TDS 3034C': 4,
+    'TDS 3052': 2,
+    'TDS 3052B': 2,
+    'TDS 3052C': 2,
+    'TDS 3054': 4,
+    'TDS 3054B': 4,
+    'TDS 3054C': 4,
+    'MSO4032': 2,
+    'DPO4032': 2,
+    'MSO4034': 4,
+    'DPO4034': 4,
+    'MSO4054': 4,
+    'DPO4054': 4,
+    'MSO4104': 4,
+    'DPO4104': 4,
 }
 
 
