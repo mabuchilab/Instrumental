@@ -34,7 +34,7 @@ class TekScope(Scope, VisaMixin):
     """
     def _initialize(self):
         if self._rsrc.interface_type == InterfaceType.asrl:
-            terminator = self._rsrc.query('RS232:trans:term?').strip()
+            terminator = self.query('RS232:trans:term?').strip()
             self._rsrc.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
         elif self._rsrc.interface_type == InterfaceType.usb:
             pass
@@ -43,7 +43,7 @@ class TekScope(Scope, VisaMixin):
         else:
             pass
 
-        self._rsrc.write("header OFF")
+        self.write("header OFF")
 
     def get_data(self, channel=1):
         """Retrieve a trace from the scope.
@@ -142,8 +142,7 @@ class TekScope(Scope, VisaMixin):
             Number of the channel to measure.
         """
         prefix = 'measurement:meas{}'.format(num)
-        self._rsrc.write("{}:type {};source ch{}".format(prefix, mtype,
-                                                         channel))
+        self.write("{}:type {};source ch{}".format(prefix, mtype, channel))
 
     def read_measurement_stats(self, num):
         """
@@ -170,11 +169,11 @@ class TekScope(Scope, VisaMixin):
         # are they guaranteed to be taken from the same statistical set?
         # Perhaps we should stop_acquire(), then run_acquire()...
         keys = ['value', 'mean', 'stddev', 'minimum', 'maximum']
-        res = self._rsrc.query(prefix+':value?;mean?;stddev?;minimum?;maximum?;units?').split(';')
+        res = self.query(prefix+':value?;mean?;stddev?;minimum?;maximum?;units?').split(';')
         units = res.pop(-1).strip('"')
         stats = {k: Q_(rval+units) for k, rval in zip(keys, res)}
 
-        num_samples = int(self._rsrc.query('measurement:statistics:weighting?'))
+        num_samples = int(self.query('measurement:statistics:weighting?'))
         stats['nsamps'] = num_samples
         return stats
 
@@ -193,7 +192,7 @@ class TekScope(Scope, VisaMixin):
         """
         prefix = 'measurement:meas{}'.format(num)
 
-        raw_value, raw_units = self._rsrc.query('{}:value?;units?'.format(prefix)).split(';')
+        raw_value, raw_units = self.query('{}:value?;units?'.format(prefix)).split(';')
         units = raw_units.strip('"')
         return Q_(raw_value+units)
 
@@ -206,23 +205,23 @@ class TekScope(Scope, VisaMixin):
             a string representing the MATH expression, using channel variables
             CH1, CH2, etc. eg. 'CH1/CH2+CH3'
         """
-        self._rsrc.write("math:type advanced")
-        self._rsrc.write('math:define "{}"'.format(expr))
+        self.write("math:type advanced")
+        self.write('math:define "{}"'.format(expr))
 
     def get_math_function(self):
-        return self._rsrc.query("math:define?").strip('"')
+        return self.query("math:define?").strip('"')
 
     def run_acquire(self):
         """Sets the acquire state to 'run'"""
-        self._rsrc.write("acquire:state run")
+        self.write("acquire:state run")
 
     def stop_acquire(self):
         """Sets the acquire state to 'stop'"""
-        self._rsrc.write("acquire:state stop")
+        self.write("acquire:state stop")
 
     def are_measurement_stats_on(self):
         """Returns whether measurement statistics are currently enabled"""
-        res = self._rsrc.query("measu:statistics:mode?")
+        res = self.query("measu:statistics:mode?")
         return res not in ['OFF', '0']
 
     def enable_measurement_stats(self, enable=True):
@@ -237,7 +236,7 @@ class TekScope(Scope, VisaMixin):
             Whether measurement statistics should be enabled
         """
         # For some reason, the DPO 4034 uses ALL instead of ON
-        self._rsrc.write("measu:statistics:mode {}".format('ALL' if enable else 'OFF'))
+        self.write("measu:statistics:mode {}".format('ALL' if enable else 'OFF'))
 
     def disable_measurement_stats(self):
         """Disables measurement statistics"""
@@ -251,7 +250,7 @@ class TekScope(Scope, VisaMixin):
         nsamps : int
             Number of samples used to compute measurements
         """
-        self._rsrc.write("measu:stati:weighting {}".format(nsamps))
+        self.write("measu:stati:weighting {}".format(nsamps))
 
 
 class TDS_200(TekScope):
