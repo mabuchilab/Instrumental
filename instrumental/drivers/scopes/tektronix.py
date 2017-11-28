@@ -233,6 +233,28 @@ class TekScope(Scope, VisaMixin):
         """Sets the acquire state to 'stop'"""
         self.write("acquire:state stop")
 
+    @property
+    def interface_type(self):
+        return self.resource.interface_type
+
+    @property
+    def model(self):
+        _, model, _, _ = self.query('*IDN?').split(',', 3)
+        return model
+
+    @property
+    def channels(self):
+        try:
+            return MODEL_CHANNELS[self.model]
+        except KeyError:
+            raise KeyError('Unknown number of channels for this scope model')
+
+    horizontal_scale = SCPI_Facet('hor:main:scale', convert=float, units='s')
+    horizontal_delay = SCPI_Facet('hor:delay:pos', convert=float, units='s')
+    math_function = property(get_math_function, set_math_function)
+
+
+class StatScope(TekScope):
     def are_measurement_stats_on(self):
         """Returns whether measurement statistics are currently enabled"""
         res = self.query("measu:statistics:mode?")
@@ -266,26 +288,6 @@ class TekScope(Scope, VisaMixin):
         """
         self.write("measu:stati:weighting {}".format(nsamps))
 
-    @property
-    def interface_type(self):
-        return self.resource.interface_type
-
-    @property
-    def model(self):
-        _, model, _, _ = self.query('*IDN?').split(',', 3)
-        return model
-
-    @property
-    def channels(self):
-        try:
-            return MODEL_CHANNELS[self.model]
-        except KeyError:
-            raise KeyError('Unknown number of channels for this scope model')
-
-    horizontal_scale = SCPI_Facet('hor:main:scale', convert=float, units='s')
-    horizontal_delay = SCPI_Facet('hor:delay:pos', convert=float, units='s')
-    math_function = property(get_math_function, set_math_function)
-
 
 class TDS_200(TekScope):
     """A Tektronix TDS 200 series oscilloscope"""
@@ -302,11 +304,11 @@ class TDS_2000(TekScope):
     pass
 
 
-class TDS_3000(TekScope):
+class TDS_3000(StatScope):
     """A Tektronix TDS 3000 series oscilloscope."""
     pass
 
 
-class MSO_DPO_4000(TekScope):
+class MSO_DPO_4000(StatScope):
     """A Tektronix MSO/DPO 4000 series oscilloscope."""
     pass
