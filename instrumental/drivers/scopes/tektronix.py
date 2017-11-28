@@ -127,7 +127,6 @@ class TekScope(Scope, VisaMixin):
              visa_context(self.resource, timeout=10000, read_termination=None,
                           end_input=visa.constants.SerialTermination.none):
 
-            print(self.resource.timeout)
             self.write("curve?")
             visalib = self.resource.visalib
             session = self.resource.session
