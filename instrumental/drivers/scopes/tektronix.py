@@ -130,8 +130,10 @@ class TekScope(Scope, VisaMixin):
             self.write("curve?")
             visalib = self.resource.visalib
             session = self.resource.session
-            (_, width), _ = visalib.read(session, 2)  # read first 2 bytes
-            num_bytes = int(visalib.read(session, int(width))[0])
+            # NB: Must take slice of bytes returned by visalib.read,
+            # to keep from autoconverting to int
+            width_byte = visalib.read(session, 2)[0][1:]  # read first 2 bytes
+            num_bytes = int(visalib.read(session, int(width_byte))[0])
             buf = bytearray(num_bytes)
             cursor = 0
             while cursor < num_bytes:
