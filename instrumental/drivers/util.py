@@ -303,3 +303,42 @@ def visa_timeout_context(resource, timeout):
     resource.timeout = timeout
     yield
     resource.timeout = old_timeout
+
+
+_ALLOWED_VISA_ATTRS = ['timeout', 'read_termination', 'write_termination', 'end_input']
+
+
+@contextlib.contextmanager
+def visa_context(resource, **settings):
+    """Context manager for temporarily setting a visa resource's settings
+
+    The settings will be set at the beginning, then reset to their previous values at the end of the
+    context. Only the settings mentioned below are supported, and they must be specified as keyword
+    arguments.
+
+    If the resource does not have a given setting, it will be ignored.
+
+    Parameters
+    ----------
+    resource : VISA resource
+        The resource to temporarily modify
+    timeout :
+    read_termination :
+    write_termination :
+    end_input :
+    """
+    old_values = {}
+    attr_names = list(key for key in settings.keys() if hasattr(resource, key))
+
+    for attr_name in attr_names:
+        if attr_name not in _ALLOWED_VISA_ATTRS:
+            raise AttributeError("VISA attribute '{}' is not supported by this context manager")
+
+    for attr_name in attr_names:
+        old_values[attr_name] = getattr(resource, attr_name)
+        setattr(resource, attr_name, settings[attr_name])
+
+    yield
+
+    for attr_name in reversed(attr_names):
+        setattr(resource, attr_name, old_values[attr_name])
