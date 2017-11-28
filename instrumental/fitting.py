@@ -292,7 +292,7 @@ def guided_trace_fit(data_x, data_y, EOM_freq):
     Guided fit of a cavity scan trace that has sidebands. Takes *data_x* and
     *data_y* as ``pint`` Quantities, and the EOM frequency *EOM_freq* can be
     anything that the ``pint.Quantity`` constructor understands, like an
-    existing ``pint.Quantity`` or a string, e.g. ``'5 Mhz'``.
+    existing ``pint.Quantity`` or a string, e.g. ``'5 MHz'``.
 
     It plots the data then asks the user to identify the three maxima by
     by clicking on them in left-to-right order. It then uses that input
