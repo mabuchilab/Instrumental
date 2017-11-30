@@ -10,7 +10,6 @@ import os.path
 import tempfile
 from enum import Enum
 from time import clock
-import logging as log
 
 import numpy as np
 from cffi import FFI, cparser
@@ -22,7 +21,10 @@ from . import Camera
 from ..util import as_enum, unit_mag, check_units
 from .. import ParamSet
 from ...errors import Error, TimeoutError
+from ...log import get_logger
 from ... import Q_, u
+
+log = get_logger(__name__)
 
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2

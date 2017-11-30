@@ -5,7 +5,6 @@ from future.utils import PY2
 import sys
 import os.path
 from time import clock
-import logging as log
 
 import numpy as np
 from cffi import FFI
@@ -15,7 +14,10 @@ from . import Camera
 from ..util import as_enum, unit_mag, check_units
 from .. import ParamSet, register_cleanup
 from ...errors import Error, TimeoutError
+from ...log import get_logger
 from ... import u
+
+log = get_logger(__name__)
 
 _INST_PARAMS = ['serial', 'number']
 _INST_CLASSES = ['TSI_Camera']

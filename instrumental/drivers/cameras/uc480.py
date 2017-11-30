@@ -9,7 +9,6 @@ from past.builtins import basestring, unicode
 
 import struct
 import weakref
-import logging as log
 import fnmatch
 import numpy as np
 import win32event
@@ -20,7 +19,10 @@ from . import Camera
 from ..util import check_units
 from .. import ParamSet
 from ...errors import InstrumentNotFoundError, Error, TimeoutError, LibError
+from ...log import get_logger
 from ... import Q_
+
+log = get_logger(__name__)
 
 _INST_PARAMS = ['serial', 'id', 'model']
 _INST_CLASSES = ['UC480_Camera']

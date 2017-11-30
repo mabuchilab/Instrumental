@@ -9,7 +9,6 @@ import abc
 import atexit
 import socket
 import warnings
-import logging as log
 from weakref import WeakSet
 from inspect import isfunction
 from importlib import import_module
@@ -18,10 +17,13 @@ from collections import OrderedDict, Mapping
 from past.builtins import basestring
 
 from pint import DimensionalityError
+from ..log import get_logger
 from .. import conf, u, Q_
 from ..driver_info import driver_info
 from ..errors import (InstrumentTypeError, InstrumentNotFoundError, ConfigError,
                       InstrumentExistsError)
+
+log = get_logger(__name__)
 
 
 __all__ = ['Instrument', 'instrument', 'list_instruments', 'list_visa_instruments']
