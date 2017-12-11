@@ -17,7 +17,7 @@ _INST_PARAMS = ['visa_address']
 _INST_VISA_INFO = {
     'TDS_200': ('TEKTRONIX', ['TDS 210']),
     'TDS_3000': ('TEKTRONIX', ['TDS 3032', 'TDS 3034B']),
-    'MSO_DPO_4000': ('TEKTRONIX', ['MSO4034', 'DPO4034'])
+    'MSO_DPO_4000': ('TEKTRONIX', ['MSO4034', 'DPO4034', 'DPO2024'])
 }
 
 
@@ -59,17 +59,22 @@ class TekScope(Scope):
         inst = self._rsrc
 
         inst.write("data:source ch{}".format(channel))
-        stop = int(inst.query("wfmpre:nr_pt?"))  # Get source's number of points
-        stop = 10000
+        #stop = int(inst.query("wfmpre:nr_pt?"))  # Get source's number of points
+        stop = int(inst.query("hor:reco?"))  # Get source's number of points in entire digital record
         inst.write("data:width 2")
         inst.write("data:encdg RIBinary")
         inst.write("data:start 1")
         inst.write("data:stop {}".format(stop))
 
         #inst.flow_control = 1  # Soft flagging (XON/XOFF flow control)
-        old_read_termination = inst.read_termination
-        old_end_input = inst.end_input
-        old_timeout = inst.timeout
+        old_params = False
+        try:
+            old_read_termination = inst.read_termination
+            old_end_input = inst.end_input
+            old_timeout = inst.timeout
+            old_params = True
+        except:
+            pass
 
         inst.timeout = 10000
         inst.read_termination = None
@@ -77,7 +82,9 @@ class TekScope(Scope):
         inst.write("curve?")
 
         with inst.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
-            (_, width), _ = inst.visalib.read(inst.session, 2)  # read first 2 bytes
+            # old code
+            # (_, width), _ = inst.visalib.read(inst.session, 2)  # read first 2 bytes
+            (_, width) = str(inst.visalib.read(inst.session, 2)[0],'utf-8')  # read first 2 bytes
             num_bytes = int(inst.visalib.read(inst.session, int(width))[0])
             buf = bytearray(num_bytes)
             cursor = 0
@@ -86,10 +93,10 @@ class TekScope(Scope):
                 buf[cursor:cursor+len(raw_bin)] = raw_bin
                 cursor += len(raw_bin)
                 print(cursor)
-
-        inst.end_input = old_end_input
-        inst.read_termination = old_read_termination
-        inst.timeout = old_timeout
+        if old_params:
+            inst.end_input = old_end_input
+            inst.read_termination = old_read_termination
+            inst.timeout = old_timeout
         inst.read()  # Eat termination
 
         num_points = int(num_bytes // 2)

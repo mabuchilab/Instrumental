@@ -9,14 +9,17 @@ from enum import Enum
 from nicelib import NiceLib, NiceObjectDef, load_lib
 from time import sleep, time
 from . import Motion
-from .. import _ParamDict
+from .. import ParamSet
 from ..util import check_units
 from ... import u, Q_
 from ...errors import InstrumentTypeError
 
+_INST_PARAMS = ['id','serial','version']
+_INST_CLASSES = ['USMC']
+
+
 __all__ = ['USMC']
 
-# Developed using version 2.1.0.29 of pf_cam.dll
 info = load_lib('USMC', __package__)
 ffi = info._ffi
 
@@ -36,8 +39,6 @@ class USMC_Exception(Exception):
             stop_msg = 'USMC board with serial ' + serial + ' stopped with motor at position {}'.format(pos)
             msg = msg + '\n' + stop_msg
         super(self.__class__,self).__init__(msg)
-
-
 
 
 class NiceUSMC(NiceLib):
@@ -72,8 +73,8 @@ class USMC(Motion):
         using the MicroSMC (USMC) driver.
         """
         # self._lib = NiceUSMC
-
-        def __init__(self, dev_id, travel_per_step=None, step_divisor=None, travel_per_microstep=None):
+        #(self, dev_id, travel_per_step=None, step_divisor=None, travel_per_microstep=None):
+        def _initialize(self,travel_per_microstep=156*u.nm,step_divisor=8):
             """
             Parameters
             ----------
@@ -85,10 +86,10 @@ class USMC(Motion):
                                    the resolution is 156nm for 1/8 step travel,
                                    so the step size is 8 * 156nm = 1.248um)
             """
-            self._dev = NiceUSMC.Device(dev_id)
-            self.dev_id = dev_id
-            self.serial = dev_list[dev_id]['serial']
-            self.driver_version = dev_list[dev_id]['driver_version']
+            self.dev_id = self._paramset['id']
+            self._dev = NiceUSMC.Device(self.dev_id)
+            self.serial = self._paramset['serial']
+            self.driver_version = self._paramset['version']
             self.step_divisor = step_divisor
             #self._start_params = self._dev.GetStartParameters()
             #self.step_divisor = int(self._start_params.SDivisor)
@@ -101,16 +102,8 @@ class USMC(Motion):
                                             # initialize as False
             self.limit_switch_1_pos = False
             self.limit_switch_2_pos = False
-            if travel_per_step and not travel_per_microstep:
-                self.travel_per_step = travel_per_step.to(self.units)
-                self.travel_per_microstep = self.travel_per_step / self.step_divisor
-            elif travel_per_microstep and not travel_per_step:
-                self.travel_per_microstep = travel_per_microstep.to(self.units)
-                self.travel_per_step = self.travel_per_microstep * self.step_divisor
-            elif travel_per_microstep and travel_per_step:
-                raise USMC_Exception('USMC initialization attempted supplying both travel_per_step and travel_per_microstep. Please supply only one or the other.',stop=False)
-            else:
-                raise USMC_Exception('USMC initialization attempted without supplying either travel_per_step or travel_per_microstep parameter. Please supply one or the other for motor position calibration.',stop=False)
+            self.travel_per_microstep = travel_per_microstep.to(self.units)
+            self.travel_per_step = self.travel_per_microstep * self.step_divisor
 
         def _state(self):
             return self._dev.GetState()
@@ -294,24 +287,31 @@ dev_list = [{'dev_num':dev_ind,
 
 def list_instruments():
     instruments = []
+    # for dev in dev_list:
+    #     params = _ParamDict("<Standa MicroSMC motor ID '{}'>".format(dev['dev_num']))
+    #     params['smc_dev_num'] = dev['dev_num']
+    #     params['module'] = 'motion.USMC'
+    #     params['serial'] = dev['serial']
+    #     params['driver_version'] = dev['driver_version']
+    #     instruments.append(params)
     for dev in dev_list:
-        params = _ParamDict("<Standa MicroSMC motor ID '{}'>".format(dev['dev_num']))
-        params['smc_dev_num'] = dev['dev_num']
-        params['module'] = 'motion.USMC'
-        params['serial'] = dev['serial']
-        params['driver_version'] = dev['driver_version']
+        params = ParamSet(USMC,serial=dev['serial'],id=dev['dev_num'],version=dev['driver_version'])
+        #params['id'] = dev['dev_num']
+        #params['module'] = 'motion.USMC'
+        #params['serial'] = dev['serial']
+        #params['driver_version'] = dev['driver_version']
         instruments.append(params)
     return instruments
 
 
-def _instrument(params):
-    if 'smc_dev_num' in params:
-        if 'travel_per_step' in params:
-            inst = USMC(params['smc_dev_num'],travel_per_step=params['travel_per_step'])
-        elif 'travel_per_microstep' in params:
-            inst = USMC(params['smc_dev_num'],travel_per_microstep=params['travel_per_microstep'])
-        else:
-            raise Exception('either travel_per_step or travel_per_microstep parameter must be supplied to initialize USMC instrument')
-    else:
-        raise InstrumentTypeError()
-    return inst
+# def _instrument(params):
+#     if 'smc_dev_num' in params:
+#         if 'travel_per_step' in params:
+#             inst = USMC(params['smc_dev_num'],travel_per_step=params['travel_per_step'])
+#         elif 'travel_per_microstep' in params:
+#             inst = USMC(params['smc_dev_num'],travel_per_microstep=params['travel_per_microstep'])
+#         else:
+#             raise Exception('either travel_per_step or travel_per_microstep parameter must be supplied to initialize USMC instrument')
+#     else:
+#         raise InstrumentTypeError()
+#     return inst

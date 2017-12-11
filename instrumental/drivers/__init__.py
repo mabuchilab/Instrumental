@@ -1021,7 +1021,10 @@ def find_visa_driver_class(visa_inst, module=None):
     if inst_manufac:
         for driver_fullname, visa_info in all_info:
             log.info("Checking manufac/model against those in %s", driver_fullname)
+            log.info("Manufac, model = %s, %s", inst_manufac, inst_model)
+            log.info("visa_info: %s", visa_info)
             for classname, (cls_manufac, cls_models) in visa_info.items():
+                log.info("Checking manufac, model = %s, %s", cls_manufac, cls_models)
                 if inst_manufac == cls_manufac and inst_model in cls_models:
                     log.info("Match found: %s, %s", driver_fullname, classname)
                     driver_module = import_driver(driver_fullname, raise_errors=True)

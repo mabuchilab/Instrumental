@@ -6,10 +6,12 @@ Created on Tue Sep 16 2017
 @author: dodd
 """
 
-#import numpy as np
+
 from ... import u, Q_ #, visa
-from .. import _get_visa_instrument, _ParamDict
+from .. import _get_visa_instrument, ParamSet
 from . import TempController
+#from .. import VisaMixin, SCPI_Facet
+#from ..util import visa_context
 from pyvisa.constants import *
 from pyvisa import ResourceManager
 import time
@@ -24,14 +26,33 @@ from time import sleep
 #from .. import InstrumentTypeError
 #from ... import visa
 
-def _instrument(params):
-    inst = _get_visa_instrument(params)
-    # Should add a check of instrument type here. Not sure how to do this now,
-    # since querying '*IDN?' doesn't work.
-    return OC(inst)
-
+# def _instrument(params):
+#     inst = _get_visa_instrument(params)
+#     # Should add a check of instrument type here. Not sure how to do this now,
+#     # since querying '*IDN?' doesn't work.
+#     return OC(inst)
+_INST_PARAMS = ['OC_visa_address','version']
+_INST_CLASSES = ['OC']
+#rm = ResourceManager()
+OC_parity = Parity.none
+OC_baud_rate = 19200
+OC_data_bits = 8
+OC_read_termination = '\r'
+OC_flow_control = 0
+OC_timeout = 500
+OC_status_keys =  ['set point',
+                     'temperature',
+                     'control',
+                     r'output %',
+                     'alarms',
+                     'faults',
+                     'temp ok',
+                     'supply vdc',
+                     'version',
+                     'test cycle',
+                     'test mode',
+                     ]
 rm = ResourceManager()
-
 def print_statusline(msg: str):
     last_msg_length = len(print_statusline.last_msg) if hasattr(print_statusline, 'last_msg') else 0
     print(' ' * last_msg_length, end='\r')
@@ -39,34 +60,70 @@ def print_statusline(msg: str):
     stdout.flush()
     print_statusline.last_msg = msg
 
+def _open_visa_OC(rm,visa_address):
+    visa_inst = rm.get_instrument(visa_address)
+    visa_inst.parity = OC_parity # = Parity.none
+    visa_inst.baud_rate = OC_baud_rate # = 19200
+    visa_inst.data_bits = OC_data_bits # = 8
+    visa_inst.read_termination = OC_read_termination # = '\r'
+    visa_inst.flow_control = OC_flow_control # = 0
+    visa_inst.timeout = OC_timeout # = 10000
+    visa_inst.clear()
+    return visa_inst
+
+def _check_OC(rm,visa_address,n_tries_max=5):
+    n_tries = 0
+    success = False
+    version = False
+    while not(success) and (n_tries < n_tries_max):
+        try:
+            visa_inst = _open_visa_OC(rm,visa_address)
+            output_raw = visa_inst.ask('\X01J00\X00\XCB')
+            visa_inst.close()
+            success = True
+            vals = output_raw[5:-3].split(';')
+            status_dict = dict(zip(OC_status_keys,vals))
+            version = status_dict['version']
+        except:
+            pass
+        n_tries = n_tries + 1
+    return version
+    #
+    #return dict(zip(self.status_keys,vals))
+
+def list_instruments():
+    instruments = []
+    #rm = ResourceManager()
+    visa_list = rm.list_resources()
+    for addr in visa_list:
+        if addr[0:4]=='ASRL':
+            version = _check_OC(rm,addr)
+            if version:
+                params = ParamSet(OC,OC_visa_address=addr,version=version)
+                instruments.append(params)
+    #rm.close()
+    return instruments
+
+
 class OC(TempController):
     """Class definition for a Covesion OC1 and OC2 oven temperature controllers."""
 
-    def __init__(self, visa_address):
-            self.parity = Parity.none
-            self.baud_rate = 19200
-            self.data_bits = 8
-            self.read_termination = '\r' #self._inst.CR
-            self.flow_control = 0
-            self.timeout = 10000
-            self.visa_address = visa_address
-            self.status_keys =  ['set point',
-                                 'temperature',
-                                 'control',
-                                 r'output %',
-                                 'alarms',
-                                 'faults',
-                                 'temp ok',
-                                 'supply vdc',
-                                 'version',
-                                 'test cycle',
-                                 'test mode',
-                                 ]
+    def _initialize(self):
+            self.visa_address = self._paramset['OC_visa_address']
+            self.version = self._paramset['version']
+            self.parity = OC_parity
+            self.baud_rate = OC_baud_rate
+            self.data_bits = OC_data_bits
+            self.read_termination = OC_read_termination
+            self.flow_control = OC_flow_control
+            self.timeout = OC_timeout
+            self.status_keys =  OC_status_keys
             self.drive_str = '\x01m041;0;A9'
+            #self.rm = ResourceManager()
             # Parameter dicitonary for saving
-            self._param_dict = _ParamDict({})
-            self._param_dict['visa_address'] = self.visa_address #str(self._inst.resource_name)  # maybe a bad way to do this
-            self._param_dict['module'] = 'tempcontrollers.covesion'
+            #self._param_dict = _ParamDict({})
+            #self._param_dict['visa_address'] = self.visa_address #str(self._inst.resource_name)  # maybe a bad way to do this
+            #self._param_dict['module'] = 'tempcontrollers.covesion'
 
     def open_visa(self):
         visa_inst = rm.get_instrument(self.visa_address)
@@ -91,8 +148,6 @@ class OC(TempController):
             except:
                 pass
             n_tries = n_tries + 1
-
-
         vals = output_raw[5:-3].split(';')
         return dict(zip(self.status_keys,vals))
 
@@ -137,6 +192,8 @@ class OC(TempController):
 
     def set_set_temp(self,set_temp):
         current_temp = self.get_current_temp()
+        print('current_temp: {}'.format(current_temp))
+        print('set_temp: {}'.format(set_temp))
         delta_temp_degC = np.abs(set_temp - current_temp).magnitude
         if delta_temp_degC > 10:
             n_comm = round(delta_temp_degC/10) + 1
