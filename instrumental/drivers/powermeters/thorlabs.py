@@ -101,6 +101,11 @@ class PM100D(PowerMeter, VisaMixin):
     def close(self):
         self._rsrc.control_ren(False)  # Disable remote mode
 
+    # Tell list_instruments how to close this VISA resource properly
+    @staticmethod
+    def _close_resource(resource):
+        resource.control_ren(False)  # Disable remote mode
+
     @Facet(units='W', cached=False)
     def power(self):
         """The measured optical power"""

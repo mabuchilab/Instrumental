@@ -693,13 +693,29 @@ def gen_visa_instruments():
         try:
             driver_module, classname = find_visa_driver_class(visa_inst)
             cls = getattr(driver_module, classname)
-            params = ParamSet(cls, visa_address=addr)
-        except:
+        except Exception as e:
+            log.info('Exception occurred when getting correct visa driver module:')
+            log.info(str(e))
             continue
         else:
+            params = ParamSet(cls, visa_address=addr)
             yield params
+            try_close_visa_resource(cls, visa_inst)
+
         finally:
             visa_inst.close()
+
+
+def try_close_visa_resource(inst_class, resource):
+    if not hasattr(inst_class, '_close_resource'):
+        return
+
+    try:
+        log.debug('Calling %s._close_resource...', inst_class.__name__)
+        inst_class._close_resource(resource)
+    except Exception as e:
+        log.info('Exception occurred when closing visa resource:')
+        log.info(e)
 
 
 def list_visa_instruments():
