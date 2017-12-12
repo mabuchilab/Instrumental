@@ -83,8 +83,8 @@ These functions, if implemented, should be defined at the module level.
     (*Optional*) Must find and return the device corresponding to `paramset`. If this function is defined,
     `instrumental.instrument()` will use it to open instruments. Otherwise, the appropriate driver class is instantiated directly.
 
-`_check_visa_support(visa_inst)`
-    (*Optional, only applies to VISA-based drivers*) Must return ``True`` if `visa_inst` is a device that is supported by this driver. This is only needed for VISA-based drivers where the device does not support the `*IDN?` query, and instead implements its own message-based protocol.
+`_check_visa_support(visa_rsrc)`
+    (*Optional, only applies to VISA-based drivers*) Must return the name of the ``Instrument`` subclass to use if ``visa_rsrc`` is a device that is supported by this driver, and ``None`` if it is not supported. ``visa_rsrc`` is a `pyvisa.resources.Resource` object. This function is only needed for VISA-based drivers where the device does not support the `*IDN?` query, and instead implements its own message-based protocol.
 
 
 Writing Your `Instrument` Subclass
