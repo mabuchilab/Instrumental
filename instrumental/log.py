@@ -61,7 +61,7 @@ class Filter(object):
 
 
 PKG_LOGGER = get_logger('instrumental')
-ROOT_LOGGER = get_logger()
+ROOT_LOGGER = get_logger(add_NullHandler=True)
 
 
 def log_to_screen(level=INFO):
