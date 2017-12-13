@@ -777,14 +777,23 @@ def list_instruments(server=None, module=None, blacklist=None):
     elif isinstance(blacklist, basestring):
         blacklist = [blacklist]
 
-    try:
-        import visa
+    if module:
+        check_visa = any(module in driver_name and driver_name not in blacklist and
+                         'visa_info' in info_dict
+                         for driver_name,info_dict in driver_info.items())
+    else:
+        check_visa = True
+
+    inst_list = []
+    if check_visa:
         try:
-            inst_list = list_visa_instruments()
-        except visa.VisaIOError:
-            inst_list = []  # Hide visa errors
-    except (ImportError, ConfigError):
-        inst_list = []  # Ignore if PyVISA not installed or configured
+            import visa
+            try:
+                inst_list.extend(list_visa_instruments())
+            except visa.VisaIOError:
+                pass  # Hide visa errors
+        except (ImportError, ConfigError):
+            pass  # Ignore if PyVISA not installed or configured
 
     if module:
         inst_list = [p for p in inst_list if module in p['module']]
