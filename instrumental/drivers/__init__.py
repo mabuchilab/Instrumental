@@ -787,7 +787,7 @@ def list_instruments(server=None, module=None, blacklist=None):
         inst_list = []  # Ignore if PyVISA not installed or configured
 
     if module:
-        inst_list = [p for p in list_visa_instruments() if module in p['module']]
+        inst_list = [p for p in inst_list if module in p['module']]
 
     for mod_name in driver_info:
         if module and module not in mod_name:
