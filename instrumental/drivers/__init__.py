@@ -9,6 +9,7 @@ import abc
 import atexit
 import socket
 import warnings
+import numbers
 from weakref import WeakSet
 from inspect import isfunction
 from importlib import import_module
@@ -191,6 +192,11 @@ class Facet(object):
             self.out_map = None
 
     def _set_limits(self, limits):
+        if limits is not None:
+            for limit in limits:
+                if limit is not None and not isinstance(limit, numbers.Number):
+                    raise ValueError('Facet limits must be raw numbers or None')
+
         if limits is None:
             self.limits = (None, None, None)
         elif len(limits) == 1:
