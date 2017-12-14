@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
+# Copyright 2014-2017 Dodd Gray, Nate Bogdanowicz
 """
 Driver for VISA control of HC Photonics TC038 temperature controller
-Created on Tue Sep 09 18:16:07 2014
-
-@author:
 """
 
 #import numpy as np
