@@ -322,6 +322,28 @@ class Facet(object):
         return self
 
 
+def to_quantity(value):
+    """Convert to a pint.Quantity
+
+    This function handles offset units in strings slightly better than Q_ does.
+    """
+    try:
+        return Q_(value)
+    except Exception as e:
+        log.info(e)
+
+    try:
+        mag_str, units = value.split()
+        try:
+            mag = int(mag_str)
+        except ValueError:
+            mag = float(mag_str)
+
+        return Q_(mag, units)
+    except Exception as e:
+        raise ValueError('Could not construct Quantity from {}'.format(value))
+
+
 class AbstractFacet(Facet):
     __isabstractmethod__ = True
 
