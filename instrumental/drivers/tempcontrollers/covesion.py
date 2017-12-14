@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Copyright 2017 Dodd Gray and Nate Bogdanowicz
 """
 Driver for VISA control of OC2 crystal oven temperature controller
 Created on Tue Sep 16 2017
@@ -7,7 +8,7 @@ Created on Tue Sep 16 2017
 """
 
 
-from ... import u, Q_ #, visa
+from ... import u, Q_
 from .. import _get_visa_instrument, ParamSet
 from . import TempController
 #from .. import VisaMixin, SCPI_Facet
@@ -20,20 +21,12 @@ from sys import stdout
 import codecs
 import numpy as np
 from time import sleep
-#import visa
-#from pint import unit
-#from .. import _get_visa_instrument
-#from .. import InstrumentTypeError
-#from ... import visa
 
-# def _instrument(params):
-#     inst = _get_visa_instrument(params)
-#     # Should add a check of instrument type here. Not sure how to do this now,
-#     # since querying '*IDN?' doesn't work.
-#     return OC(inst)
-_INST_PARAMS = ['OC_visa_address','version']
-_INST_CLASSES = ['OC']
-#rm = ResourceManager()
+
+
+_INST_PARAMS = ['visa_address']
+_INST_CLASSES = ['CovesionOC']
+
 OC_parity = Parity.none
 OC_baud_rate = 19200
 OC_data_bits = 8
@@ -99,18 +92,17 @@ def list_instruments():
         if addr[0:4]=='ASRL':
             version = _check_OC(rm,addr)
             if version:
-                params = ParamSet(OC,OC_visa_address=addr,version=version)
+                params = ParamSet(CovesionOC,visa_address=addr)
                 instruments.append(params)
     #rm.close()
     return instruments
 
 
-class OC(TempController):
+class CovesionOC(TempController):
     """Class definition for a Covesion OC1 and OC2 oven temperature controllers."""
 
     def _initialize(self):
-            self.visa_address = self._paramset['OC_visa_address']
-            self.version = self._paramset['version']
+            self.visa_address = self._paramset['visa_address']
             self.parity = OC_parity
             self.baud_rate = OC_baud_rate
             self.data_bits = OC_data_bits
@@ -126,6 +118,10 @@ class OC(TempController):
             #self._param_dict['module'] = 'tempcontrollers.covesion'
 
     def open_visa(self):
+       """Helper function to open a visa connection to a Covesion OC. Used by
+       other CovesionOC methods. Returns an active visa resource instance
+       connected to the Covesion OC.
+       """
         visa_inst = rm.get_instrument(self.visa_address)
         visa_inst.parity = self.parity # = Parity.none
         visa_inst.baud_rate = self.baud_rate # = 19200
@@ -137,6 +133,17 @@ class OC(TempController):
         return visa_inst
 
     def get_status(self,n_tries_max=50):
+       """Collect and return status information from Covesion OC. Status values
+       are returned in a dictionary with keys 'set point','temperature',
+       'control','output %','alarms','faults','temp ok','supply vdc','version',
+       'test cycle' and 'test mode'.
+
+        Parameters
+        ----------
+        n_tries_max : int, optional
+            number of times to try collecting status before throwing an error.
+            This was added because this communication randomly fails sometimes.
+        """
         n_tries = 0
         success = False
         while not(success) and (n_tries < n_tries_max):
@@ -152,6 +159,15 @@ class OC(TempController):
         return dict(zip(self.status_keys,vals))
 
     def get_current_temp(self,n_tries_max=20):
+        """Collect and return current temperature from Covesion OC. The current
+        temperature is returned as a Pint quantity in degrees C.
+
+         Parameters
+         ----------
+         n_tries_max : int, optional
+             number of times to try collecting status before throwing an error.
+             This was added because this communication randomly fails sometimes.
+         """
         n_tries = 0
         while (n_tries < n_tries_max):
             try:
@@ -161,6 +177,15 @@ class OC(TempController):
                 n_tries +=1
 
     def get_set_temp(self,n_tries_max=20):
+        """Collect and return set temperature from Covesion OC. The set
+        temperature is returned as a Pint quantity in degrees C.
+
+         Parameters
+         ----------
+         n_tries_max : int, optional
+             number of times to try collecting status before throwing an error.
+             This was added because this communication randomly fails sometimes.
+         """
         n_tries = 0
         while (n_tries < n_tries_max):
             try:
@@ -170,6 +195,17 @@ class OC(TempController):
                 n_tries +=1
 
     def _set_set_temp(self, set_temp):
+        """Helper function to set the 'set temperature' of a Covesion OC to a
+        specified value. Used by the set_set_temp method, which does the same
+        thing with extra code to prevent large, rapid temperature changes which
+        can lead to crystal damage.
+
+         Parameters
+         ----------
+         set_temp : Pint Quantity
+             Set temperature to be sent to Covesion OC. Should be provided in
+             degC units.
+         """
         set_temp_degC = set_temp.to(u.degC).magnitude
         if Q_(20,u.degC)< set_temp <= Q_(200,u.degC):
             if set_temp < Q_(100,u.degC):
@@ -191,6 +227,20 @@ class OC(TempController):
         return
 
     def set_set_temp(self,set_temp):
+        """Method to set the 'set temperature' of a Covesion OC to a specified
+        value. If the new set temperature is more than 10 degrees C away from
+        the current oven temperature, this function breaks the temperature
+        setting change up into a sequence of 10 degree C increments, which are
+        sent to the oven 1 minute apart. This is to avoid temperature change
+        rates greater than 10 degrees C per minute, which according to Covesion
+        can lead to crystal damage.
+
+         Parameters
+         ----------
+         set_temp : Pint Quantity
+             Set temperature to be sent to Covesion OC. Should be provided in
+             degC units.
+         """
         current_temp = self.get_current_temp()
         print('current_temp: {}'.format(current_temp))
         print('set_temp: {}'.format(set_temp))
@@ -214,6 +264,30 @@ class OC(TempController):
             return
 
     def set_temp_and_wait(self,set_temp,max_err=Q_(0.1,u.degK),n_samples=10,timeout=5*u.minute):
+        """Method to set the 'set temperature' of a Covesion OC to a specified
+        value and then wait for that temperature to be reached to within a
+        specified stability. The user provides a maximum temperature error and a
+        number of temperature measurements (which occur at approximately
+        1/second) to specify the stability.
+
+        Parameters
+        ----------
+        set_temp : Pint Quantity
+            Set temperature to be sent to Covesion OC. Should be provided in
+            degC units.
+        max_error : Pint Quantity, optional
+            Maximum temperature error that can be recorded over n_samples
+            current temperature checks such that the temperature is considered
+            stable. Provided in units of degK
+        n_samples : int, optional
+            Number checks for which the current temperature must be found to
+            be within max_error of set_temp so that the temperature is
+            considered stable.
+        timeout: Pint Quantity
+            Time allowed to pass before the function gives up on waiting for
+            temperature stability and returns. Can be provided in any
+            units of time.
+         """
         self.set_set_temp(set_temp)
         err = np.ones((n_samples)) * 10.0 * max_err
         count = 0
