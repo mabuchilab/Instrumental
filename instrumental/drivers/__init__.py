@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright 2013-2017 Nate Bogdanowicz
 
+from __future__ import division
 from past.builtins import basestring
 from future.utils import with_metaclass
 
@@ -15,9 +16,6 @@ from inspect import isfunction
 from importlib import import_module
 from collections import OrderedDict, Mapping
 
-from past.builtins import basestring
-
-from pint import DimensionalityError
 from ..log import get_logger
 from .. import conf, u, Q_
 from ..driver_info import driver_info
@@ -264,9 +262,7 @@ class Facet(object):
     def convert_user_input(self, value):
         """Validate and convert an input value to its 'external' form"""
         if self.units is not None:
-            q = Q_(value)
-            if not q.dimensionality == self.units.dimensionality:
-                raise DimensionalityError(q.units, self.units)
+            q = to_quantity(value).to(self.units)
             return Q_(self.convert_raw_input(q.magnitude), q.units)
         else:
             return self.convert_raw_input(value)
@@ -1175,6 +1171,7 @@ def instrument(inst=None, **kwargs):
     >>> inst3 = instrument({'visa_address': 'TCPIP:192.168.1.35::INSTR'})
     >>> inst4 = instrument(inst1)
     """
+    log.info('Called instrument() with inst=%s, kwargs=%s', inst, kwargs)
     if isinstance(inst, Instrument):
         return inst
     params, alias = _extract_params(inst, kwargs)
