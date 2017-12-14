@@ -276,20 +276,19 @@ class Facet(object):
         return self.check_limits(value)
 
     def check_limits(self, value):
+        """Check raw value (magnitude) against the Facet's limits"""
         start, stop, step = self.limits
         if start is not None and value < start:
-            if self.units:
-                start = start * self.units
-            raise ValueError("Value below lower limit of {}".format(start))
+            raise ValueError("Value below lower limit of {}".format(
+                Q_(start, self.units) if self.units else start))
         if stop is not None and value > stop:
-            if self.units:
-                stop = stop * self.units
-            raise ValueError("Value above upper limit of {}".format(stop))
+            raise ValueError("Value above upper limit of {}".format(
+                Q_(stop, self.units) if self.units else stop))
 
         if step is not None:
             offset = value - start
             if offset % step != 0:
-                new_value = start + (offset // step) * step
+                new_value = start + int(round(offset / step)) * step
                 log.info("Coercing value from %s to %s due to limit step", value, new_value)
                 return new_value
 
