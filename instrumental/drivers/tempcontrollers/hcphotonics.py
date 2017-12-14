@@ -4,94 +4,96 @@
 Driver for VISA control of HC Photonics TC038 temperature controller
 """
 
-#import numpy as np
-from ... import u, Q_ #, visa
-from .. import _get_visa_instrument, _ParamDict
+from __future__ import unicode_literals
+
+from pyvisa.constants import Parity
+
 from . import TempController
-from pyvisa.constants import *
-import time
+from .. import VisaMixin, Facet
+from ..util import visa_context
 
-#import visa
-#from pint import unit
-#from .. import _get_visa_instrument
-#from .. import InstrumentTypeError
-#from ... import visa
+__all__ = ['TC038']
 
-def _instrument(params):
-    inst = _get_visa_instrument(params)
-    # Should add a check of instrument type here. Not sure how to do this now,
-    # since querying '*IDN?' doesn't work.
-    return TC038(inst)
+_INST_PARAMS = ['visa_address']
+_INST_CLASSES = ['TC038']
 
 
-#TC038 = visa.instrument('HCPhotonics_TC038_TempCont')
-#TC038.parity = 2
-#example_temp = 3*u.degC
-#
-#def ask_SetTemp():
-#    return int('0X' + TC038.ask('\x0201010WRDD0003,01\x03')[7:11],0)/10.0  * u.degC
-#
-#
-#def set_SetTemp(set_temp_in):
-#    if type(set_temp_in) != int and type(set_temp_in) != float and set_temp_in.dimensionality == example_temp.dimensionality:
-#        if 20*u.degC< set_temp_in <= 200*u.degC:
-#            TC038.ask('\x0201010WWRD0120,01,{:04X}\x03'.format(int(round(10*set_temp_in.to(u.degC).magnitude))))
-#        else:
-#            print('SHIT. Well great job, you broke it. Set_Temp input not in valid range (20-200C)')
-#    else:
-#        print ('units, bro. DegC')
-#
-#def ask_CurrentTemp():
-#    return int('0X' + TC038.ask('\x0201010WRDD0002,01\x03')[7:11],0)/10.0 * u.degC
-#
-class TC038(TempController):
-    """Class definition for an HC Photonics TC038 temperature controller."""
-
-    def __init__(self, visa_inst):
-
-            self._inst = visa_inst
-            self._inst.parity = Parity.even
-            #self._inst.write_termination = '\r'
-            #self._inst.read_termination = '\r'
-            self._inst.ignore_warning(VI_SUCCESS_MAX_CNT)   # So far I've only had success reading
-                                                            # the output buffer when I specify the
-                                                            # exact number of waiting bytes as the
-                                                            # read length (otherwise it times out).
-                                                            # Sometimes pyvisa throws a warning when
-                                                            # you read like this, so I try suppress those.
-                                                            # For some reason this doesn't seem to work. Will fix later.
-            # Parameter dicitonary for saving
-            self._param_dict = _ParamDict({})
-            self._param_dict['visa_address'] = str(self._inst.resource_name)  # maybe a bad way to do this
-            self._param_dict['module'] = 'tempcontrollers.hcphotonics'
+def _check_visa_support(visa_rsrc):
+    with visa_context(visa_rsrc, parity=Parity.even, write_termination='\r', read_termination='\r'):
+        try:
+            # This assumes an address of 01
+            visa_rsrc.write(b'\x0201010INF6\x03')
+            resp = visa_rsrc.read_raw().rstrip()
+            assert resp[0:1] == b'\x02'
+            assert resp[-1:] == b'\x03'
+            assert resp[1:3] == b'01'
+            assert resp[3:5] == b'01'
+            assert resp[5:7] == b'OK'
+            resp[7:-1]
+            return 'TC038'
+        except:
+            pass
+    return None
 
 
-    def bytes_in_buffer(self):
-        return self._inst.bytes_in_buffer
+class TC038(TempController, VisaMixin):
+    """HC Photonics TC038 temperature controller"""
 
-    def current_temp(self):
-        self._inst.write('\x0201010WRDD0002,01\x03')
-        time.sleep(0.1)
-        output_raw = self._inst.visalib.read(self._inst.session,count=self._inst.bytes_in_buffer)
-        temp = Q_(int('0X' + output_raw[0][7:11],0)/10.0,u.degC)
-        return temp
+    def _initialize(self):
+        self._rsrc.parity = Parity.even
+        self._rsrc.write_termination = '\r'
+        self._rsrc.read_termination = '\r'
+        self._address = b'01'
 
-    def set_set_temp(self, set_temp):
-        set_temp_degC = set_temp.to(u.degC)
-        if Q_(20,u.degC)< set_temp <= Q_(200,u.degC):
-            self._inst.write('\x0201010WWRD0120,01,{:04X}\x03'.format(int(round(10*set_temp_degC.magnitude))))
-        else:
-            raise Exception('set_temp input not in valid range (20-200C)')
-        time.sleep(0.1)
-        output_raw = self._inst.visalib.read(self._inst.session,count=self._inst.bytes_in_buffer)[0]
-        return output_raw
+    def _read_response(self):
+        resp = self._rsrc.read_raw().rstrip()
+        assert resp[0:1] == b'\x02'
+        assert resp[-1:] == b'\x03'
+        assert resp[1:3] == self._address
+        assert resp[3:5] == b'01'
+        assert resp[5:7] == b'OK'
+        return resp[7:-1]
 
-    def get_set_temp(self):
-        self._inst.write('\x0201010WRDD0003,01\x03')
-        time.sleep(0.1)
-        output_raw = self._inst.visalib.read(self._inst.session,count=self._inst.bytes_in_buffer)
-        temp = Q_(int('0X' + output_raw[0][7:11],0)/10.0,u.degC)
-        return temp
+    def _send_command(self, command, data):
+        cpu = 1
+        msg = b'\x02%s%02d0%s%s\x03' % (self._address, cpu, command, data)
+        self.write(msg)
+
+    def _read_register(self, register):
+        """Read one word of data from a D register"""
+        data = b'D%04d,01' % register
+        self._send_command(b'WRD', data)
+        resp = self._read_response()
+        assert len(resp) == 4
+        return int(resp, base=16)
+
+    def _write_register(self, register, word):
+        """Write one word of data to a D register"""
+        data = b'D%04d,01,%04X' % (register, word)
+        self._send_command(b'WWR', data)
+        self._read_response()  # Read OK response
+
+    def _INF(self):
+        self._send_command(b'INF', b'6')
+        resp = self._read_response()
+        assert resp[0] == b'U'
+        assert resp[1:5] == b'T150'
+
+        assert resp[8] == b' '
+        return resp
+
+    @Facet(units='degC')
+    def current_temperature(self):
+        return self._read_register(2) / 10.
+
+    @Facet(units='degC', limits=(20,200,0.1))
+    def temperature_setpoint(self):
+        return self._read_register(3) / 10.
+
+    @temperature_setpoint.setter
+    def temperature_setpoint(self, temperature):
+        value = int(round(temperature * 10))
+        self._write_register(120, value)
 
     def close(self):
-        self._inst.close()
+        self._rsrc.close()
