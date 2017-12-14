@@ -1,4 +1,4 @@
-# Auto-generated 2017-11-27T13:53:06.955000
+# Auto-generated 2017-12-14T13:07:32.702000
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -91,6 +91,12 @@ driver_info = OrderedDict([
         'params': ['serial', 'usb', 'model'],
         'classes': ['CCS'],
         'imports': ['visa', 'cffi', 'nicelib'],
+    }),
+    ('tempcontrollers.hcphotonics', {
+        'params': [u'visa_address'],
+        'classes': [u'TC038'],
+        'imports': ['pyvisa'],
+        'visa_info': None,
     }),
     ('lasers.femto_ferb', {
         'params': ['visa_address'],
