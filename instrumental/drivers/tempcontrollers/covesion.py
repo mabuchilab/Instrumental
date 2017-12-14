@@ -1,27 +1,23 @@
 # -*- coding: utf-8 -*-
 # Copyright 2017 Dodd Gray and Nate Bogdanowicz
 """
-Driver for VISA control of OC2 crystal oven temperature controller
-Created on Tue Sep 16 2017
-
-@author: dodd
+Driver for VISA control of Covesion OC2 crystal oven temperature controller
 """
 
+from __future__ import print_function
 
-from ... import u, Q_
-from .. import _get_visa_instrument, ParamSet
-from . import TempController
-#from .. import VisaMixin, SCPI_Facet
-#from ..util import visa_context
-from pyvisa.constants import *
-from pyvisa import ResourceManager
-import time
-from datetime import timedelta
 from sys import stdout
-import codecs
-import numpy as np
+import time
 from time import sleep
+from datetime import timedelta
 
+import numpy as np
+from pyvisa.constants import Parity
+from pyvisa import ResourceManager
+
+from . import TempController
+from .. import ParamSet
+from ... import u, Q_
 
 
 _INST_PARAMS = ['visa_address']
@@ -33,36 +29,39 @@ OC_data_bits = 8
 OC_read_termination = '\r'
 OC_flow_control = 0
 OC_timeout = 500
-OC_status_keys =  ['set point',
-                     'temperature',
-                     'control',
-                     r'output %',
-                     'alarms',
-                     'faults',
-                     'temp ok',
-                     'supply vdc',
-                     'version',
-                     'test cycle',
-                     'test mode',
-                     ]
+OC_status_keys = ['set point',
+                  'temperature',
+                  'control',
+                  'output %',
+                  'alarms',
+                  'faults',
+                  'temp ok',
+                  'supply vdc',
+                  'version',
+                  'test cycle',
+                  'test mode']
 rm = ResourceManager()
-def print_statusline(msg: str):
+
+
+def print_statusline(msg):
     last_msg_length = len(print_statusline.last_msg) if hasattr(print_statusline, 'last_msg') else 0
     print(' ' * last_msg_length, end='\r')
     print(msg, end='\r')
     stdout.flush()
     print_statusline.last_msg = msg
 
+
 def _open_visa_OC(rm,visa_address):
     visa_inst = rm.get_instrument(visa_address)
-    visa_inst.parity = OC_parity # = Parity.none
-    visa_inst.baud_rate = OC_baud_rate # = 19200
-    visa_inst.data_bits = OC_data_bits # = 8
-    visa_inst.read_termination = OC_read_termination # = '\r'
-    visa_inst.flow_control = OC_flow_control # = 0
-    visa_inst.timeout = OC_timeout # = 10000
+    visa_inst.parity = OC_parity  # = Parity.none
+    visa_inst.baud_rate = OC_baud_rate  # = 19200
+    visa_inst.data_bits = OC_data_bits  # = 8
+    visa_inst.read_termination = OC_read_termination  # = '\r'
+    visa_inst.flow_control = OC_flow_control  # = 0
+    visa_inst.timeout = OC_timeout  # = 10000
     visa_inst.clear()
     return visa_inst
+
 
 def _check_OC(rm,visa_address,n_tries_max=5):
     n_tries = 0
@@ -84,12 +83,13 @@ def _check_OC(rm,visa_address,n_tries_max=5):
     #
     #return dict(zip(self.status_keys,vals))
 
+
 def list_instruments():
     instruments = []
     #rm = ResourceManager()
     visa_list = rm.list_resources()
     for addr in visa_list:
-        if addr[0:4]=='ASRL':
+        if addr[0:4] == 'ASRL':
             version = _check_OC(rm,addr)
             if version:
                 params = ParamSet(CovesionOC,visa_address=addr)
@@ -109,7 +109,7 @@ class CovesionOC(TempController):
             self.read_termination = OC_read_termination
             self.flow_control = OC_flow_control
             self.timeout = OC_timeout
-            self.status_keys =  OC_status_keys
+            self.status_keys = OC_status_keys
             self.drive_str = '\x01m041;0;A9'
             #self.rm = ResourceManager()
             # Parameter dicitonary for saving
@@ -118,25 +118,24 @@ class CovesionOC(TempController):
             #self._param_dict['module'] = 'tempcontrollers.covesion'
 
     def open_visa(self):
-       """Helper function to open a visa connection to a Covesion OC. Used by
-       other CovesionOC methods. Returns an active visa resource instance
-       connected to the Covesion OC.
-       """
+        """Helper function to open a visa connection to a Covesion OC. Used by
+        other CovesionOC methods. Returns an active visa resource instance
+        connected to the Covesion OC.
+        """
         visa_inst = rm.get_instrument(self.visa_address)
-        visa_inst.parity = self.parity # = Parity.none
-        visa_inst.baud_rate = self.baud_rate # = 19200
-        visa_inst.data_bits = self.data_bits # = 8
-        visa_inst.read_termination = self.read_termination # = '\r'
-        visa_inst.flow_control = self.flow_control # = 0
-        visa_inst.timeout = self.timeout # = 10000
+        visa_inst.parity = self.parity  # = Parity.none
+        visa_inst.baud_rate = self.baud_rate  # = 19200
+        visa_inst.data_bits = self.data_bits  # = 8
+        visa_inst.read_termination = self.read_termination  # = '\r'
+        visa_inst.flow_control = self.flow_control  # = 0
+        visa_inst.timeout = self.timeout  # = 10000
         visa_inst.clear()
         return visa_inst
 
     def get_status(self,n_tries_max=50):
-       """Collect and return status information from Covesion OC. Status values
-       are returned in a dictionary with keys 'set point','temperature',
-       'control','output %','alarms','faults','temp ok','supply vdc','version',
-       'test cycle' and 'test mode'.
+        """Collect and return status information from Covesion OC. Status values are returned in a
+        dictionary with keys 'set point','temperature', 'control','output %','alarms','faults','temp
+        ok','supply vdc','version', 'test cycle' and 'test mode'.
 
         Parameters
         ----------
@@ -174,7 +173,7 @@ class CovesionOC(TempController):
                 return Q_(float(self.get_status()['temperature']),u.degC)
             except:
                 sleep(0.5)
-                n_tries +=1
+                n_tries += 1
 
     def get_set_temp(self,n_tries_max=20):
         """Collect and return set temperature from Covesion OC. The set
@@ -192,7 +191,7 @@ class CovesionOC(TempController):
                 return Q_(float(self.get_status()['set point']),u.degC)
             except:
                 sleep(0.5)
-                n_tries +=1
+                n_tries += 1
 
     def _set_set_temp(self, set_temp):
         """Helper function to set the 'set temperature' of a Covesion OC to a
@@ -207,13 +206,13 @@ class CovesionOC(TempController):
              degC units.
          """
         set_temp_degC = set_temp.to(u.degC).magnitude
-        if Q_(20,u.degC)< set_temp <= Q_(200,u.degC):
+        if Q_(20,u.degC) < set_temp <= Q_(200,u.degC):
             if set_temp < Q_(100,u.degC):
                 cmd_str = '\x01i371;{:.3f};25.000;0.000;25;100.00;0.00;'.format(set_temp_degC)
             else:
                 cmd_str = '\x01i381;{:.3f};25.000;0.000;25;100.00;0.00;'.format(set_temp_degC)
             #cmd_bytes = bytes(cmd_str,encoding='utf8')
-            checksum_str = format( sum(ord(ch) for ch in cmd_str)%256,'x')
+            checksum_str = format(sum(ord(ch) for ch in cmd_str) % 256,'x')
             cmd_str += checksum_str
             #cmd_str = codecs.decode(cmd_str,'unicode_escape')
             visa_inst = self.open_visa()
@@ -249,10 +248,10 @@ class CovesionOC(TempController):
             n_comm = round(delta_temp_degC/10) + 1
             T_comm = np.linspace(current_temp.to(u.degC).magnitude,
                                  set_temp.to(u.degC).magnitude,
-                                 n_comm+1
-                                )
+                                 n_comm+1)
             T_step = T_comm[1] - T_comm[0]
-            t_step = abs(T_step / 10.0 * 60) # number of seconds to wait between steps, targeting ~10C/min
+            # number of seconds to wait between steps, targeting ~10C/min
+            t_step = abs(T_step / 10.0 * 60)
             T_comm = Q_(T_comm[1:],u.degC)
             for Tind, TT in enumerate(T_comm):
                 print_statusline('\rapproaching temp: {:3.2f}C from {:3.2f}C, step {} of {}...'.format(float(set_temp.to(u.degC).magnitude), float(current_temp.to(u.degC).magnitude),Tind+1,n_comm))
