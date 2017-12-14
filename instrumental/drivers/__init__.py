@@ -158,7 +158,7 @@ class Facet(object):
         raises a `ValueError` if a user tries to set a value that is out of range. `step`, if given,
         is used to round an in-range value before passing it to fset.
     """
-    def __init__(self, fget=None, fset=None, doc=None, cached=True, type=None, units=None,
+    def __init__(self, fget=None, fset=None, doc=None, cached=False, type=None, units=None,
                  value=None, limits=None, name=None):
         if fget is not None:
             self.name = fget.__name__
@@ -232,7 +232,10 @@ class Facet(object):
         if self.type is not None:
             value = self.type(value)
         if self.units is not None:
-            value = Q_(value, self.units)
+            if isinstance(value, Q_):
+                value = value.to(self.units)
+            else:
+                value = Q_(value, self.units)
         return value
 
     def __get__(self, obj, objtype=None):
