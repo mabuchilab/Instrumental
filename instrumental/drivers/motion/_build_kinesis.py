@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright 2016 Nate Bogdanowicz
 from nicelib import build_lib
+from nicelib.process import modify_pattern
 
 header_info = {
     'win*': {
@@ -15,6 +16,8 @@ header_info = {
 lib_names = {'win*': 'Thorlabs.MotionControl.IntegratedStepperMotors.dll'}
 
 preamble = """
+typedef unsigned char byte;
+
 typedef struct tagSAFEARRAYBOUND {
   ULONG cElements;
   LONG  lLbound;
@@ -30,9 +33,15 @@ typedef struct tagSAFEARRAY {
 } SAFEARRAY, *LPSAFEARRAY;
 """
 
+
+def ref_hook(tokens):
+    return modify_pattern(tokens, [('k', 'int64_t'), ('d', '&'), ('a', '*'),
+                                   ('k', 'lastUpdateTimeMS')])
+
+
 def build():
     build_lib(header_info, lib_names, '_kinesislib', __file__, ignore_system_headers=True,
-              preamble=preamble, hook_groups='C++')
+              preamble=preamble, hook_groups='C++', token_hooks=(ref_hook,))
 
 
 if __name__ == '__main__':
