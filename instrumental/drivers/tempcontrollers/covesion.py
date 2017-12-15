@@ -102,20 +102,20 @@ class CovesionOC(TempController):
     """Class definition for a Covesion OC1 and OC2 oven temperature controllers."""
 
     def _initialize(self):
-            self.visa_address = self._paramset['visa_address']
-            self.parity = OC_parity
-            self.baud_rate = OC_baud_rate
-            self.data_bits = OC_data_bits
-            self.read_termination = OC_read_termination
-            self.flow_control = OC_flow_control
-            self.timeout = OC_timeout
-            self.status_keys = OC_status_keys
-            self.drive_str = '\x01m041;0;A9'
-            #self.rm = ResourceManager()
-            # Parameter dicitonary for saving
-            #self._param_dict = _ParamDict({})
-            #self._param_dict['visa_address'] = self.visa_address #str(self._inst.resource_name)  # maybe a bad way to do this
-            #self._param_dict['module'] = 'tempcontrollers.covesion'
+        self.visa_address = self._paramset['visa_address']
+        self.parity = OC_parity
+        self.baud_rate = OC_baud_rate
+        self.data_bits = OC_data_bits
+        self.read_termination = OC_read_termination
+        self.flow_control = OC_flow_control
+        self.timeout = OC_timeout
+        self.status_keys = OC_status_keys
+        self.drive_str = '\x01m041;0;A9'
+        #self.rm = ResourceManager()
+        # Parameter dicitonary for saving
+        #self._param_dict = _ParamDict({})
+        #self._param_dict['visa_address'] = self.visa_address #str(self._inst.resource_name)  # maybe a bad way to do this
+        #self._param_dict['module'] = 'tempcontrollers.covesion'
 
     def open_visa(self):
         """Helper function to open a visa connection to a Covesion OC. Used by
