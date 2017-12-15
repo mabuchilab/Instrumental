@@ -52,7 +52,7 @@ def print_statusline(msg):
 
 
 def _open_visa_OC(rm, visa_address):
-    visa_inst = rm.get_instrument(visa_address)
+    visa_inst = rm.open_resource(visa_address)
     visa_inst.parity = OC_parity  # = Parity.none
     visa_inst.baud_rate = OC_baud_rate  # = 19200
     visa_inst.data_bits = OC_data_bits  # = 8
@@ -70,7 +70,7 @@ def _check_OC(rm, visa_address, n_tries_max=5):
     while not(success) and (n_tries < n_tries_max):
         try:
             visa_inst = _open_visa_OC(rm, visa_address)
-            output_raw = visa_inst.ask('\X01J00\X00\XCB')
+            output_raw = visa_inst.query('\X01J00\X00\XCB')
             visa_inst.close()
             success = True
             vals = output_raw[5:-3].split(';')
@@ -122,7 +122,7 @@ class CovesionOC(TempController):
         other CovesionOC methods. Returns an active visa resource instance
         connected to the Covesion OC.
         """
-        visa_inst = rm.get_instrument(self.visa_address)
+        visa_inst = rm.open_resource(self.visa_address)
         visa_inst.parity = self.parity  # = Parity.none
         visa_inst.baud_rate = self.baud_rate  # = 19200
         visa_inst.data_bits = self.data_bits  # = 8
@@ -148,7 +148,7 @@ class CovesionOC(TempController):
         while not(success) and (n_tries < n_tries_max):
             try:
                 visa_inst = self.open_visa()
-                output_raw = visa_inst.ask('\X01J00\X00\XCB')
+                output_raw = visa_inst.query('\X01J00\X00\XCB')
                 visa_inst.close()
                 success = True
             except:
