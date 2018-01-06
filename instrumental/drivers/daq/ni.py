@@ -1,24 +1,55 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016 Nate Bogdanowicz
+# Copyright 2016-2017 Nate Bogdanowicz
+from __future__ import division
+from past.builtins import unicode
+
+import time
 from enum import Enum
 from collections import OrderedDict
 import numpy as np
-from nicelib import NiceLib, NiceObject
+from nicelib import NiceLib, NiceObjectDef, load_lib
+
 from ... import Q_, u
-from ...errors import Error, InstrumentTypeError
+from ...errors import Error, InstrumentTypeError, TimeoutError
 from ..util import check_units, check_enums
 from .. import _ParamDict
 from . import DAQ
 
-try:
-    from ._nilib import ffi, lib, defs
-except ImportError:
-    from ._build_ni import build
-    build()
-    from ._nilib import ffi, lib, defs
-
 
 __all__ = ['DAQError', 'NIDAQ']
+
+
+def to_bytes(value, codec='utf-8'):
+    """Encode a unicode string as bytes or pass through an existing bytes object"""
+    if isinstance(value, bytes):
+        return value
+    elif isinstance(value, unicode):
+        value.encode(codec)
+    else:
+        return bytes(value)
+
+
+def call_with_timeout(func, timeout):
+    """Call a function repeatedly until successful or timeout elapses
+
+    timeout : float or None
+        If None, only try to call `func` once. If negative, try until successful. If nonnegative,
+        try for up to `timeout` seconds. If a non-None timeout is given, hides any exceptions that
+        `func` causes. If timeout elapses, raises a TimeoutError.
+    """
+    if timeout is None:
+        return func()
+
+    cur_time = start_time = time.time()
+    max_time = start_time + float(timeout)
+    while cur_time <= max_time:
+        try:
+            return func()
+        except:
+            pass
+        cur_time = time.time()
+
+    raise TimeoutError
 
 
 def _instrument(params):
@@ -29,7 +60,7 @@ def _instrument(params):
 
 
 def list_instruments():
-    dev_names = NiceNI.GetSysDevNames().split(b',')
+    dev_names = NiceNI.GetSysDevNames().decode().split(',')
     instruments = []
     for dev_name in dev_names:
         dev_name = dev_name.strip("'")
@@ -53,14 +84,16 @@ class NotSupportedError(DAQError):
     pass
 
 
+info = load_lib('ni', __package__)
+
+
 class NiceNI(NiceLib):
-    _ffi = ffi
-    _lib = lib
-    _defs = defs
+    _info = info
     _prefix = ('DAQmx_', 'DAQmx')
     _buflen = 512
+    _use_numpy = True
 
-    def _err_wrap(code):
+    def _ret(code):
         if code != 0:
             raise DAQError(code)
 
@@ -68,12 +101,13 @@ class NiceNI(NiceLib):
     GetSysDevNames = ('buf', 'len')
     CreateTask = ('in', 'out')
 
-    Task = NiceObject(doc="A Nice-wrapped NI Task", attrs={
+    Task = NiceObjectDef(doc="A Nice-wrapped NI Task", attrs={
         'StartTask': ('in'),
         'StopTask': ('in'),
         'ClearTask': ('in'),
         'WaitUntilTaskDone': ('in', 'in'),
         'IsTaskDone': ('in', 'out'),
+        'TaskControl': ('in', 'in'),
         'CreateAIVoltageChan': ('in', 'in', 'in', 'in', 'in', 'in', 'in', 'in'),
         'CreateAOVoltageChan': ('in', 'in', 'in', 'in', 'in', 'in', 'in'),
         'CreateDIChan': ('in', 'in', 'in', 'in'),
@@ -85,30 +119,123 @@ class NiceNI(NiceLib):
         'WriteAnalogScalarF64': ('in', 'in', 'in', 'in', 'ignore'),
         'WriteDigitalScalarU32': ('in', 'in', 'in', 'in', 'ignore'),
         'GetBufInputBufSize': ('in', 'out'),
+        'GetBufInputOnbrdBufSize': ('in', 'out'),
         'CfgSampClkTiming': ('in', 'in', 'in', 'in', 'in', 'in'),
         'CfgDigEdgeStartTrig': ('in', 'in', 'in'),
+        'SetReadOffset': ('in', 'in'),
+        'GetReadOffset': ('in', 'out'),
+        'SetReadRelativeTo': ('in', 'in'),
+        'GetReadRelativeTo': ('in', 'out'),
+        'SetReadOverWrite': ('in', 'in'),
+        'GetReadOverWrite': ('in', 'out'),
     })
 
-    Device = NiceObject({
-        'GetDevProductType': ('in', 'buf', 'len'),
-        'GetDevAIPhysicalChans': ('in', 'buf', 'len'),
-        'GetDevAOPhysicalChans': ('in', 'buf', 'len'),
-        'GetDevCIPhysicalChans': ('in', 'buf', 'len'),
-        'GetDevCOPhysicalChans': ('in', 'buf', 'len'),
-        'GetDevAIVoltageRngs': ('in', 'arr', 'len=20'),
-        'GetDevAOVoltageRngs': ('in', 'arr', 'len=20'),
-        'GetDevDILines': ('in', 'buf', 'len'),
-        'GetDevDOLines': ('in', 'buf', 'len'),
+    Device = NiceObjectDef({
+        # Device properties
+        'GetDevIsSimulated': ('in', 'out'),
         'GetDevProductCategory': ('in', 'out'),
+        'GetDevProductType': ('in', 'buf', 'len'),
+        'GetDevProductNum': ('in', 'out'),
         'GetDevSerialNum': ('in', 'out'),
+        'GetDevAccessoryProductTypes': ('in', 'buf', 'len=20'),
+        'GetDevAccessoryProductNums': ('in', 'arr', 'len=20'),
+        'GetDevAccessorySerialNums': ('in', 'arr', 'len=20'),
+        'GetCarrierSerialNum': ('in', 'out'),
+        'GetDevChassisModuleDevNames': ('in', 'buf', 'len'),
+        'GetDevAnlgTrigSupported': ('in', 'out'),
+        'GetDevDigTrigSupported': ('in', 'out'),
+
+        # AI Properties
+        'GetDevAIPhysicalChans': ('in', 'buf', 'len'),
+        'GetDevAISupportedMeasTypes': ('in', 'arr', 'len=32'),
+        'GetDevAIMaxSingleChanRate': ('in', 'out'),
+        'GetDevAIMaxMultiChanRate': ('in', 'out'),
+        'GetDevAIMinRate': ('in', 'out'),
+        'GetDevAISimultaneousSamplingSupported': ('in', 'out'),
+        'GetDevAISampModes': ('in', 'arr', 'len=3'),
+        'GetDevAITrigUsage': ('in', 'out'),
+        'GetDevAIVoltageRngs': ('in', 'arr', 'len=32'),
+        'GetDevAIVoltageIntExcitDiscreteVals': ('in', 'arr', 'len=32'),
+        'GetDevAIVoltageIntExcitRangeVals': ('in', 'arr', 'len=32'),
+        'GetDevAICurrentRngs': ('in', 'arr', 'len=32'),
+        'GetDevAICurrentIntExcitDiscreteVals': ('in', 'arr', 'len=32'),
+        'GetDevAIBridgeRngs': ('in', 'arr', 'len=32'),
+        'GetDevAIResistanceRngs': ('in', 'arr', 'len=32'),
+        'GetDevAIFreqRngs': ('in', 'arr', 'len=32'),
+        'GetDevAIGains': ('in', 'arr', 'len=32'),
+        'GetDevAICouplings': ('in', 'out'),
+        'GetDevAILowpassCutoffFreqDiscreteVals': ('in', 'arr', 'len=32'),
+        'GetDevAILowpassCutoffFreqRangeVals': ('in', 'arr', 'len=32'),
+        'GetAIDigFltrTypes': ('in', 'arr', 'len=5'),
+        'GetDevAIDigFltrLowpassCutoffFreqDiscreteVals': ('in', 'arr', 'len=32'),
+        'GetDevAIDigFltrLowpassCutoffFreqRangeVals': ('in', 'arr', 'len=32'),
+
+        # AO Properties
+        'GetDevAOPhysicalChans': ('in', 'buf', 'len'),
+        'GetDevAOSupportedOutputTypes': ('in', 'arr', 'len=3'),
+        'GetDevAOSampClkSupported': ('in', 'out'),
+        'GetDevAOSampModes': ('in', 'arr', 'len=3'),
+        'GetDevAOMaxRate': ('in', 'out'),
+        'GetDevAOMinRate': ('in', 'out'),
+        'GetDevAOTrigUsage': ('in', 'out'),
+        'GetDevAOVoltageRngs': ('in', 'arr', 'len=32'),
+        'GetDevAOCurrentRngs': ('in', 'arr', 'len=32'),
+        'GetDevAOGains': ('in', 'arr', 'len=32'),
+
+        # DI Properties
+        'GetDevDILines': ('in', 'buf', 'len'),
+        'GetDevDIPorts': ('in', 'buf', 'len'),
+        'GetDevDIMaxRate': ('in', 'out'),
+        'GetDevDITrigUsage': ('in', 'out'),
+
+        # DO Properties
+        'GetDevDOLines': ('in', 'buf', 'len'),
+        'GetDevDOPorts': ('in', 'buf', 'len'),
+        'GetDevDOMaxRate': ('in', 'out'),
+        'GetDevDOTrigUsage': ('in', 'out'),
+
+        # CI Properties
+        'GetDevCIPhysicalChans': ('in', 'buf', 'len'),
+        'GetDevCISupportedMeasTypes': ('in', 'arr', 'len=15'),
+        'GetDevCITrigUsage': ('in', 'out'),
+        'GetDevCISampClkSupported': ('in', 'out'),
+        'GetDevCISampModes': ('in', 'arr', 'len=3'),
+        'GetDevCIMaxSize': ('in', 'out'),
+        'GetDevCIMaxTimebase': ('in', 'out'),
+
+        # CO Properties
+        'GetDevCOPhysicalChans': ('in', 'buf', 'len'),
+        'GetDevCOSupportedOutputTypes': ('in', 'arr', 'len=3'),
+        'GetDevCOSampClkSupported': ('in', 'out'),
+        'GetDevCOSampModes': ('in', 'arr', 'len=3'),
+        'GetDevCOTrigUsage': ('in', 'out'),
+        'GetDevCOMaxSize': ('in', 'out'),
+        'GetDevCOMaxTimebase': ('in', 'out'),
+
+        # Other Device Properties
+        'GetDevTEDSHWTEDSSupported': ('in', 'out'),
+        'GetDevNumDMAChans': ('in', 'out'),
+        'GetDevBusType': ('in', 'out'),
+        'GetDevPCIBusNum': ('in', 'out'),
+        'GetDevPCIDevNum': ('in', 'out'),
+        'GetDevPXIChassisNum': ('in', 'out'),
+        'GetDevPXISlotNum': ('in', 'out'),
+        'GetDevCompactDAQChassisDevName': ('in', 'buf', 'len'),
+        'GetDevCompactDAQSlotNum': ('in', 'out'),
+        'GetDevTCPIPHostname': ('in', 'buf', 'len'),
+        'GetDevTCPIPEthernetIP': ('in', 'buf', 'len'),
+        'GetDevTCPIPWirelessIP': ('in', 'buf', 'len'),
+        'GetDevTerminals': ('in', 'buf', 'len=2048'),
     })
 
-    #Device = NiceObject({
+    #Device = NiceObjectDef({
     #    'GetDevProductType': ('in', 'buf', 'len'),
     #    'GetDev(AI|AO|CI|CO)PhysicalChans': ('in', 'buf', 'len'),
     #    'GetDevAIVoltageRngs': ('in', 'arr20', 'len'),
     #    'GetDevProductCategory': ('in', 'out'),
     #})
+
+ffi = NiceNI._info._ffi
 
 
 class Values(object):
@@ -137,6 +264,14 @@ class TerminalConfig(Enum):
     NRSE = Val.NRSE
     diff = Val.Diff
     pseudo_diff = Val.PseudoDiff
+
+
+class RelativeTo(Enum):
+    FirstSample = Val.FirstSample
+    CurrReadPos = Val.CurrReadPos
+    RefTrig = Val.RefTrig
+    FirstPretrigSamp = Val.FirstPretrigSamp
+    MostRecentSamp = Val.MostRecentSamp
 
 
 class ProductCategory(Enum):
@@ -235,8 +370,13 @@ _internal_channels = {
 
 @check_units(duration='?s', fsamp='?Hz')
 def handle_timing_params(duration, fsamp, n_samples):
-    if duration and fsamp:
-        n_samples = int((duration * fsamp).to(''))  # Exclude endpoint
+    if duration is not None:
+        if fsamp is not None:
+            n_samples = int((duration * fsamp).to(''))  # Exclude endpoint
+        elif n_samples is not None:
+            if n_samples <= 0:
+                raise ValueError("`n_samples` must be greater than zero")
+            fsamp = (n_samples - 1) / duration
     return fsamp, n_samples
 
 
@@ -339,8 +479,7 @@ class Task(object):
         """ Returns a dict containing the AI buffers. """
         mx_task = self._mtasks['AI']._mx_task
         buf_size = mx_task.GetBufInputBufSize() * len(self.AIs)
-        c_arr, n_samps_read = mx_task.ReadAnalogF64(-1, -1., Val.GroupByChannel, buf_size)
-        data = np.frombuffer(ffi.buffer(c_arr), dtype=np.float64)
+        data, n_samps_read = mx_task.ReadAnalogF64(-1, -1., Val.GroupByChannel, buf_size)
 
         res = {}
         for i, ch in enumerate(self.AIs):
@@ -355,7 +494,7 @@ class Task(object):
         ao_names = [name for (name, ch) in self.channels.items() if ch.type == 'AO']
         arr = np.concatenate([Q_(data[ao]).to('V').magnitude for ao in ao_names])
         arr = arr.astype(np.float64)
-        n_samps_per_chan = data.values()[0].magnitude.size
+        n_samps_per_chan = list(data.values())[0].magnitude.size
         mx_task.WriteAnalogF64(n_samps_per_chan, False, -1., Val.GroupByChannel, arr)
 
 
@@ -383,12 +522,27 @@ class MiniTask(object):
     @check_enums(mode=SampleMode, edge=EdgeSlope)
     @check_units(fsamp='Hz')
     def config_timing(self, fsamp, n_samples, mode='finite', edge='rising', clock=''):
-        clock = bytes(clock)
+        clock = to_bytes(clock)
         self._mx_task.CfgSampClkTiming(clock, fsamp.m_as('Hz'), edge.value, mode.value, n_samples)
 
         # Save for later
         self.n_samples = n_samples
         self.fsamp = fsamp
+
+    def reserve(self):
+        self._mx_task.TaskControl(Val.Task_Reserve)
+
+    def reserve_with_timeout(self, timeout):
+        """Try, multiple times if necessary, to reserve the hardware resources needed for the task
+
+        If `timeout` is None, only tries once. Otherwise, tries repeatedly until successful, raising
+        a TimeoutError if the given timeout elapses. To retry without limit, use a negative
+        `timeout`.
+        """
+        call_with_timeout(self.reserve, timeout)
+
+    def verify(self):
+        self._mx_task.TaskControl(Val.Task_Verify)
 
     def start(self):
         self._mx_task.StartTask()
@@ -397,11 +551,14 @@ class MiniTask(object):
         self._mx_task.StopTask()
 
     @check_enums(term_cfg=TerminalConfig)
-    def add_AI_channel(self, ai_path, term_cfg='default'):
+    @check_units(vmin='?V', vmax='?V')
+    def add_AI_channel(self, ai_path, term_cfg='default', vmin=None, vmax=None):
         self.AIs.append(ai_path)
-        min, max = self.daq._max_AI_range()
-        self._mx_task.CreateAIVoltageChan(ai_path, '', term_cfg.value, min.m_as('V'),
-                                          max.m_as('V'), Val.Volts, '')
+        default_min, default_max = self.daq._max_AI_range()
+        vmin = default_min if vmin is None else vmin
+        vmax = default_max if vmax is None else vmax
+        self._mx_task.CreateAIVoltageChan(ai_path, '', term_cfg.value, vmin.m_as('V'),
+                                          vmax.m_as('V'), Val.Volts, '')
 
     def add_AO_channel(self, ao_path):
         self.AOs.append(ao_path)
@@ -420,6 +577,28 @@ class MiniTask(object):
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
         value = self._mx_task.ReadAnalogScalarF64(timeout_s)
         return Q_(value, 'V')
+
+    @check_units(timeout='?s')
+    def read_AI_channels(self, samples=-1, timeout=None):
+        """Perform an AI read and get a dict containing the AI buffers"""
+        samples = int(samples)
+        timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
+
+        if samples == -1:
+            buf_size = self._mx_task.GetBufInputBufSize() * len(self.AIs)
+        else:
+            buf_size = samples * len(self.AIs)
+
+        data, n_samples_read = self._mx_task.ReadAnalogF64(samples, timeout_s, Val.GroupByChannel,
+                                                           buf_size)
+        res = {}
+        for i, ch_name in enumerate(self.AIs):
+            start = i * n_samples_read
+            stop = (i+1) * n_samples_read
+            res[ch_name] = Q_(data[start:stop], 'V')
+        res['t'] = Q_(np.linspace(0, n_samples_read/self.fsamp.m_as('Hz'),
+                                  n_samples_read, endpoint=False), 's')
+        return res
 
     @check_units(value='V', timeout='?s')
     def write_AO_scalar(self, value, timeout=None):
@@ -442,6 +621,17 @@ class MiniTask(object):
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
         self._mx_task.WAitUntilTaskDone(timeout_s)
 
+    def overwrite(self, overwrite):
+        val = Val.OverwriteUnreadSamps if overwrite else Val.DoNotOverwriteUnreadSamps
+        self._mx_task.SetReadOverWrite(val)
+
+    @check_enums(relative_to=RelativeTo)
+    def relative_to(self, relative_to):
+        self._mx_task.SetReadRelativeTo(relative_to.value)
+
+    def offset(self, offset):
+        self._mx_task.SetReadOffset(offset)
+
 
 class Channel(object):
     pass
@@ -454,6 +644,7 @@ class AnalogIn(Channel):
         self.daq = daq
         self.name = chan_name
         self.path = '{}/{}'.format(daq.name, chan_name)
+        self._mtask = None
 
     @check_enums(term_cfg=TerminalConfig)
     def _add_to_minitask(self, minitask, term_cfg='default'):
@@ -463,7 +654,8 @@ class AnalogIn(Channel):
                                     Val.Volts, '')
 
     @check_units(duration='?s', fsamp='?Hz')
-    def read(self, duration=None, fsamp=None, n_samples=None):
+    def read(self, duration=None, fsamp=None, n_samples=None, vmin=None, vmax=None,
+             reserve_timeout=None):
         """Read one or more analog input samples.
 
         By default, reads and returns a single sample. If two of `duration`, `fsamp`,
@@ -486,18 +678,44 @@ class AnalogIn(Channel):
             The data that was read from analog input.
         """
         with self.daq._create_mini_task() as mtask:
-            mtask.add_AI_channel(self.path)
+            mtask.add_AI_channel(self.path, vmin=vmin, vmax=vmax)
 
             num_args_specified = num_not_none(duration, fsamp, n_samples)
             if num_args_specified == 0:
+                mtask.verify()
+                mtask.reserve_with_timeout(reserve_timeout)
                 data = mtask.read_AI_scalar()
             elif num_args_specified == 2:
                 fsamp, n_samples = handle_timing_params(duration, fsamp, n_samples)
                 mtask.config_timing(fsamp, n_samples)
+                mtask.verify()
+                mtask.reserve_with_timeout(reserve_timeout)
                 data = mtask.read_AI_channels()
             else:
                 raise DAQError("Must specify 0 or 2 of duration, fsamp, and n_samples")
         return data
+
+    def start_reading(self, fsamp=None, vmin=None, vmax=None, overwrite=False,
+                      relative_to=RelativeTo.CurrReadPos, offset=0, buf_size=10):
+        self._mtask = mtask = self.daq._create_mini_task()
+        mtask.add_AI_channel(self.path, vmin=vmin, vmax=vmax)
+        mtask.config_timing(fsamp, buf_size, mode=SampleMode.continuous)
+        mtask.overwrite(overwrite)
+        mtask.relative_to(relative_to)
+        mtask.offset(offset)
+        self._mtask.start()
+
+    def read_sample(self, timeout=None):
+        try:
+            return self._mtask.read_AI_scalar(timeout)
+        except DAQError as e:
+            if e.code == NiceNI.ErrorSamplesNotYetAvailable:
+                return None
+            raise
+
+    def stop_reading(self):
+        self._mtask.stop()
+        self._mtask = None
 
 
 class AnalogOut(Channel):
@@ -600,7 +818,7 @@ class AnalogOut(Channel):
             be continually buffered from the PC memory, even if it is only
             repeating a small number of samples many times.
         """
-        if np.isscalar(data):
+        if isscalar(data):
             return self._write_scalar(data)
 
         if num_not_none(fsamp, freq) != 1:
@@ -626,6 +844,12 @@ class AnalogOut(Channel):
         with self.daq._create_mini_task() as mtask:
             mtask.add_AO_channel(self.path)
             mtask.write_AO_scalar(value)
+
+
+def isscalar(value):
+    if isinstance(value, Q_):
+        value = value.magnitude
+    return np.isscalar(value)
 
 
 class Counter(Channel):
@@ -854,7 +1078,7 @@ class NIDAQ(DAQ):
     def _load_digital_ports(self):
         # Need to handle general case of DI and DO ports, can't assume they're always the same...
         ports = {}
-        for line_path in self._dev.GetDevDILines().split(','):
+        for line_path in self._dev.GetDevDILines().decode().split(','):
             port_name, line_name = line_path.rsplit('/', 2)[-2:]
             if port_name not in ports:
                 ports[port_name] = []
@@ -893,7 +1117,7 @@ class NIDAQ(DAQ):
 
     @staticmethod
     def _basenames(names):
-        return [path.rsplit('/', 1)[-1] for path in names.split(',')]
+        return [path.rsplit('/', 1)[-1] for path in names.decode().split(',')]
 
     product_type = property(lambda self: self._dev.GetDevProductType())
     product_category = property(lambda self: ProductCategory(self._dev.GetDevProductCategory()))

@@ -3,19 +3,27 @@
 """
 Driver for PCO cameras that use the PCO.camera SDK.
 """
+from future.utils import PY2
+
+import os
 import os.path
 import atexit
+import tempfile
 from enum import Enum
 from time import clock
 import numpy as np
-from cffi import FFI
-from nicelib import NiceLib, NiceObject
+from cffi import FFI, cparser
+from pycparser import CParser
+from nicelib import NiceLib, NiceObjectDef
 from ._pixelfly import errortext
 from . import Camera
 from ..util import as_enum, unit_mag, check_units
 from .. import InstrumentTypeError, _ParamDict
 from ...errors import Error, TimeoutError
 from ... import Q_, u
+
+if PY2:
+    memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
 
 
 # Notes:
@@ -30,6 +38,12 @@ from ... import Q_, u
 
 
 __all__ = ['PCO_Camera']
+
+# Hack to prevent lextab.py and yacctab.py from littering the working directory
+tmp_dir = os.path.join(tempfile.gettempdir(), 'instrumental_pycparser')
+if not os.path.exists(tmp_dir):
+    os.mkdir(tmp_dir)
+cparser._parser_cache = CParser(taboutputdir=tmp_dir)
 
 ffi = FFI()
 with open(os.path.join(os.path.dirname(__file__), '_pco', 'clean.h')) as f:
@@ -54,7 +68,7 @@ def get_error_text(ret_code):
 
 
 class NicePCO(NiceLib):
-    def _err_wrap(code):
+    def _ret(code):
         if code != 0:
             e = Error(get_error_text(code))
             e.code = code & 0xFFFFFFFF
@@ -72,25 +86,25 @@ class NicePCO(NiceLib):
         return struct_p
 
     _ffi = ffi
-    _lib = lib
+    _ffilib = lib
     _prefix = 'PCO_'
 
-    OpenCamera = ('inout', 'in')
+    OpenCamera = ('inout', 'ignore')
     OpenCameraEx = ('inout', 'inout')
 
     # Special cases
-    def _GetTransferParameter(hcam):
+    def _GetTransferParameter(hcam, niceobj=None):
         params_p = ffi.new('PCO_SC2_CL_TRANSFER_PARAM *')
         void_p = ffi.cast('void *', params_p)
         lib.PCO_GetTransferParameter(hcam, void_p, ffi.sizeof(params_p[0]))
         # Should do error checking...
         return params_p[0]
 
-    def _SetTransferParametersAuto(hcam):
+    def _SetTransferParametersAuto(hcam, niceobj=None):
         lib.PCO_SetTransferParametersAuto(hcam, ffi.NULL, 0)
         # Should do error checking...
 
-    Camera = NiceObject({
+    Camera = NiceObjectDef({
         'CloseCamera': ('in'),
         'GetSizes': ('in', 'out', 'out', 'out', 'out'),
         'SetROI': ('in', 'in', 'in', 'in', 'in'),
@@ -216,7 +230,14 @@ class PCO_Camera(Camera):
         openStruct.wCameraNumAtInterface = 0
         openStruct.wOpenFlags[0] = 0
 
-        hcam = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p[0])[0]
+        try:
+            hcam = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p[0])[0]
+        except Error:
+            # TODO: Figure out how to reset this error so we can turn on the camera and
+            # retry instead of having to restart python. We may need to close the DLL
+            # and reopen it, but that's currently difficult/impossible with cffi
+            raise Error("Could not find PCO camera. Is it connected and turned on?")
+
         self._cam = NicePCO.Camera(hcam)
 
         self.cam_num = openStruct.wCameraNumber
@@ -283,14 +304,14 @@ class PCO_Camera(Camera):
         y1 = min(self.max_width, y1)
 
         # Round and center x coords (must be symmetric in dual-ADC mode)
-        cx = self.max_width / 2
+        cx = self.max_width // 2
         xdiff = max(cx - x0, x1 - cx) - 1
         xdiff = (xdiff // hstep + 1) * hstep
         fx0 = cx - xdiff
         fx1 = cx + xdiff
 
         # Round and center y coords (must be symmetric for pco.edge)
-        cy = self.max_height / 2
+        cy = self.max_height // 2
         ydiff = max(cy - y0, y1 - cy) - 1
         ydiff = (ydiff // vstep + 1) * vstep
         fy0 = cy - ydiff
@@ -320,8 +341,8 @@ class PCO_Camera(Camera):
 
     def _set_centered_ROI(self, width, height):
         _, _, max_width, max_height = self._get_sizes()
-        x0 = (max_width-width)/2
-        y0 = (max_height-height)/2
+        x0 = (max_width-width)//2
+        y0 = (max_height-height)//2
         self._set_ROI(x0, y0, x0+width, y0+height)
 
     def _get_lookup_table_info(self):
@@ -417,7 +438,7 @@ class PCO_Camera(Camera):
         """Calculate the size (in bytes) a buffer needs to hold an image with the current
         settings."""
         width, height, _, _ = self._get_sizes()
-        return (width * height * self._data_depth()) / 16 * 2
+        return (width * height * self._data_depth()) // 16 * 2
 
     def _set_binning(self, hbin, vbin):
         self._cam.SetBinning(hbin, vbin)
@@ -484,9 +505,9 @@ class PCO_Camera(Camera):
                     break
 
             if copy:
-                image_buf = buffer(ffi.buffer(buf.address, frame_size)[:])
+                image_buf = memoryview(ffi.buffer(buf.address, frame_size)[:])
             else:
-                image_buf = buffer(ffi.buffer(buf.address, frame_size))
+                image_buf = memoryview(ffi.buffer(buf.address, frame_size))
 
             # Convert to array (currently assumes mono16)
             array = np.frombuffer(image_buf, np.uint16)
@@ -583,9 +604,9 @@ class PCO_Camera(Camera):
     def latest_frame(self, copy=True):
         buf_info = self.last_buffer
         if copy:
-            buf = buffer(ffi.buffer(buf_info.address, self._frame_size())[:])
+            buf = memoryview(ffi.buffer(buf_info.address, self._frame_size())[:])
         else:
-            buf = buffer(ffi.buffer(buf_info.address, self._frame_size()))
+            buf = memoryview(ffi.buffer(buf_info.address, self._frame_size()))
 
         width, height, _, _ = self._get_sizes()
         array = np.frombuffer(buf, np.uint16)
@@ -631,7 +652,13 @@ def list_instruments():
         openStruct.wCameraNumAtInterface = 0
         openStruct.wOpenFlags[0] = 0
 
-        hCam, _ = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p)  # This is reallllyyyy sloowwwww
+        try:
+            hCam, _ = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p)  # This is reallllyyyy sloowwwww
+        except Error as e:
+            if e.code == 0x800A300D:
+                return []  # No cameras attached/turned on
+            raise
+
         _cam = NicePCO.Camera(hCam)
 
         if openStruct.wInterfaceType == 0xFFFF or hCam == prev_handle:

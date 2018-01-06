@@ -81,9 +81,15 @@ check your PEP8 compliance.
 Docstrings
 ----------
 
-Code in Instrumental is primarily documented using python docstrings.
-Specifically, we follow the `numpydoc conventions`_.
+Code in Instrumental is primarily documented using python docstrings.  Specifically, we follow the
+`numpydoc conventions`_. In general, you should also follow the guidelines of `pep 257`_.
 
+- No spaces after the opening triple-quote
+- One-line docstrings should be on a single line, e.g. """Does good stuff"""
+- Multi-liners have a summary line, followed by a blank line, followed by the rest of the doc. The
+  closing quote should be on its own line
+
+.. _pep 257: https://www.python.org/dev/peps/pep-0257/
 .. _numpydoc conventions: https://github.com/numpy/numpy/blob/master/doc/HOWTO_DOCUMENT.rst.txt#docstring-standard
 
 
