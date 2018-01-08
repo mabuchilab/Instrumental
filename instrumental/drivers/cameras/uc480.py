@@ -18,7 +18,8 @@ from nicelib import NiceLib, NiceObjectDef, load_lib
 from . import Camera
 from ..util import check_units
 from .. import ParamSet
-from ...errors import InstrumentNotFoundError, Error, TimeoutError, LibError
+from ...errors import (InstrumentNotFoundError, Error, TimeoutError, LibError,
+                       UnsupportedFeatureError)
 from ...log import get_logger
 from ... import Q_
 
@@ -200,6 +201,8 @@ class NiceUC480(NiceLib):
         SetDisplayMode = ('in', 'in', {'ret': ret_handler('IS_GET_DISPLAY_MODE')}),
         SetExternalTrigger = ('in', 'in', {'ret': ret_handler('IS_GET_*TRIGGER*')}),
         SetFrameRate = ('in', 'in', 'out'),
+        SetGainBoost = ('in', 'in', {'ret': ret_handler(('IS_GET_GAINBOOST',
+                                                         'IS_GET_SUPPORTED_GAINBOOST'))}),
         SetSubSampling = ('in', 'in', {'ret': ret_handler('IS_GET_*SUBSAMPLING*')}),
         SetTriggerDelay = ('in', 'in', {'ret': ret_handler('IS_GET_*TRIGGER*')}),
         StopLiveVideo = ('in', 'in'),
@@ -863,6 +866,22 @@ class UC480_Camera(Camera):
         """
         param = self._dev.SetTriggerDelay(lib.GET_TRIGGER_DELAY)
         return Q_(param, 'us')
+
+    @property
+    def gain_boost(self):
+        if not self._dev.SetGainBoost(lib.GET_SUPPORTED_GAINBOOST):
+            return None
+        boost = self._dev.SetGainBoost(lib.GET_GAINBOOST)
+        return bool(boost == lib.SET_GAINBOOST_ON)
+
+    @gain_boost.setter
+    def gain_boost(self, boost):
+        # For some reason, this does not take effect on the next image captured, but their
+        # image after that. It is unclear what's causing this.
+        if not self._dev.SetGainBoost(lib.GET_SUPPORTED_GAINBOOST):
+            raise UnsupportedFeatureError("Camera does not support the gain boost feature")
+        val = lib.SET_GAINBOOST_ON if boost else lib.SET_GAINBOOST_OFF
+        self._dev.SetGainBoost(val)
 
     #: uEye camera ID number. Read-only
     id = property(lambda self: self._id)
