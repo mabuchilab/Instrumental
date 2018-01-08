@@ -488,6 +488,7 @@ class UC480_Camera(Camera):
             param = ffi.new('wchar_t[]', filename)
 
         self._dev.ParameterSet(cmd, param, ffi.sizeof(param))
+        self._init_colormode()  # Ignore loaded color mode b/c we only support a few
 
         # Make sure memory is set up for right color depth
         depth_map = {
@@ -500,9 +501,10 @@ class UC480_Camera(Camera):
         if depth != self._color_depth:
             log.debug("Color depth changed from %s to %s",
                       self._color_depth, depth)
+            num_bufs = len(self._buffers)
             self._free_image_mem_seq()
             self._color_depth = depth
-            self._allocate_image_mem_seq()
+            self._allocate_mem_seq(num_bufs)
         self._color_mode = mode
 
     def _open(self, num_bufs=1):
