@@ -14,6 +14,10 @@ class TimeoutError(Error):
     pass
 
 
+class UnsupportedFeatureError(Error):
+    pass
+
+
 class InstrumentTypeError(Error):
     pass
 
