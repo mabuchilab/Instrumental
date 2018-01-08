@@ -505,12 +505,6 @@ class UC480_Camera(Camera):
             self._allocate_image_mem_seq()
         self._color_mode = mode
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.close()
-
     def _open(self, num_bufs=1):
         """
         Connect to the camera and set up the image memory.
