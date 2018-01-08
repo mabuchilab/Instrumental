@@ -671,6 +671,8 @@ class UC480_Camera(Camera):
             array = self._array_from_buffer(ffi.buffer(buf.ptr, buf_size))
             arrays.append(np.copy(array) if copy else array)
 
+        self._dev.StopLiveVideo(lib.WAIT)
+
         if len(arrays) == 1:
             return arrays[0]
         else:
