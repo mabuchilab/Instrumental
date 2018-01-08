@@ -72,7 +72,7 @@ def ret_handler(getcmd_names, cmd_pos=1):
             return result
         elif result != info._defs['IS_SUCCESS']:
             err_code, err_msg = niceobj.GetError()
-            raise UC480Error('({}): {}'.format(result, err_msg))
+            raise UC480Error(code=result, msg=err_msg)
 
     return wrap
 
