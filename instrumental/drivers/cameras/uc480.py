@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2017 Nate Bogdanowicz
+# Copyright 2013-2018 Nate Bogdanowicz
 """
 Driver for Thorlabs DCx cameras. May be compatible with iDS cameras that use
 uEye software. Currently Windows-only, but Linux support should be
@@ -249,9 +249,11 @@ class NiceUC480(NiceLib):
         GetError = ('in', 'out', 'bufout'),
         GetImageMemPitch = ('in', 'out'),
         GetSensorInfo = ('in', 'out'),
+        HasVideoStarted = ('in', 'out'),
         InitEvent = ('in', 'in', 'in'),
         InitImageQueue = ('in', 'in'),
         ParameterSet = ('in', 'in', 'inout', 'in'),
+        ResetToDefault = ('in'),
         SetAutoParameter = ('in', 'in', 'inout', 'inout'),
         SetBinning = ('in', 'in', {'ret': ret_handler('IS_GET_*BINNING*')}),
         SetCameraID = ('in', 'in', {'ret': ret_handler('IS_GET_CAMERA_ID')}),
