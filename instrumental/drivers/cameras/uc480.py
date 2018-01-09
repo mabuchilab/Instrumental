@@ -172,6 +172,28 @@ class NiceUC480(NiceLib):
             return param_data[0] if deref else param_data
     _Exposure.sig = ('in', 'in', 'inout', 'in')
 
+    def _Gamma(command, param=None):
+        if command in (lib.GAMMA_CMD_GET, lib.GAMMA_CMD_GET_DEFAULT):
+            getting = True
+        elif command == lib.GAMMA_CMD_SET:
+            getting = False
+        else:
+            raise ValueError("Unsupported command given")
+
+        if getting and param is not None:
+            raise ValueError("Cannot give a param value when using a GET command")
+        elif not getting and param is None:
+            raise ValueError("Must give a param value when using a SET command")
+
+        param_data = ffi.new('INT*', param)
+        size = ffi.sizeof('INT')
+        param_ptr = ffi.cast('void*', param_data)
+        NiceUC480._Gamma.orig(command, param_ptr, size)
+
+        if getting:
+            return param_data[0]
+    _Gamma.sig = ('in', 'in', 'inout', 'in')
+
     # Camera methods
     #
     Camera = NiceObjectDef(init='InitCamera', ret='cam', attrs=dict(
@@ -187,6 +209,7 @@ class NiceUC480(NiceLib):
         ExitImageQueue = ('in'),
         Exposure = _Exposure,
         FreeImageMem = ('in', 'in', 'in'),
+        Gamma = _Gamma,
         GetActSeqBuf = ('in', 'out', 'out', 'out'),
         GetError = ('in', 'out', 'bufout'),
         GetImageMemPitch = ('in', 'out'),
@@ -869,6 +892,17 @@ class UC480_Camera(Camera):
         """
         param = self._dev.SetTriggerDelay(lib.GET_TRIGGER_DELAY)
         return Q_(param, 'us')
+
+    @property
+    def gamma(self):
+        return self._dev.Gamma(lib.GAMMA_CMD_GET) / 100.
+
+    @gamma.setter
+    def gamma(self, gamma):
+        if not (1.0 <= gamma <= 10.0):
+            raise ValueError("gamma must be between 1.0 and 10.0, inclusive")
+        gamma_factor = int(round(gamma * 100))
+        self._dev.Gamma(lib.GAMMA_CMD_SET, gamma_factor)
 
     @property
     def gain_boost(self):
