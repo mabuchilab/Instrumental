@@ -488,6 +488,19 @@ def _get_legit_params(params):
     raise InstrumentNotFoundError("No camera found matching the given parameters")
 
 
+def AutoParamEnableFacet(name):
+    GET_CMD = getattr(lib, 'GET_ENABLE_' + name)
+    SET_CMD = getattr(lib, 'SET_ENABLE_' + name)
+    def fget(self):
+        val1, val2 = self._dev.SetAutoParameter(GET_CMD, 0, 0)
+        return bool(val1)
+
+    def fset(self, enable):
+        self._dev.SetAutoParameter(SET_CMD, enable, 0)
+
+    return Facet(fget, fset, type=bool)
+
+
 class BufferInfo(object):
     def __init__(self, ptr, id):
         self.ptr = ptr
@@ -1007,6 +1020,15 @@ class UC480_Camera(Camera):
         self._dev.SetHWGainFactor(lib.SET_MASTER_GAIN_FACTOR, gain_factor)
 
     max_master_gain = property(lambda self: self._max_master_gain)
+
+    auto_gain = AutoParamEnableFacet('AUTO_GAIN')
+    auto_sensor_gain = AutoParamEnableFacet('AUTO_SENSOR_GAIN')
+    auto_exposure = AutoParamEnableFacet('AUTO_SHUTTER')
+    auto_sensor_exposure = AutoParamEnableFacet('AUTO_SENSOR_SHUTTER')
+    auto_whitebalance = AutoParamEnableFacet('AUTO_WHITEBALANCE')
+    auto_sensor_whitebalance = AutoParamEnableFacet('AUTO_SENSOR_WHITEBALANCE')
+    auto_framerate = AutoParamEnableFacet('AUTO_FRAMERATE')
+    auto_sensor_framerate = AutoParamEnableFacet('AUTO_SENSOR_FRAMERATE')
 
     #: uEye camera ID number. Read-only
     id = property(lambda self: self._id)
