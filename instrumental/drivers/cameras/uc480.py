@@ -203,6 +203,7 @@ class NiceUC480(NiceLib):
         SetFrameRate = ('in', 'in', 'out'),
         SetGainBoost = ('in', 'in', {'ret': ret_handler(('IS_GET_GAINBOOST',
                                                          'IS_GET_SUPPORTED_GAINBOOST'))}),
+        SetHWGainFactor = ('in', 'in', 'in', {'ret': 'return'}),
         SetSubSampling = ('in', 'in', {'ret': ret_handler('IS_GET_*SUBSAMPLING*')}),
         SetTriggerDelay = ('in', 'in', {'ret': ret_handler('IS_GET_*TRIGGER*')}),
         StopLiveVideo = ('in', 'in'),
@@ -464,6 +465,8 @@ class UC480_Camera(Camera):
         self._trigger_mode = lib.SET_TRIGGER_OFF
 
         self._open()
+
+        self._max_master_gain = self._dev.SetHWGainFactor(lib.INQUIRE_MASTER_GAIN_FACTOR, 100) / 100.
 
     def __del__(self):
         if self._in_use:
@@ -882,6 +885,23 @@ class UC480_Camera(Camera):
             raise UnsupportedFeatureError("Camera does not support the gain boost feature")
         val = lib.SET_GAINBOOST_ON if boost else lib.SET_GAINBOOST_OFF
         self._dev.SetGainBoost(val)
+
+    @property
+    def master_gain(self):
+        gain_factor = self._dev.SetHWGainFactor(lib.GET_MASTER_GAIN_FACTOR, 0)
+        return gain_factor / 100.
+
+    @master_gain.setter
+    def master_gain(self, gain):
+        if gain < 1.0:
+            raise ValueError('Gain cannot be set below 1.0')
+        elif gain > self.max_master_gain:
+            raise ValueError('Gain cannot be set above {:.2f}'.format(self.max_master_gain))
+
+        gain_factor = int(round(gain * 100))
+        self._dev.SetHWGainFactor(lib.SET_MASTER_GAIN_FACTOR, gain_factor)
+
+    max_master_gain = property(lambda self: self._max_master_gain)
 
     #: uEye camera ID number. Read-only
     id = property(lambda self: self._id)
