@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2017 Christopher Rogers, Nate Bogdanowicz
+# Copyright 2016-2018 Christopher Rogers, Nate Bogdanowicz
 """
 Driver Module for Thorlabs CCSXXX series spectrometers.  Currently Windows
 only.
@@ -326,12 +326,9 @@ class CCS(Spectrometer):
 
         Parameters
         ----------
-        integration_time : float, optional
-            The integration time in seconds.
-            If not specified, the current integration time is used.
-
-            Note that in practice, times greater than 50 seconds do
-            not seem to work properly.
+        integration_time : Quantity([time]), optional
+            The integration time. If not specified, the current integration time is used. Note that
+            in practice, times greater than 50 seconds do not seem to work properly.
         num_avg : int, Default=1
             The number of spectra to average over.
         use_background : bool, Default=False
