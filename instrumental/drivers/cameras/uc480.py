@@ -17,7 +17,7 @@ from nicelib import NiceLib, NiceObjectDef, load_lib
 
 from . import Camera
 from ..util import check_units
-from .. import ParamSet
+from .. import ParamSet, Facet
 from ...errors import (InstrumentNotFoundError, Error, TimeoutError, LibError,
                        UnsupportedFeatureError)
 from ...log import get_logger
@@ -949,7 +949,7 @@ class UC480_Camera(Camera):
         param = self._dev.SetTriggerDelay(lib.GET_TRIGGER_DELAY)
         return Q_(param, 'us')
 
-    @property
+    @Facet
     def auto_blacklevel(self):
         mode = self._dev.Blacklevel(lib.BLACKLEVEL_CMD_GET_MODE)
         return bool(mode == lib.AUTO_BLACKLEVEL_ON)
@@ -963,29 +963,24 @@ class UC480_Camera(Camera):
         mode = lib.AUTO_BLACKLEVEL_ON if enable else lib.AUTO_BLACKLEVEL_OFF
         self._dev.Blacklevel(lib.BLACKLEVEL_CMD_SET_MODE, mode)
 
-    @property
+    @Facet(limits=('_blacklevel_offset_min', '_blacklevel_offset_max', '_blacklevel_offset_inc'))
     def blacklevel_offset(self):
         return self._dev.Blacklevel(lib.BLACKLEVEL_CMD_GET_OFFSET)
 
     @blacklevel_offset.setter
     def blacklevel_offset(self, offset):
-        if not (self._blacklevel_offset_min <= offset <= self._blacklevel_offset_max):
-            raise ValueError("offset must be between {} and {}, inclusive".format(
-                self._blacklevel_offset_min, self._blacklevel_offset_max))
         self._dev.Blacklevel(lib.BLACKLEVEL_CMD_SET_OFFSET, offset)
 
-    @property
+    @Facet(limits=(1.0, 10.0))
     def gamma(self):
         return self._dev.Gamma(lib.GAMMA_CMD_GET) / 100.
 
     @gamma.setter
     def gamma(self, gamma):
-        if not (1.0 <= gamma <= 10.0):
-            raise ValueError("gamma must be between 1.0 and 10.0, inclusive")
         gamma_factor = int(round(gamma * 100))
         self._dev.Gamma(lib.GAMMA_CMD_SET, gamma_factor)
 
-    @property
+    @Facet
     def gain_boost(self):
         if not self._dev.SetGainBoost(lib.GET_SUPPORTED_GAINBOOST):
             return None
@@ -1001,18 +996,13 @@ class UC480_Camera(Camera):
         val = lib.SET_GAINBOOST_ON if boost else lib.SET_GAINBOOST_OFF
         self._dev.SetGainBoost(val)
 
-    @property
+    @Facet(limits=(1.0, 'max_master_gain'))
     def master_gain(self):
         gain_factor = self._dev.SetHWGainFactor(lib.GET_MASTER_GAIN_FACTOR, 0)
         return gain_factor / 100.
 
     @master_gain.setter
     def master_gain(self, gain):
-        if gain < 1.0:
-            raise ValueError('Gain cannot be set below 1.0')
-        elif gain > self.max_master_gain:
-            raise ValueError('Gain cannot be set above {:.2f}'.format(self.max_master_gain))
-
         gain_factor = int(round(gain * 100))
         self._dev.SetHWGainFactor(lib.SET_MASTER_GAIN_FACTOR, gain_factor)
 
