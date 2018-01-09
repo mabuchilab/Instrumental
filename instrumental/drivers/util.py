@@ -38,6 +38,9 @@ def check_units(*pos, **named):
         if unit_info is None:
             return arg
 
+        use_units_msg = (" Make sure you're passing in a unitful value, either as a string or by "
+                         "using `instrumental.u` or `instrumental.Q_()`")
+
         optional, units = unit_info
         if optional and arg is None:
             return None
@@ -48,20 +51,23 @@ def check_units(*pos, **named):
                 return Q_(arg, units)
             else:
                 if name is not None:
+                    extra_msg = " for argument '{}'.".format(name) + use_units_msg
                     raise pint.DimensionalityError(u.dimensionless.units, units.units,
-                                                   extra_msg=" for argument '{}'".format(name))
+                                                   extra_msg=extra_msg)
                 else:
+                    extra_msg = " for return value." + use_units_msg
                     raise pint.DimensionalityError(u.dimensionless.units, units.units,
-                                                   extra_msg=" for return value")
+                                                   extra_msg=extra_msg)
         else:
             q = Q_(arg)
             if q.dimensionality != units.dimensionality:
+                extra_info = '' if isinstance(arg, Q_) else use_units_msg
                 if name is not None:
-                    raise pint.DimensionalityError(q.units, units.units,
-                                                   extra_msg=" for argument '{}'".format(name))
+                    extra_msg = " for argument '{}'.".format(name) + extra_info
+                    raise pint.DimensionalityError(q.units, units.units, extra_msg=extra_msg)
                 else:
-                    raise pint.DimensionalityError(q.units, units.units,
-                                                   extra_msg=" for return value")
+                    extra_msg = " for return value." + extra_info
+                    raise pint.DimensionalityError(q.units, units.units, extra_msg=extra_msg)
             return q
 
     return _unit_decorator(inout_map, inout_map, pos, named)
