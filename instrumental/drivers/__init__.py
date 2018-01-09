@@ -1127,8 +1127,9 @@ def find_nonvisa_instrument(params):
         if not ok_drivers:
             raise Exception("Parameters {} match no existing driver module".format(params))
 
+        raise_errors = (len(ok_drivers) == 1)
         for driver_name, normalized_params in ok_drivers:
-            driver_module = import_driver(driver_name, raise_errors=False)
+            driver_module = import_driver(driver_name, raise_errors=raise_errors)
             if driver_module is None:
                 continue
 
