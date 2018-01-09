@@ -89,6 +89,13 @@ class UC480Error(LibError):
     }
 
 
+def sig(*args):
+    def decorator(func):
+        func.sig = args
+        return func
+    return decorator
+
+
 class NiceUC480(NiceLib):
     _info = info
     _prefix = ('is_', 'IS_')
@@ -112,6 +119,7 @@ class NiceUC480(NiceLib):
 
     # Hand-wrapped methods
     #
+    @sig('in', 'in', 'inout', 'in')
     def _AOI(command, param=None):
         """AOI(command, param=None)"""
         if command & lib.AOI_MULTI_GET_AOI:
@@ -143,8 +151,8 @@ class NiceUC480(NiceLib):
 
         if getting:
             return param_data[0] if deref else param_data
-    _AOI.sig = ('in', 'in', 'inout', 'in')
 
+    @sig('in', 'in', 'inout', 'in')
     def _Exposure(command, param=None):
         if command in EXPOSURE_GET_PARAM_TYPES:
             param_type = EXPOSURE_GET_PARAM_TYPES[command]
@@ -170,8 +178,8 @@ class NiceUC480(NiceLib):
 
         if getting:
             return param_data[0] if deref else param_data
-    _Exposure.sig = ('in', 'in', 'inout', 'in')
 
+    @sig('in', 'in', 'inout', 'in')
     def _Gamma(command, param=None):
         if command in (lib.GAMMA_CMD_GET, lib.GAMMA_CMD_GET_DEFAULT):
             getting = True
@@ -192,7 +200,6 @@ class NiceUC480(NiceLib):
 
         if getting:
             return param_data[0]
-    _Gamma.sig = ('in', 'in', 'inout', 'in')
 
     # Camera methods
     #
