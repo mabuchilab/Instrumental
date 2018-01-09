@@ -192,8 +192,8 @@ class Facet(object):
     def _set_limits(self, limits):
         if limits is not None:
             for limit in limits:
-                if limit is not None and not isinstance(limit, numbers.Number):
-                    raise ValueError('Facet limits must be raw numbers or None')
+                if limit is not None and not isinstance(limit, (numbers.Number, basestring)):
+                    raise ValueError('Facet limits must be raw numbers, strings, or None')
 
         if limits is None:
             self.limits = (None, None, None)
@@ -262,21 +262,25 @@ class Facet(object):
     def __set__(self, obj, qty):
         self.set_value(obj, qty)
 
-    def convert_user_input(self, value):
+    def convert_user_input(self, value, obj):
         """Validate and convert an input value to its 'external' form"""
         if self.units is not None:
             q = to_quantity(value).to(self.units)
-            return Q_(self.convert_raw_input(q.magnitude), q.units)
+            return Q_(self.convert_raw_input(q.magnitude, obj), q.units)
         else:
-            return self.convert_raw_input(value)
+            return self.convert_raw_input(value, obj)
 
-    def convert_raw_input(self, input_value):
+    def convert_raw_input(self, input_value, obj):
         value = input_value if self.type is None else self.type(input_value)
-        return self.check_limits(value)
+        return self.check_limits(value, obj)
 
-    def check_limits(self, value):
+    def _load_limits(self, obj):
+        return tuple((getattr(obj, l) if isinstance(l, basestring) else l)
+                     for l in self.limits)
+
+    def check_limits(self, value, obj):
         """Check raw value (magnitude) against the Facet's limits"""
-        start, stop, step = self.limits
+        start, stop, step = self._load_limits(obj)
         if start is not None and value < start:
             raise ValueError("Value below lower limit of {}".format(
                 Q_(start, self.units) if self.units else start))
@@ -298,7 +302,7 @@ class Facet(object):
             raise AttributeError("Cannot set a read-only Facet")
 
         instance = self.instance(obj)
-        value = self.convert_user_input(value)
+        value = self.convert_user_input(value, obj)
 
         if not (self.cacheable and use_cache) or instance.cached_val != value:
             log.info('Setting value of facet %s', self.name)
