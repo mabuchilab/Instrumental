@@ -201,12 +201,40 @@ class NiceUC480(NiceLib):
         if getting:
             return param_data[0]
 
+    @sig('in', 'in', 'inout', 'in')
+    def _Blacklevel(command, param=None):
+        if command in BLACKLEVEL_GET_PARAM_TYPES:
+            param_type = BLACKLEVEL_GET_PARAM_TYPES[command]
+            getting = True
+        elif command in BLACKLEVEL_SET_PARAM_TYPES:
+            param_type = BLACKLEVEL_SET_PARAM_TYPES[command]
+            getting = False
+        else:
+            raise Error("Unsupported command given")
+
+        if getting and param is not None:
+            raise ValueError("Cannot give a param value when using a GET command")
+        elif not getting and param is None:
+            raise ValueError("Must give a param value when using a SET command")
+
+        param_type = ffi.typeof(param_type)
+        deref = (param_type.kind == 'pointer')  # Don't dereference arrays
+
+        param_data = ffi.new(param_type, param)
+        size = ffi.sizeof(ffi.typeof(param_data).item if deref else param_data)
+        param_ptr = ffi.cast('void*', param_data)
+        NiceUC480._Blacklevel.orig(command, param_ptr, size)
+
+        if getting:
+            return param_data[0] if deref else param_data
+
     # Camera methods
     #
     Camera = NiceObjectDef(init='InitCamera', ret='cam', attrs=dict(
         AddToSequence = ('in', 'in', 'in'),
         AllocImageMem = ('in', 'in', 'in', 'in', 'out', 'out'),
         AOI = _AOI,
+        Blacklevel = _Blacklevel,
         CaptureVideo = ('in', 'in', {'ret': ret_handler('IS_GET_LIVE')}),
         ClearSequence = ('in'),
         DisableEvent = ('in', 'in'),
@@ -286,6 +314,20 @@ AOI_SET_PARAM_TYPES = {
     lib.AOI_MULTI_DISABLE_AOI: '',
     lib.AOI_SEQUENCE_SET_PARAMS: '',
     lib.AOI_SEQUENCE_SET_ENABLE: '',
+}
+
+BLACKLEVEL_GET_PARAM_TYPES = {
+    lib.BLACKLEVEL_CMD_GET_CAPS: 'INT*',
+    lib.BLACKLEVEL_CMD_GET_MODE_DEFAULT: 'INT*',
+    lib.BLACKLEVEL_CMD_GET_MODE: 'INT*',
+    lib.BLACKLEVEL_CMD_GET_OFFSET_DEFAULT: 'INT*',
+    lib.BLACKLEVEL_CMD_GET_OFFSET_RANGE: 'IS_RANGE_S32*',
+    lib.BLACKLEVEL_CMD_GET_OFFSET: 'INT*',
+}
+
+BLACKLEVEL_SET_PARAM_TYPES = {
+    lib.BLACKLEVEL_CMD_SET_MODE: 'INT*',
+    lib.BLACKLEVEL_CMD_SET_OFFSET: 'INT*',
 }
 
 EXPOSURE_GET_PARAM_TYPES = {
@@ -495,8 +537,15 @@ class UC480_Camera(Camera):
         self._trigger_mode = lib.SET_TRIGGER_OFF
 
         self._open()
+        self._load_constants()
 
+    def _load_constants(self):
         self._max_master_gain = self._dev.SetHWGainFactor(lib.INQUIRE_MASTER_GAIN_FACTOR, 100) / 100.
+
+        offset_range = self._dev.Blacklevel(lib.BLACKLEVEL_CMD_GET_OFFSET_RANGE)
+        self._blacklevel_offset_min = offset_range.s32Min
+        self._blacklevel_offset_max = offset_range.s32Max
+        self._blacklevel_offset_inc = offset_range.s32Inc
 
     def __del__(self):
         if self._in_use:
@@ -899,6 +948,31 @@ class UC480_Camera(Camera):
         """
         param = self._dev.SetTriggerDelay(lib.GET_TRIGGER_DELAY)
         return Q_(param, 'us')
+
+    @property
+    def auto_blacklevel(self):
+        mode = self._dev.Blacklevel(lib.BLACKLEVEL_CMD_GET_MODE)
+        return bool(mode == lib.AUTO_BLACKLEVEL_ON)
+
+    @auto_blacklevel.setter
+    def auto_blacklevel(self, enable):
+        caps = self._dev.Blacklevel(lib.BLACKLEVEL_CMD_GET_CAPS)
+        if not (caps & lib.BLACKLEVEL_CAP_SET_AUTO_BLACKLEVEL):
+            raise UnsupportedFeatureError
+
+        mode = lib.AUTO_BLACKLEVEL_ON if enable else lib.AUTO_BLACKLEVEL_OFF
+        self._dev.Blacklevel(lib.BLACKLEVEL_CMD_SET_MODE, mode)
+
+    @property
+    def blacklevel_offset(self):
+        return self._dev.Blacklevel(lib.BLACKLEVEL_CMD_GET_OFFSET)
+
+    @blacklevel_offset.setter
+    def blacklevel_offset(self, offset):
+        if not (self._blacklevel_offset_min <= offset <= self._blacklevel_offset_max):
+            raise ValueError("offset must be between {} and {}, inclusive".format(
+                self._blacklevel_offset_min, self._blacklevel_offset_max))
+        self._dev.Blacklevel(lib.BLACKLEVEL_CMD_SET_OFFSET, offset)
 
     @property
     def gamma(self):
