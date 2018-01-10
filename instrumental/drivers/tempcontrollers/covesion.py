@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2017 Dodd Gray and Nate Bogdanowicz
+# Copyright 2017-2018 Dodd Gray and Nate Bogdanowicz
 """
 Driver for VISA control of Covesion OC2 crystal oven temperature controller
 """
@@ -205,7 +205,7 @@ class CovesionOC(TempController):
              Set temperature to be sent to Covesion OC. Should be provided in
              degC units.
          """
-        set_temp_degC = set_temp.to(u.degC).magnitude
+        set_temp_degC = set_temp.m_as('degC')
         if Q_(20, u.degC) < set_temp <= Q_(200, u.degC):
             if set_temp < Q_(100, u.degC):
                 cmd_str = '\x01i371;{:.3f};25.000;0.000;25;100.00;0.00;'.format(set_temp_degC)
@@ -243,18 +243,18 @@ class CovesionOC(TempController):
         current_temp = self.get_current_temp()
         print('current_temp: {}'.format(current_temp))
         print('set_temp: {}'.format(set_temp))
-        delta_temp_degC = np.abs(set_temp - current_temp).magnitude
+        delta_temp_degC = np.abs(set_temp - current_temp).m_as('degC')
         if delta_temp_degC > 10:
             n_comm = round(delta_temp_degC/10) + 1
-            T_comm = np.linspace(current_temp.to(u.degC).magnitude,
-                                 set_temp.to(u.degC).magnitude,
+            T_comm = np.linspace(current_temp.m_as('degC'),
+                                 set_temp.m_as('degC'),
                                  n_comm+1)
             T_step = T_comm[1] - T_comm[0]
             # number of seconds to wait between steps, targeting ~10C/min
             t_step = abs(T_step / 10.0 * 60)
             T_comm = Q_(T_comm[1:], u.degC)
             for Tind, TT in enumerate(T_comm):
-                print_statusline('\rapproaching temp: {:3.2f}C from {:3.2f}C, step {} of {}...'.format(float(set_temp.to(u.degC).magnitude), float(current_temp.to(u.degC).magnitude), Tind+1, n_comm))
+                print_statusline('\rapproaching temp: {:3.2f}C from {:3.2f}C, step {} of {}...'.format(float(set_temp.m_as('degC')), float(current_temp.m_as('degC')), Tind+1, n_comm))
                 self._set_set_temp(TT)
                 sleep(t_step)
             return
@@ -291,13 +291,13 @@ class CovesionOC(TempController):
         err = np.ones((n_samples)) * 10.0 * max_err
         count = 0
         t0 = time.time()
-        while (err.to(u.degK).magnitude > max_err.to(u.degK).magnitude).any() and ((time.time()-t0) < timeout.to(u.second).magnitude):
+        while (err.m_as('degK') > max_err.m_as('degK')).any() and ((time.time()-t0) < timeout.m_as('s')):
             err[0:n_samples-1] = err[1:]
             current_error = (self.get_current_temp() - set_temp).to(u.degK)
             err[n_samples-1] = np.abs(current_error)
-            print_statusline('\rapproaching temp: {:3.2f}C, current temp error: {:3.2f}, time elapsed: '.format(float(set_temp.to(u.degC).magnitude), float(current_error.magnitude)) + str(timedelta(seconds=int(time.time()-t0))))
-        if (time.time()-t0) > timeout.to(u.second).magnitude:
-            raise Exception('Timeout while waiting for Covesion OC1 to reach set temperature {:3.2f}C'.format(set_temp.to(u.degC).magnitude))
+            print_statusline('\rapproaching temp: {:3.2f}C, current temp error: {:3.2f}, time elapsed: '.format(float(set_temp.m_as('degC')), float(current_error.magnitude)) + str(timedelta(seconds=int(time.time()-t0))))
+        if (time.time()-t0) > timeout.m_as('s'):
+            raise Exception('Timeout while waiting for Covesion OC1 to reach set temperature {:3.2f}C'.format(set_temp.m_as('degC')))
         else:
-            print_statusline('temperature {:3.2f}C reached in {:3.1f}s'.format(set_temp.to(u.degC).magnitude, time.time()-t0))
+            print_statusline('temperature {:3.2f}C reached in {:3.1f}s'.format(set_temp.m_as('degC'), time.time()-t0))
         return
