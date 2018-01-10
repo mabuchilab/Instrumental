@@ -230,35 +230,26 @@ def _open_visa_OC(rm, visa_address):
     return visa_inst
 
 
-def _check_OC(rm, visa_address, n_tries_max=5):
-    n_tries = 0
-    success = False
-    version = False
-    while not(success) and (n_tries < n_tries_max):
+def _is_CovesionOC(rsrc):
+    with visa_context(rsrc, timeout=50):
         try:
-            visa_inst = _open_visa_OC(rm, visa_address)
-            output_raw = visa_inst.query('\X01J00\X00\XCB')
-            visa_inst.close()
-            success = True
-            vals = output_raw[5:-3].split(';')
-            status_dict = dict(zip(OC_status_keys, vals))
-            version = status_dict['version']
-        except:
-            pass
-        n_tries = n_tries + 1
-    return version
+            msg = rsrc.read_raw().rstrip()
+        except VisaIOError:
+            return False
+    try:
+        parse_message(msg)
+    except:
+        return False
+
+    return True
 
 
-def list_instruments():
-    instruments = []
-    visa_list = rm.list_resources()
-    for addr in visa_list:
-        if addr[0:4] == 'ASRL':
-            version = _check_OC(rm, addr)
-            if version:
-                params = ParamSet(CovesionOC, visa_address=addr)
-                instruments.append(params)
-    return instruments
+def _check_visa_support(rsrc):
+    if rsrc.resource_name.startswith('ASRL') and _is_CovesionOC(rsrc):
+        return None
+    return None
+
+
 def grab_latest_message(rsrc):
     msg = None
     with visa_context(rsrc, timeout=0):
