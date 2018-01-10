@@ -11,6 +11,9 @@ from pyvisa.constants import Parity
 from . import TempController
 from .. import VisaMixin, Facet
 from ..util import visa_context
+from ...log import get_logger
+
+log = get_logger(__name__)
 
 __all__ = ['TC038']
 
@@ -19,7 +22,8 @@ _INST_CLASSES = ['TC038']
 
 
 def _check_visa_support(visa_rsrc):
-    with visa_context(visa_rsrc, parity=Parity.even, write_termination='\r', read_termination='\r'):
+    with visa_context(visa_rsrc, parity=Parity.even, write_termination='\r', read_termination='\r',
+                      timeout=50):
         try:
             # This assumes an address of 01
             visa_rsrc.write(b'\x0201010INF6\x03')
@@ -31,8 +35,8 @@ def _check_visa_support(visa_rsrc):
             assert resp[5:7] == b'OK'
             resp[7:-1]
             return 'TC038'
-        except:
-            pass
+        except Exception as e:
+            log.exception(e)
     return None
 
 
