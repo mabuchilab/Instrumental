@@ -1013,9 +1013,10 @@ def find_visa_instrument(params):
             classname = params['classname']
         else:
             try:
-                _, classname = find_visa_driver_class(visa_inst)
-            except:
+                _, classname = find_visa_driver_class(visa_inst, params['module'])
+            except Exception as e:
                 visa_inst.close()
+                log.exception(e)
                 raise Exception("Couldn't find class in the given module that supports this "
                                 "VISA instrument")
 
