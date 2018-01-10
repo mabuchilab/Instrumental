@@ -6,20 +6,16 @@ Driver for VISA control of Covesion OC2 crystal oven temperature controller
 
 from __future__ import print_function
 
-from sys import stdout
 import time
-from time import sleep
-from datetime import timedelta
 
-import numpy as np
 from pyvisa.errors import VisaIOError
 from pyvisa.constants import Parity, VI_ERROR_TMO, VI_ERROR_ASRL_OVERRUN
-from pyvisa import ResourceManager
 
 from . import TempController
-from .. import ParamSet
-from ..util import visa_context
+from .. import VisaMixin, Facet
+from ..util import visa_context, check_units
 from ... import u, Q_
+from ...errors import TimeoutError
 
 
 _INST_PARAMS = ['visa_address']
@@ -190,45 +186,6 @@ DATA_FORMAT = {
     )
 }
 
-OC_parity = Parity.none
-OC_baud_rate = 19200
-OC_data_bits = 8
-OC_read_termination = '\r'
-OC_flow_control = 0
-OC_timeout = 500
-OC_status_keys = ['set point',
-                  'temperature',
-                  'control',
-                  'output %',
-                  'alarms',
-                  'faults',
-                  'temp ok',
-                  'supply vdc',
-                  'version',
-                  'test cycle',
-                  'test mode']
-rm = ResourceManager()
-
-
-def print_statusline(msg):
-    last_msg_length = len(print_statusline.last_msg) if hasattr(print_statusline, 'last_msg') else 0
-    print(' ' * last_msg_length, end='\r')
-    print(msg, end='\r')
-    stdout.flush()
-    print_statusline.last_msg = msg
-
-
-def _open_visa_OC(rm, visa_address):
-    visa_inst = rm.open_resource(visa_address)
-    visa_inst.parity = OC_parity  # = Parity.none
-    visa_inst.baud_rate = OC_baud_rate  # = 19200
-    visa_inst.data_bits = OC_data_bits  # = 8
-    visa_inst.read_termination = OC_read_termination  # = '\r'
-    visa_inst.flow_control = OC_flow_control  # = 0
-    visa_inst.timeout = OC_timeout  # = 10000
-    visa_inst.clear()
-    return visa_inst
-
 
 def _is_CovesionOC(rsrc):
     with visa_context(rsrc, timeout=50):
@@ -289,7 +246,7 @@ def read_latest_message(rsrc):
     The controller appears to constantly spit out messages, which pile up in the serial buffer. So,
     if you grab the first message in the queue, it may be quite old. This function reads out all the
     messages in the buffer, retaining the last one. If the buffer is empty, it will block (up to the
-    current serial timeout setting).
+    current serial timeout setting). Returns a {field: value} dict.
     """
     msg = grab_latest_message(rsrc)
     return parse_message(msg)
@@ -300,198 +257,98 @@ def process_data(cmd, data):
     return {e[0]:e[1](v) for e,v in zip(cmd_tup, data)}
 
 
-class CovesionOC(TempController):
+class CovesionOC(TempController, VisaMixin):
     """Class definition for a Covesion OC1 and OC2 oven temperature controllers."""
 
     def _initialize(self):
-        self.visa_address = self._paramset['visa_address']
-        self.parity = OC_parity
-        self.baud_rate = OC_baud_rate
-        self.data_bits = OC_data_bits
-        self.read_termination = OC_read_termination
-        self.flow_control = OC_flow_control
-        self.timeout = OC_timeout
-        self.status_keys = OC_status_keys
-        self.drive_str = '\x01m041;0;A9'
+        self.resource.parity = Parity.none
+        self.resource.baud_rate = 19200
+        self.resource.data_bits = 8
+        self.resource.read_termination = '\r'
+        self.resource.write_termination = '\r'
+        self.resource.flow_control = 0
+        self.resource.timeout = 500
 
-    def open_visa(self):
-        """Helper function to open a visa connection to a Covesion OC. Used by
-        other CovesionOC methods. Returns an active visa resource instance
-        connected to the Covesion OC.
-        """
-        visa_inst = rm.open_resource(self.visa_address)
-        visa_inst.parity = self.parity  # = Parity.none
-        visa_inst.baud_rate = self.baud_rate  # = 19200
-        visa_inst.data_bits = self.data_bits  # = 8
-        visa_inst.read_termination = self.read_termination  # = '\r'
-        visa_inst.flow_control = self.flow_control  # = 0
-        visa_inst.timeout = self.timeout  # = 10000
-        visa_inst.clear()
-        return visa_inst
+    def _read_status(self):
+        return read_latest_message(self.resource)
 
-    def get_status(self, n_tries_max=50):
-        """Collect and return status information from Covesion OC. Status values are returned in a
-        dictionary with keys 'set point','temperature', 'control','output %','alarms','faults','temp
-        ok','supply vdc','version', 'test cycle' and 'test mode'.
+    @Facet(units='degC')
+    def current_temperature(self):
+        return self._read_status()['temperature']
 
-        Parameters
-        ----------
-        n_tries_max : int, optional
-            number of times to try collecting status before throwing an error.
-            This was added because this communication randomly fails sometimes.
-        """
-        n_tries = 0
-        success = False
-        while not(success) and (n_tries < n_tries_max):
-            try:
-                visa_inst = self.open_visa()
-                output_raw = visa_inst.query('\X01J00\X00\XCB')
-                visa_inst.close()
-                success = True
-            except:
-                pass
-            n_tries = n_tries + 1
-        vals = output_raw[5:-3].split(';')
-        return dict(zip(self.status_keys, vals))
+    @Facet(units='degC')
+    def temperature_setpoint(self):
+        return self._read_status()['setpoint']
 
-    def get_current_temp(self, n_tries_max=20):
-        """Collect and return current temperature from Covesion OC. The current
-        temperature is returned as a Pint quantity in degrees C.
+    @check_units(setpoint='degC')
+    def _write_setpoint(self, setpoint):
+        """Write a temperature setpoint to the device"""
+        setpoint_C = setpoint.m_as('degC')
+        data = b'%1d;%.3f;%.3f;%.3f;%.0f;%.2f;%.2f;' % (1, 100, setpoint_C, 0., 25., 100., 0.)
+        base_msg = b'\x01i%02d%s' % (len(data), data)
+        checksum = sum(bytearray(base_msg)) % 256
+        msg = b'%s%02x' % (base_msg, checksum)
+        self.resource.write_raw(msg)
 
-         Parameters
-         ----------
-         n_tries_max : int, optional
-             number of times to try collecting status before throwing an error.
-             This was added because this communication randomly fails sometimes.
-         """
-        n_tries = 0
-        while (n_tries < n_tries_max):
-            try:
-                return Q_(float(self.get_status()['temperature']), u.degC)
-            except:
-                sleep(0.5)
-                n_tries += 1
+    @check_units(setpoint='degC')
+    def _ramp_to_setpoint(self, setpoint):
+        self._start_temp = self.current_temperature
+        self._final_temp = setpoint
 
-    def get_set_temp(self, n_tries_max=20):
-        """Collect and return set temperature from Covesion OC. The set
-        temperature is returned as a Pint quantity in degrees C.
+        ramp_rate = Q_(10, 'delta_degC/minute')
+        delta_T = abs(self._final_temp - self._start_temp)
+        self._ramp_time = delta_T / ramp_rate
+        cur_time = time.time() * u.s
+        self._ramp_end_time = cur_time + self._ramp_time
 
-         Parameters
-         ----------
-         n_tries_max : int, optional
-             number of times to try collecting status before throwing an error.
-             This was added because this communication randomly fails sometimes.
-         """
-        n_tries = 0
-        while (n_tries < n_tries_max):
-            try:
-                return Q_(float(self.get_status()['set point']), u.degC)
-            except:
-                sleep(0.5)
-                n_tries += 1
+        while cur_time < self._ramp_end_time:
+            cur_setpoint = self._current_ramp_setpoint()
+            self._write_setpoint(cur_setpoint)
+            time.sleep(1.)
+            cur_time = time.time() * u.s
+        self._write_setpoint(self._final_temp)
 
-    def _set_set_temp(self, set_temp):
-        """Helper function to set the 'set temperature' of a Covesion OC to a
-        specified value. Used by the set_set_temp method, which does the same
-        thing with extra code to prevent large, rapid temperature changes which
-        can lead to crystal damage.
+    def _current_ramp_setpoint(self):
+        frac_time_left = (self._ramp_end_time - time.time()*u.s) / self._ramp_time
+        return self._final_temp + (self._start_temp - self._final_temp) * frac_time_left
 
-         Parameters
-         ----------
-         set_temp : Pint Quantity
-             Set temperature to be sent to Covesion OC. Should be provided in
-             degC units.
-         """
-        set_temp_degC = set_temp.m_as('degC')
-        if Q_(20, u.degC) < set_temp <= Q_(200, u.degC):
-            if set_temp < Q_(100, u.degC):
-                cmd_str = '\x01i371;{:.3f};25.000;0.000;25;100.00;0.00;'.format(set_temp_degC)
-            else:
-                cmd_str = '\x01i381;{:.3f};25.000;0.000;25;100.00;0.00;'.format(set_temp_degC)
-            checksum_str = format(sum(ord(ch) for ch in cmd_str) % 256, 'x')
-            cmd_str += checksum_str
-            visa_inst = self.open_visa()
-            visa_inst.visalib.set_buffer(visa_inst.session, 48, 100)
-            visa_inst.flush(16)
-            visa_inst.write_raw(cmd_str)
-            visa_inst.write_raw(self.drive_str)
-            visa_inst.close()
-        else:
-            raise Exception('set_temp input not in valid range (20-200C)')
-        return
+    @check_units(temperature='degC', max_err='delta_degC', timeout='s')
+    def _wait_for_temperature(self, temperature, max_err, n_samples, timeout):
+        errors = [2*max_err] * n_samples
 
-    def set_set_temp(self, set_temp):
-        """Method to set the 'set temperature' of a Covesion OC to a specified
-        value. If the new set temperature is more than 10 degrees C away from
-        the current oven temperature, this function breaks the temperature
-        setting change up into a sequence of 10 degree C increments, which are
-        sent to the oven 1 minute apart. This is to avoid temperature change
-        rates greater than 10 degrees C per minute, which according to Covesion
-        can lead to crystal damage.
+        cur_time_s = time.time()
+        stop_time_s = cur_time_s + timeout.m_as('s')
 
-         Parameters
-         ----------
-         set_temp : Pint Quantity
-             Set temperature to be sent to Covesion OC. Should be provided in
-             degC units.
-         """
-        current_temp = self.get_current_temp()
-        print('current_temp: {}'.format(current_temp))
-        print('set_temp: {}'.format(set_temp))
-        delta_temp_degC = np.abs(set_temp - current_temp).m_as('degC')
-        if delta_temp_degC > 10:
-            n_comm = round(delta_temp_degC/10) + 1
-            T_comm = np.linspace(current_temp.m_as('degC'),
-                                 set_temp.m_as('degC'),
-                                 n_comm+1)
-            T_step = T_comm[1] - T_comm[0]
-            # number of seconds to wait between steps, targeting ~10C/min
-            t_step = abs(T_step / 10.0 * 60)
-            T_comm = Q_(T_comm[1:], u.degC)
-            for Tind, TT in enumerate(T_comm):
-                print_statusline('\rapproaching temp: {:3.2f}C from {:3.2f}C, step {} of {}...'.format(float(set_temp.m_as('degC')), float(current_temp.m_as('degC')), Tind+1, n_comm))
-                self._set_set_temp(TT)
-                sleep(t_step)
-            return
-        else:
-            self._set_set_temp(set_temp)
-            return
+        i = 0
+        while any(e > max_err for e in errors) and (cur_time_s < stop_time_s):
+            errors[i] = abs(self.current_temperature - temperature)
+            i = (i+1) % n_samples
+            cur_time_s = time.time()
 
-    def set_temp_and_wait(self, set_temp, max_err=Q_(0.1,u.degK), n_samples=10, timeout=5*u.minute):
-        """Method to set the 'set temperature' of a Covesion OC to a specified
-        value and then wait for that temperature to be reached to within a
-        specified stability. The user provides a maximum temperature error and a
-        number of temperature measurements (which occur at approximately
-        1/second) to specify the stability.
+        if cur_time_s >= stop_time_s:
+            raise TimeoutError('Timeout while waiting for Covesion OC1 to reach temperature '
+                               '{:~.2f}'.format(temperature))
+
+    @check_units(setpoint='degC', max_err='delta_degC', timeout='s')
+    def set_setpoint_and_wait(self, setpoint, max_err='0.1 delta_degC', n_samples=10,
+                              timeout='5 min'):
+        """Set the temperature setpoint and wait until it is reached
 
         Parameters
         ----------
-        set_temp : Pint Quantity
+        setpoint : Pint Quantity
             Set temperature to be sent to Covesion OC. Should be provided in
             degC units.
         max_error : Pint Quantity, optional
             Maximum temperature error that can be recorded over n_samples
             current temperature checks such that the temperature is considered
-            stable. Provided in units of degK
+            stable. Provided in units of degK, delta_degC, or delta_degF.
         n_samples : int, optional
             Number checks for which the current temperature must be found to
             be within max_error of set_temp so that the temperature is
             considered stable.
         timeout: Pint Quantity
-            Time allowed to pass before the function gives up on waiting for
-            temperature stability and returns. Can be provided in any
-            units of time.
-         """
-        self.set_set_temp(set_temp)
-        err = np.ones((n_samples)) * 10.0 * max_err
-        t0 = time.time()
-        while (err.m_as('degK') > max_err.m_as('degK')).any() and ((time.time()-t0) < timeout.m_as('s')):
-            err[0:n_samples-1] = err[1:]
-            current_error = (self.get_current_temp() - set_temp).to(u.degK)
-            err[n_samples-1] = np.abs(current_error)
-            print_statusline('\rapproaching temp: {:3.2f}C, current temp error: {:3.2f}, time elapsed: '.format(float(set_temp.m_as('degC')), float(current_error.magnitude)) + str(timedelta(seconds=int(time.time()-t0))))
-        if (time.time()-t0) > timeout.m_as('s'):
-            raise Exception('Timeout while waiting for Covesion OC1 to reach set temperature {:3.2f}C'.format(set_temp.m_as('degC')))
-        else:
-            print_statusline('temperature {:3.2f}C reached in {:3.1f}s'.format(set_temp.m_as('degC'), time.time()-t0))
-        return
+            Time to wait until TimeoutError is raised. Can be provided in any units of time.
+        """
+        self._ramp_to_setpoint(setpoint)
+        self._wait_for_temperature(setpoint, max_err, n_samples, timeout)
