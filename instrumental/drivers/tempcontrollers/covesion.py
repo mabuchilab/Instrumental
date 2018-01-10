@@ -23,6 +23,153 @@ from ... import u, Q_
 _INST_PARAMS = ['visa_address']
 _INST_CLASSES = ['CovesionOC']
 
+# Commands by letter, deduced from LabVIEW code
+# Includes the fields that can be read, with their printf-style format
+#
+# (a) Set control variables
+#    (%d)   Control type
+#    (%.3f) Proportional gain
+#    (%.3f) Integral
+#    (%.3f) Derivative
+#    (%.3f) Derivative TC
+#    (%.3f) Dead Band
+#    (%d)   Power up state
+#
+# (b) Read control variables
+#    (%1d)  Control type
+#    (%.3f) Proportional gain
+#    (%.3f) Integral
+#    (%.3f) Derivative
+#    (%.3f) Derivative TC
+#    (%.3f) Dead Band
+#    (%d)   Power up state
+#
+# (c) Set alarm
+#    (%d)   Alarms
+#    (%.3f) Alarm min
+#    (%.3f) Alarm max
+#    (%.3f) Temp ok min
+#    (%.3f) Temp ok max
+#    (%.3f) Temp limit min
+#    (%.3f) Temp limit max
+#
+# (d) Read alarms
+#    (%d) Alarms
+#    (%f) Alarm min
+#    (%f) Alarm max
+#    (%f) Temp ok min
+#    (%f) Temp ok max
+#    (%f) Temp limit min
+#    (%f) Temp limit max
+#
+# (e) Set sensor
+#    (%.0f) Sensor
+#    (%.3f) X2 coeff
+#    (%.3f) X coeff
+#    (%.3f) C coeff
+#    (%s)   Unit
+#    (%d)   Averaging
+#
+# (f) Read sensor
+#    (%d)  Sensor
+#    (%f)  X2 coeff
+#    (%f)  X coeff
+#    (%f)  C coeff
+#    (%1s) Unit
+#    (%d)  Averaging
+#
+# (g) Set output variables
+#    (%d)   Output
+#    (%.3f) Output min %
+#    (%.3f) Output max %
+#    (%.3f) Output freq
+#
+# (h) Read output variables
+#    (%d) Output
+#    (%f) Output min %
+#    (%f) Output max %
+#    (%f) Output freq
+#
+# (i) Set the setpoint
+#    (%.0f) Setpoint
+#    (%.3f) Pot range
+#    (%.3f) Value
+#    (%.3f) Pot offset
+#    (%.0f) Rate deg/V
+#    (%.2f) X coeff deg/V
+#    (%.2f) C coeff deg
+#
+# (j) Read the setpoint
+#    (%0f) Setpoint
+#    (%0f) Temperature
+#    (%1d) Control
+#    (%0f) Output %
+#    (%1d) Alarms
+#    (%1d) Faults
+#    (%1d) TEMP OK
+#    (%0f) Supply VDC
+#    (%0f) Version
+#    (%1d) Test cycle
+#    (%1d) Test Mode
+#
+# (m) Set output drive
+#    (%d)   Control output
+#    (%.0f) Output %
+#
+# (n) Set mode
+#    (%1d) Mode Channel 1
+
+
+# Option values for certain fields
+#
+# Control type
+#    0 (Off)
+#    1 (On/Off)
+#    2 (P)
+#    3 (PI)
+#    4 (PID)
+#
+# Power up state
+#    0 (Off)
+#    1 (On)
+#    2 (Last)
+#
+# Alarms
+#    0 (Off)
+#    1 (Min)
+#    2 (Max)
+#    3 (Both)
+#
+# Sensor
+#    0 (None)
+#    1 (PT100)
+#    2 (LM35)
+#    3 (LM50)
+#    4 (LM51)
+#    5 (LM60)
+#    6 (LM61)
+#    7 (Other)
+#
+# Unit
+#    C
+#    F
+#    K
+#
+# Averaging
+#    0 (Off)
+#    1 (On)
+#
+# Output
+#    0 (Negative)
+#    1 (Positive)
+#
+# Control Output
+#    0 (Off)
+#    1 (On)
+#
+# Setpoint
+#    0 (Pot)
+#    1 (Value)
 OC_parity = Parity.none
 OC_baud_rate = 19200
 OC_data_bits = 8
