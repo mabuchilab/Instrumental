@@ -80,13 +80,10 @@ def _check_OC(rm, visa_address, n_tries_max=5):
             pass
         n_tries = n_tries + 1
     return version
-    #
-    #return dict(zip(self.status_keys, vals))
 
 
 def list_instruments():
     instruments = []
-    #rm = ResourceManager()
     visa_list = rm.list_resources()
     for addr in visa_list:
         if addr[0:4] == 'ASRL':
@@ -94,7 +91,6 @@ def list_instruments():
             if version:
                 params = ParamSet(CovesionOC, visa_address=addr)
                 instruments.append(params)
-    #rm.close()
     return instruments
 
 
@@ -111,11 +107,6 @@ class CovesionOC(TempController):
         self.timeout = OC_timeout
         self.status_keys = OC_status_keys
         self.drive_str = '\x01m041;0;A9'
-        #self.rm = ResourceManager()
-        # Parameter dicitonary for saving
-        #self._param_dict = _ParamDict({})
-        #self._param_dict['visa_address'] = self.visa_address #str(self._inst.resource_name)  # maybe a bad way to do this
-        #self._param_dict['module'] = 'tempcontrollers.covesion'
 
     def open_visa(self):
         """Helper function to open a visa connection to a Covesion OC. Used by
@@ -211,10 +202,8 @@ class CovesionOC(TempController):
                 cmd_str = '\x01i371;{:.3f};25.000;0.000;25;100.00;0.00;'.format(set_temp_degC)
             else:
                 cmd_str = '\x01i381;{:.3f};25.000;0.000;25;100.00;0.00;'.format(set_temp_degC)
-            #cmd_bytes = bytes(cmd_str, encoding='utf8')
             checksum_str = format(sum(ord(ch) for ch in cmd_str) % 256, 'x')
             cmd_str += checksum_str
-            #cmd_str = codecs.decode(cmd_str, 'unicode_escape')
             visa_inst = self.open_visa()
             visa_inst.visalib.set_buffer(visa_inst.session, 48, 100)
             visa_inst.flush(16)
@@ -289,7 +278,6 @@ class CovesionOC(TempController):
          """
         self.set_set_temp(set_temp)
         err = np.ones((n_samples)) * 10.0 * max_err
-        count = 0
         t0 = time.time()
         while (err.m_as('degK') > max_err.m_as('degK')).any() and ((time.time()-t0) < timeout.m_as('s')):
             err[0:n_samples-1] = err[1:]
