@@ -12,11 +12,13 @@ from time import sleep
 from datetime import timedelta
 
 import numpy as np
-from pyvisa.constants import Parity
+from pyvisa.errors import VisaIOError
+from pyvisa.constants import Parity, VI_ERROR_TMO, VI_ERROR_ASRL_OVERRUN
 from pyvisa import ResourceManager
 
 from . import TempController
 from .. import ParamSet
+from ..util import visa_context
 from ... import u, Q_
 
 
@@ -170,6 +172,24 @@ _INST_CLASSES = ['CovesionOC']
 # Setpoint
 #    0 (Pot)
 #    1 (Value)
+
+
+DATA_FORMAT = {
+    b'j': (
+        ('setpoint', float),
+        ('temperature', float),
+        ('control', int),
+        ('output', float),
+        ('alarms', int),
+        ('faults', int),
+        ('temp_ok', int),
+        ('supply_vdc', float),
+        ('version', bytes.decode),
+        ('test_cycle', int),
+        ('test_mode', int),
+    )
+}
+
 OC_parity = Parity.none
 OC_baud_rate = 19200
 OC_data_bits = 8
@@ -239,6 +259,54 @@ def list_instruments():
                 params = ParamSet(CovesionOC, visa_address=addr)
                 instruments.append(params)
     return instruments
+def grab_latest_message(rsrc):
+    msg = None
+    with visa_context(rsrc, timeout=0):
+        while True:
+            try:
+                msg = rsrc.read_raw().rstrip()
+            except VisaIOError as e:
+                if e.error_code == VI_ERROR_TMO:
+                    break
+                elif e.error_code == VI_ERROR_ASRL_OVERRUN:
+                    continue
+                raise
+    if msg is None:
+        msg = rsrc.read_raw().rstrip()
+    return msg
+
+
+def parse_message(msg):
+    """Parse a message into a {field: value} dict and check the checksum"""
+    assert msg[0:1] == b'\x01'
+
+    cmd = msg[1:2]
+    data_len = int(msg[2:4])
+    assert len(msg) == data_len + 6
+
+    data = msg[4:].split(b';')
+    checksum = int(data.pop(-1), base=16)
+    calc_checksum = sum(bytearray(msg[:-2])) % 256
+    assert checksum == calc_checksum
+
+    return process_data(cmd, data)
+
+
+def read_latest_message(rsrc):
+    """Read the most recent message from the controller, waiting if necessary
+
+    The controller appears to constantly spit out messages, which pile up in the serial buffer. So,
+    if you grab the first message in the queue, it may be quite old. This function reads out all the
+    messages in the buffer, retaining the last one. If the buffer is empty, it will block (up to the
+    current serial timeout setting).
+    """
+    msg = grab_latest_message(rsrc)
+    return parse_message(msg)
+
+
+def process_data(cmd, data):
+    cmd_tup = DATA_FORMAT[cmd]
+    return {e[0]:e[1](v) for e,v in zip(cmd_tup, data)}
 
 
 class CovesionOC(TempController):
