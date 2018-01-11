@@ -263,10 +263,8 @@ class CovesionOC(TempController, VisaMixin):
     def _initialize(self):
         self.resource.parity = Parity.none
         self.resource.baud_rate = 19200
-        self.resource.data_bits = 8
-        self.resource.read_termination = '\r'
-        self.resource.write_termination = '\r'
-        self.resource.flow_control = 0
+        self.resource.read_termination = '\r\n'
+        self.resource.write_termination = '\n'
         self.resource.timeout = 500
 
     def _read_status(self):
