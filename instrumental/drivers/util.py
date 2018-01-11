@@ -311,7 +311,8 @@ def visa_timeout_context(resource, timeout):
     resource.timeout = old_timeout
 
 
-_ALLOWED_VISA_ATTRS = ['timeout', 'read_termination', 'write_termination', 'end_input', 'parity']
+_ALLOWED_VISA_ATTRS = ['timeout', 'read_termination', 'write_termination', 'end_input', 'parity',
+                       'baud_rate']
 
 
 @contextlib.contextmanager
@@ -333,6 +334,7 @@ def visa_context(resource, **settings):
     write_termination :
     end_input :
     parity :
+    baud_rate :
     """
     old_values = {}
     attr_names = list(key for key in settings.keys() if hasattr(resource, key))
