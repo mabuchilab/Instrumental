@@ -26,7 +26,7 @@ def _check_visa_support(visa_rsrc):
                       timeout=50):
         try:
             # This assumes an address of 01
-            visa_rsrc.write(b'\x0201010INF6\x03')
+            visa_rsrc.write_raw(b'\x0201010INF6\x03')
             resp = visa_rsrc.read_raw().rstrip()
             assert resp[0:1] == b'\x02'
             assert resp[-1:] == b'\x03'
@@ -61,7 +61,7 @@ class TC038(TempController, VisaMixin):
     def _send_command(self, command, data):
         cpu = 1
         msg = b'\x02%s%02d0%s%s\x03' % (self._address, cpu, command, data)
-        self.write(msg)
+        self.write_raw(msg)
 
     def _read_register(self, register):
         """Read one word of data from a D register"""
