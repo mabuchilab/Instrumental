@@ -289,7 +289,7 @@ class CovesionOC(TempController, VisaMixin):
     def _write_setpoint(self, setpoint):
         """Write a temperature setpoint to the device"""
         setpoint_C = setpoint.m_as('degC')
-        data = b'%1d;%.3f;%.3f;%.3f;%.0f;%.2f;%.2f;' % (1, 100, setpoint_C, 0., 25., 100., 0.)
+        data = b'%1d;%.3f;%.3f;%.3f;%.0f;%.2f;%.2f;' % (1, setpoint_C, 25., 0., 25., 100., 0.)
         base_msg = b'\x01i%02d%s' % (len(data), data)
         checksum = sum(bytearray(base_msg)) % 256
         msg = b'%s%02x' % (base_msg, checksum)
