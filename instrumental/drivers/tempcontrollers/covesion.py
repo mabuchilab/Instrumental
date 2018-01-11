@@ -188,10 +188,17 @@ DATA_FORMAT = {
 
 
 def _is_CovesionOC(rsrc):
-    with visa_context(rsrc, timeout=50):
-        try:
-            msg = rsrc.read_raw().rstrip()
-        except VisaIOError:
+    with visa_context(rsrc, read_termination='\r\n', baud_rate=19200,
+                      timeout=1000):
+        # Try twice in case of serial errors
+        for _ in range(2):
+            try:
+                msg = rsrc.read_raw().rstrip()
+                break
+            except VisaIOError as e:
+                if e.error_code == VI_ERROR_TMO:
+                    return False
+        else:
             return False
     try:
         parse_message(msg)
