@@ -210,7 +210,7 @@ def _is_CovesionOC(rsrc):
 
 def _check_visa_support(rsrc):
     if rsrc.resource_name.startswith('ASRL') and _is_CovesionOC(rsrc):
-        return None
+        return 'CovesionOC'
     return None
 
 
