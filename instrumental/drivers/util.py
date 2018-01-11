@@ -9,7 +9,7 @@ import pint
 
 from past.builtins import basestring
 
-from . import decorator
+from . import decorator, to_quantity
 from .. import Q_, u
 
 __all__ = ['check_units', 'unit_mag', 'check_enums', 'as_enum', 'visa_timeout_context']
@@ -59,7 +59,7 @@ def check_units(*pos, **named):
                     raise pint.DimensionalityError(u.dimensionless.units, units.units,
                                                    extra_msg=extra_msg)
         else:
-            q = Q_(arg)
+            q = to_quantity(arg)
             if q.dimensionality != units.dimensionality:
                 extra_info = '' if isinstance(arg, Q_) else use_units_msg
                 if name is not None:
@@ -103,7 +103,7 @@ def unit_mag(*pos, **named):
                     raise pint.DimensionalityError(u.dimensionless.units, units.units,
                                                    extra_msg=" for return value")
         else:
-            q = Q_(arg)
+            q = to_quantity(arg)
             try:
                 return q.to(units).magnitude
             except pint.DimensionalityError:
@@ -118,7 +118,7 @@ def unit_mag(*pos, **named):
         if optional and res is None:
             return None
         else:
-            q = Q_(res)
+            q = to_quantity(res)
             try:
                 return q
             except pint.DimensionalityError:
@@ -214,14 +214,14 @@ def _unit_decorator(in_map, out_map, pos_args, named_args):
                     optional = arg.startswith('?')
                     if optional:
                         arg = arg[1:]
-                    unit = (optional, Q_(arg))
+                    unit = (optional, to_quantity(arg))
                 ret_units.append(unit)
             ret_units = tuple(ret_units)
         else:
             optional = ret.startswith('?')
             if optional:
                 arg = ret[1:]
-            ret_units = Q_(arg)
+            ret_units = to_quantity(arg)
 
         arg_names, vargs, kwds, defaults = getargspec(func)
 
@@ -233,7 +233,7 @@ def _unit_decorator(in_map, out_map, pos_args, named_args):
                 optional = arg.startswith('?')
                 if optional:
                     arg = arg[1:]
-                unit = (optional, Q_(arg))
+                unit = (optional, to_quantity(arg))
             else:
                 raise TypeError("Each arg spec must be a string or None")
             pos_units.append(unit)
@@ -246,7 +246,7 @@ def _unit_decorator(in_map, out_map, pos_args, named_args):
                 optional = arg.startswith('?')
                 if optional:
                     arg = arg[1:]
-                unit = (optional, Q_(arg))
+                unit = (optional, to_quantity(arg))
             else:
                 raise TypeError("Each arg spec must be a string or None")
             named_units[name] = unit
