@@ -19,8 +19,8 @@ instruments in the shell. For example, to list the available instruments and ope
      <ParamSet[K10CR1] serial='55000247'>
      <ParamSet[NIDAQ] model='USB-6221 (BNC)' name='Dev1'>]
     >>> daq = instrument(paramsets[2])
-    >>> daq
-    <instrumental.drivers.daq.ni.NIDAQ at 0xb61...>
+    >>> daq.ai0.read()
+    <Quantity(5.04241962841, 'volt')>
 
 If you're going to be using an instrument repeatedly, save it for later::
 
@@ -57,9 +57,11 @@ User Guide
 .. toctree::
    :maxdepth: 2
 
+   self
    install
    overview
    instruments
+   contributing
    driver-dev
    facets
    api

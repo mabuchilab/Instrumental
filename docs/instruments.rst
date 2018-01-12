@@ -22,6 +22,11 @@ want::
     >>> daq
     <instrumental.drivers.daq.ni.NIDAQ at 0xb61...>
 
+Or you can enter the parameters directly::
+
+    >>> instrument(ni_daq_name='Dev1')
+    <instrumental.drivers.daq.ni.NIDAQ at 0xb61...>
+
 If you're going to be using an instrument repeatedly, save it for later::
 
     >>> daq.save_instrument('myDAQ')
@@ -30,6 +35,41 @@ Then you can simply open it by name::
 
     >>> daq = instrument('myDAQ')
 
+
+Using Units
+~~~~~~~~~~~
+
+``pint`` units are used heavily by Instrumental, so you should familiarize yourself with them. Many methods only accept unitful quantities, as a way to add clarity and prevent errors. In most cases you can use a string as shorthand and it will be converted automatically::
+
+    >>> daq.ao1.write('3.14 V')
+
+If you need to create your own quantities directly, you can use the ``u`` and ``Q_`` objects provided by Instrumental::
+
+    >>> from instrumental import u, Q_
+
+``u`` is a ``pint.UnitRegistry``, while ``Q_`` is a shorhand for the registry's ``Quantity`` class. There are several ways you can use them::
+
+    >>> u.m                       # Access units as attributes
+    <Unit('meter')>
+    >>> 3 * u.s
+    <Quantity(3, 'second')>
+
+    >>> u('2.54 inches')          # Parse a string into a quantity using u()
+    <Quantity(2.54, 'inch')>
+
+    >>> Q('852 nm')               # ...or Q_()
+    <Quantity(852, 'nanometer')>
+
+    >>> Q(32.89, 'MHz')           # Specify magnitude and units separately
+    <Quantity(32.89, 'megahertz')>
+
+``pint`` also supports many physical constants (e.g. )
+
+Note that it can be tricky to create offset units---e.g. by ``Q_('20 degC')``--- because ``pint`` treats this as a multiplication and will raise an ``OffsetUnitCalculusError``. You can get around this by separating the magnitude and units, e.g. ``Q_(20, 'degC')``. Note that ``Facets`` as well as the ``check_units`` and ``unit_mag`` decorators *can* properly parse strings like ``'20 degC'``.
+ 
+
+Advanced Usage
+--------------
 
 An Even Quicker Way
 ~~~~~~~~~~~~~~~~~~~
@@ -103,8 +143,8 @@ module, you can import the module directly::
 
 or enable logging before calling `list_instruments()`::
 
-    >>> import logging
-    >>> logging.basicConfig(level=logging.INFO)
+    >>> from instrumental.log import log_to_screen
+    >>> log_to_screen()
 
 
 `list_instruments()` doesn't open instruments directly, but instead returns a list of dict-like `ParamSet` objects that contain info about how to open each instrument. For example, for our DAQ::

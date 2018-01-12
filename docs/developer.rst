@@ -1,6 +1,10 @@
 Developer's Guide
 =================
 
+This page is for those of you who enjoy diving into guidelines, coding conventions, and project philosophies. If you're looking to get started more quickly, instead check out the :doc:`contributing` and :doc:`driver-dev` pages.
+
+-------------------------------------------------------------------------------
+
 .. contents::
     :local:
     :depth: 1
@@ -15,45 +19,40 @@ Developer's Guide
 
 -------------------------------------------------------------------------------
 
-The Manifesto
--------------
+The Instrumental Manifesto
+--------------------------
 
 A major goal of Instrumental is to try to unify and simplify a lot of common,
-useful operations. Essential to that is a consistent and coherent interface. 
+useful operations. Essential to that is a consistent and coherent interface.
 
-* Simple and common tasks should be simple to perform
-* Provide options for more complex tasks
-* Documentation is an essential, not a luxury
-* Make units standard
+* Simple, common tasks should be simple to perform
+* Options should be provided to enable more complex tasks
+* Documentation is essential
+* Use of physical units should be standard and widespread
 
 
-Simple and common tasks should be simple to perform
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Simple, common tasks should be simple to perform
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Tasks that are conceptually simple or commonly performed should be made easy.
 This means having sane defaults.
 
-Provide options for more complex tasks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Along with sane defaults, provide options. Often this means using optional
-parameters in functions and methods.
+Options should be provided to enable more complex tasks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Along with sane defaults, provide *options*. Typically, this means providing optional parameters in functions and methods.
 
-Documentation is an essential, not a luxury
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Documentation can be hard or boring to provide, but without it your carefully
-constructed interfaces are rendered useless. In particular, all functions and
-methods should have brief summary sentences, detailed explanations, and
-descriptions of their parameters and return values.
+Documentation is essential
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Providing Documentation can be tiring or boring, but, without it, your carefully crafted interfaces can be opaque to others (including future-you). In particular, all functions and methods should have brief summary sentences, detailed explanations, and descriptions of their parameters and return values.
 
 This also includes providing useful error messages and warnings that the
 average user can actually understand and do something with.
 
-Make units standard
-~~~~~~~~~~~~~~~~~~~
+Use of physical units should be standard and widespread
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Units in scientific code can be a big issue. Instrumental incorporates
 unitful quantities using the very nice `Pint`_ package. While units are great,
 it can seem like extra work to start using them. Instrumental strives to use
-units everywhere to encourage their widespread use. Part of this is making
-units a joy to use with matplotlib.
+units everywhere to encourage their widespread use.
 
 .. _Pint: http://pint.readthedocs.org
 
@@ -95,8 +94,7 @@ less.
 Docstrings
 ----------
 
-Code in Instrumental is primarily documented using python docstrings.  Specifically, we follow the
-`numpydoc conventions`_. In general, you should also follow the guidelines of `pep 257`_.
+Code in Instrumental is primarily documented using python docstrings, following the `numpydoc conventions`_. In general, you should also follow the guidelines of `pep 257`_.
 
 - No spaces after the opening triple-quote
 - One-line docstrings should be on a single line, e.g. ``"""Does good stuff."""``
