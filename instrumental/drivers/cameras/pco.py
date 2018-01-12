@@ -231,6 +231,7 @@ class PCO_Camera(Camera):
         openStruct.wCameraNumber = cam_num
         openStruct.wCameraNumAtInterface = 0
         openStruct.wOpenFlags[0] = 0
+        openStruct.wOpenFlags[2] = lib.PCO_OPENFLAG_HIDE_PROGRESS  # Hide loading dialog
 
         try:
             log.info("Opening PCO camera")
