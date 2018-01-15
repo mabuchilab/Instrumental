@@ -334,7 +334,7 @@ def to_quantity(value):
     """
     try:
         quantity = copy.copy(to_quantity.cache[value])
-    except KeyError:
+    except (KeyError, TypeError):  # key is missing or unhashable
         quantity = _to_quantity(value)
 
     if isinstance(value, basestring):
