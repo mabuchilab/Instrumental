@@ -105,7 +105,10 @@ def unit_mag(*pos, **named):
         else:
             q = to_quantity(arg)
             try:
-                return q.to(units).magnitude
+                if q.units == units:
+                    return q.magnitude  # Speed up the common case
+                else:
+                    return q.to(units).magnitude
             except pint.DimensionalityError:
                 raise pint.DimensionalityError(q.units, units.units,
                                                extra_msg=" for argument '{}'".format(name))

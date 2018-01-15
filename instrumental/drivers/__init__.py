@@ -7,6 +7,7 @@ from future.utils import with_metaclass
 
 import re
 import abc
+import copy
 import atexit
 import socket
 import warnings
@@ -326,6 +327,26 @@ class Facet(object):
 
 
 def to_quantity(value):
+    """Convert to a pint.Quantity
+
+    This function handles offset units in strings slightly better than Q_ does. It uses caching to
+    avoid reparsing strings.
+    """
+    try:
+        quantity = copy.copy(to_quantity.cache[value])
+    except KeyError:
+        quantity = _to_quantity(value)
+
+    if isinstance(value, basestring):
+        to_quantity.cache[value] = copy.copy(quantity)  # Guard against mutation
+
+    return quantity
+
+
+to_quantity.cache = {}
+
+
+def _to_quantity(value):
     """Convert to a pint.Quantity
 
     This function handles offset units in strings slightly better than Q_ does.
