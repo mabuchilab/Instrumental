@@ -412,12 +412,12 @@ class TSI_Camera(Camera):
 
     def _set_ROI(self, params):
         roi_data = {
-            'XOrigin': params['left'],
-            'YOrigin': params['top'],
-            'XPixels': params['right'] - params['left'],
-            'YPixels': params['bot'] - params['top'],
-            'XBin': params['hbin'],
-            'YBin': params['vbin'],
+            'XOrigin': int(params['left']),
+            'YOrigin': int(params['top']),
+            'XPixels': int(params['right'] - params['left']),
+            'YPixels': int(params['bot'] - params['top']),
+            'XBin': int(params['hbin']),
+            'YBin': int(params['vbin']),
         }
         self._set_parameter(Param.ROI_BIN, roi_data)
 
