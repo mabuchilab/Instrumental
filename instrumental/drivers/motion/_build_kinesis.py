@@ -39,9 +39,17 @@ def ref_hook(tokens):
                                    ('k', 'lastUpdateTimeMS')])
 
 
+def scc_hook(tokens):
+    """Fixes a (seeming) typo in the ISC header"""
+    for token in tokens:
+        if token.string == 'SCC_RequestJogParams':
+            token.string = 'ISC_RequestJogParams'
+        yield token
+
+
 def build():
     build_lib(header_info, lib_names, '_kinesislib', __file__, ignore_system_headers=True,
-              preamble=preamble, hook_groups='C++', token_hooks=(ref_hook,))
+              preamble=preamble, hook_groups='C++', token_hooks=(ref_hook, scc_hook))
 
 
 if __name__ == '__main__':
