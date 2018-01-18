@@ -12,6 +12,7 @@ from .. import ParamSet
 from ..util import check_units
 from ...log import get_logger
 from ... import u, Q_
+from ...util import to_str
 
 log = get_logger(__name__)
 
@@ -66,7 +67,7 @@ MessageIDs = {
 
 def list_instruments():
     NiceKinesisISC.BuildDeviceList()
-    serial_nums = NiceKinesisISC.GetDeviceListExt().split(',')
+    serial_nums = to_str(NiceKinesisISC.GetDeviceListExt()).split(',')
     return [ParamSet(K10CR1, serial=serial)
             for serial in serial_nums
             if serial]
