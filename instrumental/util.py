@@ -2,8 +2,11 @@ from past.builtins import unicode
 from future.builtins import bytes
 from future.utils import PY2
 
+import time
 from functools import wraps
 import pickle
+
+from .errors import TimeoutError
 
 
 def save_result(filename):
@@ -32,3 +35,26 @@ def to_str(value, encoding='utf-8'):
         return unicode(value).encode(encoding=encoding)
     else:
         return bytes(value).decode(encoding=encoding)
+
+
+def call_with_timeout(func, timeout):
+    """Call a function repeatedly until successful or timeout elapses
+
+    timeout : float or None
+        If None, only try to call `func` once. If negative, try until successful. If nonnegative,
+        try for up to `timeout` seconds. If a non-None timeout is given, hides any exceptions that
+        `func` causes. If timeout elapses, raises a TimeoutError.
+    """
+    if timeout is None:
+        return func()
+
+    cur_time = start_time = time.time()
+    max_time = start_time + float(timeout)
+    while cur_time <= max_time:
+        try:
+            return func()
+        except:
+            pass
+        cur_time = time.time()
+
+    raise TimeoutError
