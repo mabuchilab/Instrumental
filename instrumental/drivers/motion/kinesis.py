@@ -212,7 +212,7 @@ class K10CR1(Motion):
                               steps_per_rev / (360.0 * u.deg))
         self._open()
         self._start_polling(polling_period)
-        self._wait_for_message(0, 0)  # Make sure status has been loaded before we return
+        self._wait_for_message(GenericDevice.SettingsInitialized)
 
     def _open(self):
         NiceKinesisISC.BuildDeviceList()  # Necessary?
@@ -251,32 +251,44 @@ class K10CR1(Motion):
         if wait:
             self.wait_for_move()
 
-    def _wait_for_message(self, match_type, match_id):
-        msg_type, msg_id, msg_data = self.dev.WaitForMessage()
-        log.debug("Received kinesis message ({},{},{})".format(msg_type, msg_id, msg_data))
-        while msg_type != match_type or msg_id != match_id:
-            msg_type, msg_id, msg_data = self.dev.WaitForMessage()
-            log.debug("Received kinesis message ({},{},{})".format(msg_type, msg_id, msg_data))
+    def _decode_message(self, msg_tup):
+        msg_type_int, msg_id_int, msg_data_int = msg_tup
+        msg_type = MessageType(msg_type_int)
+        msg_id = MessageIDs[msg_type](msg_id_int)
+        return (msg_id, msg_data_int)
+
+    def _wait_for_message(self, match_id):
+        if not isinstance(match_id, (GenericDevice, GenericMotor, GenericDCMotor)):
+            raise ValueError("Must specify message ID via enum")
+
+        msg_id, msg_data = self._decode_message(self.dev.WaitForMessage())
+        log.debug("Received kinesis message ({}: {})".format(msg_id, msg_data))
+        while msg_id is not match_id:
+            msg_id, msg_data = self._decode_message(self.dev.WaitForMessage())
+            log.debug("Received kinesis message ({}: {})".format(msg_id, msg_data))
 
     def _check_for_message(self, match_type, match_id):
         """Check if a message of the given type and id is in the queue"""
+        if not isinstance(match_id, (GenericDevice, GenericMotor, GenericDCMotor)):
+            raise ValueError("Must specify message ID via enum")
+
         while True:
             try:
-                msg_type, msg_id, msg_data = self.dev.GetNextMessage()
+                msg_id, msg_data = self._decode_message(self.dev.GetNextMessage())
             except KinesisError:
                 return False
 
-            log.debug("Received kinesis message ({},{},{})".format(msg_type, msg_id, msg_data))
-            if msg_type == match_type and msg_id == match_id:
+            log.debug("Received kinesis message ({}: {})".format(msg_id, msg_data))
+            if msg_id is match_id:
                 return True
 
     def wait_for_move(self):
         """Wait for the most recent move to complete"""
-        self._wait_for_message(2, 1)
+        self._wait_for_message(GenericMotor.Moved)
 
     def move_finished(self):
         """Check if the most recent move has finished"""
-        return self._check_for_message(2, 1)
+        return self._check_for_message(GenericMotor.Moved)
 
     def _to_real_units(self, dev_units):
         return (dev_units / self._unit_scaling).to('deg')
@@ -301,11 +313,11 @@ class K10CR1(Motion):
 
     def wait_for_home(self):
         """Wait for the most recent homing operation to complete"""
-        self._wait_for_message(2, 0)
+        self._wait_for_message(GenericMotor.Homed)
 
     def homing_finished(self):
         """Check if the most recent homing operation has finished"""
-        return self._check_for_message(2, 0)
+        return self._check_for_message(GenericMotor.Homed)
 
     @property
     def needs_homing(self):
