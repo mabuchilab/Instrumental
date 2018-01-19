@@ -10,8 +10,8 @@ from nicelib import NiceLib, NiceObjectDef, load_lib
 from . import Motion
 from .. import ParamSet
 from ..util import check_units
+from ... import u
 from ...log import get_logger
-from ... import u, Q_
 from ...util import to_str
 
 log = get_logger(__name__)
@@ -148,10 +148,12 @@ class NiceKinesisISC(NiceLib):
         LoadSettings = ('in', {'ret': 'success'}),
         PersistSettings = ('in', {'ret': 'success'}),
         GetNumberPositions = ('in', {'ret': 'return'}),
+        CanHome = ('in', {'ret': 'return'}),
         Home = ('in'),
         NeedsHoming = ('in', {'ret': 'return'}),
         MoveToPosition = ('in', 'in'),
         GetPosition = ('in', {'ret': 'return'}),
+        GetPositionCounter = ('in', {'ret': 'return'}),
         RequestStatus = ('in'),
         RequestStatusBits = ('in'),
         GetStatusBits = ('in', {'ret': 'return'}),
@@ -169,6 +171,8 @@ class NiceKinesisISC(NiceLib):
         GetJogVelParams = ('in', 'out', 'out'),
         GetBacklash = ('in', {'ret': 'return'}),
         SetBacklash = ('in', 'in'),
+        GetLimitSwitchParams = ('in', 'out', 'out', 'out', 'out', 'out'),
+        GetLimitSwitchParamsBlock = ('in', 'out'),
     ))
 
 
