@@ -267,7 +267,7 @@ class K10CR1(Motion):
             msg_id, msg_data = self._decode_message(self.dev.WaitForMessage())
             log.debug("Received kinesis message ({}: {})".format(msg_id, msg_data))
 
-    def _check_for_message(self, match_type, match_id):
+    def _check_for_message(self, match_id):
         """Check if a message of the given type and id is in the queue"""
         if not isinstance(match_id, (GenericDevice, GenericMotor, GenericDCMotor)):
             raise ValueError("Must specify message ID via enum")
