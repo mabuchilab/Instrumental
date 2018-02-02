@@ -61,6 +61,7 @@ User Guide
    install
    overview
    instruments
+   faq
    contributing
    driver-dev
    facets
