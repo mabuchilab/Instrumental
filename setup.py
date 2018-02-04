@@ -1,7 +1,9 @@
 import os
 import os.path
+import sys
 from setuptools import setup, find_packages
 from distutils.ccompiler import new_compiler
+import distutils.cmd
 
 description = "Library with high-level drivers for lab equipment"
 classifiers = [
@@ -40,8 +42,8 @@ try:
         post_install_msgs.append(
             "No C compiler was found, so cffi modules were not built. If you would like to use "
             "cffi-based drivers that require compilation, first install a suitable compiler, "
-            "then reinstall Instrumental. See the cffi installation documentation for more details on "
-            "installing an appropriate compiler for your platform.")
+            "then reinstall Instrumental. See the cffi installation documentation for more details "
+            "on installing an appropriate compiler for your platform.")
 except:
     build_cffi_modules = False
     post_install_msgs.append(
@@ -63,6 +65,22 @@ if build_cffi_modules:
                 modules.append(os.path.join(dirpath, fname) + ':ffi')
     keywords['cffi_modules'] = modules
 
+
+class GenerateCommand(distutils.cmd.Command):
+    description = 'generate the driver-info file'
+    user_options = []
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        self.announce("Generating driver_info.py...")
+        from subprocess import call
+        call([sys.executable, os.path.join(base_dir, 'instrumental', 'parse_modules.py')])
+
+
 if __name__ == '__main__':
     setup(
         name = about['__distname__'],
@@ -81,6 +99,9 @@ if __name__ == '__main__':
         classifiers = classifiers,
         install_requires = ['numpy', 'scipy', 'pint>=0.7', 'future'],
         extras_require = extras,
+        cmdclass={
+            'generate': GenerateCommand,
+        },
         **keywords
     )
 

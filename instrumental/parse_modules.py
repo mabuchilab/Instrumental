@@ -6,19 +6,21 @@ from future.utils import PY2
 import io
 import os
 import os.path
+import sys
 import ast
 import datetime as dt
 import logging as log
 import tokenize as _tokenize
 
-from . import std_modules
+THIS_DIR = os.path.dirname(__file__) or os.path.curdir
+sys.path[0:0] = [THIS_DIR]
+import std_modules
 
 if PY2:
     tokenize = _tokenize.generate_tokens
 else:
     tokenize = _tokenize.tokenize
 
-THIS_DIR = os.path.dirname(__file__) or os.path.curdir
 
 IGNORED_IMPORTS = ['numpy', 'scipy', 'pint', 'future', 'past']
 VAR_NAMES = ['_INST_PARAMS', '_INST_PRIORITY', '_INST_CLASSES', '_INST_VISA_INFO']
