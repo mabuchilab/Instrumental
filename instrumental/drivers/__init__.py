@@ -319,10 +319,14 @@ class Facet(object):
 
     def getter(self, fget):
         self.fget = fget
+        if not self.__doc__:
+            self.__doc__ = fget.__doc__
         return self
 
     def setter(self, fset):
         self.fset = fset
+        if not self.__doc__:
+            self.__doc__ = fset.__doc__
         return self
 
 
