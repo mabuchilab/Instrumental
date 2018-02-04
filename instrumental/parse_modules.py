@@ -1,12 +1,22 @@
 # -*- coding: utf-8 -*-
-# Copyright 2017 Nate Bogdanowicz
+# Copyright 2017-2018 Nate Bogdanowicz
+from __future__ import unicode_literals
+from future.utils import PY2
+
+import io
 import os
 import os.path
 import ast
 import datetime as dt
 import logging as log
+import tokenize as _tokenize
 
 from . import std_modules
+
+if PY2:
+    tokenize = _tokenize.generate_tokens
+else:
+    tokenize = _tokenize.tokenize
 
 THIS_DIR = os.path.dirname(__file__) or os.path.curdir
 
@@ -116,7 +126,7 @@ def get_subclasses_of(name, module_name):
 
 def load_module_source(module):
     outer, inner = module.split('.')
-    with open(os.path.join(THIS_DIR, 'drivers', outer, inner+'.py')) as f:
+    with io.open(os.path.join(THIS_DIR, 'drivers', outer, inner+'.py'), 'rb') as f:
         source = f.read()
     return source
 
@@ -163,20 +173,53 @@ def parse_module(module_name):
                 except:
                     log.info("Failed to eval value of %s in module '%s'", var_name, module_name)
 
-    imports = []
+    imported_modules = []
+    linenos = []
     for node in root.body:
         if isinstance(node, ast.Import):
-            imports.extend(n.name for n in node.names)
+            imported_modules.extend(n.name for n in node.names)
+            linenos.extend([node.lineno]*len(node.names))
         elif isinstance(node, ast.ImportFrom):
             # Ignore dot-prefixed imports
             if node.level == 0:
-                imports.append(node.module)
+                imported_modules.append(node.module)
+                linenos.append(node.lineno)
         else:
             continue
-    imports = (fullpkg.split('.', 1)[0] for fullpkg in imports if fullpkg is not None)
-    values['nonstd_imports'] = filter_std_modules(imports)
 
+    requirements = []
+    tokens = tokenize(io.BytesIO(source).readline)
+    for mod_name, lineno in zip(imported_modules, linenos):
+        if mod_name is not None:
+            requirement = mod_name.split('.', 1)[0]
+            comment = get_line_comment(tokens, lineno)
+            if comment:
+                chunks = comment[1:].split(':')
+                if chunks[0].strip() == 'req':
+                    requirement = chunks[1].strip()
+            requirements.append(requirement)
+
+    values['nonstd_imports'] = filter_std_modules(requirements)
     return has_special_vars, values
+
+
+def get_line_comment(tokens, lineno):
+    """Get the comment on a given line.
+
+    Returns the text of the comment on a given line, or None if there is no comment. If the
+    statement starting on that line spans multiple lines, the last of the comments is used.
+    """
+    comment = None
+    while True:
+        token = next(tokens)
+        token_type, token_string, token_start, _, _ = token  # Py2 doesn't use namedtuple
+        if token_start[0] < lineno:
+            continue
+        if token_type is _tokenize.COMMENT:
+            comment = token_string
+        elif token_type is _tokenize.NEWLINE:
+            break
+    return comment
 
 
 def generate_info_file():
