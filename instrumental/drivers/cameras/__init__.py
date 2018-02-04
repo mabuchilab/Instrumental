@@ -66,7 +66,7 @@ class Camera(Instrument):
 
     @abc.abstractmethod
     def start_capture(self, **kwds):
-        """Start a capture sequence and return immediately
+        """Start a capture sequence and return immediately.
 
         Depending on your camera-specific shutter/trigger settings, this will either start the
         exposure immediately or ready the camera to start on an explicit (hardware or software)
@@ -85,7 +85,7 @@ class Camera(Instrument):
 
     @abc.abstractmethod
     def get_captured_image(self, timeout='1s', copy=True):
-        """Get the image array(s) from the last capture sequence
+        """Get the image array(s) from the last capture sequence.
 
         Returns an image numpy array (or tuple of arrays for a multi-exposure sequence). The array
         has shape *(height, width)* for grayscale images, and *(height, width, 3)* for RGB images.
@@ -104,7 +104,7 @@ class Camera(Instrument):
 
     @abc.abstractmethod
     def grab_image(self, timeouts='1s', copy=True, **kwds):
-        """Perform a capture and return the resulting image array(s)
+        """Perform a capture and return the resulting image array(s).
 
         This is essentially a convenience function that calls `start_capture()` then
         `get_captured_image()`. See `get_captured_image()` for information about the returned
@@ -151,7 +151,7 @@ class Camera(Instrument):
 
     @abc.abstractmethod
     def start_live_video(self, **kwds):
-        """Start live video mode
+        """Start live video mode.
 
         Once live video mode has been started, images will automatically and continuously be
         acquired. You can check if the next frame is ready by using `wait_for_frame()`, and access
@@ -162,11 +162,11 @@ class Camera(Instrument):
 
     @abc.abstractmethod
     def stop_live_video(self):
-        """Stop live video mode"""
+        """Stop live video mode."""
 
     @abc.abstractmethod
     def wait_for_frame(self, timeout=None):
-        """Wait until the next frame is ready (in live mode)
+        """Wait until the next frame is ready (in live mode).
 
         Blocks and returns True once the next frame is ready, False if the timeout was reached.
         Using a timeout of 0 simply polls to see if the next frame is ready.
@@ -185,7 +185,7 @@ class Camera(Instrument):
 
     @abc.abstractmethod
     def latest_frame(self, copy=True):
-        """Get the latest image frame in live mode
+        """Get the latest image frame in live mode.
 
         Returns the image array received on the most recent successful call to `wait_for_frame()`.
 
@@ -276,7 +276,7 @@ class Camera(Instrument):
         kwds.update(zip(names, (width, cx, left, right)))
 
     def find_hot_pixels(self, stddevs=10, **kwds):
-        """Generate the list of hot pixels on the camera sensor"""
+        """Generate the list of hot pixels on the camera sensor."""
         img = self.grab_image(**kwds)
         avg = np.mean(img)
         stddev = np.sqrt(np.var(img))
@@ -288,7 +288,7 @@ class Camera(Instrument):
         self._hot_pixels = pixels.astype('int32', copy=False).tolist()
 
     def save_hot_pixels(self, path=None):
-        """Save a file listing the hot pixels"""
+        """Save a file listing the hot pixels."""
         if self._hot_pixels is None:
             raise Error("No existing list of hot pixels to save. Generate one first by using "
                         "`find_hot_pixels()`")
@@ -308,7 +308,7 @@ class Camera(Instrument):
             self.save_instrument(self._alias, force=True)
 
     def _correct_hot_pixels(self, img):
-        """Correct hot pixels by averaging their neighbors"""
+        """Correct hot pixels by averaging their neighbors."""
         if self._hot_pixels is None:
             raise Error("Could not correct hot pixels because we have no existing list of hot "
                         "pixels. Generate one first by using `find_hot_pixels()`")

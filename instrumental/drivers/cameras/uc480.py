@@ -48,7 +48,7 @@ def char_to_int(char):
 
 
 def ret_handler(getcmd_names, cmd_pos=1):
-    """Create an error wrapping function for a UC480 command-taking function
+    """Create an error wrapping function for a UC480 command-taking function.
 
     A bunch of UC480 functions take ints indicating a "command" to run. Often, "get" commands will
     use the return value to return their value, while "set" commands will use it as an error code.
@@ -425,7 +425,7 @@ def camera_info_list():
 
 
 def _cameras():
-    """Get a list of ParamSet for all cameras currently attached"""
+    """Get a list of ParamSets for all cameras currently attached."""
     cam_list = camera_info_list()
     if not cam_list:
         return []
@@ -490,7 +490,7 @@ def _get_legit_params(params):
     raise InstrumentNotFoundError("No camera found matching the given parameters")
 
 
-def AutoParamEnableFacet(name):
+def AutoParamEnableFacet(name, doc=None):
     GET_CMD = getattr(lib, 'GET_ENABLE_' + name)
     SET_CMD = getattr(lib, 'SET_ENABLE_' + name)
     def fget(self):
@@ -500,7 +500,7 @@ def AutoParamEnableFacet(name):
     def fset(self, enable):
         self._dev.SetAutoParameter(SET_CMD, enable, 0)
 
-    return Facet(fget, fset, type=bool)
+    return Facet(fget, fset, type=bool, doc=doc)
 
 
 class BufferInfo(object):
@@ -510,7 +510,7 @@ class BufferInfo(object):
 
 
 class UC480_Camera(Camera):
-    """A uc480-supported Camera."""
+    """A uc480-supported Camera"""
     DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
     DEFAULT_KWDS.update(vsub=1, hsub=1)
 
@@ -608,9 +608,7 @@ class UC480_Camera(Camera):
         self._color_mode = mode
 
     def _open(self, num_bufs=1):
-        """
-        Connect to the camera and set up the image memory.
-        """
+        """ Connect to the camera and set up the image memory."""
         self._dev = lib.Camera(self._id, ffi.NULL)
         self._in_use = True
         self._refresh_sizes()
@@ -650,9 +648,7 @@ class UC480_Camera(Camera):
         self._buffers = []
 
     def _allocate_mem_seq(self, num_bufs):
-        """
-        Create and setup the image memory for live capture
-        """
+        """Create and setup the image memory for live capture."""
         for i in range(num_bufs):
             p_img_mem, memid = self._dev.AllocImageMem(self._width, self._height, self._color_depth)
             self._dev.AddToSequence(p_img_mem, memid)
@@ -662,12 +658,7 @@ class UC480_Camera(Camera):
         self._dev.SetDisplayMode(lib.SET_DM_DIB)
 
     def close(self):
-        """Close the camera and release associated image memory.
-
-        Should be called when you are done using the camera. Alternatively, you
-        can use the camera as a context manager--see the documentation for
-        __init__.
-        """
+        """Close the camera and release the associated image memory."""
         self._dev.ExitEvent(lib.SET_EVENT_SEQ)
         self._dev.ExitEvent(lib.SET_EVENT_FRAME)
 
@@ -815,7 +806,6 @@ class UC480_Camera(Camera):
         self._dev.CaptureVideo(lib.WAIT)
 
     def stop_live_video(self):
-        """Stop live video capture."""
         self._dev.StopLiveVideo(lib.WAIT)
         self._dev.DisableEvent(lib.SET_EVENT_FRAME)
 
@@ -871,8 +861,8 @@ class UC480_Camera(Camera):
         return self._dev.SetHardwareGain(max(min(gain, 100), 0), ignore, ignore, ignore)
 
     def _last_img_mem(self):
-        """ Returns a ctypes char-pointer to the starting address of the image memory
-        last used for image capturing """
+        """Get a ctypes char-pointer to the starting address of the image memory
+        last used for image capturing."""
         buf_num, buf_ptr, last_buf_ptr = self._dev.GetActSeqBuf()
         return last_buf_ptr
 
@@ -884,7 +874,7 @@ class UC480_Camera(Camera):
         return MAP.get(self._color_mode)
 
     def set_trigger(self, mode='software', edge='rising'):
-        """Sets the camera trigger mode.
+        """Set the camera trigger mode.
 
         Parameters
         ----------
@@ -914,7 +904,7 @@ class UC480_Camera(Camera):
             self._trigger_mode = new_mode
 
     def _get_trigger(self):
-        """Get the current trigger settings
+        """Get the current trigger settings.
 
         Returns
         -------
@@ -931,7 +921,7 @@ class UC480_Camera(Camera):
             return 'hardware'
 
     def get_trigger_level(self):
-        """Get the current hardware trigger level
+        """Get the current hardware trigger level.
 
         Returns
         -------
@@ -942,19 +932,19 @@ class UC480_Camera(Camera):
 
     @check_units(delay='?us')
     def set_trigger_delay(self, delay):
-        """Sets the time to delay a hardware trigger (in microsseconds)
+        """Set the time to delay a hardware trigger.
 
         Parameters
         ----------
-        delay : string
-            The delay time (in microseconds 'us') after trigger signal is received to trigger the
-            camera
+        delay : ``[time]``-dimensioned Quantity
+            The delay time after trigger signal is received to trigger the camera. Has microsecond
+            resolution.
         """
         delay_us = 0 if delay is None else int(delay.m_as('us'))
         self._dev.SetTriggerDelay(delay_us)
 
     def get_trigger_delay(self):
-        """Returns the trigger delay in microseconds
+        """Get the trigger delay in ``[time]`` units.
 
         Returns
         -------
@@ -966,6 +956,7 @@ class UC480_Camera(Camera):
 
     @Facet
     def auto_blacklevel(self):
+        """Whether auto-blacklevel correction is turned on"""
         mode = self._dev.Blacklevel(lib.BLACKLEVEL_CMD_GET_MODE)
         return bool(mode == lib.AUTO_BLACKLEVEL_ON)
 
@@ -980,6 +971,7 @@ class UC480_Camera(Camera):
 
     @Facet(limits=('_blacklevel_offset_min', '_blacklevel_offset_max', '_blacklevel_offset_inc'))
     def blacklevel_offset(self):
+        """The blacklevel offset value (an int)"""
         return self._dev.Blacklevel(lib.BLACKLEVEL_CMD_GET_OFFSET)
 
     @blacklevel_offset.setter
@@ -988,6 +980,7 @@ class UC480_Camera(Camera):
 
     @Facet(limits=(1.0, 10.0))
     def gamma(self):
+        """The gamma correction value (1.0-10.0)"""
         return self._dev.Gamma(lib.GAMMA_CMD_GET) / 100.
 
     @gamma.setter
@@ -997,6 +990,11 @@ class UC480_Camera(Camera):
 
     @Facet
     def gain_boost(self):
+        """Whether the analog gain boost is enabled
+
+        A change to the gain boost will not affect the very next image captured. It's unclear
+        whether this is an inadequacy of Instrumental, or an underlying bug/feature of the library.
+        """
         if not self._dev.SetGainBoost(lib.GET_SUPPORTED_GAINBOOST):
             return None
         boost = self._dev.SetGainBoost(lib.GET_GAINBOOST)
@@ -1004,7 +1002,7 @@ class UC480_Camera(Camera):
 
     @gain_boost.setter
     def gain_boost(self, boost):
-        # For some reason, this does not take effect on the next image captured, but their
+        # For some reason, this does not take effect on the next image captured, but the
         # image after that. It is unclear what's causing this.
         if not self._dev.SetGainBoost(lib.GET_SUPPORTED_GAINBOOST):
             raise UnsupportedFeatureError("Camera does not support the gain boost feature")
@@ -1013,6 +1011,7 @@ class UC480_Camera(Camera):
 
     @Facet(limits=(1.0, 'max_master_gain'))
     def master_gain(self):
+        """The master gain factor; 1.0 is the lowest gain."""
         gain_factor = self._dev.SetHWGainFactor(lib.GET_MASTER_GAIN_FACTOR, 0)
         return gain_factor / 100.
 
@@ -1021,16 +1020,41 @@ class UC480_Camera(Camera):
         gain_factor = int(round(gain * 100))
         self._dev.SetHWGainFactor(lib.SET_MASTER_GAIN_FACTOR, gain_factor)
 
-    max_master_gain = property(lambda self: self._max_master_gain)
+    max_master_gain = property(lambda self: self._max_master_gain,
+                               doc="Max value that ``master_gain`` can take")
 
-    auto_gain = AutoParamEnableFacet('AUTO_GAIN')
-    auto_sensor_gain = AutoParamEnableFacet('AUTO_SENSOR_GAIN')
-    auto_exposure = AutoParamEnableFacet('AUTO_SHUTTER')
-    auto_sensor_exposure = AutoParamEnableFacet('AUTO_SENSOR_SHUTTER')
-    auto_whitebalance = AutoParamEnableFacet('AUTO_WHITEBALANCE')
-    auto_sensor_whitebalance = AutoParamEnableFacet('AUTO_SENSOR_WHITEBALANCE')
-    auto_framerate = AutoParamEnableFacet('AUTO_FRAMERATE')
-    auto_sensor_framerate = AutoParamEnableFacet('AUTO_SENSOR_FRAMERATE')
+    auto_gain = AutoParamEnableFacet(
+        'AUTO_GAIN',
+        doc="Whether auto gain is enabled"
+    )
+    auto_sensor_gain = AutoParamEnableFacet(
+        'AUTO_SENSOR_GAIN',
+        doc="Whether sensor-based auto gain is enabled"
+    )
+    auto_exposure = AutoParamEnableFacet(
+        'AUTO_SHUTTER',
+        doc="Whether auto exposure is enabled"
+    )
+    auto_sensor_exposure = AutoParamEnableFacet(
+        'AUTO_SENSOR_SHUTTER',
+        doc="Whether sensor-based auto exposure is enabled"
+    )
+    auto_whitebalance = AutoParamEnableFacet(
+        'AUTO_WHITEBALANCE',
+        doc="Whether auto whitebalance is enabled"
+    )
+    auto_sensor_whitebalance = AutoParamEnableFacet(
+        'AUTO_SENSOR_WHITEBALANCE',
+        doc="Whether sensor-based auto whitebalance is enabled"
+    )
+    auto_framerate = AutoParamEnableFacet(
+        'AUTO_FRAMERATE',
+        doc="Whether auto framerate is enabled"
+    )
+    auto_sensor_framerate = AutoParamEnableFacet(
+        'AUTO_SENSOR_FRAMERATE',
+        doc="Whether sensor-based auto framerate is enabled"
+    )
 
     #: uEye camera ID number. Read-only
     id = property(lambda self: self._id)
@@ -1058,4 +1082,5 @@ class UC480_Camera(Camera):
     #: Trigger mode string. Read-only
     trigger_mode = property(lambda self: self._get_trigger())
 
+    #: Current framerate, in ``[time]⁻¹`` units. Read-only
     framerate = property(lambda self: Q_(self._dev.SetFrameRate(lib.GET_FRAMERATE), 'Hz'))
