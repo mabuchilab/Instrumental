@@ -11,9 +11,9 @@ import struct
 import weakref
 import fnmatch
 import numpy as np
-import win32event
+import win32event  # req: pywin32
 
-from nicelib import NiceLib, NiceObjectDef, load_lib
+from nicelib import NiceLib, NiceObjectDef, load_lib  # req: nicelib >= 0.4
 
 from . import Camera
 from ..util import check_units
