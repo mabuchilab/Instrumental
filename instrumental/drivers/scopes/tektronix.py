@@ -17,21 +17,9 @@ from ... import u, Q_
 
 _INST_PARAMS = ['visa_address']
 _INST_VISA_INFO = {
-    'TDS_200': ('TEKTRONIX', ['TDS 210', 'TDS 220', 'TDS 224']),
-    'TDS_1000': ('TEKTRONIX', ['TDS 1001B', 'TDS 1002B', 'TDS 1012B']),
-    'TDS_2000': ('TEKTRONIX', ['TDS 2002B', 'TDS 2004B',
-                               'TDS 2012B', 'TDS 2014B',
-                               'TDS 2022B', 'TDS 2024B']),
-    'TDS_3000': ('TEKTRONIX', ['TDS 3012', 'TDS 3012B', 'TDS 3012C',
-                               'TDS 3014', 'TDS 3014B', 'TDS 3014C',
-                               'TDS 3032', 'TDS 3032B', 'TDS 3032C',
-                               'TDS 3034', 'TDS 3034B', 'TDS 3034C',
-                               'TDS 3052', 'TDS 3052B', 'TDS 3052C',
-                               'TDS 3054', 'TDS 3054B', 'TDS 3054C',]),
-    'MSO_DPO_4000': ('TEKTRONIX', ['MSO4032', 'DPO4032',
-                                   'MSO4034', 'DPO4034',
-                                   'MSO4054', 'DPO4054',
-                                   'MSO4104', 'DPO4104',])
+    'TDS_200': ('TEKTRONIX', ['TDS 210']),
+    'TDS_3000': ('TEKTRONIX', ['TDS 3032', 'TDS 3034B']),
+    'MSO_DPO_4000': ('TEKTRONIX', ['MSO4034', 'DPO4034', 'DPO2024'])
 }
 
 
@@ -113,35 +101,48 @@ class TekScope(Scope, VisaMixin):
             Unitful arrays of data from the scope. ``t`` is in seconds, while
             ``y`` is in volts.
         """
-        self.write("data:source ch{}".format(channel))
-        stop = int(self.query("wfmpre:nr_pt?"))  # Get source's number of points
-        stop = 10000
-        self.write("data:width 2")
-        self.write("data:encdg RIBinary")
-        self.write("data:start 1")
-        self.write("data:stop {}".format(stop))
+        inst = self._rsrc
 
-        #self.resource.flow_control = 1  # Soft flagging (XON/XOFF flow control)
+        inst.write("data:source ch{}".format(channel))
+        #stop = int(inst.query("wfmpre:nr_pt?"))  # Get source's number of points
+        stop = int(inst.query("hor:reco?"))  # Get source's number of points in entire digital record
+        inst.write("data:width 2")
+        inst.write("data:encdg RIBinary")
+        inst.write("data:start 1")
+        inst.write("data:stop {}".format(stop))
 
-        with self.resource.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT),\
-             visa_context(self.resource, timeout=10000, read_termination=None,
-                          end_input=visa.constants.SerialTermination.none):
+        #inst.flow_control = 1  # Soft flagging (XON/XOFF flow control)
+        old_params = False
+        try:
+            old_read_termination = inst.read_termination
+            old_end_input = inst.end_input
+            old_timeout = inst.timeout
+            old_params = True
+        except:
+            pass
 
-            self.write("curve?")
-            visalib = self.resource.visalib
-            session = self.resource.session
-            # NB: Must take slice of bytes returned by visalib.read,
-            # to keep from autoconverting to int
-            width_byte = visalib.read(session, 2)[0][1:]  # read first 2 bytes
-            num_bytes = int(visalib.read(session, int(width_byte))[0])
+        inst.timeout = 10000
+        inst.read_termination = None
+        inst.end_input = visa.constants.SerialTermination.none
+        inst.write("curve?")
+
+        with inst.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
+            # old code
+            # (_, width), _ = inst.visalib.read(inst.session, 2)  # read first 2 bytes
+            (_, width) = str(inst.visalib.read(inst.session, 2)[0],'utf-8')  # read first 2 bytes
+            num_bytes = int(inst.visalib.read(inst.session, int(width))[0])
             buf = bytearray(num_bytes)
             cursor = 0
             while cursor < num_bytes:
                 raw_bin, _ = visalib.read(session, num_bytes-cursor)
                 buf[cursor:cursor+len(raw_bin)] = raw_bin
                 cursor += len(raw_bin)
-
-        self.resource.read()  # Eat termination
+                print(cursor)
+        if old_params:
+            inst.end_input = old_end_input
+            inst.read_termination = old_read_termination
+            inst.timeout = old_timeout
+        inst.read()  # Eat termination
 
         num_points = int(num_bytes // 2)
         raw_data_y = np.frombuffer(buf, dtype='>i2', count=num_points)

@@ -54,10 +54,9 @@ class HPOSA(Spectrometer, VisaMixin):
     #     self.inst.write('TDF P') # set the trace data format to be decimal numbers in parameter units
 
     def _initialize(self):
-        self._rsrc.read_termination = '\n'  # Needed for stripping termination
-        self._rsrc.timeout = 300
+        self.read_termination = "\n"  # Needed for stripping termination
         #self.inst.write("header OFF")
-        self._rsrc.write_termination = ';'
+        self.write_termination = ';'
         self.write('TDF P') # set the trace data format to be decimal numbers in parameter units
         # if self.interface_type == InterfaceType.asrl:
         #     terminator = self.query('RS232:trans:term?').strip()
@@ -122,33 +121,12 @@ class HPOSA(Spectrometer, VisaMixin):
         #sens = 10*np.log10(sens.to(u.milliwatt).magnitude)
         self.write('SENS {:3.3E}'.format(sens.to(self.get_amplitude_units()).magnitude))
 
-    def set_log_scale(self,scale):
-        ### scale
-        self.write('LG {}DB'.format(scale))
-
-    def set_linear_scale(self):
-        self.write('LN')
-
-    def set_reference_level(self,ref_level):
-        ### scale
-        if self.get_amplitude_units()==u.dimensionless:
-            if ref_level.units==u.dimensionless:
-                self.write('RL {:3.3E} DBM'.format(ref_level.magnitude))
-            else:
-                self.write('RL {:3.3E} DBM'.format(10*np.log10(ref_level.to(u.milliwatt).magnitude)))
-        else:
-            if ref_level.units==u.dimensionless:
-                self.write('RL {:3.3E} mW'.format(10**(ref_level/10.0)))
-            else:
-                self.write('RL {:3.3E} mW'.format(ref_level.to(u.milliwatt).magnitude))
-
     def get_sensitivity(self):
         sens_dbm = np.float(self.query('SENS?'))
         sens = (10**(sens_dbm/10.0) * u.milliwatt).to(u.watt)
         return sens
 
     def get_spectrum(self,trace='A'):
-        self._rsrc.timeout = 10000
         au = self.get_amplitude_units()
         wl_center = self.get_center_wavelength()
         wl_span = self.get_wavelength_span()
@@ -156,8 +134,7 @@ class HPOSA(Spectrometer, VisaMixin):
         wl_start = wl_center - wl_span / 2.0
         wl_stop = wl_center + wl_span / 2.0
         n_pts = len(amp)
-        wl = Q_(np.linspace(wl_start.magnitude,wl_stop.magnitude,n_pts),wl_start.units)
-        self._rsrc.timeout = 300
+        wl = Q_(np.linspace(wl_start.magnitude,wl_stop.magnitude,n_pts))
         return wl, amp
 
 

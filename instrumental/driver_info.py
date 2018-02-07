@@ -1,4 +1,4 @@
-# Auto-generated 2017-12-14T13:07:32.702000
+# Auto-generated 2017-11-21T15:44:02.583501
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -44,6 +44,11 @@ driver_info = OrderedDict([
         'imports': ['visa'],
         'visa_info': {'SR850': ('Stanford_Research_Systems', ['SR850'])},
     }),
+    ('motion.USMC', {
+        'params': [],
+        'classes': ['USMC'],
+        'imports': ['nicelib'],
+    }),
     ('motion.ecc100', {
         'params': ['id'],
         'classes': ['ECC100'],
@@ -64,6 +69,11 @@ driver_info = OrderedDict([
         'classes': ['TDC001'],
         'imports': ['nicelib', 'cffi'],
     }),
+    ('motion.~_build_USMC', {
+        'params': [],
+        'classes': [],
+        'imports': ['nicelib'],
+    }),
     ('multimeters.hp', {
         'params': ['visa_address'],
         'classes': [],
@@ -80,7 +90,7 @@ driver_info = OrderedDict([
         'params': ['visa_address'],
         'classes': [],
         'imports': ['visa', 'pyvisa'],
-        'visa_info': {'TDS_2000': ('TEKTRONIX', ['TDS 2002B', 'TDS 2004B', 'TDS 2012B', 'TDS 2014B', 'TDS 2022B', 'TDS 2024B']), 'TDS_1000': ('TEKTRONIX', ['TDS 1001B', 'TDS 1002B', 'TDS 1012B']), 'TDS_3000': ('TEKTRONIX', ['TDS 3032', 'TDS 3034B']), 'MSO_DPO_4000': ('TEKTRONIX', ['MSO4034', 'DPO4034']), 'TDS_200': ('TEKTRONIX', ['TDS 210'])},
+        'visa_info': {'TDS_200': ('TEKTRONIX', ['TDS 210']), 'TDS_3000': ('TEKTRONIX', ['TDS 3032', 'TDS 3034B']), 'MSO_DPO_4000': ('TEKTRONIX', ['MSO4034', 'DPO4034', 'DPO2024'])},
     }),
     ('spectrometers.bristol', {
         'params': ['port'],
@@ -92,11 +102,21 @@ driver_info = OrderedDict([
         'classes': ['CCS'],
         'imports': ['visa', 'cffi', 'nicelib'],
     }),
-    ('tempcontrollers.hcphotonics', {
-        'params': [u'visa_address'],
-        'classes': [u'TC038'],
+    ('spectrometers.hp', {
+        'params': ['visa_address'],
+        'classes': ['HPOSA'],
+        'imports': ['visa','pyvisa'],
+        'visa_info': {'HPOSA': ('HEWLETT-PACKARD', ['70951B'])},
+    }),
+    ('tempcontrollers.covesion', {
+        'params': ['OC_visa_address','version'],
+        'classes': ['OC'],
         'imports': ['pyvisa'],
-        'visa_info': None,
+    }),
+    ('tempcontrollers.hcphotonics', {
+        'params': [],
+        'classes': [],
+        'imports': ['pyvisa'],
     }),
     ('lasers.femto_ferb', {
         'params': ['visa_address'],
