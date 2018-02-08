@@ -13,7 +13,6 @@ import win32event
 
 from nicelib import NiceLib, NiceObjectDef, load_lib
 
-from ._pixelfly import errortext
 from . import Camera
 from .. import ParamSet
 from ..util import check_units
@@ -41,6 +40,7 @@ class NicePixelfly(NiceLib):
     _info = info
 
     def _ret(code):
+        from ._pixelfly import errortext  # Hide from sphinx
         if code != 0:
             pbuf = errortext.ffi.new('char[]', 1024)
             errortext.lib.PCO_GetErrorText(errortext.ffi.cast('unsigned int', code), pbuf,

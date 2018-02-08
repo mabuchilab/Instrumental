@@ -16,7 +16,6 @@ from cffi import FFI, cparser
 from pycparser import CParser
 from nicelib import NiceLib, NiceObjectDef
 
-from ._pixelfly import errortext
 from . import Camera
 from ..util import as_enum, unit_mag, check_units
 from .. import ParamSet
@@ -70,6 +69,7 @@ winlib = ffi.dlopen('Kernel32.dll')
 
 
 def get_error_text(ret_code):
+    from ._pixelfly import errortext  # Hide from Sphinx
     pbuf = errortext.ffi.new('char[]', 1024)
     errortext.lib.PCO_GetErrorText(errortext.ffi.cast('unsigned int', ret_code), pbuf, len(pbuf))
     return errortext.ffi.string(pbuf)
