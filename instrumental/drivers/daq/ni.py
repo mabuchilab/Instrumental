@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2017 Nate Bogdanowicz
+# Copyright 2016-2018 Nate Bogdanowicz
 from __future__ import division
 from past.builtins import unicode, basestring
 
@@ -8,8 +8,10 @@ import time
 import weakref
 from enum import Enum, EnumMeta
 from collections import OrderedDict
+
 import numpy as np
-from nicelib import NiceLib, NiceObjectDef, load_lib
+from nicelib import (NiceLib, load_lib, RetHandler,
+                     Sig, NiceObject, sig_pattern)  # req: nicelib >= 0.5
 
 from ... import Q_, u
 from .. import ParamSet
@@ -22,24 +24,6 @@ _INST_CLASSES = ['NIDAQ']
 
 __all__ = ['NIDAQ', 'AnalogIn', 'AnalogOut', 'VirtualDigitalChannel', 'SampleMode', 'EdgeSlope',
            'TerminalConfig', 'RelativeTo', 'ProductCategory', 'DAQError']
-
-
-# Monkey patch NiceObjectDef until it supports a similar method
-def add_sig_pattern(self, sigs, names):
-    """
-    `sigs` : sequence of pairs (`pattern`, `sig`)
-        Each `sig` is an ordinary sig, and `pattern` is a string pattern which will be completed
-        with each of the names given, using `str.format()`
-    `names` : sequence of strings
-    """
-    for name in names:
-        for pattern, sig in sigs:
-            func_name = pattern.format(name)
-            self.attrs[func_name] = sig
-    self.names = set(self.attrs.keys())
-
-
-NiceObjectDef.add_sig_pattern = add_sig_pattern
 
 
 def to_bytes(value, codec='utf-8'):
@@ -85,8 +69,8 @@ def list_instruments():
 
         paramset = ParamSet(NIDAQ,
                             name=dev_name,
-                            serial=NiceNI.GetDevSerialNum(dev_name),
-                            model=NiceNI.GetDevProductType(dev_name))
+                            serial=NiceNI.Device.GetDevSerialNum(dev_name),
+                            model=NiceNI.Device.GetDevProductType(dev_name))
         paramsets.append(paramset)
     return paramsets
 
@@ -102,174 +86,164 @@ class NotSupportedError(DAQError):
     pass
 
 
-info = load_lib('ni', __package__)
-ffilib = info._ffilib
+@RetHandler(num_retvals=0)
+def ret_errcheck(code):
+    if code != 0:
+        raise DAQError(code)
 
 
 class NiceNI(NiceLib):
-    _info = info
-    _prefix = ('DAQmxBase_', 'DAQmx_', 'DAQmx')
-    _buflen = 1024
-    _use_numpy = True
+    _info_ = load_lib('ni', __package__)
+    _prefix_ = ('DAQmxBase_', 'DAQmx_', 'DAQmx')
+    _buflen_ = 1024
+    _use_numpy_ = True
+    _ret_ = ret_errcheck
 
-    def _ret(code):
-        if code != 0:
-            raise DAQError(code)
-
-    GetErrorString = ('in', 'buf', 'len')
+    GetErrorString = Sig('in', 'buf', 'len')
     GetSysDevNames = ('buf', 'len')
     GetExtendedErrorInfo = ('buf', 'len=2048')
     CreateTask = ('in', 'out')
 
-    Task = NiceObjectDef(doc="A Nice-wrapped NI Task", attrs={
-        'StartTask': ('in'),
-        'StopTask': ('in'),
-        'ClearTask': ('in'),
-        'WaitUntilTaskDone': ('in', 'in'),
-        'IsTaskDone': ('in', 'out'),
-        'TaskControl': ('in', 'in'),
-        'CreateAIVoltageChan': ('in', 'in', 'in', 'in', 'in', 'in', 'in', 'in'),
-        'CreateAOVoltageChan': ('in', 'in', 'in', 'in', 'in', 'in', 'in'),
-        'CreateDIChan': ('in', 'in', 'in', 'in'),
-        'CreateDOChan': ('in', 'in', 'in', 'in'),
-        'ReadAnalogF64': ('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'ignore'),
-        'ReadAnalogScalarF64': ('in', 'in', 'out', 'ignore'),
-        'ReadDigitalScalarU32': ('in', 'in', 'out', 'ignore'),
-        'ReadDigitalU32': ('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'ignore'),
-        'ReadDigitalLines': ('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'out', 'ignore'),
-        'WriteAnalogF64': ('in', 'in', 'in', 'in', 'in', 'in', 'out', 'ignore'),
-        'WriteAnalogScalarF64': ('in', 'in', 'in', 'in', 'ignore'),
-        'WriteDigitalScalarU32': ('in', 'in', 'in', 'in', 'ignore'),
-        'CfgSampClkTiming': ('in', 'in', 'in', 'in', 'in', 'in'),
-        'CfgImplicitTiming': ('in', 'in', 'in'),
-        'CfgOutputBuffer': ('in', 'in'),
-        'CfgDigEdgeStartTrig': ('in', 'in', 'in'),
-        'GetAOUseOnlyOnBrdMem': ('in', 'in', 'out'),
-        'SetAOUseOnlyOnBrdMem': ('in', 'in', 'in'),
-        'GetBufInputOnbrdBufSize': ('in', 'out'),
-    })
+    class Task(NiceObject):
+        """A Nice-wrapped NI Task"""
+        StartTask = Sig('in')
+        StopTask = Sig('in')
+        ClearTask = Sig('in')
 
-    Task.add_sig_pattern((
-        ('Get{}', ('in', 'out')),
-        ('Set{}', ('in', 'in')),
-    ),(
-        'SampTimingType',
-        'SampQuantSampMode',
-        'ReadOffset',
-        'ReadRelativeTo',
-        'ReadOverWrite',
-        'SampQuantSampPerChan',
-        'BufInputBufSize',
-        'BufOutputBufSize',
-        'BufOutputOnbrdBufSize',
-    ))
+        WaitUntilTaskDone = Sig('in', 'in')
+        IsTaskDone = Sig('in', 'out')
+        TaskControl = Sig('in', 'in')
+        CreateAIVoltageChan = Sig('in', 'in', 'in', 'in', 'in', 'in', 'in', 'in')
+        CreateAOVoltageChan = Sig('in', 'in', 'in', 'in', 'in', 'in', 'in')
+        CreateDIChan = Sig('in', 'in', 'in', 'in')
+        CreateDOChan = Sig('in', 'in', 'in', 'in')
+        ReadAnalogF64 = Sig('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'ignore')
+        ReadAnalogScalarF64 = Sig('in', 'in', 'out', 'ignore')
+        ReadDigitalScalarU32 = Sig('in', 'in', 'out', 'ignore')
+        ReadDigitalU32 = Sig('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'ignore')
+        ReadDigitalLines = Sig('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'out', 'ignore')
+        WriteAnalogF64 = Sig('in', 'in', 'in', 'in', 'in', 'in', 'out', 'ignore')
+        WriteAnalogScalarF64 = Sig('in', 'in', 'in', 'in', 'ignore')
+        WriteDigitalScalarU32 = Sig('in', 'in', 'in', 'in', 'ignore')
+        CfgSampClkTiming = Sig('in', 'in', 'in', 'in', 'in', 'in')
+        CfgImplicitTiming = Sig('in', 'in', 'in')
+        CfgOutputBuffer = Sig('in', 'in')
+        CfgDigEdgeStartTrig = Sig('in', 'in', 'in')
+        GetAOUseOnlyOnBrdMem = Sig('in', 'in', 'out')
+        SetAOUseOnlyOnBrdMem = Sig('in', 'in', 'in')
+        GetBufInputOnbrdBufSize = Sig('in', 'out')
 
-    Device = NiceObjectDef({
+        _sigs_ = sig_pattern((
+            ('Get{}', ('in', 'out')),
+            ('Set{}', ('in', 'in')),
+        ),(
+            'SampTimingType',
+            'SampQuantSampMode',
+            'ReadOffset',
+            'ReadRelativeTo',
+            'ReadOverWrite',
+            'SampQuantSampPerChan',
+            'BufInputBufSize',
+            'BufOutputBufSize',
+            'BufOutputOnbrdBufSize',
+        ))
+
+    class Device(NiceObject):
         # Device properties
-        'GetDevIsSimulated': ('in', 'out'),
-        'GetDevProductCategory': ('in', 'out'),
-        'GetDevProductType': ('in', 'buf', 'len'),
-        'GetDevProductNum': ('in', 'out'),
-        'GetDevSerialNum': ('in', 'out'),
-        'GetDevAccessoryProductTypes': ('in', 'buf', 'len=20'),
-        'GetDevAccessoryProductNums': ('in', 'arr', 'len=20'),
-        'GetDevAccessorySerialNums': ('in', 'arr', 'len=20'),
-        'GetCarrierSerialNum': ('in', 'out'),
-        'GetDevChassisModuleDevNames': ('in', 'buf', 'len'),
-        'GetDevAnlgTrigSupported': ('in', 'out'),
-        'GetDevDigTrigSupported': ('in', 'out'),
+        GetDevIsSimulated = Sig('in', 'out')
+        GetDevProductCategory = Sig('in', 'out')
+        GetDevProductType = Sig('in', 'buf', 'len')
+        GetDevProductNum = Sig('in', 'out')
+        GetDevSerialNum = Sig('in', 'out')
+        GetDevAccessoryProductTypes = Sig('in', 'buf', 'len=20')
+        GetDevAccessoryProductNums = Sig('in', 'arr', 'len=20')
+        GetDevAccessorySerialNums = Sig('in', 'arr', 'len=20')
+        GetCarrierSerialNum = Sig('in', 'out')
+        GetDevChassisModuleDevNames = Sig('in', 'buf', 'len')
+        GetDevAnlgTrigSupported = Sig('in', 'out')
+        GetDevDigTrigSupported = Sig('in', 'out')
 
         # AI Properties
-        'GetDevAIPhysicalChans': ('in', 'buf', 'len'),
-        'GetDevAISupportedMeasTypes': ('in', 'arr', 'len=32'),
-        'GetDevAIMaxSingleChanRate': ('in', 'out'),
-        'GetDevAIMaxMultiChanRate': ('in', 'out'),
-        'GetDevAIMinRate': ('in', 'out'),
-        'GetDevAISimultaneousSamplingSupported': ('in', 'out'),
-        'GetDevAISampModes': ('in', 'arr', 'len=3'),
-        'GetDevAITrigUsage': ('in', 'out'),
-        'GetDevAIVoltageRngs': ('in', 'arr', 'len=32'),
-        'GetDevAIVoltageIntExcitDiscreteVals': ('in', 'arr', 'len=32'),
-        'GetDevAIVoltageIntExcitRangeVals': ('in', 'arr', 'len=32'),
-        'GetDevAICurrentRngs': ('in', 'arr', 'len=32'),
-        'GetDevAICurrentIntExcitDiscreteVals': ('in', 'arr', 'len=32'),
-        'GetDevAIBridgeRngs': ('in', 'arr', 'len=32'),
-        'GetDevAIResistanceRngs': ('in', 'arr', 'len=32'),
-        'GetDevAIFreqRngs': ('in', 'arr', 'len=32'),
-        'GetDevAIGains': ('in', 'arr', 'len=32'),
-        'GetDevAICouplings': ('in', 'out'),
-        'GetDevAILowpassCutoffFreqDiscreteVals': ('in', 'arr', 'len=32'),
-        'GetDevAILowpassCutoffFreqRangeVals': ('in', 'arr', 'len=32'),
-        'GetAIDigFltrTypes': ('in', 'arr', 'len=5'),
-        'GetDevAIDigFltrLowpassCutoffFreqDiscreteVals': ('in', 'arr', 'len=32'),
-        'GetDevAIDigFltrLowpassCutoffFreqRangeVals': ('in', 'arr', 'len=32'),
+        GetDevAIPhysicalChans = Sig('in', 'buf', 'len')
+        GetDevAISupportedMeasTypes = Sig('in', 'arr', 'len=32')
+        GetDevAIMaxSingleChanRate = Sig('in', 'out')
+        GetDevAIMaxMultiChanRate = Sig('in', 'out')
+        GetDevAIMinRate = Sig('in', 'out')
+        GetDevAISimultaneousSamplingSupported = Sig('in', 'out')
+        GetDevAISampModes = Sig('in', 'arr', 'len=3')
+        GetDevAITrigUsage = Sig('in', 'out')
+        GetDevAIVoltageRngs = Sig('in', 'arr', 'len=32')
+        GetDevAIVoltageIntExcitDiscreteVals = Sig('in', 'arr', 'len=32')
+        GetDevAIVoltageIntExcitRangeVals = Sig('in', 'arr', 'len=32')
+        GetDevAICurrentRngs = Sig('in', 'arr', 'len=32')
+        GetDevAICurrentIntExcitDiscreteVals = Sig('in', 'arr', 'len=32')
+        GetDevAIBridgeRngs = Sig('in', 'arr', 'len=32')
+        GetDevAIResistanceRngs = Sig('in', 'arr', 'len=32')
+        GetDevAIFreqRngs = Sig('in', 'arr', 'len=32')
+        GetDevAIGains = Sig('in', 'arr', 'len=32')
+        GetDevAICouplings = Sig('in', 'out')
+        GetDevAILowpassCutoffFreqDiscreteVals = Sig('in', 'arr', 'len=32')
+        GetDevAILowpassCutoffFreqRangeVals = Sig('in', 'arr', 'len=32')
+        GetAIDigFltrTypes = Sig('in', 'arr', 'len=5')
+        GetDevAIDigFltrLowpassCutoffFreqDiscreteVals = Sig('in', 'arr', 'len=32')
+        GetDevAIDigFltrLowpassCutoffFreqRangeVals = Sig('in', 'arr', 'len=32')
 
         # AO Properties
-        'GetDevAOPhysicalChans': ('in', 'buf', 'len'),
-        'GetDevAOSupportedOutputTypes': ('in', 'arr', 'len=3'),
-        'GetDevAOSampClkSupported': ('in', 'out'),
-        'GetDevAOSampModes': ('in', 'arr', 'len=3'),
-        'GetDevAOMaxRate': ('in', 'out'),
-        'GetDevAOMinRate': ('in', 'out'),
-        'GetDevAOTrigUsage': ('in', 'out'),
-        'GetDevAOVoltageRngs': ('in', 'arr', 'len=32'),
-        'GetDevAOCurrentRngs': ('in', 'arr', 'len=32'),
-        'GetDevAOGains': ('in', 'arr', 'len=32'),
+        GetDevAOPhysicalChans = Sig('in', 'buf', 'len')
+        GetDevAOSupportedOutputTypes = Sig('in', 'arr', 'len=3')
+        GetDevAOSampClkSupported = Sig('in', 'out')
+        GetDevAOSampModes = Sig('in', 'arr', 'len=3')
+        GetDevAOMaxRate = Sig('in', 'out')
+        GetDevAOMinRate = Sig('in', 'out')
+        GetDevAOTrigUsage = Sig('in', 'out')
+        GetDevAOVoltageRngs = Sig('in', 'arr', 'len=32')
+        GetDevAOCurrentRngs = Sig('in', 'arr', 'len=32')
+        GetDevAOGains = Sig('in', 'arr', 'len=32')
 
         # DI Properties
-        'GetDevDILines': ('in', 'buf', 'len'),
-        'GetDevDIPorts': ('in', 'buf', 'len'),
-        'GetDevDIMaxRate': ('in', 'out'),
-        'GetDevDITrigUsage': ('in', 'out'),
+        GetDevDILines = Sig('in', 'buf', 'len')
+        GetDevDIPorts = Sig('in', 'buf', 'len')
+        GetDevDIMaxRate = Sig('in', 'out')
+        GetDevDITrigUsage = Sig('in', 'out')
 
         # DO Properties
-        'GetDevDOLines': ('in', 'buf', 'len'),
-        'GetDevDOPorts': ('in', 'buf', 'len'),
-        'GetDevDOMaxRate': ('in', 'out'),
-        'GetDevDOTrigUsage': ('in', 'out'),
+        GetDevDOLines = Sig('in', 'buf', 'len')
+        GetDevDOPorts = Sig('in', 'buf', 'len')
+        GetDevDOMaxRate = Sig('in', 'out')
+        GetDevDOTrigUsage = Sig('in', 'out')
 
         # CI Properties
-        'GetDevCIPhysicalChans': ('in', 'buf', 'len'),
-        'GetDevCISupportedMeasTypes': ('in', 'arr', 'len=15'),
-        'GetDevCITrigUsage': ('in', 'out'),
-        'GetDevCISampClkSupported': ('in', 'out'),
-        'GetDevCISampModes': ('in', 'arr', 'len=3'),
-        'GetDevCIMaxSize': ('in', 'out'),
-        'GetDevCIMaxTimebase': ('in', 'out'),
+        GetDevCIPhysicalChans = Sig('in', 'buf', 'len')
+        GetDevCISupportedMeasTypes = Sig('in', 'arr', 'len=15')
+        GetDevCITrigUsage = Sig('in', 'out')
+        GetDevCISampClkSupported = Sig('in', 'out')
+        GetDevCISampModes = Sig('in', 'arr', 'len=3')
+        GetDevCIMaxSize = Sig('in', 'out')
+        GetDevCIMaxTimebase = Sig('in', 'out')
 
         # CO Properties
-        'GetDevCOPhysicalChans': ('in', 'buf', 'len'),
-        'GetDevCOSupportedOutputTypes': ('in', 'arr', 'len=3'),
-        'GetDevCOSampClkSupported': ('in', 'out'),
-        'GetDevCOSampModes': ('in', 'arr', 'len=3'),
-        'GetDevCOTrigUsage': ('in', 'out'),
-        'GetDevCOMaxSize': ('in', 'out'),
-        'GetDevCOMaxTimebase': ('in', 'out'),
+        GetDevCOPhysicalChans = Sig('in', 'buf', 'len')
+        GetDevCOSupportedOutputTypes = Sig('in', 'arr', 'len=3')
+        GetDevCOSampClkSupported = Sig('in', 'out')
+        GetDevCOSampModes = Sig('in', 'arr', 'len=3')
+        GetDevCOTrigUsage = Sig('in', 'out')
+        GetDevCOMaxSize = Sig('in', 'out')
+        GetDevCOMaxTimebase = Sig('in', 'out')
 
         # Other Device Properties
-        'GetDevTEDSHWTEDSSupported': ('in', 'out'),
-        'GetDevNumDMAChans': ('in', 'out'),
-        'GetDevBusType': ('in', 'out'),
-        'GetDevPCIBusNum': ('in', 'out'),
-        'GetDevPCIDevNum': ('in', 'out'),
-        'GetDevPXIChassisNum': ('in', 'out'),
-        'GetDevPXISlotNum': ('in', 'out'),
-        'GetDevCompactDAQChassisDevName': ('in', 'buf', 'len'),
-        'GetDevCompactDAQSlotNum': ('in', 'out'),
-        'GetDevTCPIPHostname': ('in', 'buf', 'len'),
-        'GetDevTCPIPEthernetIP': ('in', 'buf', 'len'),
-        'GetDevTCPIPWirelessIP': ('in', 'buf', 'len'),
-        'GetDevTerminals': ('in', 'buf', 'len=2048'),
-    })
-
-    #Device = NiceObjectDef({
-    #    'GetDevProductType': ('in', 'buf', 'len'),
-    #    'GetDev(AI|AO|CI|CO)PhysicalChans': ('in', 'buf', 'len'),
-    #    'GetDevAIVoltageRngs': ('in', 'arr20', 'len'),
-    #    'GetDevProductCategory': ('in', 'out'),
-    #})
-
-ffi = NiceNI._info._ffi
+        GetDevTEDSHWTEDSSupported = Sig('in', 'out')
+        GetDevNumDMAChans = Sig('in', 'out')
+        GetDevBusType = Sig('in', 'out')
+        GetDevPCIBusNum = Sig('in', 'out')
+        GetDevPCIDevNum = Sig('in', 'out')
+        GetDevPXIChassisNum = Sig('in', 'out')
+        GetDevPXISlotNum = Sig('in', 'out')
+        GetDevCompactDAQChassisDevName = Sig('in', 'buf', 'len')
+        GetDevCompactDAQSlotNum = Sig('in', 'out')
+        GetDevTCPIPHostname = Sig('in', 'buf', 'len')
+        GetDevTCPIPEthernetIP = Sig('in', 'buf', 'len')
+        GetDevTCPIPWirelessIP = Sig('in', 'buf', 'len')
+        GetDevTerminals = Sig('in', 'buf', 'len=2048')
 
 
 if 'sphinx' in sys.modules:
