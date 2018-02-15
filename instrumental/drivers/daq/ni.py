@@ -443,8 +443,8 @@ class Task(object):
     To run multiple synchronized reads/writes, we need to make one MiniTask for
     each type, then use the same sample clock for each.
     """
-    def __init__(self, *args):
-        """Creates a task that uses the given channels.
+    def __init__(self, *channels):
+        """Create a task that uses the given channels.
 
         Each arg can either be a Channel or a tuple of (Channel, name_str)
         """
@@ -458,7 +458,7 @@ class Task(object):
         self.AOs, self.AIs, self.DOs, self.DIs, self.COs, self.CIs = [], [], [], [], [], []
         TYPED_CHANNELS = {'AO': self.AOs, 'AI': self.AIs, 'DO': self.DOs,
                           'DI': self.DIs, 'CO': self.COs, 'CI': self.CIs}
-        for arg in args:
+        for arg in channels:
             if isinstance(arg, Channel):
                 channel = arg
                 name = channel.name
@@ -1430,6 +1430,7 @@ class VirtualDigitalChannel(Channel):
 
 class NIDAQ(DAQ):
     mx = NiceNI
+    Task = Task
 
     def _initialize(self):
         self.name = self._paramset['name']
@@ -1437,9 +1438,6 @@ class NIDAQ(DAQ):
         self._load_analog_channels()
         self._load_internal_channels()
         self._load_digital_ports()
-
-    def Task(self, *args):
-        return Task(*args)
 
     def _create_mini_task(self, io_type):
         return MiniTask(self, io_type)
