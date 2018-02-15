@@ -100,12 +100,14 @@ class NiceNI(NiceLib):
     _ret_ = ret_errcheck
 
     GetErrorString = Sig('in', 'buf', 'len')
-    GetSysDevNames = ('buf', 'len')
-    GetExtendedErrorInfo = ('buf', 'len=2048')
-    CreateTask = ('in', 'out')
+    GetSysDevNames = Sig('buf', 'len')
+    GetExtendedErrorInfo = Sig('buf', 'len=2048')
+    CreateTask = Sig('in', 'out')
 
     class Task(NiceObject):
         """A Nice-wrapped NI Task"""
+        _init_ = 'CreateTask'
+
         StartTask = Sig('in')
         StopTask = Sig('in')
         ClearTask = Sig('in')
@@ -706,8 +708,7 @@ def int_property(name, doc=None):
 class MiniTask(object):
     def __init__(self, daq, io_type):
         self.daq = daq
-        handle = NiceNI.CreateTask('')
-        self._mx_task = NiceNI.Task(handle)
+        self._mx_task = NiceNI.Task('')
         self.io_type = io_type
         self.chans = []
         self.fsamp = None
