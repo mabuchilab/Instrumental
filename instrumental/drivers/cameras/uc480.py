@@ -13,7 +13,8 @@ import fnmatch
 import numpy as np
 import win32event  # req: pywin32
 
-from nicelib import NiceLib, NiceObjectDef, load_lib  # req: nicelib >= 0.4
+from nicelib import (NiceLib, NiceObject, load_lib,
+                     RetHandler, Sig, ret_return)  # req: nicelib >= 0.5
 
 from . import Camera
 from ..util import check_units
@@ -47,7 +48,7 @@ def char_to_int(char):
     return struct.unpack('B', char)[0]
 
 
-def ret_handler(getcmd_names, cmd_pos=1):
+def cmd_ret_handler(getcmd_names, cmd_pos=1):
     """Create an error wrapping function for a UC480 command-taking function.
 
     A bunch of UC480 functions take ints indicating a "command" to run. Often, "get" commands will
@@ -67,6 +68,8 @@ def ret_handler(getcmd_names, cmd_pos=1):
                    for pattern in getcmd_names
                    for const_name in fnmatch.filter(info._defs.keys(), pattern)]
 
+    # Note: we don't specify num_retvals, since it depends on the command issued
+    @RetHandler
     def wrap(result, funcargs, niceobj):
         # Need to cast in case arg is CData
         if int(funcargs[cmd_pos]) in getcmd_vals:
@@ -96,20 +99,23 @@ def sig(*args):
     return decorator
 
 
+@RetHandler(num_retvals=0)
+def ret_errcheck(result):
+    if result != NiceUC480.SUCCESS:
+        raise UC480Error(code=result)
+
+
+@RetHandler(num_retvals=0)
+def ret_cam_errcheck(result, niceobj):
+    if result != NiceUC480.SUCCESS:
+        err_code, err_msg = niceobj.GetError()
+        raise UC480Error(code=result, msg=err_msg)
+
+
 class NiceUC480(NiceLib):
-    _info = info
-    _prefix = ('is_', 'IS_')
-
-    # Error wrapping
-    #
-    def _ret(result):
-        if result != NiceUC480.SUCCESS:
-            raise UC480Error(code=result)
-
-    def _ret_cam(result, niceobj):
-        if result != NiceUC480.SUCCESS:
-            err_code, err_msg = niceobj.GetError()
-            raise UC480Error(code=result, msg=err_msg)
+    _info_ = info
+    _prefix_ = ('is_', 'IS_')
+    _ret_ = ret_errcheck
 
     # Classmethods
     #
@@ -117,162 +123,161 @@ class NiceUC480(NiceLib):
     GetCameraList = ('inout')
     InitCamera = ('inout', 'in')
 
-    # Hand-wrapped methods
-    #
-    @sig('in', 'in', 'inout', 'in')
-    def _AOI(command, param=None):
-        """AOI(command, param=None)"""
-        if command & lib.AOI_MULTI_GET_AOI:
-            if command == lib.AOI_MULTI_GET_AOI:
-                raise Error("command AOI_MULTI_GET_AOI must be or'd together with another flag")
-            param_type = 'UINT[8]'
-            getting = True
-        elif command in AOI_GET_PARAM_TYPES:
-            param_type = AOI_GET_PARAM_TYPES[command]
-            getting = True
-        elif command in AOI_SET_PARAM_TYPES:
-            param_type = AOI_SET_PARAM_TYPES[command]
-            getting = False
-        else:
-            raise Error("Unsupported command given")
-
-        if getting and param is not None:
-            raise ValueError("Cannot give a param value when using a GET command")
-        elif not getting and param is None:
-            raise ValueError("Must give a param value when using a SET command")
-
-        param_type = ffi.typeof(param_type)
-        deref = (param_type.kind == 'pointer')  # Don't dereference arrays
-
-        param_data = ffi.new(param_type, param)
-        size = ffi.sizeof(ffi.typeof(param_data).item if deref else param_data)
-        param_ptr = ffi.cast('void*', param_data)
-        NiceUC480._AOI.orig(command, param_ptr, size)
-
-        if getting:
-            return param_data[0] if deref else param_data
-
-    @sig('in', 'in', 'inout', 'in')
-    def _Exposure(command, param=None):
-        if command in EXPOSURE_GET_PARAM_TYPES:
-            param_type = EXPOSURE_GET_PARAM_TYPES[command]
-            getting = True
-        elif command in EXPOSURE_SET_PARAM_TYPES:
-            param_type = EXPOSURE_SET_PARAM_TYPES[command]
-            getting = False
-        else:
-            raise Error("Unsupported command given")
-
-        if getting and param is not None:
-            raise ValueError("Cannot give a param value when using a GET command")
-        elif not getting and param is None:
-            raise ValueError("Must give a param value when using a SET command")
-
-        param_type = ffi.typeof(param_type)
-        deref = (param_type.kind == 'pointer')  # Don't dereference arrays
-
-        param_data = ffi.new(param_type, param)
-        size = ffi.sizeof(ffi.typeof(param_data).item if deref else param_data)
-        param_ptr = ffi.cast('void*', param_data)
-        NiceUC480._Exposure.orig(command, param_ptr, size)
-
-        if getting:
-            return param_data[0] if deref else param_data
-
-    @sig('in', 'in', 'inout', 'in')
-    def _Gamma(command, param=None):
-        if command in (lib.GAMMA_CMD_GET, lib.GAMMA_CMD_GET_DEFAULT):
-            getting = True
-        elif command == lib.GAMMA_CMD_SET:
-            getting = False
-        else:
-            raise ValueError("Unsupported command given")
-
-        if getting and param is not None:
-            raise ValueError("Cannot give a param value when using a GET command")
-        elif not getting and param is None:
-            raise ValueError("Must give a param value when using a SET command")
-
-        param_data = ffi.new('INT*', param)
-        size = ffi.sizeof('INT')
-        param_ptr = ffi.cast('void*', param_data)
-        NiceUC480._Gamma.orig(command, param_ptr, size)
-
-        if getting:
-            return param_data[0]
-
-    @sig('in', 'in', 'inout', 'in')
-    def _Blacklevel(command, param=None):
-        if command in BLACKLEVEL_GET_PARAM_TYPES:
-            param_type = BLACKLEVEL_GET_PARAM_TYPES[command]
-            getting = True
-        elif command in BLACKLEVEL_SET_PARAM_TYPES:
-            param_type = BLACKLEVEL_SET_PARAM_TYPES[command]
-            getting = False
-        else:
-            raise Error("Unsupported command given")
-
-        if getting and param is not None:
-            raise ValueError("Cannot give a param value when using a GET command")
-        elif not getting and param is None:
-            raise ValueError("Must give a param value when using a SET command")
-
-        param_type = ffi.typeof(param_type)
-        deref = (param_type.kind == 'pointer')  # Don't dereference arrays
-
-        param_data = ffi.new(param_type, param)
-        size = ffi.sizeof(ffi.typeof(param_data).item if deref else param_data)
-        param_ptr = ffi.cast('void*', param_data)
-        NiceUC480._Blacklevel.orig(command, param_ptr, size)
-
-        if getting:
-            return param_data[0] if deref else param_data
-
     # Camera methods
     #
-    Camera = NiceObjectDef(init='InitCamera', ret='cam', attrs=dict(
-        AddToSequence = ('in', 'in', 'in'),
-        AllocImageMem = ('in', 'in', 'in', 'in', 'out', 'out'),
-        AOI = _AOI,
-        Blacklevel = _Blacklevel,
-        CaptureVideo = ('in', 'in', {'ret': ret_handler('IS_GET_LIVE')}),
-        ClearSequence = ('in'),
-        DisableEvent = ('in', 'in'),
-        EnableEvent = ('in', 'in'),
-        ExitCamera = ('in'),
-        ExitEvent = ('in', 'in'),
-        ExitImageQueue = ('in'),
-        Exposure = _Exposure,
-        FreeImageMem = ('in', 'in', 'in'),
-        Gamma = _Gamma,
-        GetActSeqBuf = ('in', 'out', 'out', 'out'),
-        GetError = ('in', 'out', 'bufout'),
-        GetImageMemPitch = ('in', 'out'),
-        GetSensorInfo = ('in', 'out'),
-        HasVideoStarted = ('in', 'out'),
-        InitEvent = ('in', 'in', 'in'),
-        InitImageQueue = ('in', 'in'),
-        ParameterSet = ('in', 'in', 'inout', 'in'),
-        ResetToDefault = ('in'),
-        SetAutoParameter = ('in', 'in', 'inout', 'inout'),
-        SetBinning = ('in', 'in', {'ret': ret_handler('IS_GET_*BINNING*')}),
-        SetCameraID = ('in', 'in', {'ret': ret_handler('IS_GET_CAMERA_ID')}),
-        SetColorMode = ('in', 'in', {'ret': ret_handler('IS_GET_COLOR_MODE')}),
-        SetDisplayMode = ('in', 'in', {'ret': ret_handler('IS_GET_DISPLAY_MODE')}),
-        SetExternalTrigger = ('in', 'in', {'ret': ret_handler('IS_GET_*TRIGGER*')}),
-        SetFrameRate = ('in', 'in', 'out'),
-        SetGainBoost = ('in', 'in', {'ret': ret_handler(('IS_GET_GAINBOOST',
-                                                         'IS_GET_SUPPORTED_GAINBOOST'))}),
-        SetHWGainFactor = ('in', 'in', 'in', {'ret': 'return'}),
-        SetSubSampling = ('in', 'in', {'ret': ret_handler('IS_GET_*SUBSAMPLING*')}),
-        SetTriggerDelay = ('in', 'in', {'ret': ret_handler('IS_GET_*TRIGGER*')}),
-        StopLiveVideo = ('in', 'in'),
-        SetHardwareGain = ('in', 'in', 'in', 'in', 'in',
-                           {'ret': ret_handler(
-                               ('IS_GET_MASTER_GAIN', 'IS_GET_RED_GAIN', 'IS_GET_GREEN_GAIN',
-                                'IS_GET_BLUE_GAIN', 'IS_GET_DEFAULT_MASTER', 'IS_GET_DEFAULT_RED',
-                                'IS_GET_DEFAULT_GREEN', 'IS_GET_DEFAULT_BLUE'))}),
-    ))
+    class Camera(NiceObject):
+        _init_ = 'InitCamera'
+        _ret_ = ret_cam_errcheck
+
+        AddToSequence = Sig('in', 'in', 'in')
+        AllocImageMem = Sig('in', 'in', 'in', 'in', 'out', 'out')
+        CaptureVideo = Sig('in', 'in', ret=cmd_ret_handler('IS_GET_LIVE'))
+        ClearSequence = Sig('in')
+        DisableEvent = Sig('in', 'in')
+        EnableEvent = Sig('in', 'in')
+        ExitCamera = Sig('in')
+        ExitEvent = Sig('in', 'in')
+        ExitImageQueue = Sig('in')
+        FreeImageMem = Sig('in', 'in', 'in')
+        GetActSeqBuf = Sig('in', 'out', 'out', 'out')
+        GetError = Sig('in', 'out', 'bufout')
+        GetImageMemPitch = Sig('in', 'out')
+        GetSensorInfo = Sig('in', 'out')
+        HasVideoStarted = Sig('in', 'out')
+        InitEvent = Sig('in', 'in', 'in')
+        InitImageQueue = Sig('in', 'in')
+        ParameterSet = Sig('in', 'in', 'inout', 'in')
+        ResetToDefault = Sig('in')
+        SetAutoParameter = Sig('in', 'in', 'inout', 'inout')
+        SetBinning = Sig('in', 'in', ret=cmd_ret_handler('IS_GET_*BINNING*'))
+        SetCameraID = Sig('in', 'in', ret=cmd_ret_handler('IS_GET_CAMERA_ID'))
+        SetColorMode = Sig('in', 'in', ret=cmd_ret_handler('IS_GET_COLOR_MODE'))
+        SetDisplayMode = Sig('in', 'in', ret=cmd_ret_handler('IS_GET_DISPLAY_MODE'))
+        SetExternalTrigger = Sig('in', 'in', ret=cmd_ret_handler('IS_GET_*TRIGGER*'))
+        SetFrameRate = Sig('in', 'in', 'out')
+        SetGainBoost = Sig('in', 'in', ret=cmd_ret_handler(('IS_GET_GAINBOOST',
+                                                           'IS_GET_SUPPORTED_GAINBOOST')))
+        SetHWGainFactor = Sig('in', 'in', 'in', ret=ret_return)
+        SetSubSampling = Sig('in', 'in', ret=cmd_ret_handler('IS_GET_*SUBSAMPLING*'))
+        SetTriggerDelay = Sig('in', 'in', ret=cmd_ret_handler('IS_GET_*TRIGGER*'))
+        StopLiveVideo = Sig('in', 'in')
+        SetHardwareGain = Sig('in', 'in', 'in', 'in', 'in',
+                              ret=cmd_ret_handler(
+                                  ('IS_GET_MASTER_GAIN', 'IS_GET_RED_GAIN', 'IS_GET_GREEN_GAIN',
+                                   'IS_GET_BLUE_GAIN', 'IS_GET_DEFAULT_MASTER',
+                                   'IS_GET_DEFAULT_RED', 'IS_GET_DEFAULT_GREEN',
+                                   'IS_GET_DEFAULT_BLUE')))
+
+        # Hand-wrapped methods
+        #
+        @Sig('in', 'in', 'inout', 'in')
+        def AOI(self, command, param=None):
+            """AOI(command, param=None)"""
+            if command & lib.AOI_MULTI_GET_AOI:
+                if command == lib.AOI_MULTI_GET_AOI:
+                    raise Error("command AOI_MULTI_GET_AOI must be or'd together with another flag")
+                param_type = 'UINT[8]'
+                getting = True
+            elif command in AOI_GET_PARAM_TYPES:
+                param_type = AOI_GET_PARAM_TYPES[command]
+                getting = True
+            elif command in AOI_SET_PARAM_TYPES:
+                param_type = AOI_SET_PARAM_TYPES[command]
+                getting = False
+            else:
+                raise Error("Unsupported command given")
+
+            if getting and param is not None:
+                raise ValueError("Cannot give a param value when using a GET command")
+            elif not getting and param is None:
+                raise ValueError("Must give a param value when using a SET command")
+
+            param_type = ffi.typeof(param_type)
+            deref = (param_type.kind == 'pointer')  # Don't dereference arrays
+
+            param_data = ffi.new(param_type, param)
+            size = ffi.sizeof(ffi.typeof(param_data).item if deref else param_data)
+            param_ptr = ffi.cast('void*', param_data)
+            self._autofunc_AOI(command, param_ptr, size)
+
+            if getting:
+                return param_data[0] if deref else param_data
+
+        @Sig('in', 'in', 'inout', 'in')
+        def Exposure(self, command, param=None):
+            if command in EXPOSURE_GET_PARAM_TYPES:
+                param_type = EXPOSURE_GET_PARAM_TYPES[command]
+                getting = True
+            elif command in EXPOSURE_SET_PARAM_TYPES:
+                param_type = EXPOSURE_SET_PARAM_TYPES[command]
+                getting = False
+            else:
+                raise Error("Unsupported command given")
+
+            if getting and param is not None:
+                raise ValueError("Cannot give a param value when using a GET command")
+            elif not getting and param is None:
+                raise ValueError("Must give a param value when using a SET command")
+
+            param_type = ffi.typeof(param_type)
+            deref = (param_type.kind == 'pointer')  # Don't dereference arrays
+
+            param_data = ffi.new(param_type, param)
+            size = ffi.sizeof(ffi.typeof(param_data).item if deref else param_data)
+            param_ptr = ffi.cast('void*', param_data)
+            self._autofunc_Exposure(command, param_ptr, size)
+
+            if getting:
+                return param_data[0] if deref else param_data
+
+        @Sig('in', 'in', 'inout', 'in')
+        def _Gamma(self, command, param=None):
+            if command in (lib.GAMMA_CMD_GET, lib.GAMMA_CMD_GET_DEFAULT):
+                getting = True
+            elif command == lib.GAMMA_CMD_SET:
+                getting = False
+            else:
+                raise ValueError("Unsupported command given")
+
+            if getting and param is not None:
+                raise ValueError("Cannot give a param value when using a GET command")
+            elif not getting and param is None:
+                raise ValueError("Must give a param value when using a SET command")
+
+            param_data = ffi.new('INT*', param)
+            size = ffi.sizeof('INT')
+            param_ptr = ffi.cast('void*', param_data)
+            self._autofunc_Gamma(command, param_ptr, size)
+
+            if getting:
+                return param_data[0]
+
+        @Sig('in', 'in', 'inout', 'in')
+        def Blacklevel(self, command, param=None):
+            if command in BLACKLEVEL_GET_PARAM_TYPES:
+                param_type = BLACKLEVEL_GET_PARAM_TYPES[command]
+                getting = True
+            elif command in BLACKLEVEL_SET_PARAM_TYPES:
+                param_type = BLACKLEVEL_SET_PARAM_TYPES[command]
+                getting = False
+            else:
+                raise Error("Unsupported command given")
+
+            if getting and param is not None:
+                raise ValueError("Cannot give a param value when using a GET command")
+            elif not getting and param is None:
+                raise ValueError("Must give a param value when using a SET command")
+
+            param_type = ffi.typeof(param_type)
+            deref = (param_type.kind == 'pointer')  # Don't dereference arrays
+
+            param_data = ffi.new(param_type, param)
+            size = ffi.sizeof(ffi.typeof(param_data).item if deref else param_data)
+            param_ptr = ffi.cast('void*', param_data)
+            self._autofunc_Blacklevel(command, param_ptr, size)
+
+            if getting:
+                return param_data[0] if deref else param_data
 
 
 lib = NiceUC480
