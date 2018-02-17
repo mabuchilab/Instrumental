@@ -24,6 +24,7 @@ else:
 
 IGNORED_IMPORTS = ['numpy', 'scipy', 'pint', 'future', 'past']
 VAR_NAMES = ['_INST_PARAMS', '_INST_PRIORITY', '_INST_CLASSES', '_INST_VISA_INFO']
+DVAR_NAMES = [v+'_' for v in VAR_NAMES]
 DEFAULT_VALUES = {
     '_INST_PARAMS': [],
     '_INST_PRIORITY': 5,
@@ -156,12 +157,9 @@ def list_drivers():
                 yield group + '.' + mod_name
 
 
-def parse_module(module_name):
-    """Parse special vars and imports from the given driver module"""
-    source = load_module_source(module_name)
-    values = DEFAULT_VALUES.copy()
-    root = ast.parse(source)
+def get_module_level_special_vars(module_name, root):
     has_special_vars = False
+    values = DEFAULT_VALUES.copy()
 
     assignments = (n for n in root.body if isinstance(n, ast.Assign) and len(n.targets) == 1)
     for assignment in assignments:
@@ -174,7 +172,10 @@ def parse_module(module_name):
                     has_special_vars = True
                 except:
                     log.info("Failed to eval value of %s in module '%s'", var_name, module_name)
+    return has_special_vars, values
 
+
+def get_imports(source, root):
     imported_modules = []
     linenos = []
     for node in root.body:
@@ -200,6 +201,38 @@ def parse_module(module_name):
                 if chunks[0].strip() == 'req':
                     requirement = chunks[1].strip()
             requirements.append(requirement)
+    return requirements
+
+
+def parse_module(module_name):
+    """Parse special vars and imports from the given driver module"""
+    print('Parsing {}'.format(module_name))
+    source = load_module_source(module_name)
+    root = ast.parse(source)
+    has_special_vars, values = get_module_level_special_vars(module_name, root)
+    requirements = get_imports(source, root)
+
+    # TODO: Make per-class priority, params, etc. (maybe)
+    caf = ClassAttrFinder(root, 'instrumental.drivers.' + module_name)
+    print(caf.class_info)
+    if caf.has_class_vars:
+        if has_special_vars:
+            raise ValueError("Can't mix module-level and class-level special INSTR vars")
+        classes = []
+        params = set()
+        priority = 5
+        visa_info = {}
+        for classname, vars in caf.class_info.items():
+            classes.append(classname)
+            params = params.union(vars.get('_INST_PARAMS_', ()))
+            priority = max(priority, vars.get('_INST_PRIORITY_', 5))
+            if '_INST_VISA_INFO_' in vars:
+                visa_info[classname] = vars['_INST_VISA_INFO_']
+        values['_INST_CLASSES'] = classes
+        values['_INST_PARAMS'] = list(params)
+        values['_INST_PRIORITY'] = priority
+        values['_INST_VISA_INFO'] = visa_info or None
+        has_special_vars = True
 
     values['nonstd_imports'] = filter_std_modules(requirements)
     return has_special_vars, values
@@ -257,6 +290,39 @@ def generate_info_file():
 
             f.write('    }),\n')
         f.write('])\n')
+
+
+class ClassAttrFinder(ast.NodeVisitor):
+    """A NodeVisitor to find special _INSTR_ class attributes"""
+    def __init__(self, tree, module):
+        self.ns = {}
+        self.class_info = {}
+        self.has_class_vars = False
+        self.module = module
+        self.visit(tree)
+
+    def visit_Import(self, node):
+        for alias in node.names:
+            self.ns[alias.asname or alias.name] = alias.name
+
+    def visit_ImportFrom(self, node):
+        for alias in node.names:
+            if node.module:
+                module_parts = node.module.split('.')
+            else:
+                module_parts = self.module.split('.')[:-node.level]
+            self.ns[alias.asname or alias.name] = '.'.join(module_parts + [alias.name])
+
+    def visit_ClassDef(self, node):
+        info = self.class_info[node.name] = {}
+        for stmt in node.body:
+            if isinstance(stmt, ast.Assign):
+                for target in stmt.targets:
+                    if isinstance(target, ast.Name):
+                        attr_name = target.id
+                        if attr_name in DVAR_NAMES:
+                            info[attr_name] = ast.literal_eval(stmt.value)
+                            self.has_class_vars = True
 
 
 if __name__ == '__main__':
