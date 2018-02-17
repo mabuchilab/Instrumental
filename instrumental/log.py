@@ -64,7 +64,8 @@ PKG_LOGGER = get_logger('instrumental')
 ROOT_LOGGER = get_logger(add_NullHandler=True)
 
 
-def log_to_screen(level=INFO):
+def log_to_screen(level=INFO, fmt=None):
+    fmt = fmt or DEFAULT_FMT
     handler = logging.StreamHandler()
     handler.setLevel(DEBUG)
 
@@ -75,7 +76,7 @@ def log_to_screen(level=INFO):
         level = {'': level}
     handler.addFilter(Filter(level))
 
-    handler.setFormatter(logging.Formatter(fmt=DEFAULT_FMT))
+    handler.setFormatter(logging.Formatter(fmt=fmt))
     ROOT_LOGGER.addHandler(handler)
     if ROOT_LOGGER.getEffectiveLevel() > min_level:
         ROOT_LOGGER.setLevel(min_level)
