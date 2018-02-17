@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2017 Nate Bogdanowicz
+# Copyright 2015-2018 Nate Bogdanowicz
 """
 Driver for PCO Pixelfly cameras.
 """
@@ -11,16 +11,13 @@ import numpy as np
 from scipy.interpolate import interp1d
 import win32event
 
-from nicelib import NiceLib, NiceObjectDef, load_lib
+from nicelib import NiceLib, Sig, NiceObject, load_lib, RetHandler
 
 from . import Camera
 from .. import ParamSet
 from ..util import check_units
 from ...errors import Error, TimeoutError, LibError
 from ... import Q_, u
-
-_INST_PARAMS = ['number']
-_INST_CLASSES = ['Pixelfly']
 
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
@@ -36,62 +33,64 @@ class PixelflyLibError(LibError):
     MSG_FORMAT = '(0x{:X}) {}'
 
 
-class NicePixelfly(NiceLib):
-    _info = info
+@RetHandler(num_retvals=0)
+def pixelfly_errorcheck(code):
+    from ._pixelfly import errortext  # Hide from sphinx
+    if code != 0:
+        pbuf = errortext.ffi.new('char[]', 1024)
+        errortext.lib.PCO_GetErrorText(errortext.ffi.cast('unsigned int', code), pbuf, len(pbuf))
+        err_message = errortext.ffi.string(pbuf)
+        raise PixelflyLibError(code & 0xFFFFFFFF, err_message)
 
-    def _ret(code):
-        from ._pixelfly import errortext  # Hide from sphinx
-        if code != 0:
-            pbuf = errortext.ffi.new('char[]', 1024)
-            errortext.lib.PCO_GetErrorText(errortext.ffi.cast('unsigned int', code), pbuf,
-                                           len(pbuf))
-            err_message = errortext.ffi.string(pbuf)
-            raise PixelflyLibError(code & 0xFFFFFFFF, err_message)
+
+class NicePixelfly(NiceLib):
+    _info_ = info
+    _ret_ = pixelfly_errorcheck
 
     INITBOARD = ('in', 'out')  # Second arg should really be 'inout'
     CHECK_BOARD_AVAILABILITY = ('in')
 
-    def _GETBOARDVAL(pcc_val):
-        data = ffi.new('DWORD*')
-        NicePixelfly._GETBOARDVAL.orig(pcc_val, ffi.cast('void*', data))
-        return data[0]
-    _GETBOARDVAL.sig = ('in', 'in', 'inout')
+    class Board(NiceObject):
+        _init_ = 'INITBOARD'
 
-    Board = NiceObjectDef(init='INITBOARD', attrs=dict(
-        CLOSEBOARD = ('inout'),
-        START_CAMERA = ('in'),
-        STOP_CAMERA = ('in'),
-        TRIGGER_CAMERA = ('in'),
-        SETMODE = ('in', 'in', 'in', 'in', 'in', 'in', 'in', 'in', 'in', 'in'),
-        SET_EXPOSURE = ('in', 'in'),
-        GETMODE = ('in', 'out', 'out', 'out', 'out', 'out', 'out', 'out', 'out', 'out'),
-        GETSIZES = ('in', 'out', 'out', 'out', 'out', 'out'),
-        GETBOARDVAL = _GETBOARDVAL,
-        READVERSION = ('in', 'in', 'buf', 'len=64'),
-        READTEMPERATURE = ('in', 'out'),
-        WRRDORION = ('in', 'in', 'out'),
-        SETORIONINT = ('in', 'in', 'in', 'in', 'in'),  # TODO: NiceLib needs something like bufin
-        GETORIONINT = ('in', 'in', 'in', 'buf', 'len'),
-        READEEPROM = ('in', 'in', 'in', 'out'),
-        WRITEEEPROM = ('in', 'in', 'in', 'in'),
-        SETTIMEOUTS = ('in', 'in', 'in', 'in'),
-        #SET_TIMEOUT_VALUES = ('in', 'arr', 'len'),  # TODO: len is in bytes
-        SETDRIVER_EVENT = ('in', 'in', 'inout'),
-        PCC_GET_VERSION = ('in', 'out', 'out'),
-        READ_IMAGE = ('in', 'in', 'len', 'arr', 'in'),  # TODO: Check this
-        ALLOCATE_BUFFER_EX = ('in', 'inout', 'in', 'inout', 'inout'),
-        FREE_BUFFER = ('in', 'in'),
-        SETBUFFER_EVENT = ('in', 'in', 'inout'),
-        CLEARBUFFER_EVENT = ('in', 'in', 'inout'),
-        PCC_RESETEVENT = ('in', 'in'),
-        ADD_BUFFER_TO_LIST = ('in', 'in', 'in', 'in', 'in'),
-        REMOVE_BUFFER_FROM_LIST = ('in', 'in'),
-        ADD_BUFFER = ('in', 'in', 'in', 'in', 'in'),
-        REMOVE_BUFFER = ('in', 'in'),
-        REMOVE_ALL_BUFFERS_FROM_LIST = ('in'),
-        PCC_WAITFORBUFFER = ('in', 'in', 'inout', 'in'),
-        GETBUFFER_STATUS = ('in', 'in', 'in', 'arr', 'len=4:byte'),
-    ))
+        CLOSEBOARD = Sig('inout')
+        START_CAMERA = Sig('in')
+        STOP_CAMERA = Sig('in')
+        TRIGGER_CAMERA = Sig('in')
+        SETMODE = Sig('in', 'in', 'in', 'in', 'in', 'in', 'in', 'in', 'in', 'in')
+        SET_EXPOSURE = Sig('in', 'in')
+        GETMODE = Sig('in', 'out', 'out', 'out', 'out', 'out', 'out', 'out', 'out', 'out')
+        GETSIZES = Sig('in', 'out', 'out', 'out', 'out', 'out')
+        READVERSION = Sig('in', 'in', 'buf', 'len=64')
+        READTEMPERATURE = Sig('in', 'out')
+        WRRDORION = Sig('in', 'in', 'out')
+        SETORIONINT = Sig('in', 'in', 'in', 'in', 'in')  # TODO: NiceLib needs something like bufin
+        GETORIONINT = Sig('in', 'in', 'in', 'buf', 'len')
+        READEEPROM = Sig('in', 'in', 'in', 'out')
+        WRITEEEPROM = Sig('in', 'in', 'in', 'in')
+        SETTIMEOUTS = Sig('in', 'in', 'in', 'in')
+        #SET_TIMEOUT_VALUES = Sig('in', 'arr', 'len')  # TODO: len is in bytes
+        SETDRIVER_EVENT = Sig('in', 'in', 'inout')
+        PCC_GET_VERSION = Sig('in', 'out', 'out')
+        READ_IMAGE = Sig('in', 'in', 'len', 'arr', 'in')  # TODO: Check this
+        ALLOCATE_BUFFER_EX = Sig('in', 'inout', 'in', 'inout', 'inout')
+        FREE_BUFFER = Sig('in', 'in')
+        SETBUFFER_EVENT = Sig('in', 'in', 'inout')
+        CLEARBUFFER_EVENT = Sig('in', 'in', 'inout')
+        PCC_RESETEVENT = Sig('in', 'in')
+        ADD_BUFFER_TO_LIST = Sig('in', 'in', 'in', 'in', 'in')
+        REMOVE_BUFFER_FROM_LIST = Sig('in', 'in')
+        ADD_BUFFER = Sig('in', 'in', 'in', 'in', 'in')
+        REMOVE_BUFFER = Sig('in', 'in')
+        REMOVE_ALL_BUFFERS_FROM_LIST = Sig('in')
+        PCC_WAITFORBUFFER = Sig('in', 'in', 'inout', 'in')
+        GETBUFFER_STATUS = Sig('in', 'in', 'in', 'arr', 'len=4:byte')
+
+        @Sig('in', 'in', 'inout')
+        def GETBOARDVAL(self, pcc_val):
+            data = ffi.new('DWORD*')
+            self._autofunc_GETBOARDVAL(pcc_val, ffi.cast('void*', data))
+            return data[0]
 
 
 # Load QE curves
@@ -111,6 +110,8 @@ def unitful_boardval(pcc_val, units):
 
 
 class Pixelfly(Camera):
+    _INST_PARAMS_ = ['number']
+
     DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
     DEFAULT_KWDS.update(trig='software', shutter='single', gain='low')
 
