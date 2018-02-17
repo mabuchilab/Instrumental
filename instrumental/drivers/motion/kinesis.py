@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2017 Christopher Rogers, Dodd Gray, and Nate Bogdanowicz
+# Copyright 2016-2018 Christopher Rogers, Dodd Gray, and Nate Bogdanowicz
 """
 Driver for controlling Thorlabs Kinesis devices. Currently only directs the K10CR1 rotation stage.
 """
 from __future__ import division
 from enum import Enum
-from nicelib import NiceLib, NiceObjectDef, load_lib
+from nicelib import NiceLib, Sig, NiceObject, load_lib, RetHandler, ret_return, ret_ignore
 
 from . import Motion
 from .. import ParamSet
@@ -15,9 +15,6 @@ from ...log import get_logger
 from ...util import to_str
 
 log = get_logger(__name__)
-
-_INST_PARAMS = ['serial']
-_INST_CLASSES = ['K10CR1']
 
 __all__ = ['K10CR1']
 
@@ -106,74 +103,72 @@ class KinesisError(Exception):
         self.code = code
 
 
+@RetHandler(num_retvals=0)
+def ret_errcheck(ret):
+    if ret != 0:
+        raise KinesisError(ret)
+
+
+@RetHandler(num_retvals=0)
+def ret_success(ret, funcname):
+    if not ret:
+        raise KinesisError(msg="Call to function '{}' failed".format(funcname))
+
+
 class NiceKinesisISC(NiceLib):
-    """ This class provides a convenient low-level wrapper for the library
-    Thorlabs.MotionControl.FilterFlipper.dll"""
-    _info = load_lib('kinesis', __package__)
+    """Mid-level wrapper for Thorlabs.MotionControl.IntegratedStepperMotors.dll"""
+    _info_ = load_lib('kinesis', __package__)
+    _prefix_ = 'TLI_'
+    _ret_ = ret_errcheck
 
-    #
-    # Error wrapping functions
-    #
-    def _ret(ret):
-        if ret != 0:
-            raise KinesisError(ret)
+    BuildDeviceList = Sig()
+    GetDeviceListSize = Sig(ret=ret_return)
+    GetDeviceListExt = Sig('buf', 'len')
+    GetDeviceListByTypeExt = Sig('buf', 'len', 'in')
+    GetDeviceListByTypesExt = Sig('buf', 'len', 'in', 'in')
+    GetDeviceInfo = Sig('in', 'out')
 
-    def _ret_success(ret, funcname):
-        if not ret:
-            raise KinesisError(msg="Call to function '{}' failed".format(funcname))
+    # GetDeviceList = Sig('out')
+    # GetDeviceListByType = Sig('out', 'in', dict(first_arg=False))
+    # GetDeviceListByTypes = Sig('out', 'in', 'in', dict(first_arg=False))
 
-    #
-    # Function signatures
-    #
-    _prefix = 'TLI_'
+    class Device(NiceObject):
+        _prefix_ = 'ISC_'
 
-    BuildDeviceList = ()
-    GetDeviceListSize = ({'ret': 'return'},)
-    GetDeviceListExt = ('buf', 'len')
-    GetDeviceListByTypeExt = ('buf', 'len', 'in')
-    GetDeviceListByTypesExt = ('buf', 'len', 'in', 'in')
-    GetDeviceInfo = ('in', 'out')
-
-    # GetDeviceList = ('out')
-    # GetDeviceListByType = ('out', 'in', dict(first_arg=False))
-    # GetDeviceListByTypes = ('out', 'in', 'in', dict(first_arg=False))
-
-    Device = NiceObjectDef(prefix='ISC_', attrs=dict(
-        Open = ('in'),
-        Close = ('in', {'ret': 'return'}),
-        Identify = ('in', {'ret': 'ignore'}),
-        GetHardwareInfo = ('in', 'buf', 'len', 'out', 'out', 'buf', 'len', 'out', 'out', 'out'),
-        GetFirmwareVersion = ('in', {'ret': 'return'}),
-        GetSoftwareVersion = ('in', {'ret': 'return'}),
-        LoadSettings = ('in', {'ret': 'success'}),
-        PersistSettings = ('in', {'ret': 'success'}),
-        GetNumberPositions = ('in', {'ret': 'return'}),
-        CanHome = ('in', {'ret': 'return'}),
-        Home = ('in'),
-        NeedsHoming = ('in', {'ret': 'return'}),
-        MoveToPosition = ('in', 'in'),
-        GetPosition = ('in', {'ret': 'return'}),
-        GetPositionCounter = ('in', {'ret': 'return'}),
-        RequestStatus = ('in'),
-        RequestStatusBits = ('in'),
-        GetStatusBits = ('in', {'ret': 'return'}),
-        StartPolling = ('in', 'in', {'ret': 'success'},),
-        PollingDuration = ('in', {'ret': 'return'}),
-        StopPolling = ('in', {'ret': 'ignore'}),
-        RequestSettings = ('in'),
-        ClearMessageQueue = ('in', {'ret': 'ignore'}),
-        RegisterMessageCallback = ('in', 'in', {'ret': 'ignore'}),
-        MessageQueueSize = ('in', {'ret': 'return'}),
-        GetNextMessage = ('in', 'out', 'out', 'out', {'ret': 'success'}),
-        WaitForMessage = ('in', 'out', 'out', 'out', {'ret': 'success'}),
-        GetMotorParamsExt = ('in', 'out', 'out', 'out'),
-        SetJogStepSize = ('in', 'in'),
-        GetJogVelParams = ('in', 'out', 'out'),
-        GetBacklash = ('in', {'ret': 'return'}),
-        SetBacklash = ('in', 'in'),
-        GetLimitSwitchParams = ('in', 'out', 'out', 'out', 'out', 'out'),
-        GetLimitSwitchParamsBlock = ('in', 'out'),
-    ))
+        Open = Sig('in')
+        Close = Sig('in', ret=ret_return)
+        Identify = Sig('in', ret=ret_ignore)
+        GetHardwareInfo = Sig('in', 'buf', 'len', 'out', 'out', 'buf', 'len', 'out', 'out', 'out')
+        GetFirmwareVersion = Sig('in', ret=ret_return)
+        GetSoftwareVersion = Sig('in', ret=ret_return)
+        LoadSettings = Sig('in', ret=ret_success)
+        PersistSettings = Sig('in', ret=ret_success)
+        GetNumberPositions = Sig('in', ret=ret_return)
+        CanHome = Sig('in', ret=ret_return)
+        Home = Sig('in')
+        NeedsHoming = Sig('in', ret=ret_return)
+        MoveToPosition = Sig('in', 'in')
+        GetPosition = Sig('in', ret=ret_return)
+        GetPositionCounter = Sig('in', ret=ret_return)
+        RequestStatus = Sig('in')
+        RequestStatusBits = Sig('in')
+        GetStatusBits = Sig('in', ret=ret_return)
+        StartPolling = Sig('in', 'in', ret=ret_success)
+        PollingDuration = Sig('in', ret=ret_return)
+        StopPolling = Sig('in', ret=ret_ignore)
+        RequestSettings = Sig('in')
+        ClearMessageQueue = Sig('in', ret=ret_ignore)
+        RegisterMessageCallback = Sig('in', 'in', ret=ret_ignore)
+        MessageQueueSize = Sig('in', ret=ret_return)
+        GetNextMessage = Sig('in', 'out', 'out', 'out', ret=ret_success)
+        WaitForMessage = Sig('in', 'out', 'out', 'out', ret=ret_success)
+        GetMotorParamsExt = Sig('in', 'out', 'out', 'out')
+        SetJogStepSize = Sig('in', 'in')
+        GetJogVelParams = Sig('in', 'out', 'out')
+        GetBacklash = Sig('in', ret=ret_return)
+        SetBacklash = Sig('in', 'in')
+        GetLimitSwitchParams = Sig('in', 'out', 'out', 'out', 'out', 'out')
+        GetLimitSwitchParamsBlock = Sig('in', 'out')
 
 
 STATUS_MOVING_CW = 0x10
@@ -193,6 +188,8 @@ class K10CR1(Motion):
     passed as a pint pint quantity with units of time and is optional argument,
     with a default of 200ms
     """
+    _INST_PARAMS_ = ['serial']
+
     _lib = NiceKinesisISC
 
     # Enums
