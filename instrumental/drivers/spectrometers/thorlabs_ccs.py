@@ -1,24 +1,20 @@
 # -*- coding: utf-8 -*-
 # Copyright 2016-2018 Christopher Rogers, Nate Bogdanowicz
 """
-Driver Module for Thorlabs CCSXXX series spectrometers.  Currently Windows
-only.
+Driver Module for Thorlabs CCSXXX series spectrometers. Currently Windows only.
 """
 import time
 from enum import Enum
 import numpy as np
 from visa import ResourceManager
 from cffi import FFI
-from nicelib import NiceLib, NiceObjectDef, load_lib
+from nicelib import NiceLib, Sig, NiceObject, load_lib, RetHandler, ret_ignore
 
 from . import Spectrometer
 from ..util import check_units, check_enums
 from .. import ParamSet
 from ...errors import Error
 from ... import Q_
-
-_INST_PARAMS = ['serial', 'usb', 'model']
-_INST_CLASSES = ['CCS']
 
 IDLE = 2
 CONT_SCAN = 4
@@ -31,9 +27,7 @@ ffi = FFI()
 
 
 def list_instruments():
-    """
-    Get a list of all spectrometers currently attached.
-    """
+    """Get a list of all spectrometers currently attached"""
     paramsets = []
     search_string = "USB?*?{VI_ATTR_MANF_ID==0x1313 && ((VI_ATTR_MODEL_CODE==0x8081) || (VI_ATTR_MODEL_CODE==0x8083) || (VI_ATTR_MODEL_CODE==0x8085) || (VI_ATTR_MODEL_CODE==0x8087) || (VI_ATTR_MODEL_CODE==0x8089))}"
     rm = ResourceManager()
@@ -53,52 +47,51 @@ class ThorlabsCCSError(Error):
     pass
 
 
+@RetHandler(num_retvals=0)
+def ccs_errcheck(error_code, niceobj):
+    if error_code != 0:
+        if niceobj is None:
+            raise ThorlabsCCSError(NiceCCSLib.error_message(0, error_code)[0])
+        else:
+            raise ThorlabsCCSError(niceobj.error_message(error_code)[0])
+
+
 class NiceCCSLib(NiceLib):
-    """ Provides a convenient low-level wrapper for the library
-    Thorlabs.MotionControl.TCube.DCServo.dll"""
-    _info = load_lib('tlccs', __package__)
-    _struct_maker = None
-    _prefix = ('tlccs_')
-    _buflen = 256
-    _ret = 'error_code'
+    """Mid-level wrapper for TLCCS_XX.dll"""
+    _info_ = load_lib('tlccs', __package__)
+    _prefix_ = 'tlccs_'
+    _buflen_ = 256
+    _ret_ = ccs_errcheck
 
-    def _ret_error_code(error_code, niceobj):
-        if error_code != 0:
-            if niceobj is None:
-                raise ThorlabsCCSError(NiceCCSLib.error_message(0, error_code)[0])
-            else:
-                raise ThorlabsCCSError(niceobj.error_message(error_code)[0])
+    init = Sig('in', 'in', 'in', 'out')
+    error_message = Sig('in', 'in', 'buf[512]')
 
-    init = ('in', 'in', 'in', 'out')
-    error_message = ('in', 'in', 'buf[512]')
-
-    NiceCCS = NiceObjectDef({
-        'close': ('in'),
-        'setIntegrationTime': ('in', 'in'),
-        'getIntegrationTime': ('in', 'out'),
-        'startScan': ('in'),
-        'startScanCont': ('in'),
-        'startScanExtTrg': ('in'),
-        'startScanContExtTrg': ('in'),
-        'getDeviceStatus': ('in', 'out'),
-        'getScanData': ('in', 'arr[{}]'.format(NUM_RAW_PIXELS)),
-        'getRawScanData': ('in', 'out'),
-        'setWavelengthData': ('in', 'in', 'in', 'in'),
-        'getWavelengthData': ('in', 'in', 'arr[{}]'.format(NUM_RAW_PIXELS), 'out', 'out'),
-        'getUserCalibrationPoints': ('in', 'out', 'out', 'out'),
-        'setAmplitudeData': ('in', 'in', 'in', 'in', 'in'),
-        'getAmplitudeData': ('in', 'arr[{}]'.format(NUM_RAW_PIXELS), 'in', 'in', 'in'),
-        'identificationQuery': ('in', 'buf[256]', 'buf[256]', 'buf[256]', 'buf[256]', 'buf[256]'),
-        'revision_query': ('in', 'out', 'out'),
-        'reset': ('in'),
-        'self_test': ('in', 'out', 'out'),
-        'setUserText': ('in', 'in'),
-        'getUserText': ('in', 'out'),
-        'setAttribute': ('in', 'in', 'in'),
-        'getAttribute': ('in', 'in', 'out'),
-        'error_query': ('in', 'out', 'out'),
-        'error_message': ('in', 'in', 'buf[512]', {'ret': 'ignore'})
-    })
+    class NiceCCS(NiceObject):
+        close = Sig('in')
+        setIntegrationTime = Sig('in', 'in')
+        getIntegrationTime = Sig('in', 'out')
+        startScan = Sig('in')
+        startScanCont = Sig('in')
+        startScanExtTrg = Sig('in')
+        startScanContExtTrg = Sig('in')
+        getDeviceStatus = Sig('in', 'out')
+        getScanData = Sig('in', 'arr[{}]'.format(NUM_RAW_PIXELS))
+        getRawScanData = Sig('in', 'out')
+        setWavelengthData = Sig('in', 'in', 'in', 'in')
+        getWavelengthData = Sig('in', 'in', 'arr[{}]'.format(NUM_RAW_PIXELS), 'out', 'out')
+        getUserCalibrationPoints = Sig('in', 'out', 'out', 'out')
+        setAmplitudeData = Sig('in', 'in', 'in', 'in', 'in')
+        getAmplitudeData = Sig('in', 'arr[{}]'.format(NUM_RAW_PIXELS), 'in', 'in', 'in')
+        identificationQuery = Sig('in', 'buf[256]', 'buf[256]', 'buf[256]', 'buf[256]', 'buf[256]')
+        revision_query = Sig('in', 'out', 'out')
+        reset = Sig('in')
+        self_test = Sig('in', 'out', 'out')
+        setUserText = Sig('in', 'in')
+        getUserText = Sig('in', 'out')
+        setAttribute = Sig('in', 'in', 'in')
+        getAttribute = Sig('in', 'in', 'out')
+        error_query = Sig('in', 'out', 'out')
+        error_message = Sig('in', 'in', 'buf[512]', ret=ret_ignore)
 
 
 class SpecTypes(Enum):
@@ -142,17 +135,16 @@ class Status():
 
 
 class CCS(Spectrometer):
-    """
-    A CCS-series Thorlabs spectrometer.
+    """Thorlabs CCS-series spectrometer.
 
-    If this construcor is called, it will
-    connect to the first available spectrometer (if there is at least one).
-    It can also be accessed by calling get_spectrometer using any one of the
-    parameters 'address', 'serial', or 'model'.  Calling the function
-    :py:func:`~instrumental.drivers.instrument`, using any one of
-    the parameters 'ccs_usb_address', 'ccs_serial_number', or 'ccs_model'
-    will also return a CCS instance (if successful).
+    If this construcor is called, it will connect to the first available spectrometer (if there is
+    at least one). It can also be accessed by calling get_spectrometer using any one of the
+    parameters 'address', 'serial', or 'model'. Calling the function
+    :py:func:`~instrumental.drivers.instrument`, using any one of the parameters 'ccs_usb_address',
+    'ccs_serial_number', or 'ccs_model' will also return a CCS instance (if successful).
     """
+    _INST_PARAMS_ = ['serial', 'usb', 'model']
+
     def _initialize(self):
         self.Status = Status
         self.ID_Info = ID_Info
