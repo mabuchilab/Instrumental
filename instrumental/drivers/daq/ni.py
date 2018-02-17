@@ -19,9 +19,6 @@ from ...errors import Error, TimeoutError
 from ..util import check_units, check_enums, as_enum
 from . import DAQ
 
-_INST_PARAMS = ['name', 'serial', 'model']
-_INST_CLASSES = ['NIDAQ']
-
 __all__ = ['NIDAQ', 'AnalogIn', 'AnalogOut', 'VirtualDigitalChannel', 'SampleMode', 'EdgeSlope',
            'TerminalConfig', 'RelativeTo', 'ProductCategory', 'DAQError']
 
@@ -1429,6 +1426,8 @@ class VirtualDigitalChannel(Channel):
 
 
 class NIDAQ(DAQ):
+    _INST_PARAMS_ = ['name', 'serial', 'model']
+
     mx = NiceNI
     Task = Task
 
