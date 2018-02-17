@@ -15,25 +15,6 @@ from .. import VisaMixin, SCPI_Facet
 from ..util import visa_context
 from ... import u, Q_
 
-_INST_PARAMS = ['visa_address']
-_INST_VISA_INFO = {
-    'TDS_200': ('TEKTRONIX', ['TDS 210', 'TDS 220', 'TDS 224']),
-    'TDS_1000': ('TEKTRONIX', ['TDS 1001B', 'TDS 1002B', 'TDS 1012B']),
-    'TDS_2000': ('TEKTRONIX', ['TDS 2002B', 'TDS 2004B',
-                               'TDS 2012B', 'TDS 2014B',
-                               'TDS 2022B', 'TDS 2024B']),
-    'TDS_3000': ('TEKTRONIX', ['TDS 3012', 'TDS 3012B', 'TDS 3012C',
-                               'TDS 3014', 'TDS 3014B', 'TDS 3014C',
-                               'TDS 3032', 'TDS 3032B', 'TDS 3032C',
-                               'TDS 3034', 'TDS 3034B', 'TDS 3034C',
-                               'TDS 3052', 'TDS 3052B', 'TDS 3052C',
-                               'TDS 3054', 'TDS 3054B', 'TDS 3054C',]),
-    'MSO_DPO_4000': ('TEKTRONIX', ['MSO4032', 'DPO4032',
-                                   'MSO4034', 'DPO4034',
-                                   'MSO4054', 'DPO4054',
-                                   'MSO4104', 'DPO4104',])
-}
-
 
 MODEL_CHANNELS = {
     'TDS 210': 2,
@@ -329,24 +310,37 @@ class StatScope(TekScope):
 
 class TDS_200(TekScope):
     """A Tektronix TDS 200 series oscilloscope"""
-    pass
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('TEKTRONIX', ['TDS 210', 'TDS 220', 'TDS 224'])
 
 
 class TDS_1000(TekScope):
     """A Tektronix TDS 1000 series oscilloscope"""
-    pass
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('TEKTRONIX', ['TDS 1001B', 'TDS 1002B', 'TDS 1012B'])
 
 
 class TDS_2000(TekScope):
     """A Tektronix TDS 2000 series oscilloscope"""
-    pass
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('TEKTRONIX', ['TDS 2002B', 'TDS 2004B',
+                                      'TDS 2012B', 'TDS 2014B',
+                                      'TDS 2022B', 'TDS 2024B'])
 
 
 class TDS_3000(StatScope):
     """A Tektronix TDS 3000 series oscilloscope."""
-    pass
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('TEKTRONIX', ['TDS 3012', 'TDS 3012B', 'TDS 3012C',
+                                      'TDS 3014', 'TDS 3014B', 'TDS 3014C',
+                                      'TDS 3032', 'TDS 3032B', 'TDS 3032C',
+                                      'TDS 3034', 'TDS 3034B', 'TDS 3034C',
+                                      'TDS 3052', 'TDS 3052B', 'TDS 3052C',
+                                      'TDS 3054', 'TDS 3054B', 'TDS 3054C',])
 
 
 class MSO_DPO_4000(StatScope):
     """A Tektronix MSO/DPO 4000 series oscilloscope."""
-    pass
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('TEKTRONIX', ['MSO4032', 'DPO4032', 'MSO4034', 'DPO4034',
+                                      'MSO4054', 'DPO4054', 'MSO4104', 'DPO4104',])
