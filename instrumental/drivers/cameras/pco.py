@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2017 Nate Bogdanowicz
+# Copyright 2015-2018 Nate Bogdanowicz
 """
 Driver for PCO cameras that use the PCO.camera SDK.
 """
@@ -14,7 +14,7 @@ from time import clock
 import numpy as np
 from cffi import FFI, cparser
 from pycparser import CParser
-from nicelib import NiceLib, NiceObjectDef
+from nicelib import NiceLib, Sig, NiceObject, RetHandler
 
 from . import Camera
 from ..util import as_enum, unit_mag, check_units
@@ -27,10 +27,6 @@ log = get_logger(__name__)
 
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
-
-_INST_PRIORITY = 9  # This driver is very slow
-_INST_PARAMS = ['number', 'interface']
-_INST_CLASSES = ['PCO_Camera']
 
 __all__ = ['PCO_Camera']
 
@@ -75,14 +71,21 @@ def get_error_text(ret_code):
     return errortext.ffi.string(pbuf)
 
 
-class NicePCO(NiceLib):
-    def _ret(code):
-        if code != 0:
-            e = Error(get_error_text(code))
-            e.code = code & 0xFFFFFFFF
-            raise e
+@RetHandler(num_retvals=0)
+def pco_errcheck(code):
+    if code != 0:
+        e = Error(get_error_text(code))
+        e.code = code & 0xFFFFFFFF
+        raise e
 
-    def _struct_maker(*args):
+
+class NicePCO(NiceLib):
+    _ffi_ = ffi
+    _ffilib_ = lib
+    _prefix_ = 'PCO_'
+    _ret_ = pco_errcheck
+
+    def _struct_maker_(*args):
         """PCO makes you fill in the wSize field of every struct"""
         struct_p = ffi.new(*args)
         struct_p[0].wSize = ffi.sizeof(struct_p[0])
@@ -93,65 +96,56 @@ class NicePCO(NiceLib):
                 s.wSize = ffi.sizeof(s)
         return struct_p
 
-    _ffi = ffi
-    _ffilib = lib
-    _prefix = 'PCO_'
+    OpenCamera = Sig('inout', 'ignore')
+    OpenCameraEx = Sig('inout', 'inout')
 
-    OpenCamera = ('inout', 'ignore')
-    OpenCameraEx = ('inout', 'inout')
-
-    # Special cases
-    def _GetTransferParameter(hcam, niceobj=None):
-        params_p = ffi.new('PCO_SC2_CL_TRANSFER_PARAM *')
-        void_p = ffi.cast('void *', params_p)
-        lib.PCO_GetTransferParameter(hcam, void_p, ffi.sizeof(params_p[0]))
-        # Should do error checking...
-        return params_p[0]
-
-    def _SetTransferParametersAuto(hcam, niceobj=None):
-        lib.PCO_SetTransferParametersAuto(hcam, ffi.NULL, 0)
-        # Should do error checking...
-
-    Camera = NiceObjectDef({
-        'CloseCamera': ('in'),
-        'GetSizes': ('in', 'out', 'out', 'out', 'out'),
-        'SetROI': ('in', 'in', 'in', 'in', 'in'),
-        'GetROI': ('in', 'out', 'out', 'out', 'out'),
-        'GetInfoString': ('in', 'in', 'buf', 'len'),
-        'GetCameraName': ('in', 'buf40', 'len'),
-        'GetRecordingState': ('in', 'out'),
-        'SetRecordingState': ('in', 'in'),
-        'SetDelayExposureTime': ('in', 'in', 'in', 'in', 'in'),
-        'GetDelayExposureTime': ('in', 'out', 'out', 'out', 'out'),
-        'SetFrameRate': ('in', 'out', 'in', 'inout', 'inout'),
-        'GetFrameRate': ('in', 'out', 'out', 'out'),
-        'ArmCamera': ('in'),
-        'SetBinning': ('in', 'in', 'in'),
-        'GetBinning': ('in', 'out', 'out'),
-        'GetActiveLookupTable': ('in', 'out', 'out'),
-        'SetActiveLookupTable': ('in', 'inout', 'inout'),
-        'GetPixelRate': ('in', 'out'),
+    class Camera(NiceObject):
+        CloseCamera = Sig('in')
+        GetSizes = Sig('in', 'out', 'out', 'out', 'out')
+        SetROI = Sig('in', 'in', 'in', 'in', 'in')
+        GetROI = Sig('in', 'out', 'out', 'out', 'out')
+        GetInfoString = Sig('in', 'in', 'buf', 'len')
+        GetCameraName = Sig('in', 'buf', 'len', buflen=40)
+        GetRecordingState = Sig('in', 'out')
+        SetRecordingState = Sig('in', 'in')
+        SetDelayExposureTime = Sig('in', 'in', 'in', 'in', 'in')
+        GetDelayExposureTime = Sig('in', 'out', 'out', 'out', 'out')
+        SetFrameRate = Sig('in', 'out', 'in', 'inout', 'inout')
+        GetFrameRate = Sig('in', 'out', 'out', 'out')
+        ArmCamera = Sig('in')
+        SetBinning = Sig('in', 'in', 'in')
+        GetBinning = Sig('in', 'out', 'out')
+        GetActiveLookupTable = Sig('in', 'out', 'out')
+        SetActiveLookupTable = Sig('in', 'inout', 'inout')
+        GetPixelRate = Sig('in', 'out')
         # GetTransferParameter = ('in', 'buf', 'len')
-        'GetTriggerMode': ('in', 'out'),
-        'SetTriggerMode': ('in', 'in'),
-        'ForceTrigger': ('in', 'out'),
-        'AllocateBuffer': ('in', 'inout', 'in', 'inout', 'inout'),
-        'CamLinkSetImageParameters': ('in', 'in', 'in'),
-        'FreeBuffer': ('in', 'in'),
-        'CancelImages': ('in'),
-        'AddBufferEx': ('in', 'in', 'in', 'in', 'in', 'in', 'in'),
-        'GetBufferStatus': ('in', 'in', 'out', 'out'),
-        'GetLookupTableInfo': ('in', 'in', 'out', 'buf20', 'len', 'out', 'out', 'out', 'out'),
-        'GetCameraDescription': ('in', 'out'),
-        'EnableSoftROI': ('in', 'in', 'in', 'in'),
-        'GetHWIOSignalDescriptor': ('in', 'in', 'out'),
-        'GetHWIOSignal': ('in', 'in', 'out'),
-        'SetHWIOSignal': ('in', 'in', 'in'),
-        'GetIRSensitivity': ('in', 'out'),
-        'SetIRSensitivity': ('in', 'in'),
-        'GetTransferParameter': _GetTransferParameter,
-        'SetTransferParametersAuto': _SetTransferParametersAuto,
-    })
+        GetTriggerMode = Sig('in', 'out')
+        SetTriggerMode = Sig('in', 'in')
+        ForceTrigger = Sig('in', 'out')
+        AllocateBuffer = Sig('in', 'inout', 'in', 'inout', 'inout')
+        CamLinkSetImageParameters = Sig('in', 'in', 'in')
+        FreeBuffer = Sig('in', 'in')
+        CancelImages = Sig('in')
+        AddBufferEx = Sig('in', 'in', 'in', 'in', 'in', 'in', 'in')
+        GetBufferStatus = Sig('in', 'in', 'out', 'out')
+        GetLookupTableInfo = Sig('in', 'in', 'out', 'buf', 'len', 'out', 'out', 'out', 'out',
+                                 buflen=20)
+        GetCameraDescription = Sig('in', 'out')
+        EnableSoftROI = Sig('in', 'in', 'in', 'in')
+        GetHWIOSignalDescriptor = Sig('in', 'in', 'out')
+        GetHWIOSignal = Sig('in', 'in', 'out')
+        SetHWIOSignal = Sig('in', 'in', 'in')
+        GetIRSensitivity = Sig('in', 'out')
+        SetIRSensitivity = Sig('in', 'in')
+        SetTransferParametersAuto = Sig('in', 'ignore', 'ignore')
+
+        def GetTransferParameter(self):
+            hcam, = self._handles
+            params_p = ffi.new('PCO_SC2_CL_TRANSFER_PARAM *')
+            void_p = ffi.cast('void *', params_p)
+            ret = lib.PCO_GetTransferParameter(hcam, void_p, ffi.sizeof(params_p[0]))
+            pco_errcheck.__func__(ret)
+            return params_p[0]
 
 
 class BufferInfo(object):
@@ -162,6 +156,9 @@ class BufferInfo(object):
 
 
 class PCO_Camera(Camera):
+    _INST_PARAMS_ = ['number', 'interface']
+    _INST_PRIORITY_ = 9  # This driver is very slow
+
     DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
     DEFAULT_KWDS.update(trig='software', rising=True)
 
@@ -184,7 +181,6 @@ class PCO_Camera(Camera):
 
         _, _, max_width, max_height = self._get_sizes()
         self._set_ROI(0, 0, max_width, max_height)
-
 
     # Enums
     class FrameRateMode(Enum):
