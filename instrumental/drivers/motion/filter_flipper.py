@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2017 Christopher Rogers, Nate Bogdanowicz
+# Copyright 2016-2018 Christopher Rogers, Nate Bogdanowicz
 """
 Driver for controlling Thorlabs Flipper Filters using the Kinesis SDK.
 
@@ -10,15 +10,12 @@ from enum import Enum
 from time import sleep
 import os.path
 from cffi import FFI
-from nicelib import NiceLib, NiceObjectDef
+from nicelib import NiceLib, Sig, NiceObject, RetHandler, ret_return
 from . import Motion
 from .. import ParamSet
 from ... import Q_
 from ...errors import Error
 from ..util import check_units, check_enums
-
-_INST_PARAMS = ['serial']
-_INST_CLASSES = ['Filter_Flipper']
 
 FILTER_FLIPPER_TYPE = 37
 
@@ -56,72 +53,72 @@ def list_instruments():
             if serial_str and int(serial_str[:2]) == FILTER_FLIPPER_TYPE]
 
 
+@RetHandler(num_retvals=0)
+def ret_success(success):
+    if not success:
+        raise FilterFlipperError('The function did not execute successfully')
+
+
+@RetHandler(num_retvals=0)
+def ret_errcheck(retval):
+    if not (retval == 0 or retval is None):
+        raise FilterFlipperError(error_dict[retval])
+
+
 class NiceFilterFlipper(NiceLib):
-    """ Provides a convenient low-level wrapper for the library
-    Thorlabs.MotionControl.FilterFlipper.dll"""
-    _ret = 'error_code'
-    _struct_maker = None
-    _ffi = ffi
-    _ffilib = lib
-    _prefix = ('FF_', 'TLI_')
-    _buflen = 512
+    """Mid-level wrapper for Thorlabs.MotionControl.FilterFlipper.dll"""
+    _ffi_ = ffi
+    _ffilib_ = lib
+    _prefix_ = ('FF_', 'TLI_')
+    _buflen_ = 512
+    _ret_ = ret_errcheck
 
-    def _ret_bool_error_code(success):
-        if not success:
-            raise FilterFlipperError('The function did not execute successfully')
-
-    def _ret_error_code(retval):
-        if not (retval == 0 or retval is None):
-            raise FilterFlipperError(error_dict[retval])
-
-    BuildDeviceList = ()
-    GetDeviceListSize = ({'ret': 'return'},)
-    GetDeviceList = ('out')
-    GetDeviceListByType = ('out', 'in')
-    GetDeviceInfo = ('in', 'out', {'ret': 'bool_error_code'})
+    BuildDeviceList = Sig()
+    GetDeviceListSize = Sig(ret=ret_return)
+    GetDeviceList = Sig('out')
+    GetDeviceListByType = Sig('out', 'in')
+    GetDeviceInfo = Sig('in', 'out', ret=ret_success)
 
     # GetDeviceListByTypes seemed not to be properly implemented in the .dll
-    #    GetDeviceListByTypes = ('out', 'in', 'in')
-    GetDeviceListExt = ('buf', 'len')
-    GetDeviceListByTypeExt = ('buf', 'len', 'in')
-    GetDeviceListByTypesExt = ('buf', 'len', 'in', 'in')
+    #    GetDeviceListByTypes = Sig('out', 'in', 'in')
+    GetDeviceListExt = Sig('buf', 'len')
+    GetDeviceListByTypeExt = Sig('buf', 'len', 'in')
+    GetDeviceListByTypesExt = Sig('buf', 'len', 'in', 'in')
 
-    Flipper = NiceObjectDef({
-        'Open': ('in'),
-        'Close': ('in'),
-        'Identify': ('in'),
-        'GetHardwareInfo': ('in', 'buf', 'len', 'out', 'out', 'buf', 'len',
-                            'out', 'out', 'out'),
-        'GetFirmwareVersion': ('in', {'ret': 'return'}),
-        'GetSoftwareVersion': ('in', {'ret': 'return'}),
-        'LoadSettings': ('in', {'ret': 'bool_error_code'}),
-        'PersistSettings': ('in', {'ret': 'bool_error_code'}),
-        'GetNumberPositions': ('in', {'ret': 'return'}),
-        'Home': ('in'),
-        'MoveToPosition': ('in', 'in'),
-        'GetPosition': ('in', {'ret': 'return'}),
-        'GetIOSettings': ('in', 'out'),
-        'GetTransitTime': ('in', {'ret': 'return'}),
-        'SetTransitTime': ('in', 'in'),
-        'RequestStatus': ('in'),
-        'GetStatusBits': ('in', {'ret': 'return'}),
-        'StartPolling': ('in', 'in', {'ret': 'bool_error_code'}),
-        'PollingDuration': ('in', {'ret': 'return'}),
-        'StopPolling': ('in'),
-        'RequestSettings': ('in'),
-        'ClearMessageQueue': ('in'),
-        'RegisterMessageCallback': ('in', 'in'),
-        'MessageQueueSize': ('in', {'ret': 'return'}),
-        'GetNextMessage': ('in', 'in', 'in', 'in', {'ret': 'bool_error_code'}),
-        'WaitForMessage': ('in', 'in', 'in', 'in', {'ret': 'bool_error_code'}),
-    })
+    class Flipper(NiceObject):
+        Open = Sig('in')
+        Close = Sig('in')
+        Identify = Sig('in')
+        GetHardwareInfo = Sig('in', 'buf', 'len', 'out', 'out', 'buf', 'len', 'out', 'out', 'out')
+        GetFirmwareVersion = Sig('in', ret=ret_return)
+        GetSoftwareVersion = Sig('in', ret=ret_return)
+        LoadSettings = Sig('in', ret=ret_success)
+        PersistSettings = Sig('in', ret=ret_success)
+        GetNumberPositions = Sig('in', ret=ret_return)
+        Home = Sig('in')
+        MoveToPosition = Sig('in', 'in')
+        GetPosition = Sig('in', ret=ret_return)
+        GetIOSettings = Sig('in', 'out')
+        GetTransitTime = Sig('in', ret=ret_return)
+        SetTransitTime = Sig('in', 'in')
+        RequestStatus = Sig('in')
+        GetStatusBits = Sig('in', ret=ret_return)
+        StartPolling = Sig('in', 'in', ret=ret_success)
+        PollingDuration = Sig('in', ret=ret_return)
+        StopPolling = Sig('in')
+        RequestSettings = Sig('in')
+        ClearMessageQueue = Sig('in')
+        RegisterMessageCallback = Sig('in', 'in')
+        MessageQueueSize = Sig('in', ret=ret_return)
+        GetNextMessage = Sig('in', 'in', 'in', 'in', ret=ret_success)
+        WaitForMessage = Sig('in', 'in', 'in', 'in', ret=ret_success)
 
 
 class Position(Enum):
-        """ The position of the flipper. """
-        one = 1
-        two = 2
-        moving = 0
+    """ The position of the flipper. """
+    one = 1
+    two = 2
+    moving = 0
 
 
 class Filter_Flipper(Motion):
@@ -131,6 +128,8 @@ class Filter_Flipper(Motion):
     passed as a pint quantity with units of time and is optional argument,
     with a default of 200ms
     """
+    _INST_PARAMS_ = ['serial']
+
     @check_units(polling_period='ms')
     def _initialize(self, polling_period='200ms'):
         """
