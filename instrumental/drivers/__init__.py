@@ -542,7 +542,22 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         self._instances.add(self)
 
     def _fill_out_paramset(self):
-        mod_params = driver_info[self._driver_name]['params']
+        # TODO: Fix the _INST_ system more fundamentally and remove this hack
+        if hasattr(self, '_INST_PARAMS_'):
+            mod_params = self._INST_PARAMS_
+        else:
+            try:
+                mod_params = driver_info[self._driver_name]['params']
+            except KeyError:
+                log.info('Instrument class is lacking static info, checking module directly...')
+                mod = import_module(self.__module__)
+                if hasattr(mod, '_INST_PARAMS'):
+                    mod_params = mod._INST_PARAMS
+                elif isinstance(self, VisaMixin):
+                    # Visa mixins *should* just need a visa resource
+                    mod_params = ['visa_address']
+                else:
+                    raise
         for mod_param_name in mod_params:
             if mod_param_name not in self._paramset.keys():
                 break
