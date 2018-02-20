@@ -223,6 +223,8 @@ def parse_module(module_name):
         priority = 5
         visa_info = {}
         for classname, vars in caf.class_info.items():
+            if not vars:
+                continue
             classes.append(classname)
             params = params.union(vars.get('_INST_PARAMS_', ()))
             priority = max(priority, vars.get('_INST_PRIORITY_', 5))
