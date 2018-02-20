@@ -1,62 +1,16 @@
 Package Overview
 ================
 
-.. _driver-list:
 
 Drivers
 -------
-The ``drivers`` subpackage is the primary focus of Instrumental, and its purpose is to provide relatively high-level 'drivers' for interfacing with lab equipment. Currently it (fully or partially) supports:
+The ``drivers`` subpackage is the primary focus of Instrumental, and its purpose is to provide relatively high-level 'drivers' for interfacing with lab equipment. Currently it supports:
 
-* Cameras
+.. toctree::
+    :titlesonly:
+    :maxdepth: 3
 
-  - PCO SDK (tested on PCO.Edge)
-  - PCO Pixelfly
-  - Photometrics PVCAM
-  - Thorlabs TSI
-  - Thorlabs UC480 / iDS uEye
-
-* DAQs
-
-  - NI-DAQmx
-
-* Function Generators
-
-  - Tektronix AFG3000 series
-
-* Lasers
-
-  - Toptica FemtoFErb 1560
-
-* Lock-in Amplifiers
-
-  - SRS SR850
-
-* Motion Control
-
-  - Thorlabs Kinesis (FilterFlipper/TDC001/K10CR1 currently supported)
-  - Attocube ECC100 Controller
-
-* Multimeters
-
-  - HP 34401A
-
-* Optical Power Meters
-
-  - Newport 1830-C
-  - Thorlabs PM100x series
-
-* Oscilloscopes
-
-  - Tektronix TDS300 and MSO/DPO4000 series (and probably others)
-
-* Spectrometers
-
-  - Bristol 721 spectrum analyzer
-  - Thorlabs CCSxxx series
-
-* Wavemeters
-
-  - Burleigh WA-1000/1500
+    drivers
 
 It should be pretty easy to write drivers for other VISA-compatible devices by using `VisaMixin` and `Facets`. Check out :doc:`driver-dev` for more info. Driver submissions are greatly appreciated!
 
