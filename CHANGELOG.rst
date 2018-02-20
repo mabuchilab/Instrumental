@@ -4,6 +4,30 @@ Change Log
 Unreleased
 ----------
 
+Added
+"""""
+- Explicit support for Tektronix TDS 200, 3000, and MSO/DPO 4000 series scopes
+- ``visa_context`` context manager
+- More properties and Facets to scopes.tektronix
+- More properties and Facets to cameras.uc480
+- ``log`` module with ``log_to_screen()`` function
+- tempcontrollers.covesion driver
+- tempcontrollers.hcphotonics driver
+- Special ``_close_resource`` method for visa instruments
+- Import annotations for specifying driver reqs
+- ``Instrument`` class-embedded ``_INSTR_`` attributes
+
+Changed
+"""""""
+- Fixed some latent color/buffer issues in cameras.uc480's ``load_params()``
+- Hid PCO camera scan dialog
+- Sped up ``check_units()`` and ``unit_mag()``
+- Added NiceLib header-cleanup hooks for recent changes to kinesis headers
+- Converted NiceLib drivers to use NiceLib 0.5
+
+Removed
+"""""""
+
 
 (0.4.2) - 2017-11-14
 --------------------
