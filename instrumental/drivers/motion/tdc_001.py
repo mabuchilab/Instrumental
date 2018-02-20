@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2017 Christopher Rogers, Nate Bogdanowicz
+# Copyright 2016-2018 Christopher Rogers, Nate Bogdanowicz
 """
 Driver for controlling Thorlabs TDC001 T-Cube DC Servo Motor Controllers using the Kinesis SDK.
 
@@ -10,16 +10,13 @@ from enum import Enum
 from time import sleep
 from numpy import zeros
 import os.path
-from nicelib import NiceLib, NiceObjectDef
+from nicelib import NiceLib, Sig, NiceObject, RetHandler, ret_return
 from cffi import FFI
 from . import Motion
 from .. import ParamSet
 from ... import Q_, u
 from ...errors import Error
 from ..util import check_units, check_enums
-
-_INST_PARAMS = ['serial']
-_INST_CLASSES = ['TDC001']
 
 lib_name = 'Thorlabs.MotionControl.TCube.DCServo.dll'
 
@@ -74,6 +71,7 @@ class TDC001(Motion):
     passed as a pint pint quantity with units of time and is optional argument,
     with a default of 200ms
     """
+    _INST_PARAMS_ = ['serial']
 
     @check_units(polling_period='ms')
     def _initialize(self, polling_period='200ms', allow_all_moves=True):
@@ -267,128 +265,129 @@ class TDC001(Motion):
             self.isMoving = temp or self.MotorMovingCCW or self.MotorMovingCW
 
 
+@RetHandler(num_retvals=0)
+def ret_success(success):
+    if not success:
+        raise TDC001Error('The function did not execute successfully')
+
+
+@RetHandler(num_retvals=0)
+def ret_errcheck(retval):
+    if not (retval == 0 or retval is None):
+        raise TDC001Error(error_dict[retval])
+
+
 class NiceTDC001(NiceLib):
-    """ Provides a convenient low-level wrapper for the library
-    Thorlabs.MotionControl.TCube.DCServo.dll"""
-    _ret = 'error_code'
-    _struct_maker = None
-    _ffi = ffi
-    _ffilib = lib
-    _prefix = ('CC_', 'TLI_')
-    _buflen = 512
+    """Mid-level wrapper for Thorlabs.MotionControl.TCube.DCServo.dll"""
+    _ffi_ = ffi
+    _ffilib_ = lib
+    _prefix_ = ('CC_', 'TLI_')
+    _buflen_ = 512
+    _ret_ = ret_errcheck
 
-    def _ret_bool_error_code(success):
-        if not success:
-            raise TDC001Error('The function did not execute successfully')
+    BuildDeviceList = Sig()
+    GetDeviceListSize = Sig(ret=ret_return)
+    GetDeviceInfo = Sig('in', 'out', ret=ret_success)
+    GetDeviceList = Sig('out')
+    GetDeviceListByType = Sig('out', 'in')
+    GetDeviceListByTypes = Sig('out', 'in', 'in')
+    GetDeviceListExt = Sig('buf', 'len')
+    GetDeviceListByTypeExt = Sig('buf', 'len', 'in')
+    GetDeviceListByTypesExt = Sig('buf', 'len', 'in', 'in')
 
-    def _ret_error_code(retval):
-        if not (retval == 0 or retval is None):
-            raise TDC001Error(error_dict[retval])
-
-    BuildDeviceList = ()
-    GetDeviceListSize = ({'ret': 'return'},)
-    GetDeviceInfo = ('in', 'out', {'ret': 'bool_error_code'})
-    GetDeviceList = ('out')
-    GetDeviceListByType = ('out', 'in')
-    GetDeviceListByTypes = ('out', 'in', 'in')
-    GetDeviceListExt = ('buf', 'len')
-    GetDeviceListByTypeExt = ('buf', 'len', 'in')
-    GetDeviceListByTypesExt = ('buf', 'len', 'in', 'in')
-
-    TDC001 = NiceObjectDef({
-        'Open': ('in'),
-        'Close': ('in', {'ret': 'return'}),
-        'Identify': ('in', {'ret': 'return'}),
-        'GetLEDswitches': ('in', {'ret': 'return'}),
-        'SetLEDswitches': ('in', 'in'),
-        'GetHardwareInfo': ('in', 'buf', 'len', 'out', 'out', 'buf', 'len', 'out', 'out', 'out'),
-        'GetHardwareInfoBlock': ('in', 'out'),
-        'GetHubBay': ('in', {'ret': 'return'}),
-        'GetSoftwareVersion': ('in', {'ret': 'return'}),
-        'LoadSettings': ('in', {'ret': 'bool_error_code'}),
-        'PersistSettings': ('in', {'ret': 'bool_error_code'}),
-        'DisableChannel': ('in'),
-        'EnableChannel': ('in'),
-        'GetNumberPositions': ('in', {'ret': 'return'}),
-        'CanHome': ('in', {'ret': 'bool_error_code'}),
-        'NeedsHoming': ('in', {'ret': 'return'}),
-        'Home': ('in'),
-        'MoveToPosition': ('in', 'in'),
-        'GetPosition': ('in', {'ret': 'return'}),
-        'GetHomingVelocity': ('in', {'ret': 'return'}),
-        'SetHomingVelocity': ('in', 'in'),
-        'MoveRelative': ('in', 'in'),
-        'GetJogMode': ('in', 'out', 'out'),
-        'SetJogMode': ('in', 'in', 'in'),
-        'SetJogStepSize': ('in', 'in'),
-        'GetJogStepSize': ('in', {'ret': 'return'}),
-        'GetJogVelParams': ('in', 'out', 'out'),
-        'SetJogVelParams': ('in', 'in', 'in'),
-        'MoveJog': ('in', 'in'),
-        'SetVelParams': ('in', 'in', 'in'),
-        'GetVelParams': ('in', 'out', 'out'),
-        'MoveAtVelocity': ('in', 'in'),
-        'SetDirection': ('in', 'in', {'ret': 'return'}),
-        'StopImmediate': ('in'),
-        'StopProfiled': ('in'),
-        'GetBacklash': ('in', {'ret': 'return'}),
-        'SetBacklash': ('in', 'in'),
-        'GetPositionCounter': ('in', {'ret': 'return'}),
-        'SetPositionCounter': ('in', 'in'),
-        'GetEncoderCounter': ('in', {'ret': 'return'}),
-        'SetEncoderCounter': ('in', 'in'),
-        'GetLimitSwitchParams': ('in', 'out', 'out', 'out', 'out', 'out'),
-        'SetLimitSwitchParams': ('in', 'in', 'in', 'in', 'in', 'in'),
-        'GetSoftLimitMode': ('in', {'ret': 'return'}),
-        'SetLimitsSoftwareApproachPolicy': ('in', 'in', {'ret': 'return'}),
-        'GetButtonParams': ('in', 'out', 'out', 'out', 'out'),
-        'SetButtonParams': ('in', 'in', 'in', 'in'),
-        'SetPotentiometerParams': ('in', 'in', 'in', 'in'),
-        'GetPotentiometerParams': ('in', 'in', 'out', 'out'),
-        'GetVelParamsBlock': ('in', 'out'),
-        'SetVelParamsBlock': ('in', 'in'),
-        'SetMoveAbsolutePosition': ('in', 'in'),
-        'GetMoveAbsolutePosition': ('in', {'ret': 'return'}),
-        'MoveAbsolute': ('in'),
-        'SetMoveRelativeDistance': ('in', 'in'),
-        'GetMoveRelativeDistance': ('in', {'ret': 'return'}),
-        'MoveRelativeDistance': ('in'),
-        'GetHomingParamsBlock': ('in', 'out'),
-        'SetHomingParamsBlock': ('in', 'in'),
-        'GetJogParamsBlock': ('in', 'out'),
-        'SetJogParamsBlock': ('in', 'in'),
-        'GetButtonParamsBlock': ('in', 'out'),
-        'SetButtonParamsBlock': ('in', 'in'),
-        'GetPotentiometerParamsBlock': ('in', 'out'),
-        'SetPotentiometerParamsBlock': ('in', 'in'),
-        'GetLimitSwitchParamsBlock': ('in', 'out'),
-        'SetLimitSwitchParamsBlock': ('in', 'in'),
-        'GetDCPIDParams': ('in', 'out'),
-        'SetDCPIDParams': ('in', 'in'),
-        'SuspendMoveMessages': ('in'),
-        'ResumeMoveMessages': ('in'),
-        'RequestPosition': ('in'),
-        'RequestStatusBits': ('in', {'ret': 'return'}),
-        'GetStatusBits': ('in', {'ret': 'return'}),
-        'StartPolling': ('in', 'in', {'ret': 'bool_error_code'}),
-        'PollingDuration': ('in', {'ret': 'return'}),
-        'StopPolling': ('in', {'ret': 'return'}),
-        'RequestSettings': ('in'),
-        'GetStageAxisMinPos': ('in', {'ret': 'return'}),
-        'GetStageAxisMaxPos': ('in', {'ret': 'return'}),
-        'SetStageAxisLimits': ('in', 'in', 'in'),
-        'SetMotorTravelMode': ('in', 'in'),
-        'GetMotorTravelMode': ('in', {'ret': 'return'}),
-        'SetMotorParams': ('in', 'in', 'in', 'in'),
-        'GetMotorParams': ('in', 'out', 'out', 'out'),
-        'SetMotorParamsExt': ('in', 'in', 'in', 'in'),
-        'GetMotorParamsExt': ('in', 'out', 'out', 'out'),
-        'ClearMessageQueue': ('in', {'ret': 'return'}),
-        'RegisterMessageCallback': ('in', 'in', {'ret': 'return'}),
-        'MessageQueueSize': ('in', {'ret': 'return'}),
-        'GetNextMessage': ('in', 'out', 'out', 'out', {'ret': 'bool_error_code'}),
-        'WaitForMessage': ('in', 'in', 'in', 'in', {'ret': 'bool_error_code'}),
-    })
+    class TDC001(NiceObject):
+        Open = Sig('in')
+        Close = Sig('in', ret=ret_return)
+        Identify = Sig('in', ret=ret_return)
+        GetLEDswitches = Sig('in', ret=ret_return)
+        SetLEDswitches = Sig('in', 'in')
+        GetHardwareInfo = Sig('in', 'buf', 'len', 'out', 'out', 'buf', 'len', 'out', 'out', 'out')
+        GetHardwareInfoBlock = Sig('in', 'out')
+        GetHubBay = Sig('in', ret=ret_return)
+        GetSoftwareVersion = Sig('in', ret=ret_return)
+        LoadSettings = Sig('in', ret=ret_success)
+        PersistSettings = Sig('in', ret=ret_success)
+        DisableChannel = Sig('in')
+        EnableChannel = Sig('in')
+        GetNumberPositions = Sig('in', ret=ret_return)
+        CanHome = Sig('in', ret=ret_success)
+        NeedsHoming = Sig('in', ret=ret_return)
+        Home = Sig('in')
+        MoveToPosition = Sig('in', 'in')
+        GetPosition = Sig('in', ret=ret_return)
+        GetHomingVelocity = Sig('in', ret=ret_return)
+        SetHomingVelocity = Sig('in', 'in')
+        MoveRelative = Sig('in', 'in')
+        GetJogMode = Sig('in', 'out', 'out')
+        SetJogMode = Sig('in', 'in', 'in')
+        SetJogStepSize = Sig('in', 'in')
+        GetJogStepSize = Sig('in', ret=ret_return)
+        GetJogVelParams = Sig('in', 'out', 'out')
+        SetJogVelParams = Sig('in', 'in', 'in')
+        MoveJog = Sig('in', 'in')
+        SetVelParams = Sig('in', 'in', 'in')
+        GetVelParams = Sig('in', 'out', 'out')
+        MoveAtVelocity = Sig('in', 'in')
+        SetDirection = Sig('in', 'in', ret=ret_return)
+        StopImmediate = Sig('in')
+        StopProfiled = Sig('in')
+        GetBacklash = Sig('in', ret=ret_return)
+        SetBacklash = Sig('in', 'in')
+        GetPositionCounter = Sig('in', ret=ret_return)
+        SetPositionCounter = Sig('in', 'in')
+        GetEncoderCounter = Sig('in', ret=ret_return)
+        SetEncoderCounter = Sig('in', 'in')
+        GetLimitSwitchParams = Sig('in', 'out', 'out', 'out', 'out', 'out')
+        SetLimitSwitchParams = Sig('in', 'in', 'in', 'in', 'in', 'in')
+        GetSoftLimitMode = Sig('in', ret=ret_return)
+        SetLimitsSoftwareApproachPolicy = Sig('in', 'in', ret=ret_return)
+        GetButtonParams = Sig('in', 'out', 'out', 'out', 'out')
+        SetButtonParams = Sig('in', 'in', 'in', 'in')
+        SetPotentiometerParams = Sig('in', 'in', 'in', 'in')
+        GetPotentiometerParams = Sig('in', 'in', 'out', 'out')
+        GetVelParamsBlock = Sig('in', 'out')
+        SetVelParamsBlock = Sig('in', 'in')
+        SetMoveAbsolutePosition = Sig('in', 'in')
+        GetMoveAbsolutePosition = Sig('in', ret=ret_return)
+        MoveAbsolute = Sig('in')
+        SetMoveRelativeDistance = Sig('in', 'in')
+        GetMoveRelativeDistance = Sig('in', ret=ret_return)
+        MoveRelativeDistance = Sig('in')
+        GetHomingParamsBlock = Sig('in', 'out')
+        SetHomingParamsBlock = Sig('in', 'in')
+        GetJogParamsBlock = Sig('in', 'out')
+        SetJogParamsBlock = Sig('in', 'in')
+        GetButtonParamsBlock = Sig('in', 'out')
+        SetButtonParamsBlock = Sig('in', 'in')
+        GetPotentiometerParamsBlock = Sig('in', 'out')
+        SetPotentiometerParamsBlock = Sig('in', 'in')
+        GetLimitSwitchParamsBlock = Sig('in', 'out')
+        SetLimitSwitchParamsBlock = Sig('in', 'in')
+        GetDCPIDParams = Sig('in', 'out')
+        SetDCPIDParams = Sig('in', 'in')
+        SuspendMoveMessages = Sig('in')
+        ResumeMoveMessages = Sig('in')
+        RequestPosition = Sig('in')
+        RequestStatusBits = Sig('in', ret=ret_return)
+        GetStatusBits = Sig('in', ret=ret_return)
+        StartPolling = Sig('in', 'in', ret=ret_success)
+        PollingDuration = Sig('in', ret=ret_return)
+        StopPolling = Sig('in', ret=ret_return)
+        RequestSettings = Sig('in')
+        GetStageAxisMinPos = Sig('in', ret=ret_return)
+        GetStageAxisMaxPos = Sig('in', ret=ret_return)
+        SetStageAxisLimits = Sig('in', 'in', 'in')
+        SetMotorTravelMode = Sig('in', 'in')
+        GetMotorTravelMode = Sig('in', ret=ret_return)
+        SetMotorParams = Sig('in', 'in', 'in', 'in')
+        GetMotorParams = Sig('in', 'out', 'out', 'out')
+        SetMotorParamsExt = Sig('in', 'in', 'in', 'in')
+        GetMotorParamsExt = Sig('in', 'out', 'out', 'out')
+        ClearMessageQueue = Sig('in', ret=ret_return)
+        RegisterMessageCallback = Sig('in', 'in', ret=ret_return)
+        MessageQueueSize = Sig('in', ret=ret_return)
+        GetNextMessage = Sig('in', 'out', 'out', 'out', ret=ret_success)
+        WaitForMessage = Sig('in', 'in', 'in', 'in', ret=ret_success)
 
 
 class TDC001Error(Error):
