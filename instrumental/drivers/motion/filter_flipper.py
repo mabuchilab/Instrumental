@@ -16,6 +16,7 @@ from .. import ParamSet
 from ... import Q_
 from ...errors import Error
 from ..util import check_units, check_enums
+from ...util import to_str
 
 FILTER_FLIPPER_TYPE = 37
 
@@ -28,7 +29,7 @@ ffi.cdef("""
       LONG  lLbound;
     } SAFEARRAYBOUND, *LPSAFEARRAYBOUND;
 
-        typedef struct tagSAFEARRAY {
+    typedef struct tagSAFEARRAY {
       USHORT         cDims;
       USHORT         fFeatures;
       ULONG          cbElements;
@@ -47,7 +48,7 @@ lib = ffi.dlopen(lib_name)
 def list_instruments():
     NiceFF = NiceFilterFlipper
     NiceFF.BuildDeviceList()
-    device_list = NiceFF.GetDeviceListByTypeExt(FILTER_FLIPPER_TYPE).split(',')
+    device_list = to_str(NiceFF.GetDeviceListByTypeExt(FILTER_FLIPPER_TYPE)).split(',')
     return [ParamSet(Filter_Flipper, serial=serial_str)
             for serial_str in device_list
             if serial_str and int(serial_str[:2]) == FILTER_FLIPPER_TYPE]

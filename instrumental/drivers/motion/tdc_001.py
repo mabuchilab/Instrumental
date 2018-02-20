@@ -17,6 +17,7 @@ from .. import ParamSet
 from ... import Q_, u
 from ...errors import Error
 from ..util import check_units, check_enums
+from ...util import to_str
 
 lib_name = 'Thorlabs.MotionControl.TCube.DCServo.dll'
 
@@ -29,7 +30,7 @@ ffi.cdef("""
       LONG  lLbound;
     } SAFEARRAYBOUND, *LPSAFEARRAYBOUND;
 
-        typedef struct tagSAFEARRAY {
+    typedef struct tagSAFEARRAY {
       USHORT         cDims;
       USHORT         fFeatures;
       ULONG          cbElements;
@@ -46,7 +47,7 @@ lib = ffi.dlopen(lib_name)
 
 def list_instruments():
     NiceTDC001.BuildDeviceList()
-    device_list = NiceTDC001.GetDeviceListByTypeExt(TDC001_TYPE).split(',')
+    device_list = to_str(NiceTDC001.GetDeviceListByTypeExt(TDC001_TYPE)).split(',')
     return [ParamSet(TDC001, serial=serial_str)
             for serial_str in device_list
             if serial_str and int(serial_str[:2]) == TDC001_TYPE]
