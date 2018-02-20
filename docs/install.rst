@@ -1,6 +1,11 @@
 Installation
 ============
 
+.. contents::
+    :local:
+    :depth: 2
+
+
 Brief Install Instructions
 --------------------------
 
@@ -8,17 +13,16 @@ Starting with version 0.2.1, you can install Instrumental using pip::
 
     $ pip install instrumental-lib
 
-This will install the latest release version along with the core dependencies if they aren't
-already installed. However, it's recommended that you use the the Anaconda distribution so you
-don't have to compile numpy and scipy (see the detailed install instructions below).
+This will install the latest release version along with the core dependencies if they aren't already
+installed. It's recommended that you use the the Anaconda distribution so you don't have to compile
+numpy and scipy (see the detailed install instructions below).
 
 
 Installing the Development Version from GitHub
 ----------------------------------------------
 
-Once you have the core dependencies installed (numpy, scipy, and pint), download and extract a zip
-of Instrumental from the `Github page <https://github.com/mabuchilab/Instrumental>`_ or clone it
-using git. Now install::
+Download and extract a zip of Instrumental from the `Github page
+<https://github.com/mabuchilab/Instrumental>`_ or clone it using git. Now install::
 
     $ cd /path/to/Instrumental
     $ python setup.py install
@@ -34,10 +38,10 @@ Instrumental should install any core dependencies it requires, but if you're hav
 
 Python Sci-Comp Stack
 ~~~~~~~~~~~~~~~~~~~~~
-To install the standard scientific computing stack, I recommend using `Anaconda
-<http://continuum.io/downloads>`_. Download the appropriate installer from the
-download page and run it to install Anaconda. The default installation will
-include NumPy, SciPy, and Matplotlib as well as lots of other useful stuff.
+To install the standard scientific computing stack, we recommend using `Anaconda
+<http://continuum.io/downloads>`_. Download the appropriate installer from the download page and run
+it to install Anaconda. The default installation will include NumPy, SciPy, and Matplotlib as well
+as lots of other useful stuff.
 
 Pint
 ~~~~
@@ -70,7 +74,6 @@ Optional Driver Libraries
 
 VISA
 """"
-
 To operate devices that communicate using VISA (e.g. Tektronix scopes) you will
 need:
 
@@ -98,15 +101,7 @@ More info about PyVISA, including more detailed install-related information can
 be found `here <http://pyvisa.readthedocs.org/en/latest/>`_.
 
 
-
-Thorlabs DCx Cameras
-""""""""""""""""""""
-To operate Thorlabs DCx cameras, you'll need the `drivers from Thorlabs
-<http://www.thorlabs.us/software_pages/ViewSoftwarePage.cfm?Code=DCx>`_ under the "Software and
-Support" tab. Run the .exe installer which, among other things, will install the .dll shared
-libraries somewhere in your PATH (hopefully).
-
-NI DAQs
-"""""""
-NI-DAQmx support requires you to to have NI-DAQmx installed. You can find the installer on the
-`National Instruments website <http://www.ni.com>`_.
+Other Drivers
+"""""""""""""
+Install directions are located on each driver's page within the :doc:`drivers` section. This
+lists the python packages that are required, as well as any external libraries.
