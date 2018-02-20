@@ -39,11 +39,15 @@ To control instruments using message-based protocols, you should use `PyVISA`_, 
 
 If you're implementing ``_instrument()`` and need to open/access the VISA instrument/resource, you should use ``_get_visa_instrument()`` to take advantage of caching.
 
+For a walkthough of writing a VISA-based driver, check out the :doc:`visa-dev-example`.
+
 .. _nicelib-drivers:
 
 Writing NiceLib-Based Drivers
 -----------------------------
 If you need to wrap a library or SDK with a C-style interface (most DLLs), you will probably want to use NiceLib, which simplifies the process. You'll first write some code to generate mid-level bindings for the library, then write your high-level bindings as a separate class which inherits from the appropriate `Instrument` subclass. See the `NiceLib`_ documentation for details on how to use it, and check out other NiceLib-based drivers to see how to integrate with Instrumental.
+
+For a walkthough of writing a NiceLib-based driver, check out the :doc:`nicelib-dev-example`.
 
 
 
