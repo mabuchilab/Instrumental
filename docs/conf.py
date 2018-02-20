@@ -14,6 +14,7 @@
 import sys, os
 import datetime
 import pkg_resources
+import IPython
 
 # Code taken from https://github.com/snide/sphinx_rtd_theme
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
@@ -70,7 +71,8 @@ for mod_name in MOCK_MODULES:
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
-sys.path.insert(0, os.path.abspath('..'))
+#sys.path.insert(0, os.path.abspath('..'))
+sys.path[0:0] = ['.', '..']
 
 # Enable output of __init__ methods
 def skip(app, what, name, obj, skip, options):
@@ -90,7 +92,7 @@ def setup(app):
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.intersphinx', 'sphinx.ext.todo',
               'sphinx.ext.coverage', 'sphinx.ext.imgmath', 'sphinx.ext.autosummary',
-              'sphinx.ext.napoleon']
+              'sphinx.ext.napoleon', 'IPython.sphinxext.ipython_console_highlighting']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
