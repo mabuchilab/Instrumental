@@ -158,10 +158,15 @@ Useful Utilities
 Instrumental provides some commonly-used utilities for helping you to write drivers, including decorators and functions for helping to handle unitful arguments and enums. 
 
 .. autofunction:: instrumental.drivers.util.check_units
+   :noindex:
 .. autofunction:: instrumental.drivers.util.unit_mag
+   :noindex:
 .. autofunction:: instrumental.drivers.util.check_enums
+   :noindex:
 .. autofunction:: instrumental.drivers.util.as_enum
+   :noindex:
 .. autofunction:: instrumental.drivers.util.visa_timeout_context
+   :noindex:
 
 
 Driver-Writing Checklist
