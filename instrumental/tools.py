@@ -430,7 +430,7 @@ def fit_scan_save(EOM_freq, subdir='', trace_num=0, base_dir=None):
 
 
 def fit_scan(EOM_freq, scope, channel=1):
-    scope = scopes.scope(scope)  # This is absurd
+    scope = instrument(scope)
     EOM_freq = u.Quantity(EOM_freq)
     x, y = scope.get_data(channel)
     params = guided_trace_fit(x, y, EOM_freq)

@@ -5,6 +5,7 @@ from past.builtins import unicode, basestring
 
 import sys
 import time
+import weakref
 from enum import Enum, EnumMeta
 from collections import OrderedDict
 import numpy as np
@@ -977,6 +978,14 @@ class MiniTask(object):
 
 
 class Channel(object):
+    def __init__(self, daq):
+        # We hold onto the DAQ object as a weakref to avoid cycles in the reference graph. Since
+        # Task implements a __del__ method and holds references to channels, the CPython refcounter
+        # refuses to clean up the Channel/DAQ cycles when a Task exists. This leads to the DAQ
+        # object persisting, and Instrumental will complain that the instrument is already open
+        # if you try to re-open it (even though the user thinks it's deleted). See #38 on GitHub.
+        self._daqref = weakref.ref(daq)
+
     def __hash__(self):
         return hash(self.path)
 
@@ -986,12 +995,19 @@ class Channel(object):
         else:
             return self.path == other
 
+    @property
+    def daq(self):
+        daq = self._daqref()
+        if daq is None:
+            raise RuntimeError("This channel's DAQ object no longer exists")
+        return daq
+
 
 class AnalogIn(Channel):
     type = 'AI'
 
     def __init__(self, daq, chan_name):
-        self.daq = daq
+        Channel.__init__(self, daq)
         self.name = chan_name
         self.path = '{}/{}'.format(daq.name, chan_name)
         self._mtask = None
@@ -1072,7 +1088,7 @@ class AnalogOut(Channel):
     type = 'AO'
 
     def __init__(self, daq, chan_name):
-        self.daq = daq
+        Channel.__init__(self, daq)
         self.name = chan_name
         self.path = '{}/{}'.format(daq.name, chan_name)
 
@@ -1210,7 +1226,7 @@ class VirtualDigitalChannel(Channel):
     type = 'DIO'
 
     def __init__(self, daq, line_pairs):
-        self.daq = daq
+        Channel.__init__(self, daq)
         self.line_pairs = line_pairs
         self.direction = None
         self.name = self._generate_name()

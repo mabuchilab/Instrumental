@@ -11,6 +11,8 @@ from pyvisa.constants import InterfaceType
 import numpy as np
 from pint import UndefinedUnitError
 from . import Scope
+from .. import VisaMixin, SCPI_Facet
+from ..util import visa_context
 from ... import u, Q_
 
 _INST_PARAMS = ['visa_address']
@@ -21,23 +23,66 @@ _INST_VISA_INFO = {
 }
 
 
-class TekScope(Scope):
+MODEL_CHANNELS = {
+    'TDS 210': 2,
+    'TDS 220': 2,
+    'TDS 224': 4,
+    'TDS 1001B': 2,
+    'TDS 1002B': 2,
+    'TDS 1012B': 2,
+    'TDS 2002B': 2,
+    'TDS 2004B': 4,
+    'TDS 2012B': 2,
+    'TDS 2014B': 4,
+    'TDS 2022B': 2,
+    'TDS 2024B': 4,
+    'TDS 3012': 2,
+    'TDS 3012B': 2,
+    'TDS 3012C': 2,
+    'TDS 3014': 4,
+    'TDS 3014B': 4,
+    'TDS 3014C': 4,
+    'TDS 3032': 2,
+    'TDS 3032B': 2,
+    'TDS 3032C': 2,
+    'TDS 3034': 4,
+    'TDS 3034B': 4,
+    'TDS 3034C': 4,
+    'TDS 3052': 2,
+    'TDS 3052B': 2,
+    'TDS 3052C': 2,
+    'TDS 3054': 4,
+    'TDS 3054B': 4,
+    'TDS 3054C': 4,
+    'MSO4032': 2,
+    'DPO4032': 2,
+    'MSO4034': 4,
+    'DPO4034': 4,
+    'MSO4054': 4,
+    'DPO4054': 4,
+    'MSO4104': 4,
+    'DPO4104': 4,
+}
+
+
+class TekScope(Scope, VisaMixin):
     """
     A base class for Tektronix scopes. Supports at least TDS 3000 series as
     well as MSO/DPO 4000 series scopes.
     """
     def _initialize(self):
-        if self._rsrc.interface_type == InterfaceType.asrl:
-            terminator = self._rsrc.query('RS232:trans:term?').strip()
+        if self.interface_type == InterfaceType.asrl:
+            terminator = self.query('RS232:trans:term?').strip()
             self._rsrc.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
-        elif self._rsrc.interface_type == InterfaceType.usb:
-            pass
-        elif self._rsrc.interface_type == InterfaceType.tcpip:
+        elif self.interface_type == InterfaceType.usb:
+            terminator = self.query('RS232:trans:term?').strip()
+            self._rsrc.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
+        elif self.interface_type == InterfaceType.tcpip:
             pass
         else:
             pass
 
-        self._rsrc.write("header OFF")
+        self.write("header OFF")
 
     def get_data(self, channel=1):
         """Retrieve a trace from the scope.
@@ -89,7 +134,7 @@ class TekScope(Scope):
             buf = bytearray(num_bytes)
             cursor = 0
             while cursor < num_bytes:
-                raw_bin, _ = inst.visalib.read(inst.session, num_bytes-cursor)
+                raw_bin, _ = visalib.read(session, num_bytes-cursor)
                 buf[cursor:cursor+len(raw_bin)] = raw_bin
                 cursor += len(raw_bin)
                 print(cursor)
@@ -103,15 +148,15 @@ class TekScope(Scope):
         raw_data_y = np.frombuffer(buf, dtype='>i2', count=num_points)
 
         # Get scale and offset factors
-        x_scale = float(inst.query("wfmpre:xincr?"))
-        y_scale = float(inst.query("wfmpre:ymult?"))
-        x_zero = float(inst.query("wfmpre:xzero?"))
-        y_zero = float(inst.query("wfmpre:yzero?"))
-        x_offset = float(inst.query("wfmpre:pt_off?"))
-        y_offset = float(inst.query("wfmpre:yoff?"))
+        x_scale = float(self.query("wfmpre:xincr?"))
+        y_scale = float(self.query("wfmpre:ymult?"))
+        x_zero = float(self.query("wfmpre:xzero?"))
+        y_zero = float(self.query("wfmpre:yzero?"))
+        x_offset = float(self.query("wfmpre:pt_off?"))
+        y_offset = float(self.query("wfmpre:yoff?"))
 
-        x_unit_str = inst.query("wfmpre:xunit?")[1:-1]
-        y_unit_str = inst.query("wfmpre:yunit?")[1:-1]
+        x_unit_str = self.query("wfmpre:xunit?")[1:-1]
+        y_unit_str = self.query("wfmpre:yunit?")[1:-1]
 
         unit_map = {
             'U': '',
@@ -150,8 +195,7 @@ class TekScope(Scope):
             Number of the channel to measure.
         """
         prefix = 'measurement:meas{}'.format(num)
-        self._rsrc.write("{}:type {};source ch{}".format(prefix, mtype,
-                                                         channel))
+        self.write("{}:type {};source ch{}".format(prefix, mtype, channel))
 
     def read_measurement_stats(self, num):
         """
@@ -178,11 +222,11 @@ class TekScope(Scope):
         # are they guaranteed to be taken from the same statistical set?
         # Perhaps we should stop_acquire(), then run_acquire()...
         keys = ['value', 'mean', 'stddev', 'minimum', 'maximum']
-        res = self._rsrc.query(prefix+':value?;mean?;stddev?;minimum?;maximum?;units?').split(';')
+        res = self.query(prefix+':value?;mean?;stddev?;minimum?;maximum?;units?').split(';')
         units = res.pop(-1).strip('"')
         stats = {k: Q_(rval+units) for k, rval in zip(keys, res)}
 
-        num_samples = int(self._rsrc.query('measurement:statistics:weighting?'))
+        num_samples = int(self.query('measurement:statistics:weighting?'))
         stats['nsamps'] = num_samples
         return stats
 
@@ -201,7 +245,7 @@ class TekScope(Scope):
         """
         prefix = 'measurement:meas{}'.format(num)
 
-        raw_value, raw_units = self._rsrc.query('{}:value?;units?'.format(prefix)).split(';')
+        raw_value, raw_units = self.query('{}:value?;units?'.format(prefix)).split(';')
         units = raw_units.strip('"')
         return Q_(raw_value+units)
 
@@ -214,23 +258,45 @@ class TekScope(Scope):
             a string representing the MATH expression, using channel variables
             CH1, CH2, etc. eg. 'CH1/CH2+CH3'
         """
-        self._rsrc.write("math:type advanced")
-        self._rsrc.write('math:define "{}"'.format(expr))
+        self.write("math:type advanced")
+        self.write('math:define "{}"'.format(expr))
 
     def get_math_function(self):
-        return self._rsrc.query("math:define?").strip('"')
+        return self.query("math:define?").strip('"')
 
     def run_acquire(self):
         """Sets the acquire state to 'run'"""
-        self._rsrc.write("acquire:state run")
+        self.write("acquire:state run")
 
     def stop_acquire(self):
         """Sets the acquire state to 'stop'"""
-        self._rsrc.write("acquire:state stop")
+        self.write("acquire:state stop")
 
+    @property
+    def interface_type(self):
+        return self.resource.interface_type
+
+    @property
+    def model(self):
+        _, model, _, _ = self.query('*IDN?').split(',', 3)
+        return model
+
+    @property
+    def channels(self):
+        try:
+            return MODEL_CHANNELS[self.model]
+        except KeyError:
+            raise KeyError('Unknown number of channels for this scope model')
+
+    horizontal_scale = SCPI_Facet('hor:main:scale', convert=float, units='s')
+    horizontal_delay = SCPI_Facet('hor:delay:pos', convert=float, units='s')
+    math_function = property(get_math_function, set_math_function)
+
+
+class StatScope(TekScope):
     def are_measurement_stats_on(self):
         """Returns whether measurement statistics are currently enabled"""
-        res = self._rsrc.query("measu:statistics:mode?")
+        res = self.query("measu:statistics:mode?")
         return res not in ['OFF', '0']
 
     def enable_measurement_stats(self, enable=True):
@@ -245,7 +311,7 @@ class TekScope(Scope):
             Whether measurement statistics should be enabled
         """
         # For some reason, the DPO 4034 uses ALL instead of ON
-        self._rsrc.write("measu:statistics:mode {}".format('ALL' if enable else 'OFF'))
+        self.write("measu:statistics:mode {}".format('ALL' if enable else 'OFF'))
 
     def disable_measurement_stats(self):
         """Disables measurement statistics"""
@@ -259,7 +325,7 @@ class TekScope(Scope):
         nsamps : int
             Number of samples used to compute measurements
         """
-        self._rsrc.write("measu:stati:weighting {}".format(nsamps))
+        self.write("measu:stati:weighting {}".format(nsamps))
 
 
 class TDS_200(TekScope):
@@ -267,11 +333,21 @@ class TDS_200(TekScope):
     pass
 
 
-class TDS_3000(TekScope):
+class TDS_1000(TekScope):
+    """A Tektronix TDS 1000 series oscilloscope"""
+    pass
+
+
+class TDS_2000(TekScope):
+    """A Tektronix TDS 2000 series oscilloscope"""
+    pass
+
+
+class TDS_3000(StatScope):
     """A Tektronix TDS 3000 series oscilloscope."""
     pass
 
 
-class MSO_DPO_4000(TekScope):
+class MSO_DPO_4000(StatScope):
     """A Tektronix MSO/DPO 4000 series oscilloscope."""
     pass

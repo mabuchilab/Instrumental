@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright 2013-2017 Nate Bogdanowicz
 
+from __future__ import division
 from past.builtins import basestring
 from future.utils import with_metaclass
 
@@ -9,19 +10,19 @@ import abc
 import atexit
 import socket
 import warnings
-import logging as log
+import numbers
 from weakref import WeakSet
 from inspect import isfunction
 from importlib import import_module
 from collections import OrderedDict, Mapping
 
-from past.builtins import basestring
-
-from pint import DimensionalityError
+from ..log import get_logger
 from .. import conf, u, Q_
 from ..driver_info import driver_info
 from ..errors import (InstrumentTypeError, InstrumentNotFoundError, ConfigError,
                       InstrumentExistsError)
+
+log = get_logger(__name__)
 
 
 __all__ = ['Instrument', 'instrument', 'list_instruments', 'list_visa_instruments']
@@ -189,6 +190,11 @@ class Facet(object):
             self.out_map = None
 
     def _set_limits(self, limits):
+        if limits is not None:
+            for limit in limits:
+                if limit is not None and not isinstance(limit, numbers.Number):
+                    raise ValueError('Facet limits must be raw numbers or None')
+
         if limits is None:
             self.limits = (None, None, None)
         elif len(limits) == 1:
@@ -256,9 +262,7 @@ class Facet(object):
     def convert_user_input(self, value):
         """Validate and convert an input value to its 'external' form"""
         if self.units is not None:
-            q = Q_(value)
-            if not q.dimensionality == self.units.dimensionality:
-                raise DimensionalityError(q.units, self.units)
+            q = to_quantity(value).to(self.units)
             return Q_(self.convert_raw_input(q.magnitude), q.units)
         else:
             return self.convert_raw_input(value)
@@ -268,20 +272,19 @@ class Facet(object):
         return self.check_limits(value)
 
     def check_limits(self, value):
+        """Check raw value (magnitude) against the Facet's limits"""
         start, stop, step = self.limits
         if start is not None and value < start:
-            if self.units:
-                start = start * self.units
-            raise ValueError("Value below lower limit of {}".format(start))
+            raise ValueError("Value below lower limit of {}".format(
+                Q_(start, self.units) if self.units else start))
         if stop is not None and value > stop:
-            if self.units:
-                stop = stop * self.units
-            raise ValueError("Value above upper limit of {}".format(stop))
+            raise ValueError("Value above upper limit of {}".format(
+                Q_(stop, self.units) if self.units else stop))
 
         if step is not None:
             offset = value - start
             if offset % step != 0:
-                new_value = start + (offset // step) * step
+                new_value = start + int(round(offset / step)) * step
                 log.info("Coercing value from %s to %s due to limit step", value, new_value)
                 return new_value
 
@@ -313,6 +316,28 @@ class Facet(object):
     def setter(self, fset):
         self.fset = fset
         return self
+
+
+def to_quantity(value):
+    """Convert to a pint.Quantity
+
+    This function handles offset units in strings slightly better than Q_ does.
+    """
+    try:
+        return Q_(value)
+    except Exception as e:
+        log.info(e)
+
+    try:
+        mag_str, units = value.split()
+        try:
+            mag = int(mag_str)
+        except ValueError:
+            mag = float(mag_str)
+
+        return Q_(mag, units)
+    except Exception as e:
+        raise ValueError('Could not construct Quantity from {}'.format(value))
 
 
 class AbstractFacet(Facet):
@@ -1149,6 +1174,7 @@ def instrument(inst=None, **kwargs):
     >>> inst3 = instrument({'visa_address': 'TCPIP:192.168.1.35::INSTR'})
     >>> inst4 = instrument(inst1)
     """
+    log.info('Called instrument() with inst=%s, kwargs=%s', inst, kwargs)
     if isinstance(inst, Instrument):
         return inst
     params, alias = _extract_params(inst, kwargs)

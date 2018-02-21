@@ -4,14 +4,16 @@
 Driver for controlling Thorlabs Kinesis devices. Currently only directs the K10CR1 rotation stage.
 """
 from __future__ import division
-import logging as log
 from enum import Enum
 from nicelib import NiceLib, NiceObjectDef, load_lib
 
 from . import Motion
 from .. import ParamSet
 from ..util import check_units
+from ...log import get_logger
 from ... import u, Q_
+
+log = get_logger(__name__)
 
 _INST_PARAMS = ['serial']
 _INST_CLASSES = ['K10CR1']

@@ -27,7 +27,7 @@ Q_ = u.Quantity
 all_by_module = {
     'instrumental.fitting': ['guided_trace_fit', 'guided_ringdown_fit'],
     'instrumental.drivers': ['instrument', 'list_instruments',
-                             'list_visa_instruments', 'saved_instruments'],
+                             'list_visa_instruments', 'list_saved_instruments'],
     'instrumental.tools': ['fit_scan', 'fit_ringdown'],
     'instrumental.conf': ['load_config_file']
 }
