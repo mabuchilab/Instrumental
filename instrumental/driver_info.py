@@ -86,6 +86,12 @@ driver_info = OrderedDict([
         'imports': [],
         'visa_info': {'PM100D': ('Thorlabs', ['PM100D'])},
     }),
+    ('rfspectrumanalyzers.hp', {
+        'params': ['visa_address'],
+        'classes': ['HP4395'],
+        'imports': ['visa','pyvisa'],
+        'visa_info': {'HP4395': ('HEWLETT-PACKARD', ['4395A'])},
+    }),
     ('scopes.tektronix', {
         'params': ['visa_address'],
         'classes': [],
