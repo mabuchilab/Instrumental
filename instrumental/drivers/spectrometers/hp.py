@@ -54,9 +54,10 @@ class HPOSA(Spectrometer, VisaMixin):
     #     self.inst.write('TDF P') # set the trace data format to be decimal numbers in parameter units
 
     def _initialize(self):
-        self.read_termination = "\n"  # Needed for stripping termination
+        self._rsrc.read_termination = '\n'  # Needed for stripping termination
+        self._rsrc.timeout = 300
         #self.inst.write("header OFF")
-        self.write_termination = ';'
+        self._rsrc.write_termination = ';'
         self.write('TDF P') # set the trace data format to be decimal numbers in parameter units
         # if self.interface_type == InterfaceType.asrl:
         #     terminator = self.query('RS232:trans:term?').strip()
