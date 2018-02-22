@@ -47,8 +47,9 @@ def scc_hook(tokens):
         yield token
 
 
-def build():
-    build_lib(header_info, lib_names, '_kinesislib', __file__, ignore_system_headers=True,
+def build(sublib):
+    ll_module_name = '_kinesis_{}_lib'.format(sublib)
+    build_lib(header_info, lib_names, ll_module_name, __file__, ignore_system_headers=True,
               preamble=preamble, hook_groups='C++', token_hooks=(ref_hook, scc_hook))
 
 

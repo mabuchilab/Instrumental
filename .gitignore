@@ -4,6 +4,7 @@
 *.swp
 
 _*lib.py
+!_*midlib.py
 
 /bin/
 /build/

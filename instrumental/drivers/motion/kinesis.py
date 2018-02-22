@@ -4,9 +4,10 @@
 Driver for controlling Thorlabs Kinesis devices. Currently only directs the K10CR1 rotation stage.
 """
 from __future__ import division
-from enum import Enum
-from nicelib import NiceLib, Sig, NiceObject, load_lib, RetHandler, ret_return, ret_ignore
 
+from ._kinesis_common import (KinesisError, MessageType, GenericDevice, GenericMotor,
+                              GenericDCMotor, MessageIDs)
+from ._kinesis_isc_midlib import NiceKinesisISC
 from . import Motion
 from .. import ParamSet, Facet
 from ..util import check_units
@@ -19,156 +20,12 @@ log = get_logger(__name__)
 __all__ = ['K10CR1']
 
 
-# Message Enums
-#
-class MessageType(Enum):
-    GenericDevice = 0
-    GenericPiezo = 1
-    GenericMotor = 2
-    GenericDCMotor = 3
-    GenericSimpleMotor = 4
-    RackDevice = 5
-    Laser = 6
-    TECCtlr = 7
-    Quad = 8
-    NanoTrak = 9
-    Specialized = 10
-    Solenoid = 11
-
-
-class GenericDevice(Enum):
-    SettingsInitialized = 0
-    SettingsUpdated = 1
-    Error = 2
-    Close = 3
-
-
-class GenericMotor(Enum):
-    Homed = 0
-    Moved = 1
-    Stopped = 2
-    LimitUpdated = 3
-
-
-class GenericDCMotor(Enum):
-    Error = 0
-    Status = 1
-
-
-MessageIDs = {
-    MessageType.GenericDevice: GenericDevice,
-    MessageType.GenericMotor: GenericMotor,
-    MessageType.GenericDCMotor: GenericDCMotor
-}
-
-
 def list_instruments():
     NiceKinesisISC.BuildDeviceList()
     serial_nums = to_str(NiceKinesisISC.GetDeviceListExt()).split(',')
     return [ParamSet(K10CR1, serial=serial)
             for serial in serial_nums
             if serial]
-
-
-class KinesisError(Exception):
-    messages = {
-        0: 'Success',
-        1: 'The FTDI functions have not been initialized',
-        2: 'The device could not be found. Make sure to call TLI_BuildDeviceList().',
-        3: 'The device must be opened before it can be accessed',
-        4: 'An I/O Error has occured in the FTDI chip',
-        5: 'There are insufficient resources to run this application',
-        6: 'An invalid parameter has been supplied to the device',
-        7: 'The device is no longer present',
-        8: 'The device detected does not match that expected',
-        32: 'The device is already open',
-        33: 'The device has stopped responding',
-        34: 'This function has not been implemented',
-        35: 'The device has reported a fault',
-        36: 'The function could not be completed because the device is disconnected',
-        41: 'The firmware has thrown an error',
-        42: 'The device has failed to initialize',
-        43: 'An invalid channel address was supplied',
-        37: 'The device cannot perform this function until it has been Homed',
-        38: 'The function cannot be performed as it would result in an illegal position',
-        39: 'An invalid velocity parameter was supplied. The velocity must be greater than zero',
-        44: 'This device does not support Homing. Check the Limit switch parameters are correct',
-        45: 'An invalid jog mode was supplied for the jog function',
-    }
-
-    def __init__(self, code=None, msg=''):
-        if code is not None and not msg:
-            msg = '(0x{:X}) {}'.format(code, self.messages[code])
-        super(KinesisError, self).__init__(msg)
-        self.code = code
-
-
-@RetHandler(num_retvals=0)
-def ret_errcheck(ret):
-    if ret != 0:
-        raise KinesisError(ret)
-
-
-@RetHandler(num_retvals=0)
-def ret_success(ret, funcname):
-    if not ret:
-        raise KinesisError(msg="Call to function '{}' failed".format(funcname))
-
-
-class NiceKinesisISC(NiceLib):
-    """Mid-level wrapper for Thorlabs.MotionControl.IntegratedStepperMotors.dll"""
-    _info_ = load_lib('kinesis', __package__)
-    _prefix_ = 'TLI_'
-    _ret_ = ret_errcheck
-
-    BuildDeviceList = Sig()
-    GetDeviceListSize = Sig(ret=ret_return)
-    GetDeviceListExt = Sig('buf', 'len')
-    GetDeviceListByTypeExt = Sig('buf', 'len', 'in')
-    GetDeviceListByTypesExt = Sig('buf', 'len', 'in', 'in')
-    GetDeviceInfo = Sig('in', 'out')
-
-    # GetDeviceList = Sig('out')
-    # GetDeviceListByType = Sig('out', 'in', dict(first_arg=False))
-    # GetDeviceListByTypes = Sig('out', 'in', 'in', dict(first_arg=False))
-
-    class Device(NiceObject):
-        _prefix_ = 'ISC_'
-
-        Open = Sig('in')
-        Close = Sig('in', ret=ret_return)
-        Identify = Sig('in', ret=ret_ignore)
-        GetHardwareInfo = Sig('in', 'buf', 'len', 'out', 'out', 'buf', 'len', 'out', 'out', 'out')
-        GetFirmwareVersion = Sig('in', ret=ret_return)
-        GetSoftwareVersion = Sig('in', ret=ret_return)
-        LoadSettings = Sig('in', ret=ret_success)
-        PersistSettings = Sig('in', ret=ret_success)
-        GetNumberPositions = Sig('in', ret=ret_return)
-        CanHome = Sig('in', ret=ret_return)
-        Home = Sig('in')
-        NeedsHoming = Sig('in', ret=ret_return)
-        MoveToPosition = Sig('in', 'in')
-        GetPosition = Sig('in', ret=ret_return)
-        GetPositionCounter = Sig('in', ret=ret_return)
-        RequestStatus = Sig('in')
-        RequestStatusBits = Sig('in')
-        GetStatusBits = Sig('in', ret=ret_return)
-        StartPolling = Sig('in', 'in', ret=ret_success)
-        PollingDuration = Sig('in', ret=ret_return)
-        StopPolling = Sig('in', ret=ret_ignore)
-        RequestSettings = Sig('in')
-        ClearMessageQueue = Sig('in', ret=ret_ignore)
-        RegisterMessageCallback = Sig('in', 'in', ret=ret_ignore)
-        MessageQueueSize = Sig('in', ret=ret_return)
-        GetNextMessage = Sig('in', 'out', 'out', 'out', ret=ret_success)
-        WaitForMessage = Sig('in', 'out', 'out', 'out', ret=ret_success)
-        GetMotorParamsExt = Sig('in', 'out', 'out', 'out')
-        SetJogStepSize = Sig('in', 'in')
-        GetJogVelParams = Sig('in', 'out', 'out')
-        GetBacklash = Sig('in', ret=ret_return)
-        SetBacklash = Sig('in', 'in')
-        GetLimitSwitchParams = Sig('in', 'out', 'out', 'out', 'out', 'out')
-        GetLimitSwitchParamsBlock = Sig('in', 'out')
 
 
 STATUS_MOVING_CW = 0x10
