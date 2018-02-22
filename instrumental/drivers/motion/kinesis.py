@@ -8,7 +8,7 @@ from enum import Enum
 from nicelib import NiceLib, Sig, NiceObject, load_lib, RetHandler, ret_return, ret_ignore
 
 from . import Motion
-from .. import ParamSet
+from .. import ParamSet, Facet
 from ..util import check_units
 from ... import u
 from ...log import get_logger
@@ -316,29 +316,28 @@ class K10CR1(Motion):
         """Check if the most recent homing operation has finished"""
         return self._check_for_message(GenericMotor.Homed)
 
-    @property
+    @Facet
     def needs_homing(self):
         """True if the device needs to be homed before a move can be performed"""
         return bool(self.dev.NeedsHoming())
 
-    @property
+    @Facet(units='deg')
     def offset(self):
         return self._offset
 
     @offset.setter
-    @check_units(offset='deg')
     def offset(self, offset):
         self._offset = offset
 
-    @property
+    @Facet(units='deg')
     def position(self):
         return self._to_real_units(self.dev.GetPosition()) - self.offset
 
-    @property
+    @Facet
     def is_homing(self):
         return bool(self.dev.GetStatusBits() & 0x00000200)
 
-    @property
+    @Facet
     def is_moving(self):
         return bool(self.dev.GetStatusBits() & 0x00000030)
 
