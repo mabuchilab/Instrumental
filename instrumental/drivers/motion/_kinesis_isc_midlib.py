@@ -17,9 +17,11 @@ def ret_success(ret, funcname):
         raise KinesisError(msg="Call to function '{}' failed".format(funcname))
 
 
-class NiceKinesisISC(NiceLib):
+class NiceISC(NiceLib):
     """Mid-level wrapper for Thorlabs.MotionControl.IntegratedStepperMotors.dll"""
-    _info_ = load_lib('kinesis', __package__, kwargs={'sublib': 'isc'})
+    _info_ = load_lib('kinesis_isc_', __package__, builder='_build_kinesis',
+                      kwargs={'shortname': 'isc',
+                              'sublib': 'Thorlabs.MotionControl.IntegratedStepperMotors'})
     _prefix_ = 'TLI_'
     _ret_ = ret_errcheck
 

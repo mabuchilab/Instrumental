@@ -1,19 +1,23 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016 Nate Bogdanowicz
+# Copyright 2016-2018 Nate Bogdanowicz
 from nicelib import build_lib
 from nicelib.process import modify_pattern
 
-header_info = {
-    'win*': {
-        'path': (
-            r"{PROGRAMFILES}\Thorlabs\Kinesis",
-            r"{PROGRAMFILES(X86)}\Thorlabs\Kinesis",
-        ),
-        'header': 'Thorlabs.MotionControl.IntegratedStepperMotors.h'
-    },
-}
 
-lib_names = {'win*': 'Thorlabs.MotionControl.IntegratedStepperMotors.dll'}
+def make_info(lib_name):
+    header_info = {
+        'win*': {
+            'path': (
+                r"{PROGRAMFILES}\Thorlabs\Kinesis",
+                r"{PROGRAMFILES(X86)}\Thorlabs\Kinesis",
+            ),
+            'header': '{}.h'.format(lib_name)
+        },
+    }
+
+    lib_names = {'win*': '{}.dll'.format(lib_name)}
+
+    return header_info, lib_names
 
 preamble = """
 typedef unsigned char byte;
@@ -47,11 +51,8 @@ def scc_hook(tokens):
         yield token
 
 
-def build(sublib):
-    ll_module_name = '_kinesis_{}_lib'.format(sublib)
+def build(shortname, sublib):
+    ll_module_name = '_kinesis_{}_lib'.format(shortname)
+    header_info, lib_names = make_info(sublib)
     build_lib(header_info, lib_names, ll_module_name, __file__, ignore_system_headers=True,
               preamble=preamble, hook_groups='C++', token_hooks=(ref_hook, scc_hook))
-
-
-if __name__ == '__main__':
-    build()
