@@ -1,21 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright 2017-2018 Nate Bogdanowicz
 
-from nicelib import load_lib, NiceLib, Sig, NiceObject, RetHandler, ret_return
-from ._kinesis_common import KinesisError
-
-
-@RetHandler(num_retvals=0)
-def ret_errcheck(ret):
-    """Check error code, ignoring void functions"""
-    if ret is not None and ret != 0:
-        raise KinesisError(ret)
-
-
-@RetHandler(num_retvals=0)
-def ret_success(ret, funcname):
-    if not ret:
-        raise KinesisError(msg="Call to function '{}' failed".format(funcname))
+from nicelib import load_lib, NiceLib, Sig, NiceObject, ret_return
+from ._kinesis_tli_midlib import ret_errcheck, ret_success
 
 
 class NiceISC(NiceLib):
