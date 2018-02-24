@@ -18,7 +18,7 @@ def ret_success(ret, funcname):
         raise KinesisError(msg="Call to function '{}' failed".format(funcname))
 
 
-class NiceTSI(NiceLib):
+class NiceTLI(NiceLib):
     """Mid-level wrapper for Thorlabs.MotionControl.DeviceManager.dll"""
     _info_ = load_lib('kinesis_tli_', __package__, builder='_build_kinesis',
                       kwargs={'shortname': 'tli',
