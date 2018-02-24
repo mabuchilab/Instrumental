@@ -2,7 +2,7 @@
 # Copyright 2018 Nate Bogdanowicz
 
 from nicelib import load_lib, NiceLib, Sig, RetHandler, ret_return
-from ._kinesis_common import KinesisError
+from .common import KinesisError
 
 
 @RetHandler(num_retvals=0)
@@ -20,7 +20,7 @@ def ret_success(ret, funcname):
 
 class NiceTLI(NiceLib):
     """Mid-level wrapper for Thorlabs.MotionControl.DeviceManager.dll"""
-    _info_ = load_lib('kinesis_tli_', __package__, builder='_build_kinesis',
+    _info_ = load_lib('tli_', __package__, builder='._build_kinesis',
                       kwargs={'shortname': 'tli',
                               'sublib': 'Thorlabs.MotionControl.DeviceManager'})
     _prefix_ = 'TLI_'

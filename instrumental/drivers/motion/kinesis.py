@@ -11,7 +11,7 @@ from ...log import get_logger
 from ...util import to_str
 from .. import ParamSet
 
-from ._kinesis_tli_midlib import NiceTLI
+from ._kinesis.tli_midlib import NiceTLI
 
 log = get_logger(__name__)
 
@@ -44,7 +44,7 @@ def _get_class(serial):
         pass
 
     dev_lib, inst_classname = DEVICE_CLASSES.get(type_id)
-    module_name = '._kinesis_{}'.format(dev_lib)
+    module_name = '._kinesis.{}'.format(dev_lib)
     log.info('Importing %s...', module_name)
     dev_module = import_module(module_name, __package__)
     dev_class = DEVICE_CLASS_CACHE[type_id] = getattr(dev_module, inst_classname)

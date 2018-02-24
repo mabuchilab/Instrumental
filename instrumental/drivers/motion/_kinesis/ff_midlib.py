@@ -2,12 +2,12 @@
 # Copyright 2017-2018 Christopher Rogers, Nate Bogdanowicz
 
 from nicelib import load_lib, NiceLib, Sig, NiceObject, ret_return
-from ._kinesis_tli_midlib import ret_errcheck, ret_success
+from .tli_midlib import ret_errcheck, ret_success
 
 
 class NiceFF(NiceLib):
     """Mid-level wrapper for Thorlabs.MotionControl.FilterFlipper.dll"""
-    _info_ = load_lib('kinesis_ff_', __package__, builder='_build_kinesis',
+    _info_ = load_lib('ff_', __package__, builder='._build_kinesis',
                       kwargs={'shortname': 'ff',
                               'sublib': 'Thorlabs.MotionControl.FilterFlipper'})
     _prefix_ = 'TLI_'

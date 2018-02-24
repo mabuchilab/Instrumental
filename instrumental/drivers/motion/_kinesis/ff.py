@@ -5,10 +5,10 @@ from __future__ import division
 from time import sleep
 from enum import Enum
 
-from ... import Q_
-from ..util import check_units, check_enums
-from . import Motion
-from ._kinesis_ff_midlib import NiceFF
+from .... import Q_
+from ...util import check_units, check_enums
+from .. import Motion
+from .ff_midlib import NiceFF
 
 
 class Position(Enum):

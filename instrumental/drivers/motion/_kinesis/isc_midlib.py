@@ -2,12 +2,12 @@
 # Copyright 2017-2018 Nate Bogdanowicz
 
 from nicelib import load_lib, NiceLib, Sig, NiceObject, ret_return
-from ._kinesis_tli_midlib import ret_errcheck, ret_success
+from .tli_midlib import ret_errcheck, ret_success
 
 
 class NiceISC(NiceLib):
     """Mid-level wrapper for Thorlabs.MotionControl.IntegratedStepperMotors.dll"""
-    _info_ = load_lib('kinesis_isc_', __package__, builder='_build_kinesis',
+    _info_ = load_lib('isc_', __package__, builder='._build_kinesis',
                       kwargs={'shortname': 'isc',
                               'sublib': 'Thorlabs.MotionControl.IntegratedStepperMotors'})
     _prefix_ = 'TLI_'

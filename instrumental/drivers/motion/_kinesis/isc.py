@@ -1,12 +1,12 @@
 from __future__ import division
 
-from ... import u
-from .. import Facet
-from ..util import check_units
-from . import Motion
-from ._kinesis_isc_midlib import NiceISC
-from ._kinesis_common import (KinesisError, MessageType, GenericDevice, GenericMotor,
-                              GenericDCMotor, MessageIDs)
+from .... import u
+from ... import Facet
+from ...util import check_units
+from .. import Motion
+from .isc_midlib import NiceISC
+from .common import (KinesisError, MessageType, GenericDevice, GenericMotor,
+                     GenericDCMotor, MessageIDs)
 
 STATUS_MOVING_CW = 0x10
 STATUS_MOVING_CCW = 0x20
