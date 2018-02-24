@@ -1,214 +1,60 @@
 # -*- coding: utf-8 -*-
 # Copyright 2016-2018 Christopher Rogers, Dodd Gray, and Nate Bogdanowicz
 """
-Driver for controlling Thorlabs Kinesis devices. Currently only directs the K10CR1 rotation stage.
+Driver for controlling Thorlabs Kinesis devices.
 """
 from __future__ import division
 
-from ._kinesis_common import (KinesisError, MessageType, GenericDevice, GenericMotor,
-                              GenericDCMotor, MessageIDs)
-from ._kinesis_isc_midlib import NiceKinesisISC
-from . import Motion
-from .. import ParamSet, Facet
-from ..util import check_units
-from ... import u
+from importlib import import_module
+
 from ...log import get_logger
 from ...util import to_str
+from .. import ParamSet
+
+from ._kinesis_tli_midlib import NiceTLI
 
 log = get_logger(__name__)
 
-__all__ = ['K10CR1']
+__all__ = []
 
 
+# Lazily load required device-specific modules
 def list_instruments():
-    NiceKinesisISC.BuildDeviceList()
-    serial_nums = to_str(NiceKinesisISC.GetDeviceListExt()).split(',')
-    return [ParamSet(K10CR1, serial=serial)
-            for serial in serial_nums
-            if serial]
+    NiceTLI.BuildDeviceList()
+    serial_nums = to_str(NiceTLI.GetDeviceListExt()).strip(',').split(',')
+    return [ParamSet(cls, serial=serial) for cls,serial in
+            ((_try_get_class(sn), sn) for sn in serial_nums)
+            if cls]
 
 
-STATUS_MOVING_CW = 0x10
-STATUS_MOVING_CCW = 0x20
-STATUS_JOGGING_CW = 0x40
-STATUS_JOGGING_CCW = 0x80
+def _try_get_class(serial):
+    try:
+        return _get_class(serial)
+    except Exception as e:
+        log.info(str(e))
+        return None
 
 
-class K10CR1(Motion):
-    """ Class for controlling Thorlabs K10CR1 integrated stepper rotation stages
+def _get_class(serial):
+    """Get a device's Instrument subclass by serial number"""
+    type_id = NiceTLI.GetDeviceInfo(serial).typeID
+    try:
+        return DEVICE_CLASS_CACHE[type_id]
+    except KeyError:
+        pass
 
-    Takes the serial number of the device as a string as well as the gear box ratio,
-    steps per revolution and microsteps per step as integers. It also takes the polling
-    period as a pint quantity.
+    dev_lib, inst_classname = DEVICE_CLASSES.get(type_id)
+    module_name = '._kinesis_{}'.format(dev_lib)
+    log.info('Importing %s...', module_name)
+    dev_module = import_module(module_name, __package__)
+    dev_class = DEVICE_CLASS_CACHE[type_id] = getattr(dev_module, inst_classname)
+    return dev_class
 
-    The polling period, which is how often the device updates its status, is
-    passed as a pint pint quantity with units of time and is optional argument,
-    with a default of 200ms
-    """
-    _INST_PARAMS_ = ['serial']
 
-    _lib = NiceKinesisISC
+# IDs can be found in "Device Serial Number prefix" section of Thorlabs.MotionControl.C_API docs
+DEVICE_CLASSES = {
+    37: ('ff', 'FilterFlipper'),
+    55: ('isc', 'K10CR1'),
+}
 
-    # Enums
-    MessageType = MessageType
-    GenericDevice = GenericDevice
-    GenericMotor = GenericMotor
-    GenericDCMotor = GenericDCMotor
-
-    @check_units(polling_period='ms')
-    def _initialize(self, gear_box_ratio=120, steps_per_rev=200, micro_steps_per_step=2048,
-                    polling_period='200ms'):
-        offset = self._paramset.get('offset', '0 deg')
-
-        self.serial = self._paramset['serial']
-        self.offset = offset
-        self._unit_scaling = (gear_box_ratio * micro_steps_per_step *
-                              steps_per_rev / (360.0 * u.deg))
-        self._open()
-        self._start_polling(polling_period)
-        self._wait_for_message(GenericDevice.SettingsInitialized)
-
-    def _open(self):
-        NiceKinesisISC.BuildDeviceList()  # Necessary?
-        self.dev = NiceKinesisISC.Device(self.serial)
-        self.dev.Open()
-
-    def close(self):
-        self.dev.StopPolling()
-        self.dev.Close()
-
-    @check_units(polling_period='ms')
-    def _start_polling(self, polling_period='200ms'):
-        """Starts polling the device to update its status with the given period provided, rounded
-        to the nearest millisecond
-
-        Parameters
-        ----------
-        polling_period: pint quantity with units of time
-        """
-        self.polling_period = polling_period
-        self.dev.StartPolling(self.polling_period.m_as('ms'))
-
-    @check_units(angle='deg')
-    def move_to(self, angle, wait=False):
-        """Rotate the stage to the given angle
-
-        Parameters
-        ----------
-        angle : Quantity
-            Angle that the stage will rotate to. Takes the stage offset into account.
-        """
-        log.debug("Moving stage to {}".format(angle))
-        log.debug("Current position is {}".format(self.position))
-        self.dev.ClearMessageQueue()
-        self.dev.MoveToPosition(self._to_dev_units(angle + self.offset))
-        if wait:
-            self.wait_for_move()
-
-    def _decode_message(self, msg_tup):
-        msg_type_int, msg_id_int, msg_data_int = msg_tup
-        msg_type = MessageType(msg_type_int)
-        msg_id = MessageIDs[msg_type](msg_id_int)
-        return (msg_id, msg_data_int)
-
-    def _wait_for_message(self, match_id):
-        if not isinstance(match_id, (GenericDevice, GenericMotor, GenericDCMotor)):
-            raise ValueError("Must specify message ID via enum")
-
-        msg_id, msg_data = self._decode_message(self.dev.WaitForMessage())
-        log.debug("Received kinesis message ({}: {})".format(msg_id, msg_data))
-        while msg_id is not match_id:
-            msg_id, msg_data = self._decode_message(self.dev.WaitForMessage())
-            log.debug("Received kinesis message ({}: {})".format(msg_id, msg_data))
-
-    def _check_for_message(self, match_id):
-        """Check if a message of the given type and id is in the queue"""
-        if not isinstance(match_id, (GenericDevice, GenericMotor, GenericDCMotor)):
-            raise ValueError("Must specify message ID via enum")
-
-        while True:
-            try:
-                msg_id, msg_data = self._decode_message(self.dev.GetNextMessage())
-            except KinesisError:
-                return False
-
-            log.debug("Received kinesis message ({}: {})".format(msg_id, msg_data))
-            if msg_id is match_id:
-                return True
-
-    def wait_for_move(self):
-        """Wait for the most recent move to complete"""
-        self._wait_for_message(GenericMotor.Moved)
-
-    def move_finished(self):
-        """Check if the most recent move has finished"""
-        return self._check_for_message(GenericMotor.Moved)
-
-    def _to_real_units(self, dev_units):
-        return (dev_units / self._unit_scaling).to('deg')
-
-    @check_units(real_units='deg')
-    def _to_dev_units(self, real_units):
-        return int(round(float(real_units * self._unit_scaling)))
-
-    def home(self, wait=False):
-        """Home the stage
-
-        Parameters
-        ----------
-        wait : bool, optional
-            Wait until the stage has finished homing to return
-        """
-        self.dev.ClearMessageQueue()
-        self.dev.Home()
-
-        if wait:
-            self.wait_for_home()
-
-    def wait_for_home(self):
-        """Wait for the most recent homing operation to complete"""
-        self._wait_for_message(GenericMotor.Homed)
-
-    def homing_finished(self):
-        """Check if the most recent homing operation has finished"""
-        return self._check_for_message(GenericMotor.Homed)
-
-    @Facet
-    def needs_homing(self):
-        """True if the device needs to be homed before a move can be performed"""
-        return bool(self.dev.NeedsHoming())
-
-    @Facet(units='deg')
-    def offset(self):
-        return self._offset
-
-    @offset.setter
-    def offset(self, offset):
-        self._offset = offset
-
-    @Facet(units='deg')
-    def position(self):
-        return self._to_real_units(self.dev.GetPosition()) - self.offset
-
-    @Facet
-    def is_homing(self):
-        return bool(self.dev.GetStatusBits() & 0x00000200)
-
-    @Facet
-    def is_moving(self):
-        return bool(self.dev.GetStatusBits() & 0x00000030)
-
-    def get_next_message(self):
-        msg_type, msg_id, msg_data = self.dev.GetNextMessage()
-        type = MessageType(msg_type)
-        id = MessageIDs[type](msg_id)
-        return (type, id, msg_data)
-
-    def get_messages(self):
-        messages = []
-        while True:
-            try:
-                messages.append(self.get_next_message())
-            except Exception:
-                break
-        return messages
+DEVICE_CLASS_CACHE = {}
