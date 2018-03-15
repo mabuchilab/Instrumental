@@ -333,7 +333,7 @@ class SR850:
 
     @check_units(frequency='Hz')
     def set_reference_frequency(self, frequency):
-        """ Sets the freqeuncy of the reference source"""
+        """ Sets the frequency of the reference source"""
         return self._set('FREQ', 'Hz', frequency)
 
     def get_reference_frequency(self):
