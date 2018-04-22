@@ -76,9 +76,9 @@ driver_info = OrderedDict([
     }),
     ('multimeters.hp', {
         'params': ['visa_address'],
-        'classes': [],
+        'classes': ['HP3478A','HP34000'],
         'imports': [],
-        'visa_info': {'HPMultimeter': ('HEWLETT-PACKARD', ['34401A'])},
+        'visa_info': {'HP34000': ('HEWLETT-PACKARD', ['34401A']),'HP3478A': ('HEWLETT-PACKARD', ['3478A'])}
     }),
     ('powermeters.thorlabs', {
         'params': ['visa_address'],
@@ -113,6 +113,12 @@ driver_info = OrderedDict([
         'classes': ['HPOSA'],
         'imports': ['visa','pyvisa'],
         'visa_info': {'HPOSA': ('HEWLETT-PACKARD', ['70951B'])},
+    }),
+    ('spectrometers.ando', {
+        'params': ['visa_address'],
+        'classes': ['AQ6331'],
+        'imports': ['visa','pyvisa'],
+        'visa_info': {'AQ6331': ('ANDO', ['AQ6331'])},
     }),
     ('tempcontrollers.covesion', {
         'params': ['OC_visa_address','version'],
