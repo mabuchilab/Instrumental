@@ -1,12 +1,15 @@
 from __future__ import division
 
 from .... import u
+from ....log import get_logger
 from ... import Facet
 from ...util import check_units
 from .. import Motion
 from .isc_midlib import NiceISC
 from .common import (KinesisError, MessageType, GenericDevice, GenericMotor,
                      GenericDCMotor, MessageIDs)
+
+log = get_logger(__name__)
 
 STATUS_MOVING_CW = 0x10
 STATUS_MOVING_CCW = 0x20
