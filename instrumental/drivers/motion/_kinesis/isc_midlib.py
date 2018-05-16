@@ -2,7 +2,7 @@
 # Copyright 2017-2018 Nate Bogdanowicz
 
 from nicelib import load_lib, NiceLib, Sig, NiceObject, ret_return
-from .tli_midlib import ret_errcheck, ret_success
+from .common_midlib import ret_errcheck, ret_success, all_sigs
 
 
 class NiceISC(NiceLib):
@@ -27,37 +27,39 @@ class NiceISC(NiceLib):
     class Device(NiceObject):
         _prefix_ = 'ISC_'
 
-        Open = Sig('in')
-        Close = Sig('in')
-        Identify = Sig('in')
-        GetHardwareInfo = Sig('in', 'buf', 'len', 'out', 'out', 'buf', 'len', 'out', 'out', 'out')
-        GetFirmwareVersion = Sig('in', ret=ret_return)
-        GetSoftwareVersion = Sig('in', ret=ret_return)
-        LoadSettings = Sig('in', ret=ret_success)
-        PersistSettings = Sig('in', ret=ret_success)
-        GetNumberPositions = Sig('in', ret=ret_return)
-        CanHome = Sig('in', ret=ret_return)
-        Home = Sig('in')
-        NeedsHoming = Sig('in', ret=ret_return)
-        MoveToPosition = Sig('in', 'in')
-        GetPosition = Sig('in', ret=ret_return)
-        GetPositionCounter = Sig('in', ret=ret_return)
-        RequestStatus = Sig('in')
-        RequestStatusBits = Sig('in')
-        GetStatusBits = Sig('in', ret=ret_return)
-        StartPolling = Sig('in', 'in', ret=ret_success)
-        PollingDuration = Sig('in', ret=ret_return)
-        StopPolling = Sig('in')
-        RequestSettings = Sig('in')
-        ClearMessageQueue = Sig('in')
-        RegisterMessageCallback = Sig('in', 'in')
-        MessageQueueSize = Sig('in', ret=ret_return)
-        GetNextMessage = Sig('in', 'out', 'out', 'out', ret=ret_success)
-        WaitForMessage = Sig('in', 'out', 'out', 'out', ret=ret_success)
-        GetMotorParamsExt = Sig('in', 'out', 'out', 'out')
-        SetJogStepSize = Sig('in', 'in')
-        GetJogVelParams = Sig('in', 'out', 'out')
-        GetBacklash = Sig('in', ret=ret_return)
-        SetBacklash = Sig('in', 'in')
-        GetLimitSwitchParams = Sig('in', 'out', 'out', 'out', 'out', 'out')
-        GetLimitSwitchParamsBlock = Sig('in', 'out')
+        _sigs_ = {name: all_sigs[name] for name in [
+            'Open',
+            'Close',
+            'Identify',
+            'GetHardwareInfo',
+            'GetFirmwareVersion',
+            'GetSoftwareVersion',
+            'LoadSettings',
+            'PersistSettings',
+            'GetNumberPositions',
+            'CanHome',
+            'Home',
+            'NeedsHoming',
+            'MoveToPosition',
+            'GetPosition',
+            'GetPositionCounter',
+            'RequestStatus',
+            'RequestStatusBits',
+            'GetStatusBits',
+            'StartPolling',
+            'PollingDuration',
+            'StopPolling',
+            'RequestSettings',
+            'ClearMessageQueue',
+            'RegisterMessageCallback',
+            'MessageQueueSize',
+            'GetNextMessage',
+            'WaitForMessage',
+            'GetMotorParamsExt',
+            'SetJogStepSize',
+            'GetJogVelParams',
+            'GetBacklash',
+            'SetBacklash',
+            'GetLimitSwitchParams',
+            'GetLimitSwitchParamsBlock',
+        ]}
