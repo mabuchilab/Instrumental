@@ -1,21 +1,11 @@
-# Auto-generated 2018-02-20T01:27:08.936616
+# Auto-generated 2018-05-16T15:24:17.815623
 from collections import OrderedDict
 
 driver_info = OrderedDict([
-    ('cameras.picam', {
-        'params': [],
-        'classes': [],
-        'imports': ['nicelib'],
-    }),
     ('cameras.pixelfly', {
         'params': ['number'],
         'classes': ['Pixelfly'],
         'imports': ['win32event', 'nicelib'],
-    }),
-    ('cameras.pvcam', {
-        'params': [],
-        'classes': [],
-        'imports': ['cffi'],
     }),
     ('cameras.tsi', {
         'params': ['serial', 'number'],
@@ -44,6 +34,16 @@ driver_info = OrderedDict([
         'imports': ['visa'],
         'visa_info': {'SR850': ('Stanford_Research_Systems', ['SR850'])},
     }),
+    ('motion._kinesis.ff', {
+        'params': ['serial'],
+        'classes': ['FilterFlipper'],
+        'imports': [],
+    }),
+    ('motion._kinesis.isc', {
+        'params': ['serial'],
+        'classes': ['K10CR1'],
+        'imports': [],
+    }),
     ('motion.ecc100', {
         'params': ['id'],
         'classes': ['ECC100'],
@@ -53,11 +53,6 @@ driver_info = OrderedDict([
         'params': ['serial'],
         'classes': ['Filter_Flipper'],
         'imports': ['cffi', 'nicelib'],
-    }),
-    ('motion.kinesis', {
-        'params': ['serial'],
-        'classes': ['K10CR1'],
-        'imports': ['nicelib'],
     }),
     ('motion.tdc_001', {
         'params': ['serial'],
@@ -117,7 +112,7 @@ driver_info = OrderedDict([
         'visa_info': None,
     }),
     ('cameras.pco', {
-        'params': ['interface', 'number'],
+        'params': ['number', 'interface'],
         'classes': ['PCO_Camera'],
         'imports': ['cffi', 'pycparser', 'nicelib'],
     }),
