@@ -45,6 +45,106 @@ class ClassInfo(object):
         return '<{}.{}: {}>'.format(self.module, self.name, self.children)
 
 
+def get_submodules(root_dir):
+    """Yield the relpaths of all non-underscored python files nested within root_dir"""
+    for root, dirs, files in os.walk(root_dir):
+        for filename in files:
+            if not filename.startswith('_') and filename.endswith('.py'):
+                yield os.path.join(root, filename)
+
+
+def analyze_file(fpath):
+    """Parse special vars and imports from the given python source file"""
+    print('Parsing {}'.format(fpath))
+    with io.open(fpath, 'rb') as f:
+        source = f.read()
+    root = ast.parse(source)
+    has_special_vars, values = get_module_level_special_vars(fpath, root)
+    requirements = get_imports(source, root)
+
+    # TODO: Make per-class priority, params, etc. (maybe)
+    caf = ClassAttrFinder(root, fpath)
+    print(caf.class_info)
+    if caf.has_class_vars:
+        if has_special_vars:
+            raise ValueError("Can't mix module-level and class-level special INSTR vars")
+        classes = []
+        params = set()
+        priority = 5
+        visa_info = {}
+        for classname, vars in caf.class_info.items():
+            if not vars:
+                continue
+            classes.append(classname)
+            params = params.union(vars.get('_INST_PARAMS_', ()))
+            priority = max(priority, vars.get('_INST_PRIORITY_', 5))
+            if '_INST_VISA_INFO_' in vars:
+                visa_info[classname] = vars['_INST_VISA_INFO_']
+        values['_INST_CLASSES'] = classes
+        values['_INST_PARAMS'] = list(params)
+        values['_INST_PRIORITY'] = priority
+        values['_INST_VISA_INFO'] = visa_info or None
+        has_special_vars = True
+
+    values['nonstd_imports'] = filter_std_modules(requirements)
+    return has_special_vars, values
+
+
+def special_file_info(root_dir):
+    """Yield (path_list, vars) pairs of special vars for each .py file nested within root_dir"""
+    for fpath in get_submodules(root_dir):
+        has_vars, vars = analyze_file(fpath)
+        if has_vars:
+            relpath = os.path.relpath(fpath, start=root_dir)
+            relpath_no_ext, _ = os.path.splitext(relpath)
+            path_list = os.path.normpath(relpath_no_ext).split(os.path.sep)
+            yield path_list, vars
+
+
+def driver_special_info():
+    """Get info from driver submodules, including nested ones"""
+    info = {}
+    drivers_dir = os.path.join(THIS_DIR, 'drivers')
+    for path_list, vars in special_file_info(drivers_dir):
+        if len(path_list) < 2:
+            continue
+        driver_module = '.'.join(path_list)
+        info[driver_module] = vars
+    return info
+
+
+def driver_special_info_squashed():
+    """Get info from driver submodules, consolidating sub-submodules (even underscored ones)"""
+    info = {}
+    drivers_dir = os.path.join(THIS_DIR, 'drivers')
+    for path_list, vars in special_file_info(drivers_dir):
+        if len(path_list) < 2:
+            continue
+        category, driver = path_list[:2]
+        driver_str = category + '.' + driver.strip('_')
+
+        old_vars = info.setdefault(driver_str, {})
+        add_driver_info(old_vars, vars)
+    return info
+
+
+def add_driver_info(old, new):
+    """Update one _INST_ dict from another"""
+    combine_sorted(old.setdefault('_INST_CLASSES', []), new['_INST_CLASSES'])
+    combine_sorted(old.setdefault('_INST_PARAMS', []), new['_INST_PARAMS'])
+    old['_INST_PRIORITY'] = max(old.get('_INST_PRIORITY', 5), new['_INST_PRIORITY'])
+    combine_sorted(old.setdefault('nonstd_imports', []), new['nonstd_imports'])
+
+    if '_INST_VISA_INFO_' in new:
+        visa_info = old.setdefault('INST_VISA_INFO', {})
+        visa_info.update(new['_INST_VISA_INFO'])
+
+
+def combine_sorted(old, new):
+    combined = set(old) | set(new)
+    old[:] = sorted(combined)
+
+
 def get_subclass_tree():
     base = []
     for cat_name in os.listdir(os.path.join(THIS_DIR, 'drivers')):
@@ -202,7 +302,15 @@ def get_imports(source, root):
     return requirements
 
 
-def parse_module(module_name):
+def parse_driver_modules(module_name):
+    driver_dir = os.path.join(THIS_DIR, 'drivers', *(module_name.split('.')))
+    for fname in os.listdir(driver_dir):
+        if fname.endswith('.py') and not fname.startswith('_'):
+            mod_name = fname[:-3]
+            yield group + '.' + mod_name
+
+
+def parse_driver_modules(module_name):
     """Parse special vars and imports from the given driver module"""
     source = load_module_source(module_name)
     root = ast.parse(source)
@@ -258,12 +366,12 @@ def get_line_comment(tokens, lineno):
 def generate_info_file():
     num_missing = 0
     mod_info = []
-    for module_name in list_drivers():
-        has_special_vars, values = parse_module(module_name)
+    for module_name, values in driver_special_info().items():
+        #has_special_vars, values = parse_driver_modules(module_name)
         mod_info.append((values['_INST_PRIORITY'], module_name, values))
-        if not has_special_vars:
-            num_missing += 1
-            print("Module '{}' is missing its '_INST_*' variables".format(module_name))
+        #if not has_special_vars:
+        #    num_missing += 1
+        #    print("Module '{}' is missing its '_INST_*' variables".format(module_name))
     mod_info.sort()
 
     print("{} of {} modules are missing their '_INST_*' variables".format(num_missing,
@@ -284,7 +392,7 @@ def generate_info_file():
             f.write("        'imports': {!r},\n".format(values['nonstd_imports']))
 
             if params and 'visa_address' in params:
-                f.write("        'visa_info': {!r},\n".format(values['_INST_VISA_INFO']))
+                f.write("        'visa_info': {!r},\n".format(values.get('_INST_VISA_INFO')))
 
             f.write('    }),\n')
         f.write('])\n')
