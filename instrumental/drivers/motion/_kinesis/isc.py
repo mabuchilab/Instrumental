@@ -8,6 +8,7 @@ from .. import Motion
 from .isc_midlib import NiceISC
 from .common import (KinesisError, MessageType, GenericDevice, GenericMotor,
                      GenericDCMotor, MessageIDs)
+import nicelib  # noqa (nicelib dep is hidden behind import of isc_midlib)
 
 log = get_logger(__name__)
 

@@ -9,6 +9,7 @@ from .... import Q_
 from ...util import check_units, check_enums
 from .. import Motion
 from .ff_midlib import NiceFF
+import nicelib  # noqa (nicelib dep is hidden behind import of ff_midlib)
 
 
 class Position(Enum):
