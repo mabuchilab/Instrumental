@@ -1457,15 +1457,17 @@ class NIDAQ(DAQ):
         # Need to handle general case of DI and DO ports, can't assume they're always the same...
         ports = {}
         for line_path in self._dev.GetDevDILines().decode().split(','):
-            port_name, line_name = line_path.rsplit('/', 2)[-2:]
-            if port_name not in ports:
-                ports[port_name] = []
-            ports[port_name].append(line_name)
+            if line_path:
+                port_name, line_name = line_path.rsplit('/', 2)[-2:]
+                if port_name not in ports:
+                    ports[port_name] = []
+                ports[port_name].append(line_name)
 
-        for port_name, line_names in ports.items():
-            line_pairs = [(port_name, l) for l in line_names]
-            chan = VirtualDigitalChannel(self, line_pairs)
-            setattr(self, port_name, chan)
+        if line_path:
+            for port_name, line_names in ports.items():
+                line_pairs = [(port_name, l) for l in line_names]
+                chan = VirtualDigitalChannel(self, line_pairs)
+                setattr(self, port_name, chan)
 
     def _AI_ranges(self):
         data = self._dev.GetDevAIVoltageRngs()
