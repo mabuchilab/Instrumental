@@ -251,13 +251,13 @@ class Facet(object):
         instance = self.instance(obj)
 
         if not (self.cacheable and use_cache) or instance.dirty:
-            log.info('Getting value of facet %s', self.name)
+            log.debug('Getting value of facet %s', self.name)
             instance.cached_val = self.conv_get(self.fget(obj))
             instance.dirty = False
         else:
-            log.info('Using cached value of facet %s', self.name)
+            log.debug('Using cached value of facet %s', self.name)
 
-        log.info('Facet value was %s', instance.cached_val)
+        log.debug('Facet value was %s', instance.cached_val)
         return instance.cached_val
 
     def __set__(self, obj, qty):
@@ -293,7 +293,7 @@ class Facet(object):
             offset = value - start
             if offset % step != 0:
                 new_value = start + int(round(offset / step)) * step
-                log.info("Coercing value from %s to %s due to limit step", value, new_value)
+                log.debug("Coercing value from %s to %s due to limit step", value, new_value)
                 return new_value
 
         return value
