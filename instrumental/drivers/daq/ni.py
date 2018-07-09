@@ -33,6 +33,16 @@ def to_bytes(value, codec='utf-8'):
         return bytes(value)
 
 
+def split_list(list_bytes):
+    """Split a bytestring by commas into a list of strings, stripping whitespace.
+
+    An empty bytestring produces an empty list.
+    """
+    if not list_bytes:
+        return []
+    return [s.strip() for s in list_bytes.decode().split(',')]
+
+
 def call_with_timeout(func, timeout):
     """Call a function repeatedly until successful or timeout elapses
 
@@ -57,7 +67,7 @@ def call_with_timeout(func, timeout):
 
 
 def list_instruments():
-    dev_names = NiceNI.GetSysDevNames().decode().split(',')
+    dev_names = split_list(NiceNI.GetSysDevNames())
     paramsets = []
     for dev_name in dev_names:
         dev_name = dev_name.strip("'")
@@ -1456,7 +1466,7 @@ class NIDAQ(DAQ):
     def _load_digital_ports(self):
         # Need to handle general case of DI and DO ports, can't assume they're always the same...
         ports = {}
-        for line_path in self._dev.GetDevDILines().decode().split(','):
+        for line_path in split_list(self._dev.GetDevDILines()):
             port_name, line_name = line_path.rsplit('/', 2)[-2:]
             if port_name not in ports:
                 ports[port_name] = []
@@ -1495,7 +1505,7 @@ class NIDAQ(DAQ):
 
     @staticmethod
     def _basenames(names):
-        return [path.rsplit('/', 1)[-1] for path in names.decode().split(',')]
+        return [path.rsplit('/', 1)[-1] for path in split_list(names)]
 
     product_type = property(lambda self: self._dev.GetDevProductType())
     product_category = property(lambda self: ProductCategory(self._dev.GetDevProductCategory()))
