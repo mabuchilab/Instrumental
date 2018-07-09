@@ -13,14 +13,20 @@ directory on the system path.
 Note that the .dlls found first on the system path must match the version
 of the headers installed with the Picam SDK.
 """
+from future.utils import PY2
 
 from warnings import warn
+
 from numpy import frombuffer, sum, uint16, hstack, vstack
 from enum import Enum
 from nicelib import NiceLib, load_lib, RetHandler, ret_ignore, Sig, NiceObject
+
 from ...errors import Error, InstrumentNotFoundError
 from ..util import check_units, check_enums
 from ... import Q_
+
+if PY2:
+    memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
 
 
 class PicamError(Error):
@@ -503,7 +509,7 @@ class PicamCamera():
         ``size`` """
         ffi = self._NicePicamLib._ffi
         # This copies the buffer
-        buf = buffer(ffi.buffer(address, size)[:])
+        buf = memoryview(ffi.buffer(address, size)[:])
         return frombuffer(buf, data_type)
 
     def get_frame_shapes(self, rois=None):
