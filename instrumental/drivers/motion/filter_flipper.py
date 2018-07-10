@@ -254,7 +254,7 @@ class Filter_Flipper(Motion):
         ----------
         transit_time: pint quantity with units of time """
         transit_time = transit_time.to('ms').magnitude
-        return int(self._NiceFF.SetTransitTime(transit_time))
+        return self._NiceFF.SetTransitTime(transit_time)
 
 
 class FilterFlipperError(Error):
