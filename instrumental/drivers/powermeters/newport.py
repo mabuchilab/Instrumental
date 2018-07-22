@@ -96,7 +96,7 @@ class Newport_1830_C(PowerMeter, VisaMixin):
 
     @deprecated('power')
     def get_power(self):
-        return self.power()
+        return self.power
 
     range = MyFacet('R', doc="The current input range, [1-8], where 1 is lowest signal.")
 
