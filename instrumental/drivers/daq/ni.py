@@ -1104,7 +1104,7 @@ class AnalogOut(Channel):
         data : scalar or array Quantity
             The data that was read from analog output.
         """
-        with self.daq._create_mini_task('AO') as mtask:
+        with self.daq._create_mini_task('AI') as mtask:
             internal_ch_name = '{}/_{}_vs_aognd'.format(self.daq.name, self.name)
             try:
                 mtask.add_AI_channel(internal_ch_name)
