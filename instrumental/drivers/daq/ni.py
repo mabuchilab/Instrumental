@@ -1456,11 +1456,14 @@ class NIDAQ(DAQ):
     def _load_digital_ports(self):
         # Need to handle general case of DI and DO ports, can't assume they're always the same...
         ports = {}
-        for line_path in self._dev.GetDevDILines().decode().split(','):
-            port_name, line_name = line_path.rsplit('/', 2)[-2:]
-            if port_name not in ports:
-                ports[port_name] = []
-            ports[port_name].append(line_name)
+        DevDILines = self._dev.GetDevDILines().decode()
+        if DevDILines:
+            for line_path in DevDILines.split(','):
+                print(line_path)
+                port_name, line_name = line_path.rsplit('/', 2)[-2:]
+                if port_name not in ports:
+                    ports[port_name] = []
+                ports[port_name].append(line_name)
 
         for port_name, line_names in ports.items():
             line_pairs = [(port_name, l) for l in line_names]
