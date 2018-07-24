@@ -51,10 +51,8 @@ def get_subclass_tree():
         category_path = os.path.join(THIS_DIR, 'drivers', cat_name)
         if not category_path.is_dir() or cat_name.startswith('_'):
             continue
-        print(category_path)
 
         cat_info_list = get_subclasses_of('Instrument', cat_name)
-        print(cat_info_list)
 
         for cat_info in cat_info_list:
             for d_name in os.listdir(category_path):
@@ -206,7 +204,6 @@ def get_imports(source, root):
 
 def parse_module(module_name):
     """Parse special vars and imports from the given driver module"""
-    print('Parsing {}'.format(module_name))
     source = load_module_source(module_name)
     root = ast.parse(source)
     has_special_vars, values = get_module_level_special_vars(module_name, root)
@@ -214,7 +211,6 @@ def parse_module(module_name):
 
     # TODO: Make per-class priority, params, etc. (maybe)
     caf = ClassAttrFinder(root, 'instrumental.drivers.' + module_name)
-    print(caf.class_info)
     if caf.has_class_vars:
         if has_special_vars:
             raise ValueError("Can't mix module-level and class-level special INSTR vars")

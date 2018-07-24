@@ -33,6 +33,16 @@ def to_bytes(value, codec='utf-8'):
         return bytes(value)
 
 
+def split_list(list_bytes):
+    """Split a bytestring by commas into a list of strings, stripping whitespace.
+
+    An empty bytestring produces an empty list.
+    """
+    if not list_bytes:
+        return []
+    return [s.strip() for s in list_bytes.decode().split(',')]
+
+
 def call_with_timeout(func, timeout):
     """Call a function repeatedly until successful or timeout elapses
 
@@ -57,7 +67,7 @@ def call_with_timeout(func, timeout):
 
 
 def list_instruments():
-    dev_names = NiceNI.GetSysDevNames().decode().split(',')
+    dev_names = split_list(NiceNI.GetSysDevNames())
     paramsets = []
     for dev_name in dev_names:
         dev_name = dev_name.strip("'")
@@ -1094,7 +1104,7 @@ class AnalogOut(Channel):
         data : scalar or array Quantity
             The data that was read from analog output.
         """
-        with self.daq._create_mini_task('AO') as mtask:
+        with self.daq._create_mini_task('AI') as mtask:
             internal_ch_name = '{}/_{}_vs_aognd'.format(self.daq.name, self.name)
             try:
                 mtask.add_AI_channel(internal_ch_name)
@@ -1456,6 +1466,7 @@ class NIDAQ(DAQ):
     def _load_digital_ports(self):
         # Need to handle general case of DI and DO ports, can't assume they're always the same...
         ports = {}
+
         DevDILines = self._dev.GetDevDILines().decode()
         if DevDILines:
             for line_path in DevDILines.split(','):
@@ -1498,7 +1509,7 @@ class NIDAQ(DAQ):
 
     @staticmethod
     def _basenames(names):
-        return [path.rsplit('/', 1)[-1] for path in names.decode().split(',')]
+        return [path.rsplit('/', 1)[-1] for path in split_list(names)]
 
     product_type = property(lambda self: self._dev.GetDevProductType())
     product_category = property(lambda self: ProductCategory(self._dev.GetDevProductCategory()))

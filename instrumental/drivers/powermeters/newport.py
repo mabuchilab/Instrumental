@@ -10,8 +10,9 @@ One can then connect and measure the power using the following sequence::
 
     >>> from instrumental import instrument
     >>> newport_power_meter = instrument(visa_address='COM1',
+                                         classname='Newport_1830_C',
                                          module='powermeters.newport')
-    >>> newport_power_meter.get_power()
+    >>> newport_power_meter.power
     <Quantity(3.003776, 'W')>
 
 """
@@ -95,7 +96,7 @@ class Newport_1830_C(PowerMeter, VisaMixin):
 
     @deprecated('power')
     def get_power(self):
-        return self.power()
+        return self.power
 
     range = MyFacet('R', doc="The current input range, [1-8], where 1 is lowest signal.")
 
