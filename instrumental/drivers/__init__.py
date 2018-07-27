@@ -28,6 +28,7 @@ log = get_logger(__name__)
 
 __all__ = ['Instrument', 'instrument', 'list_instruments', 'list_visa_instruments']
 
+internal_drivers = list(driver_info.keys())  # Hacky list for back-compat usage
 cleanup_funcs = []
 _legacy_params = {
     'ueye_cam_id': 'uc480_camera_id',
@@ -536,6 +537,10 @@ def add_driver_info(classname, classdict):
         visa_info['classname'] = classdict.get('_INST_VISA_INFO_')
 
 
+def driver_takes_param(module_name, param_name):
+    return param_name in driver_info.get(module_name, {}).get('params', ())
+
+
 class Instrument(with_metaclass(InstrumentMeta, object)):
     """
     Base class for all instruments.
@@ -1024,7 +1029,12 @@ def get_idn(inst):
 def import_driver(driver_name, raise_errors=False):
     try:
         log.info("Importing driver module '%s'", driver_name)
-        return import_module('.' + driver_name, __package__)
+        # TODO: store full module names in driver_info (or add leading dot) so that external
+        # drivers don't have possible name conflicts
+        if driver_name in internal_drivers:
+            return import_module('.' + driver_name, __package__)
+        else:
+            return import_module(driver_name)
     except Exception as e:
         log.info("Error when importing driver module %s: <<%s>>", driver_name, str(e))
         if raise_errors:
@@ -1304,7 +1314,7 @@ def instrument(inst=None, **kwargs):
         inst = session.instrument(params)
     elif 'visa_address' in params:
         inst = find_visa_instrument(params)
-    elif 'module' in params and 'visa_address' in driver_info[params['module']]['params']:
+    elif 'module' in params and driver_takes_param(params['module'], 'visa_address'):
         inst = find_visa_instrument_by_module(params)
     else:
         inst = find_nonvisa_instrument(params)
