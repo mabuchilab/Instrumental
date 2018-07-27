@@ -376,6 +376,28 @@ class AbstractFacet(Facet):
     __isabstractmethod__ = True
 
 
+class ManualFacet(Facet):
+    def __init__(self, doc=None, cached=False, type=None, units=None, value=None, limits=None,
+                 name=None):
+        Facet.__init__(self, self._manual_fget, self._manual_fset, doc=doc, cached=cached,
+                       type=type, units=units, value=value, limits=limits, name=name)
+
+    def _manual_fget(self, owner):
+        inst = self.instance(owner)
+        try:
+            return inst._manual_value
+        except AttributeError:
+            return self._default_value()
+
+    def _manual_fset(self, owner, value):
+        self.instance(owner)._manual_value = value
+
+    def _default_value(self):
+        if self.units:
+            return Q_(0, self.units)
+        return None  # FIXME
+
+
 def MessageFacet(get_msg=None, set_msg=None, convert=None, **kwds):
     """Convenience function for creating message-based Facets.
 
@@ -483,6 +505,8 @@ class InstrumentMeta(abc.ABCMeta):
                                 value.__doc__ = doc
                             break
 
+        add_driver_info(clsname, classdict)
+
         classdict['_instances'] = WeakSet()
         if '__init__' in classdict:
             raise TypeError("Subclasses of Instrument may not reimplement __init__. You should "
@@ -491,6 +515,25 @@ class InstrumentMeta(abc.ABCMeta):
         classdict['_props'] = props
         classdict['_prop_funcs'] = prop_funcs
         return super(InstrumentMeta, metacls).__new__(metacls, clsname, bases, classdict)
+
+
+def add_driver_info(classname, classdict):
+    """Add an entry in driver_info for class given by classname and classdict"""
+    module_name = classdict['__module__']
+    entry = driver_info.setdefault(module_name, {})
+
+    cls_params = classdict.get('_INST_PARAMS_', [])
+    params = entry.setdefault('params', [])
+    for cls_param in cls_params:
+        if cls_param not in params:
+            params.append(cls_param)  # Should we do this?
+
+    entry.setdefault('classes', []).append(classname)
+    entry.setdefault('imports', [])
+
+    if 'visa_address' in cls_params:
+        visa_info = entry.setdefault('visa_info', {})
+        visa_info['classname'] = classdict.get('_INST_VISA_INFO_')
 
 
 class Instrument(with_metaclass(InstrumentMeta, object)):
