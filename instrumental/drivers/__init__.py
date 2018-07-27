@@ -521,6 +521,8 @@ class InstrumentMeta(abc.ABCMeta):
 def add_driver_info(classname, classdict):
     """Add an entry in driver_info for class given by classname and classdict"""
     module_name = classdict['__module__']
+    if module_name.startswith('instrumental.'):
+        return  # Ignore internal drivers, use static driver_info
     entry = driver_info.setdefault(module_name, {})
 
     cls_params = classdict.get('_INST_PARAMS_', [])
