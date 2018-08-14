@@ -360,6 +360,9 @@ class ProductCategory(ValEnum):
 # Manually taken from NI's support docs since there doesn't seem to be a DAQmx function to do
 # this... This list should include all possible internal channels for each type of device, and some
 # of these channels will not exist on a given device.
+# NOTE: Missing BSeriesDAQ, AOSeries, DigitalIO, TIOSeries, Switches, CompactDAQChassis,
+#       SCCConnectorBlock, SCCModule, NetworkDAQ, SCExpress, and Unknown
+# Also may be missing some internal channels in the given entries, so double-check this
 _internal_channels = {
     ProductCategory.MSeriesDAQ:
         ['_aignd_vs_aignd', '_ao0_vs_aognd', '_ao1_vs_aognd', '_ao2_vs_aognd', '_ao3_vs_aognd',
@@ -1459,7 +1462,7 @@ class NIDAQ(DAQ):
             setattr(self, ao_name, AnalogOut(self, ao_name))
 
     def _load_internal_channels(self):
-        ch_names = _internal_channels.get(self.product_category)
+        ch_names = _internal_channels.get(self.product_category, [])
         for ch_name in ch_names:
             setattr(self, ch_name, AnalogIn(self, ch_name))
 
