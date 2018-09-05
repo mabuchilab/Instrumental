@@ -22,6 +22,29 @@ def save_result(filename):
     return decorator
 
 
+def cached_as(filename):
+    """Decorator to cache return value(s) in a pickle file
+
+    If a file with the given filename exists, it is unpickled and that value is returned. Otherwise,
+    the decorated function is called, and its return value is returned, after pickling and saving it
+    for later use.
+    """
+    import os.path
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwds):
+            if os.path.exists(filename):
+                with open(filename, 'rb') as fh:
+                    return pickle.load(fh)
+            else:
+                retval = func(*args, **kwds)
+                with open(filename, 'wb') as fh:
+                    pickle.dump(retval, fh)
+                return retval
+        return wrapper
+    return decorator
+
+
 def to_str(value, encoding='utf-8'):
     """Convert value to a str type
 
