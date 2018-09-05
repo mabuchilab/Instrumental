@@ -64,6 +64,16 @@ MODEL_CHANNELS = {
 }
 
 
+def infer_termination(msg_str):
+    if msg_str.endswith('\r\n'):
+        return '\r\n'
+    elif msg_str.endswith('\r'):
+        return '\r'
+    elif msg_str.endswith('\n'):
+        return '\n'
+    return None
+
+
 class TekScope(Scope, VisaMixin):
     """
     A base class for Tektronix scopes. Supports at least TDS 3000 series as
@@ -74,8 +84,8 @@ class TekScope(Scope, VisaMixin):
             terminator = self.query('RS232:trans:term?').strip()
             self._rsrc.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
         elif self.interface_type == InterfaceType.usb:
-            terminator = self.query('RS232:trans:term?').strip()
-            self._rsrc.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
+            msg = self.query('*IDN?')
+            self._rsrc.read_termination = infer_termination(msg)
         elif self.interface_type == InterfaceType.tcpip:
             pass
         else:
