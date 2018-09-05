@@ -1,4 +1,4 @@
-# Auto-generated 2018-02-20T01:27:08.936616
+# Auto-generated 2018-09-01T19:13:32.654684
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -28,7 +28,7 @@ driver_info = OrderedDict([
         'imports': ['pywin32', 'nicelib >= 0.5'],
     }),
     ('daq.ni', {
-        'params': ['model', 'serial', 'name'],
+        'params': ['serial', 'model', 'name'],
         'classes': ['NIDAQ'],
         'imports': ['nicelib >= 0.5'],
     }),
@@ -78,9 +78,9 @@ driver_info = OrderedDict([
     }),
     ('scopes.tektronix', {
         'params': ['visa_address'],
-        'classes': ['TDS_200', 'TDS_1000', 'TDS_2000', 'TDS_3000', 'MSO_DPO_4000'],
+        'classes': ['TDS_200', 'TDS_1000', 'TDS_2000', 'TDS_3000', 'MSO_DPO_2000', 'MSO_DPO_4000'],
         'imports': ['visa', 'pyvisa'],
-        'visa_info': {'TDS_200': ('TEKTRONIX', ['TDS 210', 'TDS 220', 'TDS 224']), 'TDS_1000': ('TEKTRONIX', ['TDS 1001B', 'TDS 1002B', 'TDS 1012B']), 'TDS_2000': ('TEKTRONIX', ['TDS 2002B', 'TDS 2004B', 'TDS 2012B', 'TDS 2014B', 'TDS 2022B', 'TDS 2024B']), 'TDS_3000': ('TEKTRONIX', ['TDS 3012', 'TDS 3012B', 'TDS 3012C', 'TDS 3014', 'TDS 3014B', 'TDS 3014C', 'TDS 3032', 'TDS 3032B', 'TDS 3032C', 'TDS 3034', 'TDS 3034B', 'TDS 3034C', 'TDS 3052', 'TDS 3052B', 'TDS 3052C', 'TDS 3054', 'TDS 3054B', 'TDS 3054C']), 'MSO_DPO_4000': ('TEKTRONIX', ['MSO4032', 'DPO4032', 'MSO4034', 'DPO4034', 'MSO4054', 'DPO4054', 'MSO4104', 'DPO4104'])},
+        'visa_info': {'TDS_200': ('TEKTRONIX', ['TDS 210', 'TDS 220', 'TDS 224']), 'TDS_1000': ('TEKTRONIX', ['TDS 1001B', 'TDS 1002B', 'TDS 1012B']), 'TDS_2000': ('TEKTRONIX', ['TDS 2002B', 'TDS 2004B', 'TDS 2012B', 'TDS 2014B', 'TDS 2022B', 'TDS 2024B']), 'TDS_3000': ('TEKTRONIX', ['TDS 3012', 'TDS 3012B', 'TDS 3012C', 'TDS 3014', 'TDS 3014B', 'TDS 3014C', 'TDS 3032', 'TDS 3032B', 'TDS 3032C', 'TDS 3034', 'TDS 3034B', 'TDS 3034C', 'TDS 3052', 'TDS 3052B', 'TDS 3052C', 'TDS 3054', 'TDS 3054B', 'TDS 3054C']), 'MSO_DPO_2000': ('TEKTRONIX', ['MSO2012', 'MSO2014', 'MSO2024', 'DPO2012', 'DPO2014', 'DPO2024']), 'MSO_DPO_4000': ('TEKTRONIX', ['MSO4032', 'DPO4032', 'MSO4034', 'DPO4034', 'MSO4054', 'DPO4054', 'MSO4104', 'DPO4104'])},
     }),
     ('spectrometers.bristol', {
         'params': ['port'],

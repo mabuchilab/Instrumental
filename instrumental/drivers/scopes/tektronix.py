@@ -47,6 +47,12 @@ MODEL_CHANNELS = {
     'TDS 3054': 4,
     'TDS 3054B': 4,
     'TDS 3054C': 4,
+    'MSO2012': 2,
+    'DPO2012': 2,
+    'MSO2014': 4,
+    'DPO2014': 4,
+    'MSO2024': 4,
+    'DPO2024': 4,
     'MSO4032': 2,
     'DPO4032': 2,
     'MSO4034': 4,
@@ -337,6 +343,13 @@ class TDS_3000(StatScope):
                                       'TDS 3034', 'TDS 3034B', 'TDS 3034C',
                                       'TDS 3052', 'TDS 3052B', 'TDS 3052C',
                                       'TDS 3054', 'TDS 3054B', 'TDS 3054C',])
+
+
+class MSO_DPO_2000(StatScope):
+    """A Tektronix MSO/DPO 2000 series oscilloscope."""
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('TEKTRONIX', ['MSO2012', 'MSO2014', 'MSO2024',
+                                      'DPO2012', 'DPO2014', 'DPO2024',])
 
 
 class MSO_DPO_4000(StatScope):
