@@ -518,7 +518,7 @@ class Task(object):
             for ch_type, mtask in self._mtasks.items():
                 mtask.config_timing(self.fsamp, self.n_samples, mode, self.edge, '')
         else:
-            raise DAQError("Must specify 0 or 2 of duration, fsamp, and n_samples")
+            raise ValueError("Must specify 0 or 2 of duration, fsamp, and n_samples")
 
     def _setup_triggers(self):
         for ch_type, mtask in self._mtasks.items():
@@ -1045,7 +1045,7 @@ class AnalogIn(Channel):
                 mtask.reserve_with_timeout(reserve_timeout)
                 data = mtask.read_AI_channels()
             else:
-                raise DAQError("Must specify 0 or 2 of duration, fsamp, and n_samples")
+                raise ValueError("Must specify 0 or 2 of duration, fsamp, and n_samples")
         return data
 
     def start_reading(self, fsamp=None, vmin=None, vmax=None, overwrite=False,
@@ -1128,7 +1128,7 @@ class AnalogOut(Channel):
                 mtask.config_timing(fsamp, n_samples)
                 data = mtask.read_AI_channels()
             else:
-                raise DAQError("Must specify 0 or 2 of duration, fsamp, and n_samples")
+                raise ValueError("Must specify 0 or 2 of duration, fsamp, and n_samples")
         return data
 
     @check_units(duration='?s', fsamp='?Hz', freq='?Hz')
@@ -1175,12 +1175,12 @@ class AnalogOut(Channel):
             return self._write_scalar(data)
 
         if num_not_none(fsamp, freq) != 1:
-            raise DAQError("Need one and only one of `fsamp` or `freq`")
+            raise ValueError("Need one and only one of `fsamp` or `freq`")
         if fsamp is None:
             fsamp = freq * len(data)
 
         if num_not_none(duration, reps) == 2:
-            raise DAQError("Can use at most one of `duration` or `reps`, not both")
+            raise ValueError("Can use at most one of `duration` or `reps`, not both")
         if duration is None:
             duration = (reps or 1) * len(data) / fsamp
 
@@ -1357,8 +1357,8 @@ class VirtualDigitalChannel(Channel):
             elif n_samples is not None:
                 data = minitask.read_DI_channels(samples=n_samples)
             else:
-                raise DAQError("Must specify nothing, fsamp only, or two of duration, fsamp, "
-                               "and n_samples")
+                raise ValueError("Must specify nothing, fsamp only, or two of duration, fsamp, "
+                                 "and n_samples")
         return data
 
     def write(self, value):
