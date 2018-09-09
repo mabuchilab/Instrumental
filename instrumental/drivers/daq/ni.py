@@ -520,6 +520,23 @@ class Task(object):
         else:
             raise ValueError("Must specify 0 or 2 of duration, fsamp, and n_samples")
 
+    def config_digital_edge_trigger(self, source, edge='rising'):
+        """Configure the task to start on a digital edge
+
+        You must configure the task's timing using ``set_timing()`` before calling this.
+
+        Parameters
+        ----------
+        source : str or Channel
+            Terminal of the digital signal to use as the trigger. Note that digital channels may
+            have to be given as a PFI-string, e.g. "PFI3", rather than in port-line format.
+        edge : EdgeSlope or str
+            Trigger slope, either 'rising' or 'falling'
+        """
+        # TODO: Verify that this is right for multi-tasks
+        for ch_type, mtask in self._mtasks.items():
+            mtask.config_digital_edge_trigger(source, edge)
+
     def _setup_triggers(self):
         for ch_type, mtask in self._mtasks.items():
             if ch_type != self.master_type:
@@ -724,6 +741,7 @@ class MiniTask(object):
         self.io_type = io_type
         self.chans = []
         self.fsamp = None
+        self.has_trigger = False
 
     def __enter__(self):
         return self
@@ -757,6 +775,12 @@ class MiniTask(object):
         # Save for later
         self.n_samples = n_samples
         self.fsamp = fsamp
+
+    @check_enums(edge=EdgeSlope)
+    def config_digital_edge_trigger(self, source, edge='rising'):
+        source_path = source if isinstance(source, basestring) else source.path
+        self._mx_task.CfgDigEdgeStartTrig(source_path, edge.value)
+        self.has_trigger = True
 
     def reserve(self):
         self._mx_task.TaskControl(Val.Task_Reserve)
