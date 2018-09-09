@@ -139,7 +139,9 @@ class NiceNI(NiceLib):
         CfgSampClkTiming = Sig('in', 'in', 'in', 'in', 'in', 'in')
         CfgImplicitTiming = Sig('in', 'in', 'in')
         CfgOutputBuffer = Sig('in', 'in')
+        CfgAnlgEdgeStartTrig = Sig('in', 'in', 'in', 'in')
         CfgDigEdgeStartTrig = Sig('in', 'in', 'in')
+        CfgDigEdgeRefTrig = Sig('in', 'in', 'in', 'in')
         GetAOUseOnlyOnBrdMem = Sig('in', 'in', 'out')
         SetAOUseOnlyOnBrdMem = Sig('in', 'in', 'in')
         GetBufInputOnbrdBufSize = Sig('in', 'out')
@@ -520,7 +522,7 @@ class Task(object):
         else:
             raise ValueError("Must specify 0 or 2 of duration, fsamp, and n_samples")
 
-    def config_digital_edge_trigger(self, source, edge='rising'):
+    def config_digital_edge_trigger(self, source, edge='rising', n_pretrig_samples=0):
         """Configure the task to start on a digital edge
 
         You must configure the task's timing using ``set_timing()`` before calling this.
@@ -532,10 +534,14 @@ class Task(object):
             have to be given as a PFI-string, e.g. "PFI3", rather than in port-line format.
         edge : EdgeSlope or str
             Trigger slope, either 'rising' or 'falling'
+        n_pretrig_samples : int
+            Number of pre-trigger samples to acquire (only works for acquisition). For exapmle, if
+            you're acquiring 100 samples and `n_pretrig_samples` is 20, the data will contain 20
+            samples from right before the trigger, and 80 from right after it.
         """
         # TODO: Verify that this is right for multi-tasks
         for ch_type, mtask in self._mtasks.items():
-            mtask.config_digital_edge_trigger(source, edge)
+            mtask.config_digital_edge_trigger(source, edge, n_pretrig_samples)
 
     def _setup_triggers(self):
         for ch_type, mtask in self._mtasks.items():
@@ -777,9 +783,34 @@ class MiniTask(object):
         self.fsamp = fsamp
 
     @check_enums(edge=EdgeSlope)
-    def config_digital_edge_trigger(self, source, edge='rising'):
+    @check_units(level='V')
+    def config_analog_edge_trigger(self, source, edge='rising', level='2.5 V'):
         source_path = source if isinstance(source, basestring) else source.path
-        self._mx_task.CfgDigEdgeStartTrig(source_path, edge.value)
+        self._mx_task.CfgAnlgEdgeStartTrig(source_path, edge.value, level.m_as('V'))
+
+    @check_enums(edge=EdgeSlope)
+    def config_digital_edge_trigger(self, source, edge='rising', n_pretrig_samples=0):
+        """Configure the task to start on a digital edge
+
+        You must configure the MiniTask's timing using ``config_timing()`` before calling this.
+
+        Parameters
+        ----------
+        source : str or Channel
+            Terminal of the digital signal to use as the trigger. Note that digital channels may
+            have to be given as a PFI-string, e.g. "PFI3", rather than in port-line format.
+        edge : EdgeSlope or str
+            Trigger slope, either 'rising' or 'falling'
+        n_pretrig_samples : int
+            Number of pre-trigger samples to acquire (only works for acquisition). For exapmle, if
+            you're acquiring 100 samples and `n_pretrig_samples` is 20, the data will contain 20
+            samples from right before the trigger, and 80 from right after it.
+        """
+        source_path = source if isinstance(source, basestring) else source.path
+        if n_pretrig_samples > 0:
+            self._mx_task.CfgDigEdgeRefTrig(source_path, edge.value, n_pretrig_samples)
+        else:
+            self._mx_task.CfgDigEdgeStartTrig(source_path, edge.value)
         self.has_trigger = True
 
     def reserve(self):
