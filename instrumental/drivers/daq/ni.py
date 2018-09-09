@@ -17,6 +17,7 @@ from ... import Q_, u
 from .. import ParamSet
 from ...errors import Error, TimeoutError
 from ..util import check_units, check_enums, as_enum
+from ...util import to_str
 from . import DAQ
 
 __all__ = ['NIDAQ', 'AnalogIn', 'AnalogOut', 'VirtualDigitalChannel', 'SampleMode', 'EdgeSlope',
@@ -84,7 +85,8 @@ def list_instruments():
 
 class DAQError(Error):
     def __init__(self, code):
-        msg = "({}) {}".format(code, NiceNI.GetExtendedErrorInfo())
+        err_str = to_str(NiceNI.GetExtendedErrorInfo())
+        msg = "({}) {}".format(code, err_str)
         self.code = code
         super(DAQError, self).__init__(msg)
 
