@@ -1335,6 +1335,9 @@ class VirtualDigitalChannel(Channel):
             pairs = [self.line_pairs[key]]
         return VirtualDigitalChannel(self.daq, pairs)
 
+    def _add_to_minitask(self, minitask, split_lines=False):
+        minitask.add_DI_channel(self, split_lines)
+
     def __add__(self, other):
         """Concatenate two VirtualDigitalChannels"""
         if not isinstance(other, VirtualDigitalChannel):
