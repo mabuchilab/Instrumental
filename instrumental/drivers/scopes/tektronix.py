@@ -11,7 +11,7 @@ from pyvisa.constants import InterfaceType
 import numpy as np
 from pint import UndefinedUnitError
 from . import Scope
-from .. import VisaMixin, SCPI_Facet
+from .. import VisaMixin, SCPI_Facet, Facet
 from ..util import visa_context
 from ... import u, Q_
 
@@ -112,8 +112,11 @@ class TekScope(Scope, VisaMixin):
             ``y`` is in volts.
         """
         self.write("data:source ch{}".format(channel))
-        stop = int(self.query("wfmpre:nr_pt?"))  # Get source's number of points
-        stop = 10000
+        try:
+            # scope *should* truncate this to record length if it's too big
+            stop = self.max_waveform_length
+        except AttributeError:
+            stop = 1000000
         self.write("data:width 2")
         self.write("data:encdg RIBinary")
         self.write("data:start 1")
@@ -355,12 +358,20 @@ class TDS_3000(StatScope):
                                       'TDS 3052', 'TDS 3052B', 'TDS 3052C',
                                       'TDS 3054', 'TDS 3054B', 'TDS 3054C',])
 
+    max_waveform_length = 10000
+    waveform_length = SCPI_Facet('wfmpre:nr_pt', convert=int, readonly=True,
+                                 doc="Record length of the source waveform")
+
 
 class MSO_DPO_2000(StatScope):
     """A Tektronix MSO/DPO 2000 series oscilloscope."""
     _INST_PARAMS_ = ['visa_address']
     _INST_VISA_INFO_ = ('TEKTRONIX', ['MSO2012', 'MSO2014', 'MSO2024',
                                       'DPO2012', 'DPO2014', 'DPO2024',])
+
+    max_waveform_length = 1000000
+    waveform_length = SCPI_Facet('wfmoutpre:recordlength', convert=int, readonly=True,
+                                 doc="Record length of the source waveform")
 
 
 class MSO_DPO_4000(StatScope):
