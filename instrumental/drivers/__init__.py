@@ -1160,6 +1160,7 @@ def find_nonvisa_instrument(params):
 
         full_params = find_full_params(normalized_params, driver_module)
         if not full_params:
+            # FIXME: Improve this error message
             raise Exception("{} does not match any known ParamSet from driver module "
                             "{}.".format(params, params['module']))
 
