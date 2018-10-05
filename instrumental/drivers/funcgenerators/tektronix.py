@@ -690,10 +690,10 @@ class AFG_3000(FunctionGenerator):
         data = (data-min)*(16382/(max-min))
         data = data.astype('>u2')  # Convert to big-endian 16-bit unsigned int
 
-        bytes = data.tostring()
-        num = len(bytes)
-        bytes = b"#{}{}".format(len(str(num)), num) + bytes
-        self._rsrc.write_raw(b'data ememory,' + bytes)
+        bytestr = data.tostring()
+        num = len(bytestr)
+        bytestr = "#{}{}".format(len(str(num)), num).encode() + bytestr
+        self._rsrc.write_raw(b'data ememory,' + bytestr)
 
     def get_ememory(self):
         """ Get array of data from edit memory.
@@ -705,9 +705,9 @@ class AFG_3000(FunctionGenerator):
         """
         self._rsrc.write('data? ememory')
         resp = self._rsrc.read_raw()
-        if resp[0] != b'#':
+        if resp[0:1] != b'#':  # Slice for py2/3 compat
             raise Exception("Binary reponse missing header! Something's wrong.")
-        header_width = int(resp[1]) + 2
+        header_width = int(resp[1:2]) + 2
         num_bytes = int(resp[2:header_width])
         data = np.frombuffer(resp, dtype='>u2', offset=header_width, count=int(num_bytes/2))
         return data
