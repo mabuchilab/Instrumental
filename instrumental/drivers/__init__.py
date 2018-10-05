@@ -970,6 +970,8 @@ def get_idn(inst):
 
     try:
         manufac, model, _ = idn.split(',', 2)
+        manufac = manufac.strip()
+        model = model.strip()
     except ValueError as e:
         log.info("Invalid response to IDN query")
         log.info(str(e))
