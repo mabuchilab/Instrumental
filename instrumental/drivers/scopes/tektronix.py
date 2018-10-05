@@ -87,7 +87,8 @@ class TekScope(Scope, VisaMixin):
             msg = self.query('*IDN?')
             self._rsrc.read_termination = infer_termination(msg)
         elif self.interface_type == InterfaceType.tcpip:
-            pass
+            msg = self.query('*IDN?')
+            self._rsrc.read_termination = infer_termination(msg)
         else:
             pass
 
