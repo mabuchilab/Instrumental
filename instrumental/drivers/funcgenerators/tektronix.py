@@ -7,6 +7,7 @@ Driver module for Tektronix function generators. Currently supports:
 """
 import numpy as np
 from . import FunctionGenerator
+from .. import VisaMixin
 from ... import u, Q_
 
 _INST_PARAMS = ['visa_address']
@@ -53,7 +54,10 @@ def _verify_sweep_args(kwargs):
         raise Exception('May include only start/stop or center/span')
 
 
-class AFG_3000(FunctionGenerator):
+class AFG_3000(FunctionGenerator, VisaMixin):
+    def _initialize(self):
+        pass
+
     def set_function(self, **kwargs):
         """
         Set selected function parameters. Useful for setting multiple
