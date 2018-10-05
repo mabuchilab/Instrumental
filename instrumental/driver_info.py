@@ -1,4 +1,4 @@
-# Auto-generated 2018-09-01T19:13:32.654684
+# Auto-generated 2018-09-08T20:48:23.557699
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -31,6 +31,12 @@ driver_info = OrderedDict([
         'params': ['serial', 'model', 'name'],
         'classes': ['NIDAQ'],
         'imports': ['nicelib >= 0.5'],
+    }),
+    ('funcgenerators.agilent', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': [],
+        'visa_info': {'AgilentMXG': ('Agilent Technologies', ['N5181A'])},
     }),
     ('funcgenerators.tektronix', {
         'params': ['visa_address'],
