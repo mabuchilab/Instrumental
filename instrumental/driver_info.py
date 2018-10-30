@@ -38,6 +38,16 @@ driver_info = OrderedDict([
         'imports': [],
         'visa_info': {'AFG_3000': ('TEKTRONIX', ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102', 'AFG3251', 'AFG3252'])},
     }),
+    ('funcgenerators.hp', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': [],
+    }),
+    ('lasers.newfocus', {
+        'params': ['visa_address'],
+        'classes': ['NF6200'],
+        'imports': ['visa','pyvisa'],
+    }),
     ('lockins.sr850', {
         'params': ['visa_address'],
         'classes': [],
@@ -92,15 +102,26 @@ driver_info = OrderedDict([
         'imports': ['visa','pyvisa'],
         'visa_info': {'HP4395': ('HEWLETT-PACKARD', ['4395A'])},
     }),
+    ('amplifiers.srs', {
+        'params': ['visa_address'],
+        'classes': ['SR570'],
+        'imports': ['visa','pyvisa'],
+        'visa_info': {'SR570': ('SRS', ['SR570'])},
+    }),
     ('scopes.tektronix', {
         'params': ['visa_address'],
         'classes': [],
         'imports': ['visa', 'pyvisa'],
-        'visa_info': {'TDS_200': ('TEKTRONIX', ['TDS 210']), 'TDS_3000': ('TEKTRONIX', ['TDS 3032', 'TDS 3034B']), 'MSO_DPO_4000': ('TEKTRONIX', ['MSO4034', 'DPO4034', 'DPO2024'])},
+        'visa_info': {'TDS_200': ('TEKTRONIX', ['TDS 210']), 'TDS_600': ('TEKTRONIX', ['TDS 654C']), 'TDS_3000': ('TEKTRONIX', ['TDS 3032', 'TDS 3034B']), 'MSO_DPO_4000': ('TEKTRONIX', ['MSO4034', 'DPO4034', 'DPO2024'])},
     }),
     ('spectrometers.bristol', {
         'params': ['port'],
         'classes': ['Bristol_721'],
+        'imports': [],
+    }),
+    ('wavemeters.bristol', {
+        'params': ['port'],
+        'classes': ['Bristol621'],
         'imports': [],
     }),
     ('spectrometers.thorlabs_ccs', {

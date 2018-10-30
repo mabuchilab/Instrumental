@@ -140,6 +140,9 @@ class Bristol_721(Spectrometer):
             Wavelength of the bins, in nm
         y : array
             Power in each bin, in arbitrary units
+
+        for later, at least one resolution settings produces a Spectrum
+        with 48940 points, as received/processed by this driver wrapper
         """
         start, stop = self._fft_range()
         size = stop-start
@@ -154,6 +157,10 @@ class Bristol_721(Spectrometer):
 
         # For some reason, x is not sorted already...
         indices = np.argsort(wavenumber)
+        # if wavenumber:
+        #     return wavenumber[indices] /u.cm, power[indices]  # Is this scaling right?
+        # else:
+        #     return 1e10/wavenumber[indices] * u.nm, power[indices]  # Is this scaling right?
         return 1e10/wavenumber[indices] * u.nm, power[indices]  # Is this scaling right?
 
     def close(self):

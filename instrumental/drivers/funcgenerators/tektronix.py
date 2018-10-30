@@ -16,9 +16,9 @@ _INST_VISA_INFO = {
 }
 
 _shapes = ['sinusoid', 'square', 'pulse', 'ramp', 'prnoise', 'dc', 'sinc',
-           'gaussian', 'lorentz', 'erise', 'edecay', 'haversine']
+           'gaussian', 'lorentz', 'erise', 'edecay', 'haversine','ememory']
 _abbrev_shapes = ['sin', 'squ', 'puls', 'ramp', 'prn', 'dc', 'sinc', 'gaus',
-                  'lor', 'eris', 'edec', 'hav']
+                  'lor', 'eris', 'edec', 'hav','emem']
 _amp_keys = ['vpp', 'vrms', 'dbm']
 _volt_keys = ['vpp', 'vrms', 'dbm', 'offset', 'high', 'low']
 
@@ -93,7 +93,7 @@ class AFG_3000(FunctionGenerator):
         if 'dbm' in kwargs:
             self.set_dbm(kwargs['dbm'], channel)
         if 'offset' in kwargs:
-            self.set_offset(kwargs['channel'], channel)
+            self.set_offset(kwargs['offset'], channel)
         if 'high' in kwargs:
             self.set_high(kwargs['high'], channel)
         if 'low' in kwargs:
@@ -690,10 +690,11 @@ class AFG_3000(FunctionGenerator):
         data = (data-min)*(16382/(max-min))
         data = data.astype('>u2')  # Convert to big-endian 16-bit unsigned int
 
-        bytes = data.tostring()
-        num = len(bytes)
-        bytes = b"#{}{}".format(len(str(num)), num) + bytes
-        self._rsrc.write_raw(b'data ememory,' + bytes)
+        data_bytes = data.tostring()
+        num = len(data_bytes)
+        data_bytes = b"#%a%a" % (len(str(num)), num) + data_bytes
+        #data_bytes = b"#{}{}".format(len(str(num)), num) + data_bytes
+        self._rsrc.write_raw(b'data ememory,' + data_bytes)
 
     def get_ememory(self):
         """ Get array of data from edit memory.

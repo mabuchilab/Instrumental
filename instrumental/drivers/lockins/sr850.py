@@ -9,7 +9,10 @@ output to use.
 from numpy import fromstring, float32
 from enum import Enum
 import visa
-from ..util import check_units, check_enums
+from pyvisa.constants import InterfaceType
+from . import Lockin
+from .. import VisaMixin, SCPI_Facet, Facet
+from ..util import visa_context, check_units, check_enums
 from ...errors import InstrumentTypeError
 from ... import Q_
 
@@ -276,7 +279,7 @@ class StatusByte(Enum):
     service_request = 6
 
 
-class SR850:
+class SR850(Lockin,VisaMixin):
     """ Interfaces with the SRS model SR850 Lock-in Amplifier"""
     AlarmMode = AlarmMode
     ReferenceSource = ReferenceSource
@@ -315,8 +318,14 @@ class SR850:
         rs232 : bool, optional
             Whether to use RS-232 or GPIB to communicate. Uses RS-232 by default
         """
-
-        self.set_output_interface(rs232)
+        self._rsrc.read_termination = '\r'
+        if self._rsrc.interface_type == InterfaceType.asrl:
+            self.set_output_interface(True)
+        elif self._rsrc.interface_type == InterfaceType.gpib:
+            self.set_output_interface(False)
+        else:
+            pass
+        #self.set_output_interface(rs232)
         self.ID = self._rsrc.query('*IDN?')
         vendor, model, SN, version = self.ID.split(',')
         if model != 'SR850':
