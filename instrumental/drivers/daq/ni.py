@@ -535,7 +535,7 @@ class Task(object):
         edge : EdgeSlope or str
             Trigger slope, either 'rising' or 'falling'
         n_pretrig_samples : int
-            Number of pre-trigger samples to acquire (only works for acquisition). For exapmle, if
+            Number of pre-trigger samples to acquire (only works for acquisition). For example, if
             you're acquiring 100 samples and `n_pretrig_samples` is 20, the data will contain 20
             samples from right before the trigger, and 80 from right after it.
         """
@@ -802,7 +802,7 @@ class MiniTask(object):
         edge : EdgeSlope or str
             Trigger slope, either 'rising' or 'falling'
         n_pretrig_samples : int
-            Number of pre-trigger samples to acquire (only works for acquisition). For exapmle, if
+            Number of pre-trigger samples to acquire (only works for acquisition). For example, if
             you're acquiring 100 samples and `n_pretrig_samples` is 20, the data will contain 20
             samples from right before the trigger, and 80 from right after it.
         """
