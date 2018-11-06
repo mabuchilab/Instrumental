@@ -135,6 +135,7 @@ class NiceNI(NiceLib):
         ReadDigitalLines = Sig('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'out', 'ignore')
         WriteAnalogF64 = Sig('in', 'in', 'in', 'in', 'in', 'in', 'out', 'ignore')
         WriteAnalogScalarF64 = Sig('in', 'in', 'in', 'in', 'ignore')
+        WriteDigitalU32 = Sig('in', 'in', 'in', 'in', 'in', 'in', 'out', 'ignore')
         WriteDigitalScalarU32 = Sig('in', 'in', 'in', 'in', 'ignore')
         CfgSampClkTiming = Sig('in', 'in', 'in', 'in', 'in', 'in')
         CfgImplicitTiming = Sig('in', 'in', 'in')
@@ -590,7 +591,7 @@ class Task(object):
 
         # Then set up writes for each channel, don't auto-start
         self._write_AO_channels(write_data, autostart=autostart)
-        # self.write_DO_channels()
+        self._write_DO_channels(write_data, autostart=autostart)
         # self.write_CO_channels()
 
     def verify(self):
@@ -709,6 +710,18 @@ class Task(object):
         arr = arr.astype(np.float64)
         n_samps_per_chan = list(data.values())[0].magnitude.size
         mx_task.WriteAnalogF64(n_samps_per_chan, autostart, -1., Val.GroupByChannel, arr)
+
+    def _write_DO_channels(self, data, autostart=True):
+        if 'DO' not in self._mtasks:
+            return
+        mx_task = self._mtasks['DO']._mx_task
+        # TODO: add check that input data is the right length
+        arr = np.fromiter((ch._create_DO_int(value)
+                           for (ch_name, ch) in self.channels.items() if ch.type == 'DO'
+                           for value in data[ch_name]),
+                          dtype='uint32')
+        n_samps_per_chan = list(data.values())[0].size
+        mx_task.WriteDigitalU32(n_samps_per_chan, autostart, -1, Val.GroupByChannel, arr)
 
     def __enter__(self):
         return self
@@ -894,11 +907,13 @@ class MiniTask(object):
             self.chans.append(chan_path)
             self._mx_task.CreateDIChan(chan_path, '', Val.ChanForAllLines)
 
-    def add_DO_channel(self, do):
+    def add_DO_channel(self, do, split_lines=False):
         self._assert_io_type('DO')
         do_path = do if isinstance(do, basestring) else do.path
-        self.chans.append(do_path)
-        self._mx_task.CreateDOChan(do_path, '', Val.ChanForAllLines)
+        chan_paths = do_path.split(',') if split_lines else (do_path,)
+        for chan_path in chan_paths:
+            self.chans.append(chan_path)
+            self._mx_task.CreateDOChan(chan_path, '', Val.ChanForAllLines)
 
     def set_AO_only_onboard_mem(self, channel, onboard_only):
         self._mx_task.SetAOUseOnlyOnBrdMem(channel, onboard_only)
@@ -1366,7 +1381,14 @@ class VirtualDigitalChannel(Channel):
         return VirtualDigitalChannel(self.daq, pairs)
 
     def _add_to_minitask(self, minitask, split_lines=False):
-        minitask.add_DI_channel(self, split_lines)
+        io_type = self.type if self.type in ('DI', 'DO') else minitask.io_type
+
+        if self.type == 'DI':
+            minitask.add_DI_channel(self, split_lines)
+        elif self.type == 'DO':
+            minitask.add_DO_channel(self, split_lines)
+        else:
+            raise TypeError("Can't add digital channel to MiniTask of type {}".format(io_type))
 
     def __add__(self, other):
         """Concatenate two VirtualDigitalChannels"""
