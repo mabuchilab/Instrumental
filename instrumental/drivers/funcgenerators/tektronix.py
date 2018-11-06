@@ -663,7 +663,18 @@ class AFG_3000(FunctionGenerator, VisaMixin):
             raise Exception("Depth must be between 0.0 and 120.0")
         self._rsrc.write('source{}:am:depth {:.1f}pct'.format(channel, val))
 
-    def set_arb_func(self, data, interp=None, num_pts=10000):
+    def set_arb_from_func(self, func, domain, num_pts=10000, copy_to=None):
+        """Write arbitrary waveform sampled from a function"""
+        start, end = domain
+        ts = np.linspace(start, end, num_pts)
+        y = np.fromiter((func(t) for t in ts), dtype=float, count=num_pts)
+        self._write_normalized_func(y)
+        if copy_to is not None:
+            if copy_to not in (1,2,3,4):
+                raise ValueError('destination must be an int 1-4')
+            self.write('data:copy user{},ememory'.format(copy_to))
+
+    def set_arb_func(self, data, interp=None, num_pts=10000, copy_to=None):
         """ Write arbitrary waveform data to EditMemory.
 
         Parameters
@@ -681,6 +692,10 @@ class AFG_3000(FunctionGenerator, VisaMixin):
             Number of points to use in interpolation. Default is 10000. Must
             be greater than or equal to the number of points in `data`, and at
             most 131072.
+        copy_to : int (1-4)
+            User memory slot into which the function is saved. The data is first transferred into
+            edit memory, then copied to the destination. If None (the default), does not copy into
+            user memory.
         """
         data = np.asanyarray(data)
         if data.ndim != 1:
@@ -699,6 +714,14 @@ class AFG_3000(FunctionGenerator, VisaMixin):
             func = interp1d(x, data, kind=interp)
             data = func(np.linspace(0, num_pts-1, num_pts))
 
+        self._write_normalized_func(data)
+
+        if copy_to is not None:
+            if copy_to not in (1,2,3,4):
+                raise ValueError('destination must be an int 1-4')
+            self.write('data:copy user{},ememory'.format(copy_to))
+
+    def _write_normalized_func(self, data):
         # Normalize data to between 0 and 16,382
         min = data.min()
         max = data.max()
