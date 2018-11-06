@@ -667,6 +667,16 @@ class Task(object):
         for mtask in self._mtasks.values():
             mtask.clear()
 
+    @property
+    def is_done(self):
+        return all(mtask.is_done for mtask in self._mtasks.values())
+
+    def wait_until_done(self, timeout=None):
+        """Wait until the task is done"""
+        # Only wait for one task, since they should all finish at the same time... I think
+        mtask = next(iter(self._mtasks.values()))
+        mtask.wait_until_done(timeout)
+
     def _read_AI_channels(self, timeout_s):
         """ Returns a dict containing the AI buffers. """
         is_scalar = self.fsamp is None
@@ -846,6 +856,10 @@ class MiniTask(object):
     def clear(self):
         self._mx_task.ClearTask()
 
+    @property
+    def is_done(self):
+        return bool(self._mx_task.IsTaskDone())
+
     def _assert_io_type(self, io_type):
         if io_type != self.io_type:
             raise TypeError("MiniTask must have io_type '{}' for this operation, but is of "
@@ -996,8 +1010,22 @@ class MiniTask(object):
 
     @check_units(timeout='?s')
     def wait_until_done(self, timeout=None):
+        """Wait until the task is done
+
+        Parameters
+        ----------
+        timeout : Quantity, optional
+            The maximum amount of time to wait. If None, waits indefinitely. Raises a TimeoutError
+            if the timeout is reached.
+        """
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
-        self._mx_task.WaitUntilTaskDone(timeout_s)
+        try:
+            self._mx_task.WaitUntilTaskDone(timeout_s)
+        except DAQError as e:
+            if e.code == -200560:
+                raise TimeoutError('Task not completed within the given timeout')
+            else:
+                raise
 
     def overwrite(self, overwrite):
         """Set whether to overwrite samples in the buffer that have not been read yet."""
