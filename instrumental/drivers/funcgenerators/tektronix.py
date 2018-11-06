@@ -7,7 +7,7 @@ Driver module for Tektronix function generators. Currently supports:
 """
 import numpy as np
 from . import FunctionGenerator
-from .. import VisaMixin
+from .. import VisaMixin, MessageFacet
 from ... import u, Q_
 
 _INST_PARAMS = ['visa_address']
@@ -62,6 +62,12 @@ def infer_termination(msg_str):
     elif msg_str.endswith('\n'):
         return '\n'
     return None
+
+
+def VoltageFacet(msg, readonly=False, **kwds):
+    get_msg = msg + '?'
+    set_msg = None if readonly else msg + ' {}V'
+    return MessageFacet(get_msg, set_msg, convert=float, units='V', **kwds)
 
 
 class AFG_3000(FunctionGenerator, VisaMixin):
@@ -274,6 +280,12 @@ class AFG_3000(FunctionGenerator, VisaMixin):
             raise Exception("Phase out of range. Must be between -pi and +pi")
         mag = phase.to('rad').magnitude
         self._rsrc.write('source{}:phase {}rad'.format(channel, mag))
+
+    # Facets for the *current* channel
+    offset = VoltageFacet('source:voltage:offset')
+    amplitude = VoltageFacet('source:voltage:amplitude')
+    high = VoltageFacet('source:voltage:high')
+    low = VoltageFacet('source:voltage:low')
 
     def enable_AM(self, enable=True, channel=1):
         """ Enable amplitude modulation mode.
