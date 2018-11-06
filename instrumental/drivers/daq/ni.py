@@ -29,7 +29,7 @@ def to_bytes(value, codec='utf-8'):
     if isinstance(value, bytes):
         return value
     elif isinstance(value, unicode):
-        value.encode(codec)
+        return value.encode(codec)
     else:
         return bytes(value)
 
