@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2017 Nate Bogdanowicz
+# Copyright 2014-2018 Nate Bogdanowicz
 """
 Driver module for Tektronix function generators. Currently supports:
 
@@ -54,9 +54,20 @@ def _verify_sweep_args(kwargs):
         raise Exception('May include only start/stop or center/span')
 
 
+def infer_termination(msg_str):
+    if msg_str.endswith('\r\n'):
+        return '\r\n'
+    elif msg_str.endswith('\r'):
+        return '\r'
+    elif msg_str.endswith('\n'):
+        return '\n'
+    return None
+
+
 class AFG_3000(FunctionGenerator, VisaMixin):
     def _initialize(self):
-        pass
+        response = self.query('*IDN?')
+        self._rsrc.read_termination = infer_termination(response)
 
     def set_function(self, **kwargs):
         """
