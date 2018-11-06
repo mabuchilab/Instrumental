@@ -561,8 +561,10 @@ class Task(object):
 
         self.write(write_data, autostart=False)
         self.start()
-        read_data = self.read()
-        self.stop()
+        try:
+            read_data = self.read()
+        finally:
+            self.stop()
 
         return read_data
 
