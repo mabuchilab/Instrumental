@@ -487,10 +487,14 @@ class RemoteObject(object):
 
 
 class RemoteInstrument(RemoteObject, Instrument):
+    def __new__(cls, *args, **kwds):
+        log.info('Calling RemoteInstrument.__new__...')
+        return RemoteObject.__new__(RemoteInstrument)
+
     @classmethod
     def _create_remote(cls, params, id, session, dirlist, reprname):
-        obj = RemoteInstrument(params)
-        RemoteObject.__init__(obj, id, dirlist, reprname, session)
+        log.info('Creating RemoteInstrument, session=%s', session)
+        obj = RemoteObject(id, dirlist, reprname, session)
         obj._local_setattr('_paramset', params)
         return obj
 
