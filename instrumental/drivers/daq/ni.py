@@ -896,7 +896,7 @@ class MiniTask(object):
         self._assert_io_type('AO')
         ao_path = ao if isinstance(ao, basestring) else ao.path
         self.chans.append(ao_path)
-        min, max = self.daq._max_AI_range()
+        min, max = self.daq._max_AO_range()
         self._mx_task.CreateAOVoltageChan(ao_path, '', min.m_as('V'), max.m_as('V'), Val.Volts, '')
 
     def add_DI_channel(self, di, split_lines=False):
