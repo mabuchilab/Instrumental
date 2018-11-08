@@ -9,17 +9,19 @@ import atexit
 import socket
 import struct
 import threading
-import logging as log
 import pickle
 
 from . import instrument, list_instruments, Instrument
 from .. import conf
+from ..log import get_logger
 
 # Python 2 and 3 support
 try:
     import socketserver
 except ImportError:
     import SocketServer as socketserver
+
+log = get_logger(__name__)
 
 DEFAULT_PORT = 28265
 
