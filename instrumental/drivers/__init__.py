@@ -568,8 +568,10 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         if hasattr(self._module, 'list_instruments'):
             log.info("Filling out paramset using `list_instruments()`")
             for paramset in self._module.list_instruments():
+                log.debug("Checking against %r", paramset)
                 if self._paramset.matches(paramset):
                     self._paramset.lazyupdate(paramset)
+                    log.info("Found match; new params: %r", self._paramset)
                     break
         else:
             log.info("Driver module missing `list_instruments()`, not filling out paramset")
