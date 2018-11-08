@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015 Nate Bogdanowicz
+# Copyright 2015-2018 Nate Bogdanowicz
 """
 Support for instruments on remote servers.
 """
@@ -10,7 +10,7 @@ import socket
 import struct
 import threading
 import logging as log
-import cPickle as pickle
+import pickle
 
 from . import instrument, list_instruments, Instrument
 from .. import conf
