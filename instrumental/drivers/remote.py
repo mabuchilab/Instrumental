@@ -418,6 +418,7 @@ class ServerSession(Session):
                         entry.obj.close()
                     except Exception:
                         log.info('Closing instrument failed!')
+        self.obj_table.clear()
 
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
