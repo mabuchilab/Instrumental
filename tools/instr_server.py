@@ -18,3 +18,12 @@ if __name__ == "__main__":
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = False
     server_thread.start()
+
+    try:
+        while True:
+            pass
+    except KeyboardInterrupt:
+        pass
+
+    server.shutdown()
+    server.server_close()
