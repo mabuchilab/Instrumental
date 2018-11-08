@@ -3,6 +3,7 @@
 """
 Instrumental server script. Allows other machines to access and control this machine's instruments.
 """
+import time
 import threading
 import logging
 from instrumental.log import log_to_screen, DEBUG, WARNING
@@ -16,12 +17,12 @@ if __name__ == "__main__":
     server = ThreadedTCPServer((HOST, DEFAULT_PORT))
     ip, port = server.server_address
     server_thread = threading.Thread(target=server.serve_forever)
-    server_thread.daemon = False
+    server_thread.daemon = True
     server_thread.start()
 
     try:
         while True:
-            pass
+            time.sleep(1)
     except KeyboardInterrupt:
         pass
 
