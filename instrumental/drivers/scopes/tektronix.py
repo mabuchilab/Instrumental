@@ -369,7 +369,7 @@ class MSO_DPO_2000(StatScope):
     _INST_VISA_INFO_ = ('TEKTRONIX', ['MSO2012', 'MSO2014', 'MSO2024',
                                       'DPO2012', 'DPO2014', 'DPO2024',])
 
-    max_waveform_length = 1000000
+    max_waveform_length = 1250000
     waveform_length = SCPI_Facet('wfmoutpre:recordlength', convert=int, readonly=True,
                                  doc="Record length of the source waveform")
 
