@@ -81,3 +81,22 @@ def log_to_screen(level=INFO, fmt=None):
     if ROOT_LOGGER.getEffectiveLevel() > min_level:
         ROOT_LOGGER.setLevel(min_level)
     return ROOT_LOGGER
+
+
+def log_to_file(filename, level=INFO, fmt=None, mode='a'):
+    fmt = fmt or DEFAULT_FMT
+    handler = logging.FileHandler(filename, mode=mode)
+    handler.setLevel(DEBUG)
+
+    if isinstance(level, dict):
+        min_level = min(l for l in level.values())
+    else:
+        min_level = level
+        level = {'': level}
+    handler.addFilter(Filter(level))
+
+    handler.setFormatter(logging.Formatter(fmt=fmt))
+    ROOT_LOGGER.addHandler(handler)
+    if ROOT_LOGGER.getEffectiveLevel() > min_level:
+        ROOT_LOGGER.setLevel(min_level)
+    return ROOT_LOGGER
