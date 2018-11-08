@@ -99,6 +99,9 @@ class ParamSet(object):
     def __getitem__(self, key):
         return self._dict[key]
 
+    def __delitem__(self, key):
+        del self._dict[key]
+
     def __contains__(self, item):
         return item in self._dict
 
