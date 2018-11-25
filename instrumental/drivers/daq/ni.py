@@ -549,6 +549,11 @@ class Task(object):
             mtask.config_digital_edge_trigger(source, edge, n_pretrig_samples)
 
     def _setup_triggers(self):
+        # TODO: Decide if/when this should ever be used. At least on M-Series DAQs, there is no need
+        # to set up a digital task to trigger from an analog task, since the digital task is already
+        # linked to the analog *clock*. Therefore, this is probably only useful if you want to (and
+        # *can*) use separate clocks while still starting the tasks simultaneously. Maybe this is
+        # *the case for simultaneous AI and AO tasks?
         for ch_type, mtask in self._mtasks.items():
             if ch_type != self.master_type:
                 mtask._mx_task.CfgDigEdgeStartTrig(self.master_trig, self.edge.value)
@@ -561,8 +566,9 @@ class Task(object):
         input data. Will wait indefinitely for the data to be received. If you need more control,
         you may instead prefer to use `write()`, `read()`, `start()`, `stop()`, etc. directly.
         """
-        if not self._trig_set_up:
-            self._setup_triggers()
+        # TODO: Decide if/when to do this. See `_setup_triggers` for more info
+        #if not self._trig_set_up:
+        #    self._setup_triggers()
 
         self.write(write_data, autostart=False)
         self.start()
