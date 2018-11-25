@@ -692,6 +692,8 @@ class Task(object):
 
     def _read_AI_channels(self, timeout_s):
         """ Returns a dict containing the AI buffers. """
+        if 'AI' not in self._mtasks:
+            return {}
         is_scalar = self.fsamp is None
         mx_task = self._mtasks['AI']._mx_task
         buf_size = self.n_samples * len(self.AIs)
