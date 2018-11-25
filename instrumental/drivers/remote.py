@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015 Nate Bogdanowicz
+# Copyright 2015-2018 Nate Bogdanowicz
 """
 Support for instruments on remote servers.
 """
@@ -9,17 +9,19 @@ import atexit
 import socket
 import struct
 import threading
-import logging as log
-import cPickle as pickle
+import pickle
 
 from . import instrument, list_instruments, Instrument
 from .. import conf
+from ..log import get_logger
 
 # Python 2 and 3 support
 try:
     import socketserver
 except ImportError:
     import SocketServer as socketserver
+
+log = get_logger(__name__)
 
 DEFAULT_PORT = 28265
 
@@ -168,9 +170,11 @@ class ClientSession(Session):
         self.messenger.close()
 
     def request(self, **message_dict):
+        log.debug('Sending request %r', message_dict)
         message = self.serialize(message_dict)
         response = self.messenger.make_request(message)
         response_obj = self.deserialize(response)
+        log.debug('Got response %r', response_obj)
         if isinstance(response_obj, Exception):
             raise response_obj
         return response_obj
@@ -388,7 +392,7 @@ class ServerSession(Session):
                 break
 
             request = self.deserialize(message_bytes)
-            log.debug(request)
+            log.debug('Received request %r', request)
             command = request.pop('command')
 
             try:
@@ -399,18 +403,22 @@ class ServerSession(Session):
                 response = e
                 lock = FAKE_LOCK
 
+            log.info('Sending response %r', response)
             self.messenger.respond(self.serialize(response, lock))
 
         # Clean up before we exit
+        log.info('Cleaning up open objects')
         for entry in self.obj_table.values():
             if isinstance(entry.obj, Instrument):
                 if entry.share:
                     self._close_shared_inst(entry)
                 else:
                     try:
+                        log.info('Closing %s', entry.obj)
                         entry.obj.close()
-                    except:
-                        pass
+                    except Exception:
+                        log.info('Closing instrument failed!')
+        self.obj_table.clear()
 
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
@@ -479,10 +487,14 @@ class RemoteObject(object):
 
 
 class RemoteInstrument(RemoteObject, Instrument):
+    def __new__(cls, *args, **kwds):
+        log.info('Calling RemoteInstrument.__new__...')
+        return RemoteObject.__new__(RemoteInstrument)
+
     @classmethod
     def _create_remote(cls, params, id, session, dirlist, reprname):
-        obj = RemoteInstrument(params)
-        RemoteObject.__init__(obj, id, dirlist, reprname, session)
+        log.info('Creating RemoteInstrument, session=%s', session)
+        obj = RemoteObject(id, dirlist, reprname, session)
         obj._local_setattr('_paramset', params)
         return obj
 

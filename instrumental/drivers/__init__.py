@@ -99,6 +99,9 @@ class ParamSet(object):
     def __getitem__(self, key):
         return self._dict[key]
 
+    def __delitem__(self, key):
+        del self._dict[key]
+
     def __contains__(self, item):
         return item in self._dict
 
@@ -568,8 +571,10 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         if hasattr(self._module, 'list_instruments'):
             log.info("Filling out paramset using `list_instruments()`")
             for paramset in self._module.list_instruments():
+                log.debug("Checking against %r", paramset)
                 if self._paramset.matches(paramset):
                     self._paramset.lazyupdate(paramset)
+                    log.info("Found match; new params: %r", self._paramset)
                     break
         else:
             log.info("Driver module missing `list_instruments()`, not filling out paramset")
@@ -970,6 +975,8 @@ def get_idn(inst):
 
     try:
         manufac, model, _ = idn.split(',', 2)
+        manufac = manufac.strip()
+        model = model.strip()
     except ValueError as e:
         log.info("Invalid response to IDN query")
         log.info(str(e))
@@ -1158,6 +1165,7 @@ def find_nonvisa_instrument(params):
 
         full_params = find_full_params(normalized_params, driver_module)
         if not full_params:
+            # FIXME: Improve this error message
             raise Exception("{} does not match any known ParamSet from driver module "
                             "{}.".format(params, params['module']))
 

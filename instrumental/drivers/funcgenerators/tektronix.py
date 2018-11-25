@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2017 Nate Bogdanowicz
+# Copyright 2014-2018 Nate Bogdanowicz
 """
 Driver module for Tektronix function generators. Currently supports:
 
@@ -7,6 +7,7 @@ Driver module for Tektronix function generators. Currently supports:
 """
 import numpy as np
 from . import FunctionGenerator
+from .. import VisaMixin, MessageFacet
 from ... import u, Q_
 
 _INST_PARAMS = ['visa_address']
@@ -53,7 +54,27 @@ def _verify_sweep_args(kwargs):
         raise Exception('May include only start/stop or center/span')
 
 
-class AFG_3000(FunctionGenerator):
+def infer_termination(msg_str):
+    if msg_str.endswith('\r\n'):
+        return '\r\n'
+    elif msg_str.endswith('\r'):
+        return '\r'
+    elif msg_str.endswith('\n'):
+        return '\n'
+    return None
+
+
+def VoltageFacet(msg, readonly=False, **kwds):
+    get_msg = msg + '?'
+    set_msg = None if readonly else msg + ' {}V'
+    return MessageFacet(get_msg, set_msg, convert=float, units='V', **kwds)
+
+
+class AFG_3000(FunctionGenerator, VisaMixin):
+    def _initialize(self):
+        response = self.query('*IDN?')
+        self._rsrc.read_termination = infer_termination(response)
+
     def set_function(self, **kwargs):
         """
         Set selected function parameters. Useful for setting multiple
@@ -259,6 +280,12 @@ class AFG_3000(FunctionGenerator):
             raise Exception("Phase out of range. Must be between -pi and +pi")
         mag = phase.to('rad').magnitude
         self._rsrc.write('source{}:phase {}rad'.format(channel, mag))
+
+    # Facets for the *current* channel
+    offset = VoltageFacet('source:voltage:offset')
+    amplitude = VoltageFacet('source:voltage:amplitude')
+    high = VoltageFacet('source:voltage:high')
+    low = VoltageFacet('source:voltage:low')
 
     def enable_AM(self, enable=True, channel=1):
         """ Enable amplitude modulation mode.
@@ -648,7 +675,18 @@ class AFG_3000(FunctionGenerator):
             raise Exception("Depth must be between 0.0 and 120.0")
         self._rsrc.write('source{}:am:depth {:.1f}pct'.format(channel, val))
 
-    def set_arb_func(self, data, interp=None, num_pts=10000):
+    def set_arb_from_func(self, func, domain, num_pts=10000, copy_to=None):
+        """Write arbitrary waveform sampled from a function"""
+        start, end = domain
+        ts = np.linspace(start, end, num_pts)
+        y = np.fromiter((func(t) for t in ts), dtype=float, count=num_pts)
+        self._write_normalized_func(y)
+        if copy_to is not None:
+            if copy_to not in (1,2,3,4):
+                raise ValueError('destination must be an int 1-4')
+            self.write('data:copy user{},ememory'.format(copy_to))
+
+    def set_arb_func(self, data, interp=None, num_pts=10000, copy_to=None):
         """ Write arbitrary waveform data to EditMemory.
 
         Parameters
@@ -666,6 +704,10 @@ class AFG_3000(FunctionGenerator):
             Number of points to use in interpolation. Default is 10000. Must
             be greater than or equal to the number of points in `data`, and at
             most 131072.
+        copy_to : int (1-4)
+            User memory slot into which the function is saved. The data is first transferred into
+            edit memory, then copied to the destination. If None (the default), does not copy into
+            user memory.
         """
         data = np.asanyarray(data)
         if data.ndim != 1:
@@ -684,16 +726,24 @@ class AFG_3000(FunctionGenerator):
             func = interp1d(x, data, kind=interp)
             data = func(np.linspace(0, num_pts-1, num_pts))
 
+        self._write_normalized_func(data)
+
+        if copy_to is not None:
+            if copy_to not in (1,2,3,4):
+                raise ValueError('destination must be an int 1-4')
+            self.write('data:copy user{},ememory'.format(copy_to))
+
+    def _write_normalized_func(self, data):
         # Normalize data to between 0 and 16,382
         min = data.min()
         max = data.max()
         data = (data-min)*(16382/(max-min))
         data = data.astype('>u2')  # Convert to big-endian 16-bit unsigned int
 
-        bytes = data.tostring()
-        num = len(bytes)
-        bytes = b"#{}{}".format(len(str(num)), num) + bytes
-        self._rsrc.write_raw(b'data ememory,' + bytes)
+        bytestr = data.tostring()
+        num = len(bytestr)
+        bytestr = "#{}{}".format(len(str(num)), num).encode() + bytestr
+        self._rsrc.write_raw(b'data ememory,' + bytestr)
 
     def get_ememory(self):
         """ Get array of data from edit memory.
@@ -705,9 +755,9 @@ class AFG_3000(FunctionGenerator):
         """
         self._rsrc.write('data? ememory')
         resp = self._rsrc.read_raw()
-        if resp[0] != b'#':
+        if resp[0:1] != b'#':  # Slice for py2/3 compat
             raise Exception("Binary reponse missing header! Something's wrong.")
-        header_width = int(resp[1]) + 2
+        header_width = int(resp[1:2]) + 2
         num_bytes = int(resp[2:header_width])
         data = np.frombuffer(resp, dtype='>u2', offset=header_width, count=int(num_bytes/2))
         return data

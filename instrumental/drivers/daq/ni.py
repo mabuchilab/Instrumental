@@ -17,6 +17,7 @@ from ... import Q_, u
 from .. import ParamSet
 from ...errors import Error, TimeoutError
 from ..util import check_units, check_enums, as_enum
+from ...util import to_str
 from . import DAQ
 
 __all__ = ['NIDAQ', 'AnalogIn', 'AnalogOut', 'VirtualDigitalChannel', 'SampleMode', 'EdgeSlope',
@@ -28,9 +29,19 @@ def to_bytes(value, codec='utf-8'):
     if isinstance(value, bytes):
         return value
     elif isinstance(value, unicode):
-        value.encode(codec)
+        return value.encode(codec)
     else:
         return bytes(value)
+
+
+def split_list(list_bytes):
+    """Split a bytestring by commas into a list of strings, stripping whitespace.
+
+    An empty bytestring produces an empty list.
+    """
+    if not list_bytes:
+        return []
+    return [s.strip() for s in list_bytes.decode().split(',')]
 
 
 def call_with_timeout(func, timeout):
@@ -57,7 +68,7 @@ def call_with_timeout(func, timeout):
 
 
 def list_instruments():
-    dev_names = NiceNI.GetSysDevNames().decode().split(',')
+    dev_names = split_list(NiceNI.GetSysDevNames())
     paramsets = []
     for dev_name in dev_names:
         dev_name = dev_name.strip("'")
@@ -74,7 +85,8 @@ def list_instruments():
 
 class DAQError(Error):
     def __init__(self, code):
-        msg = "({}) {}".format(code, NiceNI.GetExtendedErrorInfo())
+        err_str = to_str(NiceNI.GetExtendedErrorInfo())
+        msg = "({}) {}".format(code, err_str)
         self.code = code
         super(DAQError, self).__init__(msg)
 
@@ -123,11 +135,14 @@ class NiceNI(NiceLib):
         ReadDigitalLines = Sig('in', 'in', 'in', 'in', 'arr', 'len=in', 'out', 'out', 'ignore')
         WriteAnalogF64 = Sig('in', 'in', 'in', 'in', 'in', 'in', 'out', 'ignore')
         WriteAnalogScalarF64 = Sig('in', 'in', 'in', 'in', 'ignore')
+        WriteDigitalU32 = Sig('in', 'in', 'in', 'in', 'in', 'in', 'out', 'ignore')
         WriteDigitalScalarU32 = Sig('in', 'in', 'in', 'in', 'ignore')
         CfgSampClkTiming = Sig('in', 'in', 'in', 'in', 'in', 'in')
         CfgImplicitTiming = Sig('in', 'in', 'in')
         CfgOutputBuffer = Sig('in', 'in')
+        CfgAnlgEdgeStartTrig = Sig('in', 'in', 'in', 'in')
         CfgDigEdgeStartTrig = Sig('in', 'in', 'in')
+        CfgDigEdgeRefTrig = Sig('in', 'in', 'in', 'in')
         GetAOUseOnlyOnBrdMem = Sig('in', 'in', 'out')
         SetAOUseOnlyOnBrdMem = Sig('in', 'in', 'in')
         GetBufInputOnbrdBufSize = Sig('in', 'out')
@@ -350,6 +365,9 @@ class ProductCategory(ValEnum):
 # Manually taken from NI's support docs since there doesn't seem to be a DAQmx function to do
 # this... This list should include all possible internal channels for each type of device, and some
 # of these channels will not exist on a given device.
+# NOTE: Missing BSeriesDAQ, AOSeries, DigitalIO, TIOSeries, Switches, CompactDAQChassis,
+#       SCCConnectorBlock, SCCModule, NetworkDAQ, SCExpress, and Unknown
+# Also may be missing some internal channels in the given entries, so double-check this
 _internal_channels = {
     ProductCategory.MSeriesDAQ:
         ['_aignd_vs_aignd', '_ao0_vs_aognd', '_ao1_vs_aognd', '_ao2_vs_aognd', '_ao3_vs_aognd',
@@ -475,7 +493,7 @@ class Task(object):
         self._setup_master_channel()
 
     def _setup_master_channel(self):
-        master_clock = ''
+        self.master_clock = ''
         self.master_trig = ''
         self.master_type = None
         for ch_type in ['AI', 'AO', 'DI', 'DO']:
@@ -485,7 +503,7 @@ class Task(object):
                     if ch.type == ch_type:
                         devname = ch.daq.name
                         break
-                master_clock = '/{}/{}/SampleClock'.format(devname, ch_type.lower())
+                self.master_clock = '/{}/{}/SampleClock'.format(devname, ch_type.lower())
                 self.master_trig = '/{}/{}/StartTrigger'.format(devname, ch_type.lower())
                 self.master_type = ch_type
                 break
@@ -493,7 +511,7 @@ class Task(object):
     @check_enums(mode=SampleMode, edge=EdgeSlope)
     @check_units(duration='?s', fsamp='?Hz')
     def set_timing(self, duration=None, fsamp=None, n_samples=None, mode='finite', edge='rising',
-                   clock=''):
+                   clock=None):
         self.edge = edge
         num_args_specified = num_not_none(duration, fsamp, n_samples)
         if num_args_specified == 0:
@@ -501,11 +519,41 @@ class Task(object):
         elif num_args_specified == 2:
             self.fsamp, self.n_samples = handle_timing_params(duration, fsamp, n_samples)
             for ch_type, mtask in self._mtasks.items():
-                mtask.config_timing(self.fsamp, self.n_samples, mode, self.edge, '')
+                if clock is not None:
+                    ch_clock = clock
+                else:
+                    ch_clock = self.master_clock if ch_type != self.master_type else ''
+                mtask.config_timing(self.fsamp, self.n_samples, mode, self.edge, ch_clock)
         else:
-            raise DAQError("Must specify 0 or 2 of duration, fsamp, and n_samples")
+            raise ValueError("Must specify 0 or 2 of duration, fsamp, and n_samples")
+
+    def config_digital_edge_trigger(self, source, edge='rising', n_pretrig_samples=0):
+        """Configure the task to start on a digital edge
+
+        You must configure the task's timing using ``set_timing()`` before calling this.
+
+        Parameters
+        ----------
+        source : str or Channel
+            Terminal of the digital signal to use as the trigger. Note that digital channels may
+            have to be given as a PFI-string, e.g. "PFI3", rather than in port-line format.
+        edge : EdgeSlope or str
+            Trigger slope, either 'rising' or 'falling'
+        n_pretrig_samples : int
+            Number of pre-trigger samples to acquire (only works for acquisition). For example, if
+            you're acquiring 100 samples and `n_pretrig_samples` is 20, the data will contain 20
+            samples from right before the trigger, and 80 from right after it.
+        """
+        # TODO: Verify that this is right for multi-tasks
+        for ch_type, mtask in self._mtasks.items():
+            mtask.config_digital_edge_trigger(source, edge, n_pretrig_samples)
 
     def _setup_triggers(self):
+        # TODO: Decide if/when this should ever be used. At least on M-Series DAQs, there is no need
+        # to set up a digital task to trigger from an analog task, since the digital task is already
+        # linked to the analog *clock*. Therefore, this is probably only useful if you want to (and
+        # *can*) use separate clocks while still starting the tasks simultaneously. Maybe this is
+        # *the case for simultaneous AI and AO tasks?
         for ch_type, mtask in self._mtasks.items():
             if ch_type != self.master_type:
                 mtask._mx_task.CfgDigEdgeStartTrig(self.master_trig, self.edge.value)
@@ -518,13 +566,16 @@ class Task(object):
         input data. Will wait indefinitely for the data to be received. If you need more control,
         you may instead prefer to use `write()`, `read()`, `start()`, `stop()`, etc. directly.
         """
-        if not self._trig_set_up:
-            self._setup_triggers()
+        # TODO: Decide if/when to do this. See `_setup_triggers` for more info
+        #if not self._trig_set_up:
+        #    self._setup_triggers()
 
         self.write(write_data, autostart=False)
         self.start()
-        read_data = self.read()
-        self.stop()
+        try:
+            read_data = self.read()
+        finally:
+            self.stop()
 
         return read_data
 
@@ -550,7 +601,7 @@ class Task(object):
 
         # Then set up writes for each channel, don't auto-start
         self._write_AO_channels(write_data, autostart=autostart)
-        # self.write_DO_channels()
+        self._write_DO_channels(write_data, autostart=autostart)
         # self.write_CO_channels()
 
     def verify(self):
@@ -629,8 +680,20 @@ class Task(object):
         for mtask in self._mtasks.values():
             mtask.clear()
 
+    @property
+    def is_done(self):
+        return all(mtask.is_done for mtask in self._mtasks.values())
+
+    def wait_until_done(self, timeout=None):
+        """Wait until the task is done"""
+        # Only wait for one task, since they should all finish at the same time... I think
+        mtask = next(iter(self._mtasks.values()))
+        mtask.wait_until_done(timeout)
+
     def _read_AI_channels(self, timeout_s):
         """ Returns a dict containing the AI buffers. """
+        if 'AI' not in self._mtasks:
+            return {}
         is_scalar = self.fsamp is None
         mx_task = self._mtasks['AI']._mx_task
         buf_size = self.n_samples * len(self.AIs)
@@ -657,8 +720,20 @@ class Task(object):
         ao_names = [name for (name, ch) in self.channels.items() if ch.type == 'AO']
         arr = np.concatenate([Q_(data[ao]).to('V').magnitude for ao in ao_names])
         arr = arr.astype(np.float64)
-        n_samps_per_chan = list(data.values())[0].magnitude.size
+        n_samps_per_chan = len(list(data.values())[0].magnitude)
         mx_task.WriteAnalogF64(n_samps_per_chan, autostart, -1., Val.GroupByChannel, arr)
+
+    def _write_DO_channels(self, data, autostart=True):
+        if 'DO' not in self._mtasks:
+            return
+        mx_task = self._mtasks['DO']._mx_task
+        # TODO: add check that input data is the right length
+        arr = np.fromiter((ch._create_DO_int(value)
+                           for (ch_name, ch) in self.channels.items() if ch.type == 'DO'
+                           for value in data[ch_name]),
+                          dtype='uint32')
+        n_samps_per_chan = len(list(data.values())[0])
+        mx_task.WriteDigitalU32(n_samps_per_chan, autostart, -1, Val.GroupByChannel, arr)
 
     def __enter__(self):
         return self
@@ -709,6 +784,7 @@ class MiniTask(object):
         self.io_type = io_type
         self.chans = []
         self.fsamp = None
+        self.has_trigger = False
 
     def __enter__(self):
         return self
@@ -743,6 +819,37 @@ class MiniTask(object):
         self.n_samples = n_samples
         self.fsamp = fsamp
 
+    @check_enums(edge=EdgeSlope)
+    @check_units(level='V')
+    def config_analog_edge_trigger(self, source, edge='rising', level='2.5 V'):
+        source_path = source if isinstance(source, basestring) else source.path
+        self._mx_task.CfgAnlgEdgeStartTrig(source_path, edge.value, level.m_as('V'))
+
+    @check_enums(edge=EdgeSlope)
+    def config_digital_edge_trigger(self, source, edge='rising', n_pretrig_samples=0):
+        """Configure the task to start on a digital edge
+
+        You must configure the MiniTask's timing using ``config_timing()`` before calling this.
+
+        Parameters
+        ----------
+        source : str or Channel
+            Terminal of the digital signal to use as the trigger. Note that digital channels may
+            have to be given as a PFI-string, e.g. "PFI3", rather than in port-line format.
+        edge : EdgeSlope or str
+            Trigger slope, either 'rising' or 'falling'
+        n_pretrig_samples : int
+            Number of pre-trigger samples to acquire (only works for acquisition). For example, if
+            you're acquiring 100 samples and `n_pretrig_samples` is 20, the data will contain 20
+            samples from right before the trigger, and 80 from right after it.
+        """
+        source_path = source if isinstance(source, basestring) else source.path
+        if n_pretrig_samples > 0:
+            self._mx_task.CfgDigEdgeRefTrig(source_path, edge.value, n_pretrig_samples)
+        else:
+            self._mx_task.CfgDigEdgeStartTrig(source_path, edge.value)
+        self.has_trigger = True
+
     def reserve(self):
         self._mx_task.TaskControl(Val.Task_Reserve)
 
@@ -776,6 +883,10 @@ class MiniTask(object):
     def clear(self):
         self._mx_task.ClearTask()
 
+    @property
+    def is_done(self):
+        return bool(self._mx_task.IsTaskDone())
+
     def _assert_io_type(self, io_type):
         if io_type != self.io_type:
             raise TypeError("MiniTask must have io_type '{}' for this operation, but is of "
@@ -797,7 +908,7 @@ class MiniTask(object):
         self._assert_io_type('AO')
         ao_path = ao if isinstance(ao, basestring) else ao.path
         self.chans.append(ao_path)
-        min, max = self.daq._max_AI_range()
+        min, max = self.daq._max_AO_range()
         self._mx_task.CreateAOVoltageChan(ao_path, '', min.m_as('V'), max.m_as('V'), Val.Volts, '')
 
     def add_DI_channel(self, di, split_lines=False):
@@ -808,11 +919,13 @@ class MiniTask(object):
             self.chans.append(chan_path)
             self._mx_task.CreateDIChan(chan_path, '', Val.ChanForAllLines)
 
-    def add_DO_channel(self, do):
+    def add_DO_channel(self, do, split_lines=False):
         self._assert_io_type('DO')
         do_path = do if isinstance(do, basestring) else do.path
-        self.chans.append(do_path)
-        self._mx_task.CreateDOChan(do_path, '', Val.ChanForAllLines)
+        chan_paths = do_path.split(',') if split_lines else (do_path,)
+        for chan_path in chan_paths:
+            self.chans.append(chan_path)
+            self._mx_task.CreateDOChan(chan_path, '', Val.ChanForAllLines)
 
     def set_AO_only_onboard_mem(self, channel, onboard_only):
         self._mx_task.SetAOUseOnlyOnBrdMem(channel, onboard_only)
@@ -926,8 +1039,22 @@ class MiniTask(object):
 
     @check_units(timeout='?s')
     def wait_until_done(self, timeout=None):
+        """Wait until the task is done
+
+        Parameters
+        ----------
+        timeout : Quantity, optional
+            The maximum amount of time to wait. If None, waits indefinitely. Raises a TimeoutError
+            if the timeout is reached.
+        """
         timeout_s = float(-1. if timeout is None else timeout.m_as('s'))
-        self._mx_task.WaitUntilTaskDone(timeout_s)
+        try:
+            self._mx_task.WaitUntilTaskDone(timeout_s)
+        except DAQError as e:
+            if e.code == -200560:
+                raise TimeoutError('Task not completed within the given timeout')
+            else:
+                raise
 
     def overwrite(self, overwrite):
         """Set whether to overwrite samples in the buffer that have not been read yet."""
@@ -945,7 +1072,7 @@ class MiniTask(object):
         if timeout != -1.0:
             timeout = float(Q_(timeout).m_as('s'))
         arr = np.concatenate([data[ao].m_as('V') for ao in self.chans]).astype(np.float64)
-        n_samples = list(data.values())[0].magnitude.size
+        n_samples = len(list(data.values())[0].magnitude)
         self._mx_task.WriteAnalogF64(n_samples, autostart, timeout, Val.GroupByChannel, arr)
 
 
@@ -1030,7 +1157,7 @@ class AnalogIn(Channel):
                 mtask.reserve_with_timeout(reserve_timeout)
                 data = mtask.read_AI_channels()
             else:
-                raise DAQError("Must specify 0 or 2 of duration, fsamp, and n_samples")
+                raise ValueError("Must specify 0 or 2 of duration, fsamp, and n_samples")
         return data
 
     def start_reading(self, fsamp=None, vmin=None, vmax=None, overwrite=False,
@@ -1094,7 +1221,7 @@ class AnalogOut(Channel):
         data : scalar or array Quantity
             The data that was read from analog output.
         """
-        with self.daq._create_mini_task('AO') as mtask:
+        with self.daq._create_mini_task('AI') as mtask:
             internal_ch_name = '{}/_{}_vs_aognd'.format(self.daq.name, self.name)
             try:
                 mtask.add_AI_channel(internal_ch_name)
@@ -1113,7 +1240,7 @@ class AnalogOut(Channel):
                 mtask.config_timing(fsamp, n_samples)
                 data = mtask.read_AI_channels()
             else:
-                raise DAQError("Must specify 0 or 2 of duration, fsamp, and n_samples")
+                raise ValueError("Must specify 0 or 2 of duration, fsamp, and n_samples")
         return data
 
     @check_units(duration='?s', fsamp='?Hz', freq='?Hz')
@@ -1160,12 +1287,12 @@ class AnalogOut(Channel):
             return self._write_scalar(data)
 
         if num_not_none(fsamp, freq) != 1:
-            raise DAQError("Need one and only one of `fsamp` or `freq`")
+            raise ValueError("Need one and only one of `fsamp` or `freq`")
         if fsamp is None:
             fsamp = freq * len(data)
 
         if num_not_none(duration, reps) == 2:
-            raise DAQError("Can use at most one of `duration` or `reps`, not both")
+            raise ValueError("Can use at most one of `duration` or `reps`, not both")
         if duration is None:
             duration = (reps or 1) * len(data) / fsamp
 
@@ -1265,6 +1392,16 @@ class VirtualDigitalChannel(Channel):
             pairs = [self.line_pairs[key]]
         return VirtualDigitalChannel(self.daq, pairs)
 
+    def _add_to_minitask(self, minitask, split_lines=False):
+        io_type = self.type if self.type in ('DI', 'DO') else minitask.io_type
+
+        if self.type == 'DI':
+            minitask.add_DI_channel(self, split_lines)
+        elif self.type == 'DO':
+            minitask.add_DO_channel(self, split_lines)
+        else:
+            raise TypeError("Can't add digital channel to MiniTask of type {}".format(io_type))
+
     def __add__(self, other):
         """Concatenate two VirtualDigitalChannels"""
         if not isinstance(other, VirtualDigitalChannel):
@@ -1342,8 +1479,8 @@ class VirtualDigitalChannel(Channel):
             elif n_samples is not None:
                 data = minitask.read_DI_channels(samples=n_samples)
             else:
-                raise DAQError("Must specify nothing, fsamp only, or two of duration, fsamp, "
-                               "and n_samples")
+                raise ValueError("Must specify nothing, fsamp only, or two of duration, fsamp, "
+                                 "and n_samples")
         return data
 
     def write(self, value):
@@ -1449,14 +1586,14 @@ class NIDAQ(DAQ):
             setattr(self, ao_name, AnalogOut(self, ao_name))
 
     def _load_internal_channels(self):
-        ch_names = _internal_channels.get(self.product_category)
+        ch_names = _internal_channels.get(self.product_category, [])
         for ch_name in ch_names:
             setattr(self, ch_name, AnalogIn(self, ch_name))
 
     def _load_digital_ports(self):
         # Need to handle general case of DI and DO ports, can't assume they're always the same...
         ports = {}
-        for line_path in self._dev.GetDevDILines().decode().split(','):
+        for line_path in split_list(self._dev.GetDevDILines()):
             port_name, line_name = line_path.rsplit('/', 2)[-2:]
             if port_name not in ports:
                 ports[port_name] = []
@@ -1495,7 +1632,7 @@ class NIDAQ(DAQ):
 
     @staticmethod
     def _basenames(names):
-        return [path.rsplit('/', 1)[-1] for path in names.decode().split(',')]
+        return [path.rsplit('/', 1)[-1] for path in split_list(names)]
 
     product_type = property(lambda self: self._dev.GetDevProductType())
     product_category = property(lambda self: ProductCategory(self._dev.GetDevProductCategory()))

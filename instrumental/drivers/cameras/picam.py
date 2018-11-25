@@ -1,26 +1,30 @@
 # -*- coding: utf-8 -*-
 """
-Copyright 2015 Christopher Rogers
+Copyright 2015-2018 Christopher Rogers
 
 Class to control Princeton Instruments Cameras using the PICAM SDK
 
 Installation
 ----------------
-The PICAM SDK must be installed.  It is available from the Princeton
-Instruments ftp site.
-The .dlls Picam.dll Picc.dll, Pida.dll and Pidi.dll must be copied to a
-directory on the system path.
-Note that the .dlls found first on the system path must match the version
-of the headers installed with the Picam SDK.
+The PICAM SDK must be installed. It is available from the Princeton Instruments ftp site. The .dlls
+Picam.dll Picc.dll, Pida.dll and Pidi.dll must be copied to a directory on the system path. Note
+that the .dlls found first on the system path must match the version of the headers installed with
+the Picam SDK.
 """
+from future.utils import PY2
 
 from warnings import warn
-from numpy import frombuffer, sum, uint16, hstack, vstack
+
+from numpy import frombuffer, sum, uint16, vstack
 from enum import Enum
-from nicelib import NiceLib, NiceObjectDef, load_lib
-from ...errors import Error, InstrumentNotFoundError
+from nicelib import NiceLib, load_lib, RetHandler, ret_ignore, Sig, NiceObject
+
+from ...errors import Error
 from ..util import check_units, check_enums
 from ... import Q_
+
+if PY2:
+    memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
 
 
 class PicamError(Error):
@@ -30,181 +34,186 @@ class PicamError(Error):
 lib = load_lib('picam', __package__)
 BYTES_PER_PIXEL = 2
 
+
+@RetHandler(num_retvals=0)
+def ret_error(error):
+    if error != 0:
+        if bool(NicePicamLib.IsLibraryInitialized()):
+            NicePicamLib.GetEnumerationString(lib.PicamEnumeratedType_Error, error)
+        else:
+            ret_enum_string_error(error)
+
+
+@RetHandler(num_retvals=0)
+def ret_enum_string_error(error):
+    if error != 0:
+        if error == lib.PicamError_LibraryNotInitialized:
+            raise PicamError('Library not initialized')
+        if error == lib.PicamError_InvalidEnumeratedType:
+            raise PicamError('Invalid enumerated Type')
+        if error == lib.PicamError_EnumerationValueNotDefined:
+            raise PicamError('Enumeration value not defined.')
+        else:
+            raise PicamError('Error when getting enumeration string.  Error code {}'.format(error))
+
+
 class NicePicamLib(NiceLib):
     """Wrapper for Picam.dll"""
     _info = lib
     _buflen = 256
     _prefix = 'Picam_'
-    _ret_wrap = 'error'
-    
-    def _ret_error(error):
-        if error != 0:
-            if bool(NicePicamLib.IsLibraryInitialized()):
-                NicePicamLib.GetEnumerationString(lib.PicamEnumeratedType_Error, error)
-            else:
-               NicePicamLib._ret_enum_string_error(error)
+    # _ret = 'error'
+    _ret_ = ret_error
 
-    def _ret_enum_string_error(error):
-        if error != 0:
-            if error == lib.PicamError_LibraryNotInitialized:
-                raise PicamError('Library not initialized')
-            if error == lib.PicamError_InvalidEnumeratedType:
-                raise PicamError('Invalid enumerated Type')
-            if error == lib.PicamError_EnumerationValueNotDefined:
-                raise PicamError('Enumeration value not defined.')
-            else:
-                raise PicamError('Error when getting enumeration string.  Error code {}'.format(error))
+    GetVersion = Sig('out', 'out', 'out', 'out')
+    IsLibraryInitialized = Sig('out', ret=ret_ignore)
+    InitializeLibrary = Sig()
+    UninitializeLibrary = Sig()
+    DestroyString = Sig('in')
+    # GetEnumerationString = Sig('in', 'in', 'bufout', ret=ret_ignore)
+    GetEnumerationString = Sig('in', 'in', 'bufout', ret=ret_enum_string_error)
+    DestroyCameraIDs = Sig('in')
+    GetAvailableCameraIDs = Sig('out', 'out')
+    GetUnavailableCameraIDs = Sig('out', 'out')
+    IsCameraIDConnected = Sig('in', 'out')
+    IsCameraIDOpenElsewhere = Sig('in', 'out')
+    DestroyHandles = Sig('in')
+    OpenFirstCamera = Sig('out')
+    OpenCamera = Sig('in', 'out')
+    # DestroyFirmwareDetails = Sig(firmware_array)
+    DestroyFirmwareDetails = Sig('in')
+    # DestroyModels = Sig(model_array)
+    DestroyModels = Sig('in')
+    GetAvailableDemoCameraModels = Sig('out', 'out')
+    ConnectDemoCamera = Sig('in', 'in', 'out')
+    DisconnectDemoCamera = Sig('in')
+    GetOpenCameras = Sig('out', 'out')
+    IsDemoCamera = Sig('in', 'out')
+    # GetFirmwareDetails = Sig(id, firmware_array, firmware_count)
+    GetFirmwareDetails = Sig('in', 'out', 'out')
+    # DestroyRois = Sig(rois)
+    DestroyRois = Sig('in')
+    # DestroyModulations = Sig(modulations)
+    DestroyModulations = Sig('in')
+    # DestroyPulses = Sig(pulses)
+    DestroyPulses = Sig('in')
+    # DestroyParameters = Sig(parameter_array)
+    DestroyParameters = Sig('in')
+    # DestroyCollectionConstraints = Sig(constraint_array)
+    DestroyCollectionConstraints = Sig('in')
+    # DestroyRangeConstraints = Sig(constraint_array)
+    DestroyRangeConstraints = Sig('in')
+    # DestroyRoisConstraints = Sig(constraint_array)
+    DestroyRoisConstraints = Sig('in')
+    # DestroyModulationsConstraints = Sig(constraint_array)
+    DestroyModulationsConstraints = Sig('in')
+    # DestroyPulseConstraints = Sig(constraint_array)
+    DestroyPulseConstraints = Sig('in')
+    class NicePicam(NiceObject):
+        CloseCamera = Sig('in')
+        IsCameraConnected = Sig('in', 'out')
+        GetCameraID = Sig('in', 'out')
+        #GetParameterIntegerValue = Sig(camera, parameter, value)
+        GetParameterIntegerValue = Sig('in', 'in', 'out')
+        #SetParameterIntegerValue = Sig(camera, parameter, value)
+        SetParameterIntegerValue = Sig('in', 'in', 'in')
+        #CanSetParameterIntegerValue = Sig(camera, parameter, value, settable)
+        CanSetParameterIntegerValue = Sig('in', 'in', 'in', 'out')
+        #GetParameterLargeIntegerValue = Sig(camera, parameter, value)
+        GetParameterLargeIntegerValue = Sig('in', 'in', 'out')
+        #SetParameterLargeIntegerValue = Sig(camera, parameter, value)
+        SetParameterLargeIntegerValue = Sig('in', 'in', 'in')
+        #CanSetParameterLargeIntegerValue = Sig(camera, parameter, value, settable)
+        CanSetParameterLargeIntegerValue = Sig('in', 'in', 'in', 'out')
+        #GetParameterFloatingPointValue = Sig(camera, parameter, value)
+        GetParameterFloatingPointValue = Sig('in', 'in', 'out')
+        #SetParameterFloatingPointValue = Sig(camera, parameter, value)
+        SetParameterFloatingPointValue = Sig('in', 'in', 'in')
+        #CanSetParameterFloatingPointValue = Sig(camera, parameter, value, settable)
+        CanSetParameterFloatingPointValue = Sig('in', 'in', 'in', 'out')
+        #GetParameterRoisValue = Sig(camera, parameter, value)
+        GetParameterRoisValue = Sig('in', 'in', 'out')
+        #SetParameterRoisValue = Sig(camera, parameter, value)
+        SetParameterRoisValue = Sig('in', 'in', 'in')
+        #CanSetParameterRoisValue = Sig(camera, parameter, value, settable)
+        CanSetParameterRoisValue = Sig('in', 'in', 'in', 'out')
+        #GetParameterPulseValue = Sig(camera, parameter, value)
+        GetParameterPulseValue = Sig('in', 'in', 'out')
+        #SetParameterPulseValue = Sig(camera, parameter, value)
+        SetParameterPulseValue = Sig('in', 'in', 'in')
+        #CanSetParameterPulseValue = Sig(camera, parameter, value, settable)
+        CanSetParameterPulseValue = Sig('in', 'in', 'in', 'out')
+        #GetParameterModulationsValue = Sig(camera, parameter, value)
+        GetParameterModulationsValue = Sig('in', 'in', 'out')
+        #SetParameterModulationsValue = Sig(camera, parameter, value)
+        SetParameterModulationsValue = Sig('in', 'in', 'in')
+        #CanSetParameterModulationsValue = Sig(camera, parameter, value, settable)
+        CanSetParameterModulationsValue = Sig('in', 'in', 'in', 'out')
+        #GetParameterIntegerDefaultValue = Sig(camera, parameter, value)
+        GetParameterIntegerDefaultValue = Sig('in', 'in', 'out')
+        #GetParameterLargeIntegerDefaultValue = Sig(camera, parameter, value)
+        GetParameterLargeIntegerDefaultValue = Sig('in', 'in', 'out')
+        #GetParameterFloatingPointDefaultValue = Sig(camera, parameter, value)
+        GetParameterFloatingPointDefaultValue = Sig('in', 'in', 'out')
+        #GetParameterRoisDefaultValue = Sig(camera, parameter, value)
+        GetParameterRoisDefaultValue = Sig('in', 'in', 'out')
+        #GetParameterPulseDefaultValue = Sig(camera, parameter, value)
+        GetParameterPulseDefaultValue = Sig('in', 'in', 'out')
+        #GetParameterModulationsDefaultValue = Sig(camera, parameter, value)
+        GetParameterModulationsDefaultValue = Sig('in', 'in', 'out')
+        #CanSetParameterOnline = Sig(camera, parameter, onlineable)
+        CanSetParameterOnline = Sig('in', 'in', 'out')
+        #SetParameterIntegerValueOnline = Sig(camera, parameter, value)
+        SetParameterIntegerValueOnline = Sig('in', 'in', 'in')
+        #SetParameterFloatingPointValueOnline = Sig(camera, parameter, value)
 
-    GetVersion = ('out', 'out', 'out', 'out')
-    IsLibraryInitialized = ('out', {'ret':'ignore'})
-    InitializeLibrary = ()
-    UninitializeLibrary = ()
-    DestroyString = ('in')
-    GetEnumerationString = ('in', 'in', 'bufout', {'ret':'enum_string_error'})
-    DestroyCameraIDs = ('in')
-    GetAvailableCameraIDs = ('out', 'out')
-    GetUnavailableCameraIDs = ('out', 'out')
-    IsCameraIDConnected = ('in', 'out')
-    IsCameraIDOpenElsewhere = ('in', 'out')
-    DestroyHandles = ('in')
-    OpenFirstCamera = ('out')
-    OpenCamera = ('in', 'out')
-    # DestroyFirmwareDetails = (firmware_array)
-    DestroyFirmwareDetails = ('in')
-    # DestroyModels = (model_array)
-    DestroyModels = ('in')
-    GetAvailableDemoCameraModels = ('out', 'out')
-    ConnectDemoCamera = ('in', 'in', 'out')
-    DisconnectDemoCamera = ('in')
-    GetOpenCameras = ('out', 'out')
-    IsDemoCamera = ('in', 'out')
-    # GetFirmwareDetails = (id, firmware_array, firmware_count)
-    GetFirmwareDetails = ('in', 'out', 'out')
-    # DestroyRois = (rois)
-    DestroyRois = ('in')
-    # DestroyModulations = (modulations)
-    DestroyModulations = ('in')
-    # DestroyPulses = (pulses)
-    DestroyPulses = ('in')
-    # DestroyParameters = (parameter_array)
-    DestroyParameters = ('in')
-    # DestroyCollectionConstraints = (constraint_array)
-    DestroyCollectionConstraints = ('in')
-    # DestroyRangeConstraints = (constraint_array)
-    DestroyRangeConstraints = ('in')
-    # DestroyRoisConstraints = (constraint_array)
-    DestroyRoisConstraints = ('in')
-    # DestroyModulationsConstraints = (constraint_array)
-    DestroyModulationsConstraints = ('in')
-    # DestroyPulseConstraints = (constraint_array)
-    DestroyPulseConstraints = ('in')
-    
-    NicePicam = NiceObjectDef({
-    'CloseCamera': ('in'),
-    'IsCameraConnected': ('in', 'out'),
-    'GetCameraID': ('in', 'out'),
-    # GetParameterIntegerValue': (camera, parameter, value),
-    'GetParameterIntegerValue': ('in', 'in', 'out'),
-    # SetParameterIntegerValue': (camera, parameter, value),
-    'SetParameterIntegerValue': ('in', 'in', 'in'),
-    # CanSetParameterIntegerValue': (camera, parameter, value, settable),
-    'CanSetParameterIntegerValue': ('in', 'in', 'in', 'out'),
-    # GetParameterLargeIntegerValue': (camera, parameter, value),
-    'GetParameterLargeIntegerValue': ('in', 'in', 'out'),
-    # SetParameterLargeIntegerValue': (camera, parameter, value),
-    'SetParameterLargeIntegerValue': ('in', 'in', 'in'),
-    # CanSetParameterLargeIntegerValue': (camera, parameter, value, settable),
-    'CanSetParameterLargeIntegerValue': ('in', 'in', 'in', 'out'),
-    # GetParameterFloatingPointValue': (camera, parameter, value),
-    'GetParameterFloatingPointValue': ('in', 'in', 'out'),
-    # SetParameterFloatingPointValue': (camera, parameter, value),
-    'SetParameterFloatingPointValue': ('in', 'in', 'in'),
-    # CanSetParameterFloatingPointValue': (camera, parameter, value, settable),
-    'CanSetParameterFloatingPointValue': ('in', 'in', 'in', 'out'),
-    # GetParameterRoisValue': (camera, parameter, value),
-    'GetParameterRoisValue': ('in', 'in', 'out'),
-    # SetParameterRoisValue': (camera, parameter, value),
-    'SetParameterRoisValue': ('in', 'in', 'in'),
-    # CanSetParameterRoisValue': (camera, parameter, value, settable),
-    'CanSetParameterRoisValue': ('in', 'in', 'in', 'out'),
-    # GetParameterPulseValue': (camera, parameter, value),
-    'GetParameterPulseValue': ('in', 'in', 'out'),
-    # SetParameterPulseValue': (camera, parameter, value),
-    'SetParameterPulseValue': ('in', 'in', 'in'),
-    # CanSetParameterPulseValue': (camera, parameter, value, settable),
-    'CanSetParameterPulseValue': ('in', 'in', 'in', 'out'),
-    # GetParameterModulationsValue': (camera, parameter, value),
-    'GetParameterModulationsValue': ('in', 'in', 'out'),
-    # SetParameterModulationsValue': (camera, parameter, value),
-    'SetParameterModulationsValue': ('in', 'in', 'in'),
-    # CanSetParameterModulationsValue': (camera, parameter, value, settable),
-    'CanSetParameterModulationsValue': ('in', 'in', 'in', 'out'),
-    # GetParameterIntegerDefaultValue': (camera, parameter, value),
-    'GetParameterIntegerDefaultValue': ('in', 'in', 'out'),
-    # GetParameterLargeIntegerDefaultValue': (camera, parameter, value),
-    'GetParameterLargeIntegerDefaultValue': ('in', 'in', 'out'),
-    # GetParameterFloatingPointDefaultValue': (camera, parameter, value),
-    'GetParameterFloatingPointDefaultValue': ('in', 'in', 'out'),
-    # GetParameterRoisDefaultValue': (camera, parameter, value),
-    'GetParameterRoisDefaultValue': ('in', 'in', 'out'),
-    # GetParameterPulseDefaultValue': (camera, parameter, value),
-    'GetParameterPulseDefaultValue': ('in', 'in', 'out'),
-    # GetParameterModulationsDefaultValue': (camera, parameter, value),
-    'GetParameterModulationsDefaultValue': ('in', 'in', 'out'),
-    # CanSetParameterOnline': (camera, parameter, onlineable),
-    'CanSetParameterOnline': ('in', 'in', 'out'),
-    # SetParameterIntegerValueOnline': (camera, parameter, value),
-    'SetParameterIntegerValueOnline': ('in', 'in', 'in'),
-    # SetParameterFloatingPointValueOnline': (camera, parameter, value),
-    
-    'SetParameterFloatingPointValueOnline': ('in', 'in', 'in'),
-    # SetParameterPulseValueOnline': (camera, parameter, value),
-    'SetParameterPulseValueOnline': ('in', 'in', 'in'),
-    # CanReadParameter': (camera, parameter, readable),
-    'CanReadParameter': ('in', 'in', 'out'),
-    # ReadParameterIntegerValue': (camera, parameter, value),
-    'ReadParameterIntegerValue': ('in', 'in', 'out'),
-    # ReadParameterFloatingPointValue': (camera, parameter, value),
-    'ReadParameterFloatingPointValue': ('in', 'in', 'out'),
-    # GetParameters': (camera, parameter_array, parameter_count),
-    'GetParameters': ('in', 'out', 'out'),
-    # DoesParameterExist': (camera, parameter, exists),
-    'DoesParameterExist': ('in', 'in', 'out'),
-    # IsParameterRelevant': (camera, parameter, relevant),
-    'IsParameterRelevant': ('in', 'in', 'out'),
-    # GetParameterValueType': (camera, parameter, type),
-    'GetParameterValueType': ('in', 'in', 'out'),
-    # GetParameterEnumeratedType': (camera, parameter, type),
-    'GetParameterEnumeratedType': ('in', 'in', 'out'),
-    # GetParameterValueAccess': (camera, parameter, access),
-    'GetParameterValueAccess': ('in', 'in', 'out'),
-    # GetParameterConstraintType': (camera, parameter, type),
-    'GetParameterConstraintType': ('in', 'in', 'out'),
-    # GetParameterCollectionConstraint': (camera, parameter, category, constraint),
-    'GetParameterCollectionConstraint': ('in', 'in', 'in', 'out'),
-    # GetParameterRangeConstraint': (camera, parameter, category, constraint),
-    'GetParameterRangeConstraint': ('in', 'in', 'in', 'out'),
-    # GetParameterRoisConstraint': (camera, parameter, category, constraint),
-    'GetParameterRoisConstraint': ('in', 'in', 'in', 'out'),
-    # GetParameterPulseConstraint': (camera, parameter, category, constraint),
-    'GetParameterPulseConstraint': ('in', 'in', 'in', 'out'),
-    # GetParameterModulationsConstraint': (camera, parameter, category, constraint),
-    'GetParameterModulationsConstraint': ('in', 'in', 'in', 'out'),
-    # AreParametersCommitted': (camera, committed),
-    'AreParametersCommitted': ('in', 'out'),
-    # CommitParameters': (camera, failed_parameter_array, failed_parameter_count),
-    'CommitParameters': ('in', 'out', 'out'),
-    # Acquire': (camera, readout_count, readout_time_out, available, errors),
-    'Acquire': ('in', 'in', 'in', 'out', 'out'),
-    # StartAcquisition': (camera),
-    'StartAcquisition': ('in'),
-    # StopAcquisition': (camera),
-    'StopAcquisition': ('in'),
-    # IsAcquisitionRunning': (camera, running),
-    'IsAcquisitionRunning': ('in', 'out'),
-    # WaitForAcquisitionUpdate': (camera, readout_time_out, available, status),
-    'WaitForAcquisitionUpdate': ('in', 'in', 'out', 'out')
-    })
+        SetParameterFloatingPointValueOnline = Sig('in', 'in', 'in')
+        #SetParameterPulseValueOnline = Sig(camera, parameter, value)
+        SetParameterPulseValueOnline = Sig('in', 'in', 'in')
+        #CanReadParameter = Sig(camera, parameter, readable)
+        CanReadParameter = Sig('in', 'in', 'out')
+        #ReadParameterIntegerValue = Sig(camera, parameter, value)
+        ReadParameterIntegerValue = Sig('in', 'in', 'out')
+        #ReadParameterFloatingPointValue = Sig(camera, parameter, value)
+        ReadParameterFloatingPointValue = Sig('in', 'in', 'out')
+        #GetParameters = Sig(camera, parameter_array, parameter_count)
+        GetParameters = Sig('in', 'out', 'out')
+        #DoesParameterExist = Sig(camera, parameter, exists)
+        DoesParameterExist = Sig('in', 'in', 'out')
+        #IsParameterRelevant = Sig(camera, parameter, relevant)
+        IsParameterRelevant = Sig('in', 'in', 'out')
+        #GetParameterValueType = Sig(camera, parameter, type)
+        GetParameterValueType = Sig('in', 'in', 'out')
+        #GetParameterEnumeratedType = Sig(camera, parameter, type)
+        GetParameterEnumeratedType = Sig('in', 'in', 'out')
+        #GetParameterValueAccess = Sig(camera, parameter, access)
+        GetParameterValueAccess = Sig('in', 'in', 'out')
+        #GetParameterConstraintType = Sig(camera, parameter, type)
+        GetParameterConstraintType = Sig('in', 'in', 'out')
+        #GetParameterCollectionConstraint = Sig(camera, parameter, category, constraint)
+        GetParameterCollectionConstraint = Sig('in', 'in', 'in', 'out')
+        #GetParameterRangeConstraint = Sig(camera, parameter, category, constraint)
+        GetParameterRangeConstraint = Sig('in', 'in', 'in', 'out')
+        #GetParameterRoisConstraint = Sig(camera, parameter, category, constraint)
+        GetParameterRoisConstraint = Sig('in', 'in', 'in', 'out')
+        #GetParameterPulseConstraint = Sig(camera, parameter, category, constraint)
+        GetParameterPulseConstraint = Sig('in', 'in', 'in', 'out')
+        #GetParameterModulationsConstraint = Sig(camera, parameter, category, constraint)
+        GetParameterModulationsConstraint = Sig('in', 'in', 'in', 'out')
+        #AreParametersCommitted = Sig(camera, committed)
+        AreParametersCommitted = Sig('in', 'out')
+        #CommitParameters = Sig(camera, failed_parameter_array, failed_parameter_count)
+        CommitParameters = Sig('in', 'out', 'out')
+        #Acquire = Sig(camera, readout_count, readout_time_out, available, errors)
+        Acquire = Sig('in', 'in', 'in', 'out', 'out')
+        #StartAcquisition = Sig(camera)
+        StartAcquisition = Sig('in')
+        #StopAcquisition = Sig(camera)
+        StopAcquisition = Sig('in')
+        #IsAcquisitionRunning = Sig(camera, running)
+        IsAcquisitionRunning = Sig('in', 'out')
+        #WaitForAcquisitionUpdate = Sig(camera, readout_time_out, available, status)
+        WaitForAcquisitionUpdate = Sig('in', 'in', 'out', 'out')
 
 
 class EnumTypes():
@@ -225,7 +234,7 @@ class EnumTypes():
                 if enum_type == '':
                     enum_type_dict[enum_name] = value
                 else:
-                    if not enum_type_dict.has_key(enum_type):
+                    if enum_type not in enum_type_dict:
                         enum_type_dict[enum_type] = {}
                     enum_type_dict[enum_type][enum_name] = value
         for enum_type, enum_dict in enum_type_dict.items():
@@ -235,8 +244,9 @@ class EnumTypes():
 
 PicamEnums = EnumTypes()
 
+
 class PicamRoi():
-    """ Class defining a region of interest.  
+    """ Class defining a region of interest.
     All values are in pixels.  """
     def __init__(self, x, width, y, height, x_binning=1, y_binning=1):
         self.x = x
@@ -245,6 +255,7 @@ class PicamRoi():
         self.height = height
         self.x_binning = x_binning
         self.y_binning = y_binning
+
 
 class PicamAcquisitionError(PicamError):
     def __init__(self, value):
@@ -259,6 +270,7 @@ class PicamAcquisitionError(PicamError):
             return "ConnectionLost"
         else:
             return "An unkown error with code {}".format(self.value)
+
 
 class PicamCamera():
     """ A Picam Camera """
@@ -319,7 +331,7 @@ class PicamCamera():
 
     def _create_rois(self, roi_list):
         """ Returns a C data PicamRois structure created from roi_list
-        
+
         roi_list shoudl be a list containing instances of ``PicamRois``"""
         N_roi = len(roi_list)
         roi_array = self._ffi.new('struct PicamRoi[{}]'.format(N_roi))
@@ -371,7 +383,7 @@ class PicamCamera():
 
     def get_param(self, parameter, default=False):
         """ Returns the value of the specified parameter.
-        
+
         ``parameter`` should be an integer of corresponding to a PicamParameter
         enumerator.
         If ``default`` is ``True``, then the default value of the parameter is
@@ -380,7 +392,7 @@ class PicamCamera():
 
     def set_param(self, parameter, value=None, canset=False):
         """ Sets the value of the specified parameter to ``value``.
-        
+
         ``parameter`` should be an integer of corresponding to a PicamParameter
         enumerator.
         If ``canset`` is ``True``, then a boolean indicating whether it is possible
@@ -389,7 +401,7 @@ class PicamCamera():
         return self._getset_param(parameter, value, canset)
 
     def _getset_param(self, parameter, value=None, canset=False,
-                     default=False, commit=True):
+                      default=False, commit=True):
         """Gets or sets the value of parameter 'parameter' for camera
         cam_name
 
@@ -502,12 +514,12 @@ class PicamCamera():
         ``size`` """
         ffi = self._NicePicamLib._ffi
         # This copies the buffer
-        buf = buffer(ffi.buffer(address, size)[:])
+        buf = memoryview(ffi.buffer(address, size)[:])
         return frombuffer(buf, data_type)
 
     def get_frame_shapes(self, rois=None):
         """Returns the region of interest frame shapes as a list of tuples
-        
+
         The tuples correspond to the number of x and y pixels in each region of interest
 
         If rois is None, then the current region of interest array is used
@@ -571,7 +583,7 @@ class PicamCamera():
                 roi_data = vstack([roi_data, temp])
             roi_data = roi_data.reshape((count,) + shape[::-1])
 
-            if count==1:
+            if count == 1:
                 roi_data = roi_data[0,:,:]
 
             if average:
@@ -634,7 +646,7 @@ class PicamCamera():
     def set_adc_speed(self, frequency, canset=False):
         """Sets the ADC Frequency
 
-        For many cameras, the possible values are very constrained - 
+        For many cameras, the possible values are very constrained -
         typical ccd cameras accept only 2MHz and 0.1MHz work."""
         param = self.enums.Parameter.AdcSpeed
         return self._getset_param(param, frequency.to('MHz').m, canset)
@@ -672,7 +684,7 @@ class PicamCamera():
         param = self.enums.Parameter.ReadoutCount
         return self._getset_param(param, default=default)
 
-    def set_readout_count(self, readout_count=None, canset=False ):
+    def set_readout_count(self, readout_count=None, canset=False):
         """ Sets the number of readouts for an asynchronous aquire.
 
         This does NOT affect the number of readouts for self.aqcuire
@@ -684,7 +696,7 @@ class PicamCamera():
         """ Get the mode for the timestamp portion of the frame metadata. """
         param = self.enums.Parameter.TimeStamps
         return self.enums.TimeStampsMask(self._getset_param(param,
-                                                           default=default))
+                                                            default=default))
 
     @check_enums(gain = PicamEnums.AdcAnalogGain)
     def set_time_stamp_mode(self, mode, canset=False):
@@ -703,7 +715,7 @@ class PicamCamera():
         """ Get the shutter operation mode."""
         param = self.enums.Parameter.ShutterTimingMode
         return self.enums.ShutterTimingMode(self._getset_param(param,
-                                                              default=default))
+                                                               default=default))
 
     def open_shutter(self):
         """ Opens the shutter """
@@ -755,7 +767,7 @@ class Picam():
         if cameras is None:
             self.cams = {}
             default_cam = 'first_camera'
-            self.open_first_camera(default_cam)   
+            self.open_first_camera(default_cam)
         else:
             for name, cam_id in cameras.iteritems():
                 self.open_camera(cam_id, name)
@@ -792,7 +804,7 @@ class Picam():
         Returns a string containing version information for the Picam dll
         """
         major, minor, distribution, release = self._NicePicamLib.GetVersion()
-        
+
         temp = (major, minor, distribution, release/100, release%100)
         version = 'Version {0[0]}.{0[1]}.{0[2]} released in 20{0[3]}-{0[4]}'
         return version.format(temp)
@@ -883,7 +895,7 @@ class Picam():
         ID_array, count = self.get_available_camera_IDs()
         if count == 0:
             raise PicamError('No cameras available - could not open first camera')
-        if count ==1:
+        if count == 1:
             id = ID_array
         else:
             id = ID_array[0]
