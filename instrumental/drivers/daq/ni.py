@@ -708,7 +708,7 @@ class Task(object):
         ao_names = [name for (name, ch) in self.channels.items() if ch.type == 'AO']
         arr = np.concatenate([Q_(data[ao]).to('V').magnitude for ao in ao_names])
         arr = arr.astype(np.float64)
-        n_samps_per_chan = list(data.values())[0].magnitude.size
+        n_samps_per_chan = len(list(data.values())[0].magnitude)
         mx_task.WriteAnalogF64(n_samps_per_chan, autostart, -1., Val.GroupByChannel, arr)
 
     def _write_DO_channels(self, data, autostart=True):
@@ -720,7 +720,7 @@ class Task(object):
                            for (ch_name, ch) in self.channels.items() if ch.type == 'DO'
                            for value in data[ch_name]),
                           dtype='uint32')
-        n_samps_per_chan = list(data.values())[0].size
+        n_samps_per_chan = len(list(data.values())[0])
         mx_task.WriteDigitalU32(n_samps_per_chan, autostart, -1, Val.GroupByChannel, arr)
 
     def __enter__(self):
@@ -1060,7 +1060,7 @@ class MiniTask(object):
         if timeout != -1.0:
             timeout = float(Q_(timeout).m_as('s'))
         arr = np.concatenate([data[ao].m_as('V') for ao in self.chans]).astype(np.float64)
-        n_samples = list(data.values())[0].magnitude.size
+        n_samples = len(list(data.values())[0].magnitude)
         self._mx_task.WriteAnalogF64(n_samples, autostart, timeout, Val.GroupByChannel, arr)
 
 
