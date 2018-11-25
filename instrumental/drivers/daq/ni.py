@@ -493,7 +493,7 @@ class Task(object):
         self._setup_master_channel()
 
     def _setup_master_channel(self):
-        master_clock = ''
+        self.master_clock = ''
         self.master_trig = ''
         self.master_type = None
         for ch_type in ['AI', 'AO', 'DI', 'DO']:
@@ -503,7 +503,7 @@ class Task(object):
                     if ch.type == ch_type:
                         devname = ch.daq.name
                         break
-                master_clock = '/{}/{}/SampleClock'.format(devname, ch_type.lower())
+                self.master_clock = '/{}/{}/SampleClock'.format(devname, ch_type.lower())
                 self.master_trig = '/{}/{}/StartTrigger'.format(devname, ch_type.lower())
                 self.master_type = ch_type
                 break
@@ -511,7 +511,7 @@ class Task(object):
     @check_enums(mode=SampleMode, edge=EdgeSlope)
     @check_units(duration='?s', fsamp='?Hz')
     def set_timing(self, duration=None, fsamp=None, n_samples=None, mode='finite', edge='rising',
-                   clock=''):
+                   clock=None):
         self.edge = edge
         num_args_specified = num_not_none(duration, fsamp, n_samples)
         if num_args_specified == 0:
@@ -519,7 +519,11 @@ class Task(object):
         elif num_args_specified == 2:
             self.fsamp, self.n_samples = handle_timing_params(duration, fsamp, n_samples)
             for ch_type, mtask in self._mtasks.items():
-                mtask.config_timing(self.fsamp, self.n_samples, mode, self.edge, '')
+                if clock is not None:
+                    ch_clock = clock
+                else:
+                    ch_clock = self.master_clock if ch_type != self.master_type else ''
+                mtask.config_timing(self.fsamp, self.n_samples, mode, self.edge, ch_clock)
         else:
             raise ValueError("Must specify 0 or 2 of duration, fsamp, and n_samples")
 
