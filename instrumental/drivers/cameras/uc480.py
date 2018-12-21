@@ -986,12 +986,12 @@ class UC480_Camera(Camera):
     @Facet(limits=(1.0, 10.0))
     def gamma(self):
         """The gamma correction value (1.0-10.0)"""
-        return self._dev.Gamma(lib.GAMMA_CMD_GET) / 100.
+        return self._dev._Gamma(lib.GAMMA_CMD_GET) / 100.
 
     @gamma.setter
     def gamma(self, gamma):
         gamma_factor = int(round(gamma * 100))
-        self._dev.Gamma(lib.GAMMA_CMD_SET, gamma_factor)
+        self._dev._Gamma(lib.GAMMA_CMD_SET, gamma_factor)
 
     @Facet
     def gain_boost(self):
