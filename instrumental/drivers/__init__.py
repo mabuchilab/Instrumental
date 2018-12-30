@@ -384,9 +384,10 @@ class AbstractFacet(Facet):
 
 class ManualFacet(Facet):
     def __init__(self, doc=None, cached=False, type=None, units=None, value=None, limits=None,
-                 name=None):
+                 name=None, save_on_set=True):
         Facet.__init__(self, self._manual_fget, self._manual_fset, doc=doc, cached=cached,
                        type=type, units=units, value=value, limits=limits, name=name)
+        self.save_on_set = save_on_set
 
     def _manual_fget(self, owner):
         inst = self.instance(owner)
@@ -397,6 +398,8 @@ class ManualFacet(Facet):
 
     def _manual_fset(self, owner, value):
         self.instance(owner)._manual_value = value
+        if self.save_on_set:
+            owner._save_state()
 
     def _default_value(self):
         if self.units:
