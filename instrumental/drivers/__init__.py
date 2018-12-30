@@ -584,7 +584,9 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
     def _before_init(self):
         """Called just before _initialize"""
         self._driver_name = driver_submodule_name(self.__class__.__module__)
-        self._module = import_driver(self._driver_name)
+        # TODO: consider setting the _module at the class level
+        if not hasattr(self.__class__, '_module'):
+            self.__class__._module = import_driver(self._driver_name)
 
         if not self._allow_sharing:
             for open_inst in self._instances:
