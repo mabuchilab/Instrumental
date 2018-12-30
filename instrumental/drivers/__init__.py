@@ -5,13 +5,17 @@ from __future__ import division
 from past.builtins import basestring
 from future.utils import with_metaclass
 
+import os
 import re
 import abc
 import copy
 import atexit
 import socket
+import inspect
 import warnings
 import numbers
+import os.path
+import pickle
 from weakref import WeakSet
 from inspect import isfunction
 from importlib import import_module
@@ -19,6 +23,7 @@ from collections import OrderedDict, Mapping
 
 from ..log import get_logger
 from .. import conf, u, Q_
+from ..util import cached_property
 from ..driver_info import driver_info
 from ..errors import (InstrumentTypeError, InstrumentNotFoundError, ConfigError,
                       InstrumentExistsError)
@@ -728,6 +733,32 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
 
         # Reload newly modified file
         conf.load_config_file()
+
+    @cached_property
+    def _state_path(self):
+        if not getattr(self, '_alias', None):
+            raise RuntimeError('Instrument must have an alias to provide a default path for saving '
+                               'or loading its state. An alias will be set by using '
+                               'save_instrument() or loading an instrument by alias')
+        inst_module = inspect.getmodule(self.__class__)
+        filename = '{}-{}.{}.pkl'.format(self._alias, inst_module.__name__, self.__class__.__name__)
+        if not os.path.exists(conf.save_dir):
+            os.makedirs(conf.save_dir)
+        return os.path.join(conf.save_dir, filename)
+
+    def _save_state(self, state_path=None):
+        """Save instrument state to a pickle file"""
+        state_path = state_path or self._state_path
+        with open(state_path, 'wb') as f:
+            pickle.dump(self.__dict__, f)
+
+    def _load_state(self, state_path=None):
+        """Load instrument state from a pickle file"""
+        state_path = state_path or self._state_path
+        with open(state_path, 'rb') as f:
+            state = pickle.load(f)
+            self.__dict__.update(state)
+            print(state)
 
 
 class VisaMixin(Instrument):

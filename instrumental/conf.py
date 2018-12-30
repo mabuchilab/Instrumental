@@ -23,6 +23,9 @@ pkg_dir = os.path.abspath(os.path.dirname(__file__))
 user_conf_path = os.path.join(user_conf_dir, 'instrumental.conf')
 pkg_conf_path = os.path.join(pkg_dir, 'instrumental.conf.default')
 
+# TODO: allow this to be set in the config file
+save_dir = os.path.join(user_data_dir, 'instruments')
+
 
 def copy_file_text(from_path, to_path):
     """Copies a text file, using platform-specific line endings"""
