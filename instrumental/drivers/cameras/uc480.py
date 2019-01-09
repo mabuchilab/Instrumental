@@ -231,7 +231,7 @@ class NiceUC480(NiceLib):
                 return param_data[0] if deref else param_data
 
         @Sig('in', 'in', 'inout', 'in')
-        def _Gamma(self, command, param=None):
+        def Gamma(self, command, param=None):
             if command in (lib.GAMMA_CMD_GET, lib.GAMMA_CMD_GET_DEFAULT):
                 getting = True
             elif command == lib.GAMMA_CMD_SET:
@@ -1041,12 +1041,12 @@ class UC480_Camera(Camera):
     @Facet(limits=(1.0, 10.0))
     def gamma(self):
         """The gamma correction value (1.0-10.0)"""
-        return self._dev._Gamma(lib.GAMMA_CMD_GET) / 100.
+        return self._dev.Gamma(lib.GAMMA_CMD_GET) / 100.
 
     @gamma.setter
     def gamma(self, gamma):
         gamma_factor = int(round(gamma * 100))
-        self._dev._Gamma(lib.GAMMA_CMD_SET, gamma_factor)
+        self._dev.Gamma(lib.GAMMA_CMD_SET, gamma_factor)
 
     @Facet
     def gain_boost(self):
