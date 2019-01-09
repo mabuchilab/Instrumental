@@ -119,9 +119,9 @@ class NiceUC480(NiceLib):
 
     # Classmethods
     #
-    GetNumberOfCameras = ('out')
-    GetCameraList = ('inout')
-    InitCamera = ('inout', 'in')
+    GetNumberOfCameras = Sig('out')
+    GetCameraList = Sig('inout')
+    InitCamera = Sig('inout', 'in')
 
     # Camera methods
     #
