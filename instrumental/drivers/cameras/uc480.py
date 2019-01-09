@@ -1022,7 +1022,7 @@ class UC480_Camera(Camera):
     def blacklevel_offset(self, offset):
         self._dev.Blacklevel(lib.BLACKLEVEL_CMD_SET_OFFSET, offset)
 
-    @Facet(type=int)
+    @Facet(type=int, units='MHz')
     def pixelclock(self):
         return self._dev.PixelClock(lib.PIXELCLOCK_CMD_GET)
 
@@ -1034,7 +1034,7 @@ class UC480_Camera(Camera):
     def pixelclock(self, clock):
         self._dev.PixelClock(lib.PIXELCLOCK_CMD_SET, clock)
 
-    @property
+    @Facet(units='MHz')
     def pixelclock_default(self):
         return self._dev.PixelClock(lib.PIXELCLOCK_CMD_GET_DEFAULT)
 
