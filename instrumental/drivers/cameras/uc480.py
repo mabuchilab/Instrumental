@@ -279,6 +279,33 @@ class NiceUC480(NiceLib):
             if getting:
                 return param_data[0] if deref else param_data
 
+        @Sig('in', 'in', 'inout', 'in')
+        def PixelClock(self, command, param=None):
+            if command in PIXELCLOCK_GET_PARAM_TYPES:
+                param_type = PIXELCLOCK_GET_PARAM_TYPES[command]
+                getting = True
+            elif command in PIXELCLOCK_SET_PARAM_TYPES:
+                param_type = PIXELCLOCK_SET_PARAM_TYPES[command]
+                getting = False
+            else:
+                raise Error("Unsupported command given")
+
+            if getting and param is not None:
+                raise ValueError("Cannot give a param value when using a GET command")
+            elif not getting and param is None:
+                raise ValueError("Must give a param value when using a SET command")
+
+            param_type = ffi.typeof(param_type)
+            deref = (param_type.kind == 'pointer')  # Don't dereference arrays
+
+            param_data = ffi.new(param_type, param)
+            size = ffi.sizeof(ffi.typeof(param_data).item if deref else param_data)
+            param_ptr = ffi.cast('void*', param_data)
+            self._autofunc_PixelClock(command, param_ptr, size)
+
+            if getting:
+                return param_data[0] if deref else param_data
+
 
 lib = NiceUC480
 
@@ -335,6 +362,18 @@ BLACKLEVEL_GET_PARAM_TYPES = {
 BLACKLEVEL_SET_PARAM_TYPES = {
     lib.BLACKLEVEL_CMD_SET_MODE: 'INT*',
     lib.BLACKLEVEL_CMD_SET_OFFSET: 'INT*',
+}
+
+PIXELCLOCK_GET_PARAM_TYPES = {
+    lib.PIXELCLOCK_CMD_GET_NUMBER: 'UINT*',
+    lib.PIXELCLOCK_CMD_GET_LIST: 'UINT[150]',
+    lib.PIXELCLOCK_CMD_GET_RANGE: 'UINT[3]',
+    lib.PIXELCLOCK_CMD_GET_DEFAULT: 'UINT*',
+    lib.PIXELCLOCK_CMD_GET: 'UINT*',
+}
+
+PIXELCLOCK_SET_PARAM_TYPES = {
+    lib.PIXELCLOCK_CMD_SET: 'UINT*',
 }
 
 EXPOSURE_GET_PARAM_TYPES = {
@@ -982,6 +1021,22 @@ class UC480_Camera(Camera):
     @blacklevel_offset.setter
     def blacklevel_offset(self, offset):
         self._dev.Blacklevel(lib.BLACKLEVEL_CMD_SET_OFFSET, offset)
+
+    @Facet(type=int)
+    def pixelclock(self):
+        return self._dev.PixelClock(lib.PIXELCLOCK_CMD_GET)
+
+    # TODO: Add some bounds checking. This is tricky since the bounds can change based on camera
+    # mode. May have to add dynamic limits to Facets if we want to do this within the facet.
+    # Otherwise we could either always pull in a new range to check against, or only check the range
+    # on an "invalid parameter" error.
+    @pixelclock.setter
+    def pixelclock(self, clock):
+        self._dev.PixelClock(lib.PIXELCLOCK_CMD_SET, clock)
+
+    @property
+    def pixelclock_default(self):
+        return self._dev.PixelClock(lib.PIXELCLOCK_CMD_GET_DEFAULT)
 
     @Facet(limits=(1.0, 10.0))
     def gamma(self):
