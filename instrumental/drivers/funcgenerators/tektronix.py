@@ -114,7 +114,7 @@ class AFG_3000(FunctionGenerator, VisaMixin):
         if 'dbm' in kwargs:
             self.set_dbm(kwargs['dbm'], channel)
         if 'offset' in kwargs:
-            self.set_offset(kwargs['channel'], channel)
+            self.set_offset(kwargs['offset'], channel)
         if 'high' in kwargs:
             self.set_high(kwargs['high'], channel)
         if 'low' in kwargs:
