@@ -16,10 +16,10 @@ _INST_VISA_INFO = {
                  ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102', 'AFG3251', 'AFG3252'])
 }
 
-_shapes = ['sinusoid', 'square', 'pulse', 'ramp', 'prnoise', 'dc', 'sinc',
-           'gaussian', 'lorentz', 'erise', 'edecay', 'haversine']
+_shapes = ['sinusoid', 'square', 'pulse', 'ramp', 'prnoise', 'dc', 'sinc', 'gaussian', 'lorentz',
+           'erise', 'edecay', 'haversine', 'user1', 'user2', 'user3', 'user4', 'ememory', 'efile']
 _abbrev_shapes = ['sin', 'squ', 'puls', 'ramp', 'prn', 'dc', 'sinc', 'gaus',
-                  'lor', 'eris', 'edec', 'hav']
+                  'lor', 'eris', 'edec', 'hav', 'user', 'emem', 'efil']
 _amp_keys = ['vpp', 'vrms', 'dbm']
 _volt_keys = ['vpp', 'vrms', 'dbm', 'offset', 'high', 'low']
 
@@ -85,9 +85,9 @@ class AFG_3000(FunctionGenerator, VisaMixin):
 
         Parameters
         ----------
-        shape : {'SINusoid', 'SQUare', 'PULSe', 'RAMP', 'PRNoise', 'DC', \
+        shape : {'SINusoid', 'SQUare', 'PULSe', 'RAMP', 'PRNoise', 'DC',
         'SINC', 'GAUSsian', 'LORentz', 'ERISe', 'EDECay', 'HAVersine',
-        'USER1', 'USER2', 'USER3', 'USER4', 'EMEMory'}, optional
+        'USER1', 'USER2', 'USER3', 'USER4', 'EMEMory', 'EFILe'}, optional
             Shape of the waveform. Case-insenitive, abbreviation or full
             string.
         phase : pint.Quantity or string or number, optional
