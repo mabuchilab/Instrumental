@@ -36,7 +36,10 @@ driver_info = OrderedDict([
         'params': ['visa_address'],
         'classes': [],
         'imports': [],
-        'visa_info': {'AgilentMXG': ('Agilent Technologies', ['N5181A'])},
+        'visa_info': {
+            'AgilentMXG': ('Agilent Technologies', ['N5181A']),
+            'Agilent33250A': ('Agilent Technologies', ['Agilent33250A'])
+            },
     }),
     ('funcgenerators.tektronix', {
         'params': ['visa_address'],
@@ -44,11 +47,23 @@ driver_info = OrderedDict([
         'imports': [],
         'visa_info': {'AFG_3000': ('TEKTRONIX', ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102', 'AFG3251', 'AFG3252'])},
     }),
+    ('laserdiodecontrollers.ilx_lightwave', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': ['visa'],
+        'visa_info': {'ILX Lightwave': ('3724B', ['LDC3724B'])}
+    }),
     ('lockins.sr850', {
         'params': ['visa_address'],
         'classes': [],
         'imports': ['visa'],
         'visa_info': {'SR850': ('Stanford_Research_Systems', ['SR850'])},
+    }),
+    ('lockins.sr844', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': ['visa'],
+        'visa_info': {'SR844': ('Stanford_Research_Systems', ['SR844'])}
     }),
     ('motion.ecc100', {
         'params': ['id'],
@@ -64,6 +79,11 @@ driver_info = OrderedDict([
         'params': ['serial'],
         'classes': ['K10CR1'],
         'imports': ['nicelib'],
+    }),
+    ('motion.newmark', {
+        'params': ['serial'],
+        'classes': ['NSCA1'],
+        'imports': ['visa']
     }),
     ('motion.tdc_001', {
         'params': ['serial'],
@@ -82,6 +102,12 @@ driver_info = OrderedDict([
         'imports': [],
         'visa_info': {'PM100D': ('Thorlabs', ['PM100D'])},
     }),
+    ('powersupplies.gw_instek', {
+        'params': ['visa_address'],
+        'classes': ['GPD_3303S'],
+        'imports': [],
+        'visa_info': {'GW Instek': ('GPD-3303S', ['GPD_3303S'])}
+    }),
     ('scopes.tektronix', {
         'params': ['visa_address'],
         'classes': ['TDS_200', 'TDS_1000', 'TDS_2000', 'TDS_3000', 'MSO_DPO_2000', 'MSO_DPO_4000'],
@@ -97,6 +123,12 @@ driver_info = OrderedDict([
         'params': ['model', 'usb', 'serial'],
         'classes': ['CCS'],
         'imports': ['visa', 'cffi', 'nicelib'],
+    }),
+    ('spectrumanalyzers.rohde_scharz', {
+        'params': ['visa_address'],
+        'classes': ['FSEA20'],
+        'imports': [],
+        'visa_info': {'FSEA20': ('Rohde&Schwarz', ['FSEA 20'])}
     }),
     ('tempcontrollers.covesion', {
         'params': ['visa_address'],
