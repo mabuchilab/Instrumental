@@ -5,14 +5,18 @@ from __future__ import division
 from past.builtins import basestring
 from future.utils import with_metaclass
 
+import os
 import re
 import abc
 import copy
 import atexit
 import socket
+import inspect
 import warnings
 import numbers
 import contextlib
+import os.path
+import pickle
 from weakref import WeakSet
 from inspect import isfunction
 from importlib import import_module
@@ -20,6 +24,7 @@ from collections import OrderedDict, Mapping
 
 from ..log import get_logger
 from .. import conf, u, Q_
+from ..util import cached_property
 from ..driver_info import driver_info
 from ..errors import (InstrumentTypeError, InstrumentNotFoundError, ConfigError,
                       InstrumentExistsError)
@@ -29,6 +34,7 @@ log = get_logger(__name__)
 
 __all__ = ['Instrument', 'instrument', 'list_instruments', 'list_visa_instruments']
 
+internal_drivers = list(driver_info.keys())  # Hacky list for back-compat usage
 cleanup_funcs = []
 _legacy_params = {
     'ueye_cam_id': 'uc480_camera_id',
@@ -380,6 +386,31 @@ class AbstractFacet(Facet):
     __isabstractmethod__ = True
 
 
+class ManualFacet(Facet):
+    def __init__(self, doc=None, cached=False, type=None, units=None, value=None, limits=None,
+                 name=None, save_on_set=True):
+        Facet.__init__(self, self._manual_fget, self._manual_fset, doc=doc, cached=cached,
+                       type=type, units=units, value=value, limits=limits, name=name)
+        self.save_on_set = save_on_set
+
+    def _manual_fget(self, owner):
+        inst = self.instance(owner)
+        try:
+            return inst._manual_value
+        except AttributeError:
+            return self._default_value()
+
+    def _manual_fset(self, owner, value):
+        self.instance(owner)._manual_value = value
+        if self.save_on_set and getattr(owner, '_alias', None):
+            owner._save_state()  # Will raise exception if _alias undefined
+
+    def _default_value(self):
+        if self.units:
+            return Q_(0, self.units)
+        return None  # FIXME
+
+
 def MessageFacet(get_msg=None, set_msg=None, convert=None, **kwds):
     """Convenience function for creating message-based Facets.
 
@@ -487,6 +518,8 @@ class InstrumentMeta(abc.ABCMeta):
                                 value.__doc__ = doc
                             break
 
+        add_driver_info(clsname, classdict)
+
         classdict['_instances'] = WeakSet()
         if '__init__' in classdict:
             raise TypeError("Subclasses of Instrument may not reimplement __init__. You should "
@@ -495,6 +528,31 @@ class InstrumentMeta(abc.ABCMeta):
         classdict['_props'] = props
         classdict['_prop_funcs'] = prop_funcs
         return super(InstrumentMeta, metacls).__new__(metacls, clsname, bases, classdict)
+
+
+def add_driver_info(classname, classdict):
+    """Add an entry in driver_info for class given by classname and classdict"""
+    module_name = classdict['__module__']
+    if module_name.startswith('instrumental.'):
+        return  # Ignore internal drivers, use static driver_info
+    entry = driver_info.setdefault(module_name, {})
+
+    cls_params = classdict.get('_INST_PARAMS_', [])
+    params = entry.setdefault('params', [])
+    for cls_param in cls_params:
+        if cls_param not in params:
+            params.append(cls_param)  # Should we do this?
+
+    entry.setdefault('classes', []).append(classname)
+    entry.setdefault('imports', [])
+
+    if 'visa_address' in cls_params:
+        visa_info = entry.setdefault('visa_info', {})
+        visa_info['classname'] = classdict.get('_INST_VISA_INFO_')
+
+
+def driver_takes_param(module_name, param_name):
+    return param_name in driver_info.get(module_name, {}).get('params', ())
 
 
 class Instrument(with_metaclass(InstrumentMeta, object)):
@@ -541,7 +599,9 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
     def _before_init(self):
         """Called just before _initialize"""
         self._driver_name = driver_submodule_name(self.__class__.__module__)
-        self._module = import_driver(self._driver_name)
+        # TODO: consider setting the _module at the class level
+        if not hasattr(self.__class__, '_module'):
+            self.__class__._module = import_driver(self._driver_name)
 
     def _after_init(self):
         """Called just after _initialize"""
@@ -690,6 +750,32 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
 
         # Reload newly modified file
         conf.load_config_file()
+
+    @cached_property
+    def _state_path(self):
+        if not getattr(self, '_alias', None):
+            raise RuntimeError('Instrument must have an alias to provide a default path for saving '
+                               'or loading its state. An alias will be set by using '
+                               'save_instrument() or loading an instrument by alias')
+        inst_module = inspect.getmodule(self.__class__)
+        filename = '{}-{}.{}.pkl'.format(self._alias, inst_module.__name__, self.__class__.__name__)
+        if not os.path.exists(conf.save_dir):
+            os.makedirs(conf.save_dir)
+        return os.path.join(conf.save_dir, filename)
+
+    def _save_state(self, state_path=None):
+        """Save instrument state to a pickle file"""
+        state_path = state_path or self._state_path
+        with open(state_path, 'wb') as f:
+            pickle.dump(self.__dict__, f)
+
+    def _load_state(self, state_path=None):
+        """Load instrument state from a pickle file"""
+        state_path = state_path or self._state_path
+        with open(state_path, 'rb') as f:
+            state = pickle.load(f)
+            self.__dict__.update(state)
+            print(state)
 
 
 class VisaMixin(Instrument):
@@ -995,7 +1081,12 @@ def get_idn(inst):
 def import_driver(driver_name, raise_errors=False):
     try:
         log.info("Importing driver module '%s'", driver_name)
-        return import_module('.' + driver_name, __package__)
+        # TODO: store full module names in driver_info (or add leading dot) so that external
+        # drivers don't have possible name conflicts
+        if driver_name in internal_drivers:
+            return import_module('.' + driver_name, __package__)
+        else:
+            return import_module(driver_name)
     except Exception as e:
         log.info("Error when importing driver module %s: <<%s>>", driver_name, str(e))
         if raise_errors:
@@ -1302,7 +1393,7 @@ def instrument(inst=None, **kwargs):
             inst = session.instrument(params)
         elif 'visa_address' in params:
             inst = find_visa_instrument(params)
-        elif 'module' in params and 'visa_address' in driver_info[params['module']]['params']:
+        elif 'module' in params and driver_takes_param(params['module'], 'visa_address'):
             inst = find_visa_instrument_by_module(params)
         else:
             inst = find_nonvisa_instrument(params)

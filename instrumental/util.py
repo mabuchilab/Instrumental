@@ -81,3 +81,19 @@ def call_with_timeout(func, timeout):
         cur_time = time.time()
 
     raise TimeoutError
+
+
+# From http://code.activestate.com/recipes/576563-cached-property/#c3
+def cached_property(fun):
+    """A memoize decorator for class properties."""
+    @wraps(fun)
+    def get(self):
+        try:
+            return self._cache[fun]
+        except AttributeError:
+            self._cache = {}
+        except KeyError:
+            pass
+        ret = self._cache[fun] = fun(self)
+        return ret
+    return property(get)
