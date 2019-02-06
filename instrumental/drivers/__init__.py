@@ -12,6 +12,7 @@ import atexit
 import socket
 import warnings
 import numbers
+import contextlib
 from weakref import WeakSet
 from inspect import isfunction
 from importlib import import_module
@@ -501,7 +502,6 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
     Base class for all instruments.
     """
     _all_instances = {}
-    _allow_sharing = False  # Should we allow returning existing instruments?
 
     @classmethod
     def _create(cls, paramset, **other_attrs):
@@ -510,6 +510,18 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         for name, value in other_attrs.items():
             setattr(obj, name, value)
         obj._paramset = ParamSet(cls, **paramset)
+
+        matching_insts = [open_inst for open_inst in obj._instances
+                          if obj._paramset.matches(open_inst._paramset)]
+        if matching_insts:
+            if _REOPEN_POLICY == 'strict':
+                raise InstrumentExistsError("Device instance already exists, cannot open in strict "
+                                            "mode")
+            elif _REOPEN_POLICY == 'reuse':
+                # TODO: Should we return something other than the first element?
+                return matching_insts[0]
+            elif _REOPEN_POLICY == 'new':
+                pass  # Cross our fingers and try to open a new instance
 
         obj._before_init()
         obj._fill_out_paramset()
@@ -530,11 +542,6 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         """Called just before _initialize"""
         self._driver_name = driver_submodule_name(self.__class__.__module__)
         self._module = import_driver(self._driver_name)
-
-        if not self._allow_sharing:
-            for open_inst in self._instances:
-                if self._paramset.matches(open_inst._paramset):
-                    raise InstrumentExistsError("Device already open")
 
     def _after_init(self):
         """Called just after _initialize"""
@@ -1247,10 +1254,34 @@ def find_full_params(normalized_params, driver_module):
             return inst_params
 
 
+# Pretty hacky, but is actually the *least* crazy way I can think of doing this right now. Somehow
+# we have to get this info to the Instrument class when it's instantiating a new instrument, the
+# paths to that code are many, varied, and winding.
+_REOPEN_POLICY = None
+@contextlib.contextmanager
+def _reopen_context(reopen_policy):
+    global _REOPEN_POLICY
+    if reopen_policy not in ('strict', 'reuse', 'new'):
+        raise ValueError("Reopen policy must be one of 'strict', 'reuse', 'new'")
+    _REOPEN_POLICY = reopen_policy
+    yield
+    _REOPEN_POLICY = None
+
+
 def instrument(inst=None, **kwargs):
     """
     Create any Instrumental instrument object from an alias, parameters,
     or an existing instrument.
+
+    reopen_policy : str of ('strict', 'reuse', 'new'), optional
+        How to handle the reopening of an existing instrument.
+        'strict' - disallow reopening an instrument with an existing instance which hasn't been
+        cleaned up yet.
+        'reuse' - if an instrument is being reopened, return the existing instance
+        'new' - always create a new instance of the instrument class. *Not recommended* unless you
+        know exactly what you're doing. The instrument objects are not synchronized with one
+        another.
+        By default, follows the 'reuse' policy.
 
     >>> inst1 = instrument('MYAFG')
     >>> inst2 = instrument(visa_address='TCPIP::192.168.1.34::INSTR')
@@ -1260,25 +1291,27 @@ def instrument(inst=None, **kwargs):
     log.info('Called instrument() with inst=%s, kwargs=%s', inst, kwargs)
     if isinstance(inst, Instrument):
         return inst
-    params, alias = _extract_params(inst, kwargs)
 
-    if 'server' in params:
-        from . import remote
-        host = params['server']
-        session = remote.client_session(host)
-        inst = session.instrument(params)
-    elif 'visa_address' in params:
-        inst = find_visa_instrument(params)
-    elif 'module' in params and 'visa_address' in driver_info[params['module']]['params']:
-        inst = find_visa_instrument_by_module(params)
-    else:
-        inst = find_nonvisa_instrument(params)
+    with _reopen_context(kwargs.pop('reopen_policy', 'reuse')):
+        params, alias = _extract_params(inst, kwargs)
 
-    if inst is None:
-        raise Exception("No instrument found that matches {}".format(params))
+        if 'server' in params:
+            from . import remote
+            host = params['server']
+            session = remote.client_session(host)
+            inst = session.instrument(params)
+        elif 'visa_address' in params:
+            inst = find_visa_instrument(params)
+        elif 'module' in params and 'visa_address' in driver_info[params['module']]['params']:
+            inst = find_visa_instrument_by_module(params)
+        else:
+            inst = find_nonvisa_instrument(params)
 
-    inst._alias = alias
-    return inst
+        if inst is None:
+            raise Exception("No instrument found that matches {}".format(params))
+
+        inst._alias = alias
+        return inst
 
 
 def register_cleanup(func):
