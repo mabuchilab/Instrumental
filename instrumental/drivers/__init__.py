@@ -398,8 +398,8 @@ class ManualFacet(Facet):
 
     def _manual_fset(self, owner, value):
         self.instance(owner)._manual_value = value
-        if self.save_on_set:
-            owner._save_state()
+        if self.save_on_set and getattr(owner, '_alias', None):
+            owner._save_state()  # Will raise exception if _alias undefined
 
     def _default_value(self):
         if self.units:
