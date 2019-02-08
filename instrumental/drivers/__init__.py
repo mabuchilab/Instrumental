@@ -185,7 +185,7 @@ class Facet(object):
         self.type = type
         self.units = None if units is None else u.parse_units(units)
         self.name = name  # This is auto-filled by InstrumentMeta.__new__ later
-        self._set_limits(limits)
+        self._limits_getter = self._make_limits_getter(limits)
 
         if value is None:
             self.values = None
@@ -200,22 +200,30 @@ class Facet(object):
             self.in_map = None
             self.out_map = None
 
-    def _set_limits(self, limits):
+    def _make_limits_getter(self, limits):
+        if callable(limits):
+            # TODO: add checking of function signature for Py2/3
+            return limits
+
         if limits is not None:
             for limit in limits:
                 if limit is not None and not isinstance(limit, (numbers.Number, basestring)):
                     raise ValueError('Facet limits must be raw numbers, strings, or None')
 
         if limits is None:
-            self.limits = (None, None, None)
+            static_limits = (None, None, None)
         elif len(limits) == 1:
-            self.limits = (0, limits[0], None)
+            static_limits = (0, limits[0], None)
         elif len(limits) == 2:
-            self.limits = (limits[0], limits[1], None)
+            static_limits = (limits[0], limits[1], None)
         elif len(limits) == 3:
-            self.limits = (limits[0], limits[1], limits[2])
+            static_limits = (limits[0], limits[1], limits[2])
         else:
             raise ValueError("`limits` must be a sequence of length 1 to 3")
+
+        def limits_getter(obj, facet):
+            return static_limits
+        return limits_getter
 
     def instance(self, obj):
         """Get the FacetInstance associated with `obj`"""
@@ -286,8 +294,9 @@ class Facet(object):
         return self.check_limits(value, obj)
 
     def _load_limits(self, obj):
+        limits = self._limits_getter(obj, self)
         return tuple((getattr(obj, l) if isinstance(l, basestring) else l)
-                     for l in self.limits)
+                     for l in limits)
 
     def check_limits(self, value, obj):
         """Check raw value (magnitude) against the Facet's limits"""
@@ -337,6 +346,10 @@ class Facet(object):
         self.fset = fset
         if not self.__doc__:
             self.__doc__ = fset.__doc__
+        return self
+
+    def limits_getter(self, getter):
+        self._limits_getter = getter
         return self
 
 
