@@ -39,6 +39,7 @@ class PM100D(PowerMeter, VisaMixin):
     range = SCPI_Facet('power:dc:range', units='W', convert=float, readonly=True,
                        doc="The current input range's max power")
 
+    @deprecated('wavelength')
     def get_wavelength(self):
         """Get the input signal wavelength setting
 
@@ -50,6 +51,7 @@ class PM100D(PowerMeter, VisaMixin):
         val = float(self._rsrc.query('sense:correction:wav?'))
         return Q_(val, 'nm')
 
+    @deprecated('wavelength')
     def set_wavelength(self, wavelength):
         """Set the input signal wavelength setting
 
@@ -61,6 +63,7 @@ class PM100D(PowerMeter, VisaMixin):
         wav_nm = Q_(wavelength).to('nm').magnitude
         self.write('sense:correction:wav {}', wav_nm)
 
+    @deprecated('num_averaged')
     def get_num_averaged(self):
         """Get the number of samples to average
 
@@ -72,6 +75,7 @@ class PM100D(PowerMeter, VisaMixin):
         val = int(self._rsrc.query('sense:average:count?'))
         return val
 
+    @deprecated('num_averaged')
     def set_num_averaged(self, num_averaged):
         """Set the number of samples to average
 
