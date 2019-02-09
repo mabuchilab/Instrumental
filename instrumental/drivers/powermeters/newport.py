@@ -21,9 +21,6 @@ from .. import Facet, MessageFacet, VisaMixin, deprecated
 from ..util import visa_timeout_context
 from ... import Q_
 
-_INST_PRIORITY = 8  # IDN isn't supported
-_INST_PARAMS = ['visa_address']
-
 
 def _check_visa_support(visa_inst):
     with visa_timeout_context(visa_inst, 100):
@@ -44,6 +41,8 @@ def MyFacet(msg, readonly=False, **kwds):
 
 class Newport_1830_C(PowerMeter, VisaMixin):
     """A Newport 1830-C power meter"""
+    _INST_PRIORITY_ = 8  # IDN isn't supported
+    _INST_PARAMS_ = ['visa_address']
 
     # Status byte codes
     _PARAM_ERROR = 1
