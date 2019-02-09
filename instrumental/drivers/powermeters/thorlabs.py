@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2017 Nate Bogdanowicz
+# Copyright 2014-2019 Nate Bogdanowicz
 """
 Driver module for Thorlabs power meters. Supports:
 
@@ -62,7 +62,7 @@ class PM100D(PowerMeter, VisaMixin):
             the input signal wavelength in units of [length]
         """
         wav_nm = Q_(wavelength).to('nm').magnitude
-        self._rsrc.write('sense:correction:wav {}'.format(wav_nm))
+        self.write('sense:correction:wav {}', wav_nm)
 
     def get_num_averaged(self):
         """Get the number of samples to average
@@ -87,7 +87,7 @@ class PM100D(PowerMeter, VisaMixin):
             number of samples to average
         """
         val = int(num_averaged)
-        self._rsrc.write('sense:average:count {}'.format(val))
+        self.write('sense:average:count {}', val)
 
     auto_range = SCPI_Facet('power:dc:range:auto', convert=int, value={False:0, True:1},
                             doc="Whether auto-ranging is enabled")
