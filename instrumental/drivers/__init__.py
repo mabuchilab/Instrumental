@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2017 Nate Bogdanowicz
+# Copyright 2013-2019 Nate Bogdanowicz
 
 from __future__ import division
 from past.builtins import basestring
@@ -781,11 +781,62 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
 class VisaMixin(Instrument):
     def write(self, message, *args, **kwds):
         """Write `message` to the instrument's VISA resource"""
-        self._rsrc.write(message.format(*args, **kwds))
+        full_message = message.format(*args, **kwds)
+        if self._in_transaction:
+            self._message_queue.append(full_message)
+        else:
+            self._rsrc.write(full_message)
 
     def query(self, message, *args, **kwds):
-        """Query the instrument's VISA resource with `message`"""
+        """Query the instrument's VISA resource with `message`
+
+        Flushes the message queue if called within a transaction.
+        """
+        if self._in_transaction:
+            self._flush_message_queue()  # TODO: combine query with this message?
         return self._rsrc.query(message.format(*args, **kwds))
+
+    @contextlib.contextmanager
+    def transaction(self):
+        """Transaction context manager to auto-chain VISA messages
+
+        Queues individual messages written with the `write()` method and sends them all at once,
+        joined by ';'. Messages are actually sent (1) when a call to `query()` is made and (2)
+        upon the end of transaction.
+
+        This is especially useful when using higher-level functions that call `write()`, as it lets
+        you combine multiple logical operations into a single message (if only using writes), which
+        can be faster than sending lots of little messages.
+
+        As an example:
+
+            >>> with myinst.transaction():
+            ...     myinst.write('A')
+            ...     myinst.write('B')
+            ...     myinst.query('C?')  # Query forces flush. Writes "A;B" and queries "C?"
+            ...     myinst.write('D')
+            ...     myinst.write('E')  # End of transaction block, writes "D;E"
+        """
+        self._start_transaction()
+        yield
+        self._end_transaction()
+
+    def _start_transaction(self):
+        self._message_queue = []
+
+    def _end_transaction(self):
+        self._flush_message_queue()
+        self._message_queue = None  # signals end of transaction
+
+    def _flush_message_queue(self):
+        """Write all queued messages at once"""
+        message = ';'.join(self._message_queue)
+        self._rsrc.write(message)
+        self._message_queue = []
+
+    @property
+    def _in_transaction(self):
+        return getattr(self, '_message_queue', None) is not None
 
     @property
     def resource(self):
