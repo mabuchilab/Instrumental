@@ -12,9 +12,6 @@ from . import Wavemeter
 from ..util import visa_timeout_context
 from ... import Q_
 
-_INST_PRIORITY = 9
-_INST_PARAMS = ['visa_address']
-
 # Constants; See Appendix A of WA-1000/1500 manual for details
 # 'Hard' command codes
 _BTN_0 = b'@\x00'
@@ -124,6 +121,9 @@ def _check_visa_support(visa_inst):
 
 class WA_1000(Wavemeter):
     """A Burleigh WA-1000/1500 wavemeter"""
+    _INST_PRIORITY_ = 9
+    _INST_PARAMS_ = ['visa_address']
+
     def _initialize(self):
         self._rsrc.read_termination = '\r\n'
         self._rsrc.write_termination = '\r\n'
