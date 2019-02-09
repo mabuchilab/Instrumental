@@ -780,7 +780,13 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
 
 class VisaMixin(Instrument):
     def write(self, message, *args, **kwds):
-        """Write `message` to the instrument's VISA resource"""
+        """Write a string message to the instrument's VISA resource
+
+        Calls format(*args, **kwds) to format the message. This allows for clean inclusion of
+        parameters. For example:
+
+        >>> inst.write('source{}:value {}', channel, value)
+        """
         full_message = message.format(*args, **kwds)
         if self._in_transaction:
             self._message_queue.append(full_message)
