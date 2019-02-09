@@ -743,6 +743,7 @@ class AFG_3000(FunctionGenerator, VisaMixin):
         bytestr = data.tostring()
         num = len(bytestr)
         bytestr = "#{}{}".format(len(str(num)), num).encode() + bytestr
+        self._rsrc._flush_message_queue()  # before write_raw
         self._rsrc.write_raw(b'data ememory,' + bytestr)
 
     def get_ememory(self):
@@ -754,6 +755,7 @@ class AFG_3000(FunctionGenerator, VisaMixin):
             Data retrieved from the AFG's edit memory.
         """
         self.write('data? ememory')
+        self._rsrc._flush_message_queue()  # before read_raw
         resp = self._rsrc.read_raw()
         if resp[0:1] != b'#':  # Slice for py2/3 compat
             raise Exception("Binary reponse missing header! Something's wrong.")

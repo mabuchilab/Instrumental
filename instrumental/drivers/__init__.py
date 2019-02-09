@@ -814,6 +814,10 @@ class VisaMixin(Instrument):
         you combine multiple logical operations into a single message (if only using writes), which
         can be faster than sending lots of little messages.
 
+        Be cognizant that a visa resource's write and query methods are not transaction-aware, only
+        VisaMixin's are. If you need to call one of these methods (e.g. write_raw), make sure you
+        flush the message queue manually with `_flush_message_queue()`.
+
         As an example:
 
             >>> with myinst.transaction():
@@ -836,6 +840,8 @@ class VisaMixin(Instrument):
 
     def _flush_message_queue(self):
         """Write all queued messages at once"""
+        if not self._in_transaction:
+            return
         message = ';'.join(self._message_queue)
         self._rsrc.write(message)
         self._message_queue = []
