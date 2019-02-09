@@ -10,14 +10,11 @@ from . import PowerMeter
 from .. import Facet, SCPI_Facet, VisaMixin, deprecated
 from ... import Q_
 
-_INST_PARAMS = ['visa_address']
-_INST_VISA_INFO = {
-    'PM100D': ('Thorlabs', ['PM100D'])
-}
-
 
 class PM100D(PowerMeter, VisaMixin):
     """A Thorlabs PM100D series power meter"""
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('Thorlabs', ['PM100D'])
 
     @deprecated('power')
     def get_power(self):
