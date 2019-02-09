@@ -222,7 +222,8 @@ class Facet(object):
             raise ValueError("`limits` must be a sequence of length 1 to 3")
 
         def limits_getter(obj, facet):
-            return static_limits
+            return tuple((getattr(obj, l) if isinstance(l, basestring) else l)
+                         for l in static_limits)
         return limits_getter
 
     def instance(self, obj):
@@ -294,9 +295,7 @@ class Facet(object):
         return self.check_limits(value, obj)
 
     def _load_limits(self, obj):
-        limits = self._limits_getter(obj, self)
-        return tuple((getattr(obj, l) if isinstance(l, basestring) else l)
-                     for l in limits)
+        return self._limits_getter(obj, self)
 
     def check_limits(self, value, obj):
         """Check raw value (magnitude) against the Facet's limits"""
