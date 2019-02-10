@@ -789,6 +789,8 @@ class VisaMixin(Instrument):
         """
         full_message = message.format(*args, **kwds)
         if self._in_transaction:
+            if full_message[0] != ':':
+                full_message = ':' + full_message
             self._message_queue.append(full_message)
         else:
             self._rsrc.write(full_message)
