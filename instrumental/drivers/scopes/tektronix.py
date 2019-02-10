@@ -6,10 +6,13 @@ Driver module for Tektronix oscilloscopes. Currently supports
 * TDS 3000 series
 * MSO/DPO 4000 series
 """
+import datetime as dt
+
 import visa
 from pyvisa.constants import InterfaceType
 import numpy as np
 from pint import UndefinedUnitError
+
 from . import Scope
 from .. import VisaMixin, SCPI_Facet, Facet
 from ..util import visa_context
@@ -288,6 +291,18 @@ class TekScope(Scope, VisaMixin):
         except KeyError:
             raise KeyError('Unknown number of channels for this scope model')
 
+    @property
+    def _datetime(self):
+        resp = self.query(':date?;:time?')
+        return dt.datetime.strptime(resp, '"%Y-%m-%d";"%H:%M:%S"')
+
+    @_datetime.setter
+    def _datetime(self, value):
+        if not isinstance(value, dt.datetime):
+            raise TypeError('value must be a datetime object')
+        message = value.strftime(':date "%Y-%m-%d";:time "%H:%M:%S"')
+        self.write(message)
+
     horizontal_scale = SCPI_Facet('hor:main:scale', convert=float, units='s')
     horizontal_delay = SCPI_Facet('hor:delay:pos', convert=float, units='s')
     math_function = property(get_math_function, set_math_function)
@@ -361,6 +376,7 @@ class TDS_3000(StatScope):
     max_waveform_length = 10000
     waveform_length = SCPI_Facet('wfmpre:nr_pt', convert=int, readonly=True,
                                  doc="Record length of the source waveform")
+    datetime = TekScope._datetime
 
 
 class MSO_DPO_2000(StatScope):
@@ -372,6 +388,7 @@ class MSO_DPO_2000(StatScope):
     max_waveform_length = 1250000
     waveform_length = SCPI_Facet('wfmoutpre:recordlength', convert=int, readonly=True,
                                  doc="Record length of the source waveform")
+    datetime = TekScope._datetime
 
 
 class MSO_DPO_4000(StatScope):
@@ -379,6 +396,7 @@ class MSO_DPO_4000(StatScope):
     _INST_PARAMS_ = ['visa_address']
     _INST_VISA_INFO_ = ('TEKTRONIX', ['MSO4032', 'DPO4032', 'MSO4034', 'DPO4034',
                                       'MSO4054', 'DPO4054', 'MSO4104', 'DPO4104',])
+    datetime = TekScope._datetime
 
 
 def load_csv(filename):
