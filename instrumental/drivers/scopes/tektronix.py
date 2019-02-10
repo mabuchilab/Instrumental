@@ -291,6 +291,27 @@ class TekScope(Scope, VisaMixin):
         except KeyError:
             raise KeyError('Unknown number of channels for this scope model')
 
+    def read_events(self):
+        """Get a list of events from the Event Queue
+
+        Returns
+        -------
+        A list of (int, str) pairs containing the code and message for each event in the scope's
+        event queue.
+        """
+        events = []
+        while True:
+            event_info = self.query('evmsg?').split(',', 1)
+            code = int(event_info[0])
+            message = event_info[1][1:-1]
+            if code == 0:
+                break
+            elif code == 1:
+                self.query('*ESR?')  # Reload event queue
+            else:
+                events.append((code, message))
+        return events
+
     @property
     def _datetime(self):
         resp = self.query(':date?;:time?')
