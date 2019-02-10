@@ -97,7 +97,7 @@ class TekScope(Scope, VisaMixin):
 
         self.write("header OFF")
 
-    def get_data(self, channel=1):
+    def get_data(self, channel=1, width=2):
         """Retrieve a trace from the scope.
 
         Pulls data from channel `channel` and returns it as a tuple ``(t,y)``
@@ -107,6 +107,8 @@ class TekScope(Scope, VisaMixin):
         ----------
         channel : int, optional
             Channel number to pull trace from. Defaults to channel 1.
+        width : int, optional
+            Number of bytes per sample of data pulled from the scope. 1 or 2.
 
         Returns
         -------
@@ -114,41 +116,23 @@ class TekScope(Scope, VisaMixin):
             Unitful arrays of data from the scope. ``t`` is in seconds, while
             ``y`` is in volts.
         """
-        self.write("data:source ch{}".format(channel))
-        try:
-            # scope *should* truncate this to record length if it's too big
-            stop = self.max_waveform_length
-        except AttributeError:
-            stop = 1000000
-        self.write("data:width 2")
-        self.write("data:encdg RIBinary")
-        self.write("data:start 1")
-        self.write("data:stop {}".format(stop))
+        if width not in (1, 2):
+            raise ValueError('width must be 1 or 2')
+
+        with self.transaction():
+            self.write(":data:source ch{}".format(channel))
+            try:
+                # scope *should* truncate this to record length if it's too big
+                stop = self.max_waveform_length
+            except AttributeError:
+                stop = 1000000
+            self.write(":data:width {}", width)
+            self.write(":data:encdg RIBinary")
+            self.write(":data:start 1")
+            self.write(":data:stop {}".format(stop))
 
         #self.resource.flow_control = 1  # Soft flagging (XON/XOFF flow control)
-
-        with self.resource.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT),\
-             visa_context(self.resource, timeout=10000, read_termination=None,
-                          end_input=visa.constants.SerialTermination.none):
-
-            self.write("curve?")
-            visalib = self.resource.visalib
-            session = self.resource.session
-            # NB: Must take slice of bytes returned by visalib.read,
-            # to keep from autoconverting to int
-            width_byte = visalib.read(session, 2)[0][1:]  # read first 2 bytes
-            num_bytes = int(visalib.read(session, int(width_byte))[0])
-            buf = bytearray(num_bytes)
-            cursor = 0
-            while cursor < num_bytes:
-                raw_bin, _ = visalib.read(session, num_bytes-cursor)
-                buf[cursor:cursor+len(raw_bin)] = raw_bin
-                cursor += len(raw_bin)
-
-        self.resource.read()  # Eat termination
-
-        num_points = int(num_bytes // 2)
-        raw_data_y = np.frombuffer(buf, dtype='>i2', count=num_points)
+        raw_data_y = self._read_curve(width=width)
 
         # Get scale and offset factors
         x_scale = float(self.query("wfmpre:xincr?"))
@@ -178,12 +162,39 @@ class TekScope(Scope, VisaMixin):
         except UndefinedUnitError:
             y_unit = u.dimensionless
 
-        raw_data_x = np.arange(1, num_points+1)
+        raw_data_x = np.arange(1, len(raw_data_y)+1)
 
         data_x = Q_((raw_data_x - x_offset)*x_scale + x_zero, x_unit)
         data_y = Q_((raw_data_y - y_offset)*y_scale + y_zero, y_unit)
 
         return data_x, data_y
+
+    def _read_curve(self, width):
+        with self.resource.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT),\
+            visa_context(self.resource, timeout=10000, read_termination=None,
+                         end_input=visa.constants.SerialTermination.none):
+
+            self.write("curve?")
+            visalib = self.resource.visalib
+            session = self.resource.session
+
+            # NB: Must take slice of bytes returned by visalib.read,
+            # to keep from autoconverting to int
+            width_byte = visalib.read(session, 2)[0][1:]  # read first 2 bytes
+            num_bytes = int(visalib.read(session, int(width_byte))[0])
+            buf = bytearray(num_bytes)
+            cursor = 0
+
+            while cursor < num_bytes:
+                raw_bin, _ = visalib.read(session, num_bytes-cursor)
+                buf[cursor:cursor+len(raw_bin)] = raw_bin
+                cursor += len(raw_bin)
+
+        self.resource.read()  # Eat termination
+
+        num_points = int(num_bytes // width)
+        dtype = '>i{:d}'.format(width)
+        return np.frombuffer(buf, dtype=dtype, count=num_points)
 
     def set_measurement_params(self, num, mtype, channel):
         """Set the parameters for a measurement.
