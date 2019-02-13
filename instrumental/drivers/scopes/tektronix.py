@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2018 Nate Bogdanowicz
+# Copyright 2013-2019 Nate Bogdanowicz
 """
 Driver module for Tektronix oscilloscopes. Currently supports
 
@@ -14,7 +14,7 @@ import numpy as np
 from pint import UndefinedUnitError
 
 from . import Scope
-from .. import VisaMixin, SCPI_Facet, Facet
+from .. import VisaMixin, SCPI_Facet
 from ..util import visa_context
 from ...util import to_str
 from ... import u, Q_
