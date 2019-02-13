@@ -16,6 +16,7 @@ from pint import UndefinedUnitError
 from . import Scope
 from .. import VisaMixin, SCPI_Facet, Facet
 from ..util import visa_context
+from ...util import to_str
 from ... import u, Q_
 
 
@@ -77,6 +78,11 @@ def infer_termination(msg_str):
     return None
 
 
+def strstr(value):
+    """Convert to str and strip outer quotes"""
+    return to_str(value)[1:-1]
+
+
 class TekScope(Scope, VisaMixin):
     """
     A base class for Tektronix scopes. Supports at least TDS 3000 series as
@@ -96,6 +102,16 @@ class TekScope(Scope, VisaMixin):
             pass
 
         self.write("header OFF")
+
+    def _waveform_params(self):
+        return {
+            'xin': float(self.query("wfmpre:xincr?")),
+            'ymu': float(self.query("wfmpre:ymult?")),
+            'xze': float(self.query("wfmpre:xzero?")),
+            'yze': float(self.query("wfmpre:yzero?")),
+            'pt_o': float(self.query("wfmpre:pt_off?")),
+            'yof': float(self.query("wfmpre:yoff?")),
+        }
 
     def get_data(self, channel=1, width=2):
         """Retrieve a trace from the scope.
@@ -120,54 +136,44 @@ class TekScope(Scope, VisaMixin):
             raise ValueError('width must be 1 or 2')
 
         with self.transaction():
-            self.write(":data:source ch{}".format(channel))
+            self.write("data:source ch{}".format(channel))
             try:
                 # scope *should* truncate this to record length if it's too big
                 stop = self.max_waveform_length
             except AttributeError:
                 stop = 1000000
-            self.write(":data:width {}", width)
-            self.write(":data:encdg RIBinary")
-            self.write(":data:start 1")
-            self.write(":data:stop {}".format(stop))
+            self.write("data:width {}", width)
+            self.write("data:encdg RIBinary")
+            self.write("data:start 1")
+            self.write("data:stop {}".format(stop))
 
         #self.resource.flow_control = 1  # Soft flagging (XON/XOFF flow control)
         raw_data_y = self._read_curve(width=width)
+        raw_data_x = np.arange(1, len(raw_data_y)+1)
 
         # Get scale and offset factors
-        x_scale = float(self.query("wfmpre:xincr?"))
-        y_scale = float(self.query("wfmpre:ymult?"))
-        x_zero = float(self.query("wfmpre:xzero?"))
-        y_zero = float(self.query("wfmpre:yzero?"))
-        x_offset = float(self.query("wfmpre:pt_off?"))
-        y_offset = float(self.query("wfmpre:yoff?"))
+        wp = self._waveform_params()
+        x_units = self._tek_units(wp['xun'])
+        y_units = self._tek_units(wp['yun'])
 
-        x_unit_str = self.query("wfmpre:xunit?")[1:-1]
-        y_unit_str = self.query("wfmpre:yunit?")[1:-1]
+        data_x = Q_((raw_data_x - wp['pt_o'])*wp['xin'] + wp['xze'], x_units)
+        data_y = Q_((raw_data_y - wp['yof'])*wp['ymu'] + wp['yze'], y_units)
 
+        return data_x, data_y
+
+    @staticmethod
+    def _tek_units(unit_str):
         unit_map = {
             'U': '',
             'Volts': 'V'
         }
 
-        x_unit_str = unit_map.get(x_unit_str, x_unit_str)
+        unit_str = unit_map.get(unit_str, unit_str)
         try:
-            x_unit = u.parse_units(x_unit_str)
+            units = u.parse_units(unit_str)
         except UndefinedUnitError:
-            x_unit = u.dimensionless
-
-        y_unit_str = unit_map.get(y_unit_str, y_unit_str)
-        try:
-            y_unit = u.parse_units(y_unit_str)
-        except UndefinedUnitError:
-            y_unit = u.dimensionless
-
-        raw_data_x = np.arange(1, len(raw_data_y)+1)
-
-        data_x = Q_((raw_data_x - x_offset)*x_scale + x_zero, x_unit)
-        data_y = Q_((raw_data_y - y_offset)*y_scale + y_zero, y_unit)
-
-        return data_x, data_y
+            units = u.dimensionless
+        return units
 
     def _read_curve(self, width):
         with self.resource.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT),\
@@ -421,6 +427,30 @@ class MSO_DPO_2000(StatScope):
     waveform_length = SCPI_Facet('wfmoutpre:recordlength', convert=int, readonly=True,
                                  doc="Record length of the source waveform")
     datetime = TekScope._datetime
+
+    def _waveform_params(self):
+        param_strs = self.query('wfmoutpre?').split(';')
+        return {key:f(val) for val,(key,f) in
+                zip(param_strs,
+                    [('byt_n', int),
+                     ('bit_n', int),
+                     ('enc', to_str),
+                     ('bn_f', to_str),
+                     ('byt_o', to_str),
+                     ('wfi', strstr),
+                     ('nr_p', int),
+                     ('pt_f', to_str),
+                     ('xun', strstr),
+                     ('xin', float),
+                     ('xze', float),
+                     ('pt_o', int),
+                     ('yun', strstr),
+                     ('ymu', float),
+                     ('yof', float),
+                     ('yze', float),
+                     ('comp', to_str),
+                     ('reco', int),
+                     ('filterf', int)])}
 
 
 class MSO_DPO_4000(StatScope):
