@@ -7,9 +7,10 @@ from . import PowerSupply
 from .. import VisaMixin, Facet
 from ... import Q_
 
-_INST_PARAMS = ['visa_address']
 
 class GPD_3303S(PowerSupply, VisaMixin):
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('GW INSTEK', ['GPD-3303S'])
 
     def _initialize(self):
         self._rsrc.write_termination = '\n'
