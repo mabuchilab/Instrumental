@@ -148,8 +148,8 @@ class NiceNI(NiceLib):
         GetBufInputOnbrdBufSize = Sig('in', 'out')
 
         _sigs_ = sig_pattern((
-            ('Get{}', ('in', 'out')),
-            ('Set{}', ('in', 'in')),
+            ('Get{}', Sig('in', 'out')),
+            ('Set{}', Sig('in', 'in')),
         ),(
             'SampTimingType',
             'SampQuantSampMode',

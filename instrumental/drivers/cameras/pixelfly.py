@@ -47,8 +47,8 @@ class NicePixelfly(NiceLib):
     _info_ = info
     _ret_ = pixelfly_errorcheck
 
-    INITBOARD = ('in', 'out')  # Second arg should really be 'inout'
-    CHECK_BOARD_AVAILABILITY = ('in')
+    INITBOARD = Sig('in', 'out')  # Second arg should really be 'inout'
+    CHECK_BOARD_AVAILABILITY = Sig('in')
 
     class Board(NiceObject):
         _init_ = 'INITBOARD'

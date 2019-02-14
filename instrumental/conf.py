@@ -14,11 +14,17 @@ from . import appdirs
 
 __all__ = ['servers', 'instruments', 'prefs']
 servers, instruments, prefs = {}, {}, {}
-user_conf_dir = appdirs.user_data_dir("Instrumental", "MabuchiLab")
+appname = 'instrumental'
+appauthor = 'mabuchilab'
+user_conf_dir = appdirs.user_config_dir(appname, appauthor)
+user_data_dir = appdirs.user_data_dir(appname, appauthor)
 
 pkg_dir = os.path.abspath(os.path.dirname(__file__))
 user_conf_path = os.path.join(user_conf_dir, 'instrumental.conf')
 pkg_conf_path = os.path.join(pkg_dir, 'instrumental.conf.default')
+
+# TODO: allow this to be set in the config file
+save_dir = os.path.join(user_data_dir, 'instruments')
 
 
 def copy_file_text(from_path, to_path):

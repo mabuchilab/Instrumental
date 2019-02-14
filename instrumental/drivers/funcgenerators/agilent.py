@@ -12,6 +12,7 @@ _INST_PARAMS = ['visa_address']
 _INST_VISA_INFO = {
     'AgilentMXG': ('Agilent Technologies',
                    ['N5181A']),
+    'Agilent33250A': ('Agilent Technologies', ['Agilent33250A']),
 }
 
 
@@ -59,3 +60,13 @@ class AgilentMXG(FunctionGenerator, VisaMixin):
     # enabling freq and/or amplitude sweep
     # sweep triggering
     # load a list sweep file
+
+class Agilent33250A(FunctionGenerator, VisaMixin):
+    def _initialize(self):
+        self._rsrc.read_termination = '\n'
+
+    frequency = SCPI_Facet('FREQ', convert=float, units='Hz')
+    voltage = SCPI_Facet('VOLT', convert=float, units='V')
+
+
+

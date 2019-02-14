@@ -29,7 +29,7 @@ DEFAULT_VALUES = {
     '_INST_PARAMS': [],
     '_INST_PRIORITY': 5,
     '_INST_CLASSES': [],
-    '_INST_VISA_INFO': None,
+    '_INST_VISA_INFO': {},
 }
 
 
@@ -337,7 +337,7 @@ def parse_driver_modules(module_name):
         values['_INST_CLASSES'] = classes
         values['_INST_PARAMS'] = list(params)
         values['_INST_PRIORITY'] = priority
-        values['_INST_VISA_INFO'] = visa_info or None
+        values['_INST_VISA_INFO'] = visa_info
         has_special_vars = True
 
     values['nonstd_imports'] = filter_std_modules(requirements)

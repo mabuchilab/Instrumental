@@ -1,4 +1,4 @@
-# Auto-generated 2018-09-08T20:48:23.557699
+# Auto-generated 2019-02-13T19:13:18.669824
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -18,7 +18,7 @@ driver_info = OrderedDict([
         'imports': ['pywin32', 'nicelib >= 0.5'],
     }),
     ('daq.ni', {
-        'params': ['serial', 'model', 'name'],
+        'params': ['name', 'model', 'serial'],
         'classes': ['NIDAQ'],
         'imports': ['nicelib >= 0.5'],
     }),
@@ -26,13 +26,25 @@ driver_info = OrderedDict([
         'params': ['visa_address'],
         'classes': [],
         'imports': [],
-        'visa_info': {'AgilentMXG': ('Agilent Technologies', ['N5181A'])},
+        'visa_info': {'AgilentMXG': ('Agilent Technologies', ['N5181A']), 'Agilent33250A': ('Agilent Technologies', ['Agilent33250A'])},
     }),
     ('funcgenerators.tektronix', {
         'params': ['visa_address'],
         'classes': [],
         'imports': [],
         'visa_info': {'AFG_3000': ('TEKTRONIX', ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102', 'AFG3251', 'AFG3252'])},
+    }),
+    ('laserdiodecontrollers.ilx_lightwave', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': [],
+        'visa_info': {},
+    }),
+    ('lockins.sr844', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': ['visa'],
+        'visa_info': {'SR844': ('Stanford_Research_Systems', ['SR844'])},
     }),
     ('lockins.sr850', {
         'params': ['visa_address'],
@@ -43,12 +55,12 @@ driver_info = OrderedDict([
     ('motion._kinesis.ff', {
         'params': ['serial'],
         'classes': ['FilterFlipper'],
-        'imports': [],
+        'imports': ['nicelib'],
     }),
     ('motion._kinesis.isc', {
         'params': ['serial'],
         'classes': ['K10CR1'],
-        'imports': [],
+        'imports': ['nicelib'],
     }),
     ('motion.ecc100', {
         'params': ['id'],
@@ -59,6 +71,11 @@ driver_info = OrderedDict([
         'params': ['serial'],
         'classes': ['Filter_Flipper'],
         'imports': ['cffi', 'nicelib'],
+    }),
+    ('motion.newmark', {
+        'params': ['serial'],
+        'classes': ['NSCA1'],
+        'imports': ['visa'],
     }),
     ('motion.tdc_001', {
         'params': ['serial'],
@@ -73,9 +90,15 @@ driver_info = OrderedDict([
     }),
     ('powermeters.thorlabs', {
         'params': ['visa_address'],
-        'classes': [],
+        'classes': ['PM100D'],
         'imports': [],
         'visa_info': {'PM100D': ('Thorlabs', ['PM100D'])},
+    }),
+    ('powersupplies.gw_instek', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': [],
+        'visa_info': {},
     }),
     ('scopes.tektronix', {
         'params': ['visa_address'],
@@ -93,27 +116,33 @@ driver_info = OrderedDict([
         'classes': ['CCS'],
         'imports': ['visa', 'cffi', 'nicelib'],
     }),
+    ('spectrumanalyzers.rohde_schwarz', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': [],
+        'visa_info': {},
+    }),
     ('tempcontrollers.covesion', {
         'params': ['visa_address'],
         'classes': ['CovesionOC'],
         'imports': ['pyvisa'],
-        'visa_info': None,
+        'visa_info': {},
     }),
     ('tempcontrollers.hcphotonics', {
         'params': ['visa_address'],
         'classes': ['TC038'],
         'imports': ['pyvisa'],
-        'visa_info': None,
+        'visa_info': {},
     }),
     ('lasers.femto_ferb', {
         'params': ['visa_address'],
         'classes': [],
         'imports': [],
-        'visa_info': None,
+        'visa_info': {},
     }),
     ('powermeters.newport', {
         'params': ['visa_address'],
-        'classes': [],
+        'classes': ['Newport_1830_C'],
         'imports': [],
         'visa_info': None,
     }),
@@ -129,7 +158,7 @@ driver_info = OrderedDict([
     }),
     ('wavemeters.burleigh', {
         'params': ['visa_address'],
-        'classes': [],
+        'classes': ['WA_1000'],
         'imports': [],
         'visa_info': None,
     }),

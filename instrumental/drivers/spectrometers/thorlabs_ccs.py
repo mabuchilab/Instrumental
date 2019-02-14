@@ -215,7 +215,7 @@ class CCS(Spectrometer):
 
         Note also that this cancels other scans in progress.
         """
-        self._NiceCCS.startScanExtTrig()
+        self._NiceCCS.startScanExtTrg()
 
     def start_cont_scan_trg(self):
         """Arms spectrometer for continuous external triggering.
@@ -229,7 +229,7 @@ class CCS(Spectrometer):
 
         Note also that this cancels other scans in progress.
         """
-        self._NiceCCS.startScanContExtTrig()
+        self._NiceCCS.startScanContExtTrg()
 
     def stop_scan(self):
         # This is hacky but they do not provide a good function to stop a scan.

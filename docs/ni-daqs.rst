@@ -97,6 +97,24 @@ contains the input that was read.  This dict also contains the time data under
 key 't'. Note that the read and write happen concurrently, so each voltage read
 has not yet moved to its new setpoint.
 
+There may be applications where data needs to be acquired continuously. This can be achieved by setting up a ``Task`` object in 'continuous' mode.
+
+Here is an example of how to perform continuous sampling::
+
+   from instrumental.drivers.daq.ni import NIDAQ, Task
+   daq = NIDAQ('Dev0') # Or whatever is shown from instrumental.list_instruments()
+   task = daq.Task(daq.ai0, daq.ai1)
+   task.set_timing(fsamp='100 Hz', n_samples=1000, mode='continuous')
+   task.start()
+   done = False
+   while not done:
+       data = task.read()
+       # do something with the data
+       # do something to eventually set done = True
+   task.stop()
+
+Once set, ``data`` will contain a dictionary. Its keys are the names of input channels, and values are the corresponding array Quantities. The dictionary also contains time data under key 't'. The length of each of the arrays in this dictionary will be between 0 and ``n_samples`` elements. Therefore, you do not need to worry about syncronizing the timing of your ``read()`` calls, as each ``read()`` call will only return the data returned since the last call to ``read()``, or since the task started. To avoid unexpected behavior, ensure that your code calls ``task.read()`` frequently enough so that the daq never completely fills the ``n_samples``-sized buffer.
+
 
 Module Reference
 ----------------

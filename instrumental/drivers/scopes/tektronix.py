@@ -1,18 +1,22 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2018 Nate Bogdanowicz
+# Copyright 2013-2019 Nate Bogdanowicz
 """
 Driver module for Tektronix oscilloscopes. Currently supports
 
 * TDS 3000 series
 * MSO/DPO 4000 series
 """
+import datetime as dt
+
 import visa
 from pyvisa.constants import InterfaceType
 import numpy as np
 from pint import UndefinedUnitError
+
 from . import Scope
-from .. import VisaMixin, SCPI_Facet, Facet
+from .. import VisaMixin, SCPI_Facet
 from ..util import visa_context
+from ...util import to_str
 from ... import u, Q_
 
 
@@ -74,6 +78,11 @@ def infer_termination(msg_str):
     return None
 
 
+def strstr(value):
+    """Convert to str and strip outer quotes"""
+    return to_str(value)[1:-1]
+
+
 class TekScope(Scope, VisaMixin):
     """
     A base class for Tektronix scopes. Supports at least TDS 3000 series as
@@ -94,7 +103,17 @@ class TekScope(Scope, VisaMixin):
 
         self.write("header OFF")
 
-    def get_data(self, channel=1):
+    def _waveform_params(self):
+        return {
+            'xin': float(self.query("wfmpre:xincr?")),
+            'ymu': float(self.query("wfmpre:ymult?")),
+            'xze': float(self.query("wfmpre:xzero?")),
+            'yze': float(self.query("wfmpre:yzero?")),
+            'pt_o': float(self.query("wfmpre:pt_off?")),
+            'yof': float(self.query("wfmpre:yoff?")),
+        }
+
+    def get_data(self, channel=1, width=2):
         """Retrieve a trace from the scope.
 
         Pulls data from channel `channel` and returns it as a tuple ``(t,y)``
@@ -104,6 +123,8 @@ class TekScope(Scope, VisaMixin):
         ----------
         channel : int, optional
             Channel number to pull trace from. Defaults to channel 1.
+        width : int, optional
+            Number of bytes per sample of data pulled from the scope. 1 or 2.
 
         Returns
         -------
@@ -111,32 +132,65 @@ class TekScope(Scope, VisaMixin):
             Unitful arrays of data from the scope. ``t`` is in seconds, while
             ``y`` is in volts.
         """
-        self.write("data:source ch{}".format(channel))
-        try:
-            # scope *should* truncate this to record length if it's too big
-            stop = self.max_waveform_length
-        except AttributeError:
-            stop = 1000000
-        self.write("data:width 2")
-        self.write("data:encdg RIBinary")
-        self.write("data:start 1")
-        self.write("data:stop {}".format(stop))
+        if width not in (1, 2):
+            raise ValueError('width must be 1 or 2')
+
+        with self.transaction():
+            self.write("data:source ch{}".format(channel))
+            try:
+                # scope *should* truncate this to record length if it's too big
+                stop = self.max_waveform_length
+            except AttributeError:
+                stop = 1000000
+            self.write("data:width {}", width)
+            self.write("data:encdg RIBinary")
+            self.write("data:start 1")
+            self.write("data:stop {}".format(stop))
 
         #self.resource.flow_control = 1  # Soft flagging (XON/XOFF flow control)
+        raw_data_y = self._read_curve(width=width)
+        raw_data_x = np.arange(1, len(raw_data_y)+1)
 
+        # Get scale and offset factors
+        wp = self._waveform_params()
+        x_units = self._tek_units(wp['xun'])
+        y_units = self._tek_units(wp['yun'])
+
+        data_x = Q_((raw_data_x - wp['pt_o'])*wp['xin'] + wp['xze'], x_units)
+        data_y = Q_((raw_data_y - wp['yof'])*wp['ymu'] + wp['yze'], y_units)
+
+        return data_x, data_y
+
+    @staticmethod
+    def _tek_units(unit_str):
+        unit_map = {
+            'U': '',
+            'Volts': 'V'
+        }
+
+        unit_str = unit_map.get(unit_str, unit_str)
+        try:
+            units = u.parse_units(unit_str)
+        except UndefinedUnitError:
+            units = u.dimensionless
+        return units
+
+    def _read_curve(self, width):
         with self.resource.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT),\
-             visa_context(self.resource, timeout=10000, read_termination=None,
-                          end_input=visa.constants.SerialTermination.none):
+            visa_context(self.resource, timeout=10000, read_termination=None,
+                         end_input=visa.constants.SerialTermination.none):
 
             self.write("curve?")
             visalib = self.resource.visalib
             session = self.resource.session
+
             # NB: Must take slice of bytes returned by visalib.read,
             # to keep from autoconverting to int
             width_byte = visalib.read(session, 2)[0][1:]  # read first 2 bytes
             num_bytes = int(visalib.read(session, int(width_byte))[0])
             buf = bytearray(num_bytes)
             cursor = 0
+
             while cursor < num_bytes:
                 raw_bin, _ = visalib.read(session, num_bytes-cursor)
                 buf[cursor:cursor+len(raw_bin)] = raw_bin
@@ -144,43 +198,9 @@ class TekScope(Scope, VisaMixin):
 
         self.resource.read()  # Eat termination
 
-        num_points = int(num_bytes // 2)
-        raw_data_y = np.frombuffer(buf, dtype='>i2', count=num_points)
-
-        # Get scale and offset factors
-        x_scale = float(self.query("wfmpre:xincr?"))
-        y_scale = float(self.query("wfmpre:ymult?"))
-        x_zero = float(self.query("wfmpre:xzero?"))
-        y_zero = float(self.query("wfmpre:yzero?"))
-        x_offset = float(self.query("wfmpre:pt_off?"))
-        y_offset = float(self.query("wfmpre:yoff?"))
-
-        x_unit_str = self.query("wfmpre:xunit?")[1:-1]
-        y_unit_str = self.query("wfmpre:yunit?")[1:-1]
-
-        unit_map = {
-            'U': '',
-            'Volts': 'V'
-        }
-
-        x_unit_str = unit_map.get(x_unit_str, x_unit_str)
-        try:
-            x_unit = u.parse_units(x_unit_str)
-        except UndefinedUnitError:
-            x_unit = u.dimensionless
-
-        y_unit_str = unit_map.get(y_unit_str, y_unit_str)
-        try:
-            y_unit = u.parse_units(y_unit_str)
-        except UndefinedUnitError:
-            y_unit = u.dimensionless
-
-        raw_data_x = np.arange(1, num_points+1)
-
-        data_x = Q_((raw_data_x - x_offset)*x_scale + x_zero, x_unit)
-        data_y = Q_((raw_data_y - y_offset)*y_scale + y_zero, y_unit)
-
-        return data_x, data_y
+        num_points = int(num_bytes // width)
+        dtype = '>i{:d}'.format(width)
+        return np.frombuffer(buf, dtype=dtype, count=num_points)
 
     def set_measurement_params(self, num, mtype, channel):
         """Set the parameters for a measurement.
@@ -288,6 +308,39 @@ class TekScope(Scope, VisaMixin):
         except KeyError:
             raise KeyError('Unknown number of channels for this scope model')
 
+    def read_events(self):
+        """Get a list of events from the Event Queue
+
+        Returns
+        -------
+        A list of (int, str) pairs containing the code and message for each event in the scope's
+        event queue.
+        """
+        events = []
+        while True:
+            event_info = self.query('evmsg?').split(',', 1)
+            code = int(event_info[0])
+            message = event_info[1][1:-1]
+            if code == 0:
+                break
+            elif code == 1:
+                self.query('*ESR?')  # Reload event queue
+            else:
+                events.append((code, message))
+        return events
+
+    @property
+    def _datetime(self):
+        resp = self.query(':date?;:time?')
+        return dt.datetime.strptime(resp, '"%Y-%m-%d";"%H:%M:%S"')
+
+    @_datetime.setter
+    def _datetime(self, value):
+        if not isinstance(value, dt.datetime):
+            raise TypeError('value must be a datetime object')
+        message = value.strftime(':date "%Y-%m-%d";:time "%H:%M:%S"')
+        self.write(message)
+
     horizontal_scale = SCPI_Facet('hor:main:scale', convert=float, units='s')
     horizontal_delay = SCPI_Facet('hor:delay:pos', convert=float, units='s')
     math_function = property(get_math_function, set_math_function)
@@ -361,6 +414,7 @@ class TDS_3000(StatScope):
     max_waveform_length = 10000
     waveform_length = SCPI_Facet('wfmpre:nr_pt', convert=int, readonly=True,
                                  doc="Record length of the source waveform")
+    datetime = TekScope._datetime
 
 
 class MSO_DPO_2000(StatScope):
@@ -372,6 +426,31 @@ class MSO_DPO_2000(StatScope):
     max_waveform_length = 1250000
     waveform_length = SCPI_Facet('wfmoutpre:recordlength', convert=int, readonly=True,
                                  doc="Record length of the source waveform")
+    datetime = TekScope._datetime
+
+    def _waveform_params(self):
+        param_strs = self.query('wfmoutpre?').split(';')
+        return {key:f(val) for val,(key,f) in
+                zip(param_strs,
+                    [('byt_n', int),
+                     ('bit_n', int),
+                     ('enc', to_str),
+                     ('bn_f', to_str),
+                     ('byt_o', to_str),
+                     ('wfi', strstr),
+                     ('nr_p', int),
+                     ('pt_f', to_str),
+                     ('xun', strstr),
+                     ('xin', float),
+                     ('xze', float),
+                     ('pt_o', int),
+                     ('yun', strstr),
+                     ('ymu', float),
+                     ('yof', float),
+                     ('yze', float),
+                     ('comp', to_str),
+                     ('reco', int),
+                     ('filterf', int)])}
 
 
 class MSO_DPO_4000(StatScope):
@@ -379,6 +458,7 @@ class MSO_DPO_4000(StatScope):
     _INST_PARAMS_ = ['visa_address']
     _INST_VISA_INFO_ = ('TEKTRONIX', ['MSO4032', 'DPO4032', 'MSO4034', 'DPO4034',
                                       'MSO4054', 'DPO4054', 'MSO4104', 'DPO4104',])
+    datetime = TekScope._datetime
 
 
 def load_csv(filename):

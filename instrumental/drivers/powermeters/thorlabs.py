@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2017 Nate Bogdanowicz
+# Copyright 2014-2019 Nate Bogdanowicz
 """
 Driver module for Thorlabs power meters. Supports:
 
@@ -10,14 +10,11 @@ from . import PowerMeter
 from .. import Facet, SCPI_Facet, VisaMixin, deprecated
 from ... import Q_
 
-_INST_PARAMS = ['visa_address']
-_INST_VISA_INFO = {
-    'PM100D': ('Thorlabs', ['PM100D'])
-}
-
 
 class PM100D(PowerMeter, VisaMixin):
     """A Thorlabs PM100D series power meter"""
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('Thorlabs', ['PM100D'])
 
     @deprecated('power')
     def get_power(self):
@@ -42,6 +39,7 @@ class PM100D(PowerMeter, VisaMixin):
     range = SCPI_Facet('power:dc:range', units='W', convert=float, readonly=True,
                        doc="The current input range's max power")
 
+    @deprecated('wavelength')
     def get_wavelength(self):
         """Get the input signal wavelength setting
 
@@ -53,6 +51,7 @@ class PM100D(PowerMeter, VisaMixin):
         val = float(self._rsrc.query('sense:correction:wav?'))
         return Q_(val, 'nm')
 
+    @deprecated('wavelength')
     def set_wavelength(self, wavelength):
         """Set the input signal wavelength setting
 
@@ -62,8 +61,9 @@ class PM100D(PowerMeter, VisaMixin):
             the input signal wavelength in units of [length]
         """
         wav_nm = Q_(wavelength).to('nm').magnitude
-        self._rsrc.write('sense:correction:wav {}'.format(wav_nm))
+        self.write('sense:correction:wav {}', wav_nm)
 
+    @deprecated('num_averaged')
     def get_num_averaged(self):
         """Get the number of samples to average
 
@@ -75,6 +75,7 @@ class PM100D(PowerMeter, VisaMixin):
         val = int(self._rsrc.query('sense:average:count?'))
         return val
 
+    @deprecated('num_averaged')
     def set_num_averaged(self, num_averaged):
         """Set the number of samples to average
 
@@ -87,7 +88,7 @@ class PM100D(PowerMeter, VisaMixin):
             number of samples to average
         """
         val = int(num_averaged)
-        self._rsrc.write('sense:average:count {}'.format(val))
+        self.write('sense:average:count {}', val)
 
     auto_range = SCPI_Facet('power:dc:range:auto', convert=int, value={False:0, True:1},
                             doc="Whether auto-ranging is enabled")
