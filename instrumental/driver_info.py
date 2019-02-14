@@ -106,7 +106,7 @@ driver_info = OrderedDict([
         'params': ['visa_address'],
         'classes': ['GPD_3303S'],
         'imports': [],
-        'visa_info': {'GW Instek': ('GPD-3303S', ['GPD_3303S'])}
+        'visa_info': {'GPD_3303S': ('GW INSTEK', ['GPD-3303S'])}
     }),
     ('scopes.tektronix', {
         'params': ['visa_address'],
