@@ -1,4 +1,4 @@
-# Auto-generated 2018-09-08T20:48:23.557699
+# Auto-generated 2019-03-04T08:26:05.925966
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -28,7 +28,7 @@ driver_info = OrderedDict([
         'imports': ['pywin32', 'nicelib >= 0.5'],
     }),
     ('daq.ni', {
-        'params': ['serial', 'model', 'name'],
+        'params': ['name', 'serial', 'model'],
         'classes': ['NIDAQ'],
         'imports': ['nicelib >= 0.5'],
     }),
@@ -36,10 +36,7 @@ driver_info = OrderedDict([
         'params': ['visa_address'],
         'classes': [],
         'imports': [],
-        'visa_info': {
-            'AgilentMXG': ('Agilent Technologies', ['N5181A']),
-            'Agilent33250A': ('Agilent Technologies', ['Agilent33250A'])
-            },
+        'visa_info': {'AgilentMXG': ('Agilent Technologies', ['N5181A']), 'Agilent33250A': ('Agilent Technologies', ['Agilent33250A'])},
     }),
     ('funcgenerators.tektronix', {
         'params': ['visa_address'],
@@ -50,8 +47,14 @@ driver_info = OrderedDict([
     ('laserdiodecontrollers.ilx_lightwave', {
         'params': ['visa_address'],
         'classes': [],
+        'imports': [],
+        'visa_info': {},
+    }),
+    ('lockins.sr844', {
+        'params': ['visa_address'],
+        'classes': [],
         'imports': ['visa'],
-        'visa_info': {'ILX Lightwave': ('3724B', ['LDC3724B'])}
+        'visa_info': {'SR844': ('Stanford_Research_Systems', ['SR844'])},
     }),
     ('lockins.sr850', {
         'params': ['visa_address'],
@@ -59,11 +62,10 @@ driver_info = OrderedDict([
         'imports': ['visa'],
         'visa_info': {'SR850': ('Stanford_Research_Systems', ['SR850'])},
     }),
-    ('lockins.sr844', {
-        'params': ['visa_address'],
-        'classes': [],
-        'imports': ['visa'],
-        'visa_info': {'SR844': ('Stanford_Research_Systems', ['SR844'])}
+    ('motion.apt', {
+        'params': ['serial'],
+        'classes': ['TDC001_APT'],
+        'imports': ['serial', 'instrumental'],
     }),
     ('motion.ecc100', {
         'params': ['id'],
@@ -83,7 +85,7 @@ driver_info = OrderedDict([
     ('motion.newmark', {
         'params': ['serial'],
         'classes': ['NSCA1'],
-        'imports': ['visa']
+        'imports': ['visa'],
     }),
     ('motion.tdc_001', {
         'params': ['serial'],
@@ -98,7 +100,7 @@ driver_info = OrderedDict([
     }),
     ('powermeters.thorlabs', {
         'params': ['visa_address'],
-        'classes': [],
+        'classes': ['PM100D'],
         'imports': [],
         'visa_info': {'PM100D': ('Thorlabs', ['PM100D'])},
     }),
@@ -106,7 +108,7 @@ driver_info = OrderedDict([
         'params': ['visa_address'],
         'classes': ['GPD_3303S'],
         'imports': [],
-        'visa_info': {'GPD_3303S': ('GW INSTEK', ['GPD-3303S'])}
+        'visa_info': {'GPD_3303S': ('GW INSTEK', ['GPD-3303S'])},
     }),
     ('scopes.tektronix', {
         'params': ['visa_address'],
@@ -120,39 +122,39 @@ driver_info = OrderedDict([
         'imports': [],
     }),
     ('spectrometers.thorlabs_ccs', {
-        'params': ['model', 'usb', 'serial'],
+        'params': ['model', 'serial', 'usb'],
         'classes': ['CCS'],
         'imports': ['visa', 'cffi', 'nicelib'],
     }),
-    ('spectrumanalyzers.rohde_scharz', {
+    ('spectrumanalyzers.rohde_schwarz', {
         'params': ['visa_address'],
-        'classes': ['FSEA20'],
+        'classes': [],
         'imports': [],
-        'visa_info': {'FSEA20': ('Rohde&Schwarz', ['FSEA 20'])}
+        'visa_info': {},
     }),
     ('tempcontrollers.covesion', {
         'params': ['visa_address'],
         'classes': ['CovesionOC'],
         'imports': ['pyvisa'],
-        'visa_info': None,
+        'visa_info': {},
     }),
     ('tempcontrollers.hcphotonics', {
         'params': ['visa_address'],
         'classes': ['TC038'],
         'imports': ['pyvisa'],
-        'visa_info': None,
+        'visa_info': {},
     }),
     ('lasers.femto_ferb', {
         'params': ['visa_address'],
         'classes': [],
         'imports': [],
-        'visa_info': None,
+        'visa_info': {},
     }),
     ('powermeters.newport', {
         'params': ['visa_address'],
-        'classes': [],
+        'classes': ['Newport_1830_C'],
         'imports': [],
-        'visa_info': None,
+        'visa_info': {},
     }),
     ('cameras.pco', {
         'params': ['interface', 'number'],
@@ -166,8 +168,8 @@ driver_info = OrderedDict([
     }),
     ('wavemeters.burleigh', {
         'params': ['visa_address'],
-        'classes': [],
+        'classes': ['WA_1000'],
         'imports': [],
-        'visa_info': None,
+        'visa_info': {},
     }),
 ])
