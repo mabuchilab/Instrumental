@@ -17,6 +17,7 @@ from . import Scope
 from .. import VisaMixin, SCPI_Facet
 from ..util import visa_context
 from ...util import to_str
+from ...errors import Error
 from ... import u, Q_
 
 
@@ -66,6 +67,10 @@ MODEL_CHANNELS = {
     'MSO4104': 4,
     'DPO4104': 4,
 }
+
+
+class ClippingError(Error):
+    pass
 
 
 def infer_termination(msg_str):
@@ -265,8 +270,14 @@ class TekScope(Scope, VisaMixin):
         """
         prefix = 'measurement:meas{}'.format(num)
 
+        self.read_events()  # Clear the queue
         raw_value, raw_units = self.query('{}:value?;units?'.format(prefix)).split(';')
         units = raw_units.strip('"')
+
+        for code, message in self.read_events():
+            if code in (547, 548, 549):
+                raise ClippingError(message)
+
         return Q_(raw_value+units)
 
     def set_math_function(self, expr):
