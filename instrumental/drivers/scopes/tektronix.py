@@ -463,6 +463,19 @@ class MSO_DPO_2000(StatScope):
                      ('reco', int),
                      ('filterf', int)])}
 
+    def set_min_window(self, width):
+        width_s = Q_(width).m_as('s')
+        mantissa, exponent = (float(x) for x in format(width_s, 'e').split('e'))
+        if mantissa <= 2:
+            scale_s = 0.2 * 10.**exponent
+        elif mantissa <= 4:
+            scale_s = 0.4 * 10.**exponent
+        else:
+            scale_s = 10.**exponent
+        scale_s = max(2e-9, scale_s)
+        scale_s = min(100., scale_s)
+        self.write('hor:scale {:E}', scale_s)
+
 
 class MSO_DPO_4000(StatScope):
     """A Tektronix MSO/DPO 4000 series oscilloscope."""
