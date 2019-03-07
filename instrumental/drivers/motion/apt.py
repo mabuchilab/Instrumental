@@ -17,6 +17,27 @@ def list_instruments():
 
 class APT(Motion):
     """Generic Thorlabs device, controlled via APT commands"""
+    _devices = {}
+
+    @classmethod
+    def _open_port(cls, port):
+        # Multiple devices can share a single serial port, so cache open ports
+        if port in cls._devices:
+            ser = cls._devices[port]
+            ser.refcount += 1
+        else:
+            ser = Serial(port, baudrate=115200, timeout=0.2)
+            cls._devices[port] = ser
+            ser.refcount = 1
+        return ser
+
+    @classmethod
+    def _close_port(cls, port):
+        ser = cls._devices[port]
+        ser.refcount -= 1
+        if ser.refcount <= 0:
+            ser.close()
+            del cls._devices[port]
 
     def identify(self):
         """Identify the device by blinking its LED"""
@@ -39,10 +60,10 @@ class TDC001_APT(APT):
     def _initialize(self):
         self.src = 0x01             # Host controller by default
         self.dst = 0x50             # Generic USB hardware unit
-        self._ser = Serial(self._paramset['port'], baudrate=115200, timeout=0.2)
+        self._ser = self._open_port(self._paramset['port'])
 
     def close(self):
-        self._ser.close()
+        self._close_port(self._paramset['port'])
 
     def jog_move(self, direction= 1):
         self._ser.write(bytes([0x6A, 0x04, 0x01, direction, self.dst, self.src]))
