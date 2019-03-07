@@ -763,3 +763,7 @@ class AFG_3000(FunctionGenerator, VisaMixin):
         num_bytes = int(resp[2:header_width])
         data = np.frombuffer(resp, dtype='>u2', offset=header_width, count=int(num_bytes/2))
         return data
+
+    def trigger(self):
+        """Manually force a trigger event"""
+        self.write('trig')
