@@ -14,7 +14,7 @@ import numpy as np
 from pint import UndefinedUnitError
 
 from . import Scope
-from .. import VisaMixin, SCPI_Facet
+from .. import VisaMixin, SCPI_Facet, Facet
 from ..util import visa_context
 from ...util import to_str
 from ...errors import Error
@@ -86,6 +86,69 @@ def infer_termination(msg_str):
 def strstr(value):
     """Convert to str and strip outer quotes"""
     return to_str(value)[1:-1]
+
+
+def ChannelFacet(msg, convert=None, readonly=False, **kwds):
+    get_msg = msg + '?'
+    set_msg = None if readonly else msg + ' {}'
+    if convert:
+        def fget(ch):
+            return convert(ch.scope.query(get_msg, ch.num))
+    else:
+        def fget(ch):
+            return ch.scope.query(get_msg, ch.num)
+
+    if set_msg is None:
+        fset = None
+    elif convert:
+        def fset(ch, value):
+            ch.scope.write(set_msg, ch.num, convert(value))
+    else:
+        def fset(ch, value):
+            ch.scope.write(set_msg, ch.num, value)
+
+    return Facet(fget, fset, **kwds)
+
+
+class ChannelProperty(object):
+    def __init__(self):
+        self.facets = []
+
+    def __get__(self, obj, objtype):
+        if obj is None:
+            return self
+        return Channels(obj, self.facets)
+
+    def __set__(self, obj, qty):
+        pass
+
+    def facet(self, facet):
+        self.facets.append(facet)
+        return facet
+
+
+class Channels(object):
+    def __init__(self, scope, facets):
+        self.scope = scope
+        self.valid_nums = tuple(range(1, 1+scope.channels))
+
+    def __getitem__(self, key):
+        if key not in self.valid_nums:
+            raise ValueError('Invalid channel {}. Must be in {!r}'.format(key, self.valid_nums))
+        return Channel(self.scope, key)
+
+
+class Channel(object):
+    def __init__(self, scope, num):
+        self.scope = scope
+        self.num = num
+
+    def __repr__(self):
+        return '<Channel {} of {}>'.format(self.num, self.scope)
+
+    scale = ChannelFacet('ch{}:scale', convert=float, units='V')
+    offset = ChannelFacet('ch{}:offset', convert=float, units='V')
+    position = ChannelFacet('ch{}:position', convert=float, units='V')
 
 
 class TekScope(Scope, VisaMixin):
@@ -462,6 +525,11 @@ class MSO_DPO_2000(StatScope):
                      ('comp', to_str),
                      ('reco', int),
                      ('filterf', int)])}
+
+    ch = ChannelProperty()
+    meas = ChannelProperty()
+
+    meas.facet(SCPI_Facet('measu:meas{}:type'))
 
     def set_min_window(self, width):
         width_s = Q_(width).m_as('s')
