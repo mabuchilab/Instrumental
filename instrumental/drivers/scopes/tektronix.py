@@ -179,6 +179,8 @@ class TekScope(Scope, VisaMixin):
             'yze': float(self.query("wfmpre:yzero?")),
             'pt_o': float(self.query("wfmpre:pt_off?")),
             'yof': float(self.query("wfmpre:yoff?")),
+            'xun': strstr(self.query("wfmpre:xun?")),
+            'yun': strstr(self.query("wfmpre:yun?")),
         }
 
     def get_data(self, channel=1, width=2):
