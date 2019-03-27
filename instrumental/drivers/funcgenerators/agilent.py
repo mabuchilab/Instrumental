@@ -13,6 +13,7 @@ _INST_VISA_INFO = {
     'AgilentMXG': ('Agilent Technologies',
                    ['N5181A']),
     'Agilent33250A': ('Agilent Technologies', ['Agilent33250A']),
+    'AgilentE4400B': ('Hewlett-Packard', ['ESG-1000B']),
 }
 
 
@@ -61,6 +62,7 @@ class AgilentMXG(FunctionGenerator, VisaMixin):
     # sweep triggering
     # load a list sweep file
 
+
 class Agilent33250A(FunctionGenerator, VisaMixin):
     def _initialize(self):
         self._rsrc.read_termination = '\n'
@@ -69,4 +71,8 @@ class Agilent33250A(FunctionGenerator, VisaMixin):
     voltage = SCPI_Facet('VOLT', convert=float, units='V')
 
 
+class AgilentE4400B(FunctionGenerator, VisaMixin):
+    def _initialize(self):
+        self._rsrc.read_termination = '\n'
 
+    frequency = SCPI_Facet('FREQ:FIXED', convert=float, units='Hz')
