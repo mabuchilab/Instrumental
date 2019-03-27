@@ -1,24 +1,24 @@
-# Auto-generated 2019-02-13T19:13:18.669824
+# Auto-generated 2019-03-27T15:10:58.810722
 from collections import OrderedDict
 
 driver_info = OrderedDict([
     ('cameras.pixelfly', {
         'params': ['number'],
         'classes': ['Pixelfly'],
-        'imports': ['win32event', 'nicelib'],
+        'imports': ['nicelib', 'win32event'],
     }),
     ('cameras.tsi', {
-        'params': ['serial', 'number'],
+        'params': ['number', 'serial'],
         'classes': ['TSI_Camera'],
         'imports': ['cffi'],
     }),
     ('cameras.uc480', {
-        'params': ['serial', 'id', 'model'],
+        'params': ['id', 'model', 'serial'],
         'classes': ['UC480_Camera'],
-        'imports': ['pywin32', 'nicelib >= 0.5'],
+        'imports': ['nicelib >= 0.5', 'pywin32'],
     }),
     ('daq.ni', {
-        'params': ['name', 'model', 'serial'],
+        'params': ['model', 'name', 'serial'],
         'classes': ['NIDAQ'],
         'imports': ['nicelib >= 0.5'],
     }),
@@ -26,13 +26,19 @@ driver_info = OrderedDict([
         'params': ['visa_address'],
         'classes': [],
         'imports': [],
-        'visa_info': {'AgilentMXG': ('Agilent Technologies', ['N5181A']), 'Agilent33250A': ('Agilent Technologies', ['Agilent33250A'])},
+        'visa_info': {
+            'Agilent33250A': ('Agilent Technologies', ['Agilent33250A']),
+            'AgilentE4400B': ('Hewlett-Packard', ['ESG-1000B']),
+            'AgilentMXG': ('Agilent Technologies', ['N5181A']),
+        },
     }),
     ('funcgenerators.tektronix', {
         'params': ['visa_address'],
         'classes': [],
         'imports': [],
-        'visa_info': {'AFG_3000': ('TEKTRONIX', ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102', 'AFG3251', 'AFG3252'])},
+        'visa_info': {
+            'AFG_3000': ('TEKTRONIX', ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102', 'AFG3251', 'AFG3252']),
+        },
     }),
     ('laserdiodecontrollers.ilx_lightwave', {
         'params': ['visa_address'],
@@ -44,13 +50,17 @@ driver_info = OrderedDict([
         'params': ['visa_address'],
         'classes': [],
         'imports': ['visa'],
-        'visa_info': {'SR844': ('Stanford_Research_Systems', ['SR844'])},
+        'visa_info': {
+            'SR844': ('Stanford_Research_Systems', ['SR844']),
+        },
     }),
     ('lockins.sr850', {
         'params': ['visa_address'],
         'classes': [],
         'imports': ['visa'],
-        'visa_info': {'SR850': ('Stanford_Research_Systems', ['SR850'])},
+        'visa_info': {
+            'SR850': ('Stanford_Research_Systems', ['SR850']),
+        },
     }),
     ('motion._kinesis.ff', {
         'params': ['serial'],
@@ -80,19 +90,23 @@ driver_info = OrderedDict([
     ('motion.tdc_001', {
         'params': ['serial'],
         'classes': ['TDC001'],
-        'imports': ['nicelib', 'cffi'],
+        'imports': ['cffi', 'nicelib'],
     }),
     ('multimeters.hp', {
         'params': ['visa_address'],
         'classes': [],
         'imports': [],
-        'visa_info': {'HPMultimeter': ('HEWLETT-PACKARD', ['34401A'])},
+        'visa_info': {
+            'HPMultimeter': ('HEWLETT-PACKARD', ['34401A']),
+        },
     }),
     ('powermeters.thorlabs', {
         'params': ['visa_address'],
         'classes': ['PM100D'],
         'imports': [],
-        'visa_info': {'PM100D': ('Thorlabs', ['PM100D'])},
+        'visa_info': {
+            'PM100D': ('Thorlabs', ['PM100D']),
+        },
     }),
     ('powersupplies.gw_instek', {
         'params': ['visa_address'],
@@ -102,9 +116,16 @@ driver_info = OrderedDict([
     }),
     ('scopes.tektronix', {
         'params': ['visa_address'],
-        'classes': ['TDS_200', 'TDS_1000', 'TDS_2000', 'TDS_3000', 'MSO_DPO_2000', 'MSO_DPO_4000'],
-        'imports': ['visa', 'pyvisa'],
-        'visa_info': {'TDS_200': ('TEKTRONIX', ['TDS 210', 'TDS 220', 'TDS 224']), 'TDS_1000': ('TEKTRONIX', ['TDS 1001B', 'TDS 1002B', 'TDS 1012B']), 'TDS_2000': ('TEKTRONIX', ['TDS 2002B', 'TDS 2004B', 'TDS 2012B', 'TDS 2014B', 'TDS 2022B', 'TDS 2024B']), 'TDS_3000': ('TEKTRONIX', ['TDS 3012', 'TDS 3012B', 'TDS 3012C', 'TDS 3014', 'TDS 3014B', 'TDS 3014C', 'TDS 3032', 'TDS 3032B', 'TDS 3032C', 'TDS 3034', 'TDS 3034B', 'TDS 3034C', 'TDS 3052', 'TDS 3052B', 'TDS 3052C', 'TDS 3054', 'TDS 3054B', 'TDS 3054C']), 'MSO_DPO_2000': ('TEKTRONIX', ['MSO2012', 'MSO2014', 'MSO2024', 'DPO2012', 'DPO2014', 'DPO2024']), 'MSO_DPO_4000': ('TEKTRONIX', ['MSO4032', 'DPO4032', 'MSO4034', 'DPO4034', 'MSO4054', 'DPO4054', 'MSO4104', 'DPO4104'])},
+        'classes': ['MSO_DPO_2000', 'MSO_DPO_4000', 'TDS_1000', 'TDS_200', 'TDS_2000', 'TDS_3000'],
+        'imports': ['pyvisa', 'visa'],
+        'visa_info': {
+            'MSO_DPO_2000': ('TEKTRONIX', ['MSO2012', 'MSO2014', 'MSO2024', 'DPO2012', 'DPO2014', 'DPO2024']),
+            'MSO_DPO_4000': ('TEKTRONIX', ['MSO4032', 'DPO4032', 'MSO4034', 'DPO4034', 'MSO4054', 'DPO4054', 'MSO4104', 'DPO4104']),
+            'TDS_1000': ('TEKTRONIX', ['TDS 1001B', 'TDS 1002B', 'TDS 1012B']),
+            'TDS_200': ('TEKTRONIX', ['TDS 210', 'TDS 220', 'TDS 224']),
+            'TDS_2000': ('TEKTRONIX', ['TDS 2002B', 'TDS 2004B', 'TDS 2012B', 'TDS 2014B', 'TDS 2022B', 'TDS 2024B']),
+            'TDS_3000': ('TEKTRONIX', ['TDS 3012', 'TDS 3012B', 'TDS 3012C', 'TDS 3014', 'TDS 3014B', 'TDS 3014C', 'TDS 3032', 'TDS 3032B', 'TDS 3032C', 'TDS 3034', 'TDS 3034B', 'TDS 3034C', 'TDS 3052', 'TDS 3052B', 'TDS 3052C', 'TDS 3054', 'TDS 3054B', 'TDS 3054C']),
+        },
     }),
     ('spectrometers.bristol', {
         'params': ['port'],
@@ -112,9 +133,9 @@ driver_info = OrderedDict([
         'imports': [],
     }),
     ('spectrometers.thorlabs_ccs', {
-        'params': ['model', 'usb', 'serial'],
+        'params': ['model', 'serial', 'usb'],
         'classes': ['CCS'],
-        'imports': ['visa', 'cffi', 'nicelib'],
+        'imports': ['cffi', 'nicelib', 'visa'],
     }),
     ('spectrumanalyzers.rohde_schwarz', {
         'params': ['visa_address'],
@@ -144,12 +165,12 @@ driver_info = OrderedDict([
         'params': ['visa_address'],
         'classes': ['Newport_1830_C'],
         'imports': [],
-        'visa_info': None,
+        'visa_info': {},
     }),
     ('cameras.pco', {
-        'params': ['number', 'interface'],
+        'params': ['interface', 'number'],
         'classes': ['PCO_Camera'],
-        'imports': ['cffi', 'pycparser', 'nicelib'],
+        'imports': ['cffi', 'nicelib', 'pycparser'],
     }),
     ('vacuum.sentorr_mod', {
         'params': ['port'],
@@ -160,6 +181,6 @@ driver_info = OrderedDict([
         'params': ['visa_address'],
         'classes': ['WA_1000'],
         'imports': [],
-        'visa_info': None,
+        'visa_info': {},
     }),
 ])
