@@ -312,9 +312,11 @@ class TekScope(Scope, VisaMixin):
         # are they guaranteed to be taken from the same statistical set?
         # Perhaps we should stop_acquire(), then run_acquire()...
         keys = ['value', 'mean', 'stddev', 'minimum', 'maximum']
-        res = self.query(prefix+':value?;mean?;stddev?;minimum?;maximum?;units?').split(';')
+        res = self.query(prefix+':value?;mean?;stddev?;minimum?;maximum?;count?;units?').split(';')
         units = res.pop(-1).strip('"')
+        count = int(res.pop(-1))
         stats = {k: Q_(rval+units) for k, rval in zip(keys, res)}
+        stats['count'] = count
 
         num_samples = int(self.query('measurement:statistics:weighting?'))
         stats['nsamps'] = num_samples
