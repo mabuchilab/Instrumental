@@ -148,7 +148,7 @@ class Channel(object):
 
     scale = ChannelFacet('ch{}:scale', convert=float, units='V')
     offset = ChannelFacet('ch{}:offset', convert=float, units='V')
-    position = ChannelFacet('ch{}:position', convert=float, units='V')
+    position = ChannelFacet('ch{}:position', convert=float)
 
 
 class TekScope(Scope, VisaMixin):
