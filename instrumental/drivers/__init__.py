@@ -8,7 +8,6 @@ from future.utils import with_metaclass
 import os
 import re
 import abc
-import copy
 import atexit
 import socket
 import inspect
@@ -22,6 +21,7 @@ from inspect import isfunction
 from importlib import import_module
 from collections import OrderedDict, Mapping
 
+from .util import to_quantity
 from ..log import get_logger
 from .. import conf, u, Q_
 from ..util import cached_property
@@ -338,48 +338,6 @@ class Facet(object):
         if not self.__doc__:
             self.__doc__ = fset.__doc__
         return self
-
-
-def to_quantity(value):
-    """Convert to a pint.Quantity
-
-    This function handles offset units in strings slightly better than Q_ does. It uses caching to
-    avoid reparsing strings.
-    """
-    try:
-        quantity = copy.copy(to_quantity.cache[value])
-    except (KeyError, TypeError):  # key is missing or unhashable
-        quantity = _to_quantity(value)
-
-    if isinstance(value, basestring):
-        to_quantity.cache[value] = copy.copy(quantity)  # Guard against mutation
-
-    return quantity
-
-
-to_quantity.cache = {}
-
-
-def _to_quantity(value):
-    """Convert to a pint.Quantity
-
-    This function handles offset units in strings slightly better than Q_ does.
-    """
-    try:
-        return Q_(value)
-    except Exception as e:
-        log.info(e)
-
-    try:
-        mag_str, units = value.split()
-        try:
-            mag = int(mag_str)
-        except ValueError:
-            mag = float(mag_str)
-
-        return Q_(mag, units)
-    except Exception as e:
-        raise ValueError('Could not construct Quantity from {}'.format(value))
 
 
 class AbstractFacet(Facet):
