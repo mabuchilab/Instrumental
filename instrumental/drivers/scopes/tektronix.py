@@ -347,6 +347,19 @@ class TekScope(Scope, VisaMixin):
 
         return Q_(raw_value+units)
 
+    def measure(self, channel, meas_type):
+        """Perform immediate measurement."""
+        msg = self.query(':measu:immed:source1 ch{};type {};value?;units?'
+                         ''.format(channel, meas_type))
+        val_str, unit_str = msg.split(';')
+        units = self._tek_units(unit_str.strip('"'))
+
+        for code, message in self.read_events():
+            if code in (547, 548, 549):
+                raise ClippingError(message)
+
+        return Q_(float(val_str), units)
+
     def set_math_function(self, expr):
         """Set the expression used by the MATH channel.
 
