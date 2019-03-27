@@ -1117,7 +1117,7 @@ def get_idn(inst):
     """
     import visa
     try:
-        idn = inst.ask("*IDN?")
+        idn = inst.query("*IDN?")
         log.info("*IDN? gives '{}'".format(idn.strip()))
     except UnicodeDecodeError as e:
         log.info("UnicodeDecodeError while getting IDN. Probably a non-Visa Serial device")
