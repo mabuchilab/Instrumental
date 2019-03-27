@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2017-2018 Nate Bogdanowicz
+# Copyright 2017-2019 Nate Bogdanowicz
 from __future__ import unicode_literals
 from future.utils import PY2
 
@@ -385,14 +385,23 @@ def generate_info_file():
         # Write parameters
         f.write('driver_info = OrderedDict([\n')
         for _, module_name, values in mod_info:
-            params = values['_INST_PARAMS']
+            params = sorted(values['_INST_PARAMS'])
+            classes = sorted(values['_INST_CLASSES'])
+            nonstd_imports = sorted(values['nonstd_imports'])
             f.write("    ({!r}, {{\n".format(module_name))
             f.write("        'params': {!r},\n".format(params))
-            f.write("        'classes': {!r},\n".format(values['_INST_CLASSES']))
-            f.write("        'imports': {!r},\n".format(values['nonstd_imports']))
+            f.write("        'classes': {!r},\n".format(classes))
+            f.write("        'imports': {!r},\n".format(nonstd_imports))
 
             if params and 'visa_address' in params:
-                f.write("        'visa_info': {!r},\n".format(values.get('_INST_VISA_INFO')))
+                visa_info = values.get('_INST_VISA_INFO')
+                if not visa_info:
+                    f.write("        'visa_info': {},\n")
+                else:
+                    f.write("        'visa_info': {\n")
+                    for key in sorted(visa_info.keys()):
+                        f.write("            {!r}: {!r},\n".format(key, visa_info[key]))
+                    f.write("        },\n")
 
             f.write('    }),\n')
         f.write('])\n')
