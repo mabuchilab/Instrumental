@@ -5,7 +5,7 @@ from __future__ import division
 from past.builtins import basestring
 
 import numbers
-from collections import Mapping
+from collections import Mapping, namedtuple
 
 from ..log import get_logger
 from .. import u, Q_
@@ -14,10 +14,14 @@ from .util import to_quantity
 log = get_logger(__name__)
 
 
+ChangeEvent = namedtuple('ChangeEvent', ['name', 'old', 'new'])
+
+
 class FacetInstance(object):
     def __init__(self):
         self.dirty = True
         self.cached_val = None
+        self.observers = []
 
 
 class Facet(object):
@@ -204,6 +208,9 @@ class Facet(object):
         if not (self.cacheable and use_cache) or instance.cached_val != value:
             log.info('Setting value of facet %s', self.name)
             self.fset(obj, self.conv_set(value))
+            change = ChangeEvent(name=self.name, old=instance.cached_val, new=value)
+            for callback in instance.observers:
+                callback(change)
         else:
             log.info('Skipping set of facet %s, cached value matches', self.name)
 

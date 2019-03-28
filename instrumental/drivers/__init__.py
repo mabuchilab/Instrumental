@@ -428,6 +428,17 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
             self.__dict__.update(state)
             print(state)
 
+    def observe(self, name, callback):
+        """Add a callback to observe changes in a facet's value
+
+        The callback should be a callable accepting a ``ChangeEvent`` as its only argument. This
+        ``ChangeEvent`` is a namedtuple with ``name``, ``old``, and ``new`` fields. ``name`` is the
+        facet's name, ``old`` is the old value, and ``new`` is the new value.
+        """
+        facet = getattr(self.__class__, name)
+        facet_instance = facet.instance(self)
+        facet_instance.observers.append(callback)
+
 
 class VisaMixin(Instrument):
     def write(self, message, *args, **kwds):
