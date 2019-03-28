@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright 2013-2019 Nate Bogdanowicz
 """
-Driver module for Tektronix oscilloscopes. Currently supports
-
-* TDS 3000 series
-* MSO/DPO 4000 series
+Driver module for Tektronix oscilloscopes.
 """
 import datetime as dt
 
