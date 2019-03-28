@@ -27,7 +27,11 @@ def async_get_data(self, channel=1, width=2):
     """Retrieve a trace from the scope asynchronously.
 
     Pulls data from channel `channel` and returns it as a tuple ``(t,y)``
-    of unitful arrays.
+    of unitful arrays. Python >= 3.3 only.
+
+    Use within generators/coroutines like this::
+        t, y = yield from scope.async_get_data(channel=1)
+
 
     Parameters
     ----------
