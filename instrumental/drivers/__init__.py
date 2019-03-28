@@ -889,7 +889,7 @@ def find_visa_instrument(params):
 
         try:
             driver_module, classname = find_visa_driver_class(visa_inst)
-        except:
+        except Exception:
             visa_inst.close()
             raise
 
@@ -1140,7 +1140,7 @@ def _close_atexit():
                 log.info('Closing %s', inst)
                 try:
                     inst.close()
-                except:
+                except Exception:
                     pass  # Instrument may have already been closed
     log.info('Done closing instruments')
 
