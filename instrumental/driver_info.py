@@ -1,4 +1,4 @@
-# Auto-generated 2019-03-27T17:42:51.449960
+# Auto-generated 2019-03-27T19:05:51.954411
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -24,7 +24,7 @@ driver_info = OrderedDict([
     }),
     ('funcgenerators.agilent', {
         'params': ['visa_address'],
-        'classes': [],
+        'classes': ['Agilent33250A', 'AgilentE4400B', 'AgilentMXG'],
         'imports': [],
         'visa_info': {
             'Agilent33250A': ('Agilent Technologies', ['Agilent33250A']),
