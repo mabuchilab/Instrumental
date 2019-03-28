@@ -1,4 +1,4 @@
-# Auto-generated 2019-03-27T15:10:58.810722
+# Auto-generated 2019-03-27T17:42:51.449960
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -72,6 +72,11 @@ driver_info = OrderedDict([
         'classes': ['K10CR1'],
         'imports': ['nicelib'],
     }),
+    ('motion.apt', {
+        'params': ['serial'],
+        'classes': ['TDC001_APT'],
+        'imports': ['serial'],
+    }),
     ('motion.ecc100', {
         'params': ['id'],
         'classes': ['ECC100'],
@@ -110,9 +115,11 @@ driver_info = OrderedDict([
     }),
     ('powersupplies.gw_instek', {
         'params': ['visa_address'],
-        'classes': [],
+        'classes': ['GPD_3303S'],
         'imports': [],
-        'visa_info': {},
+        'visa_info': {
+            'GPD_3303S': ('GW INSTEK', ['GPD-3303S']),
+        },
     }),
     ('scopes.tektronix', {
         'params': ['visa_address'],

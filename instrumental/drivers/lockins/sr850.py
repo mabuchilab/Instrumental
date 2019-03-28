@@ -325,7 +325,7 @@ class SR850:
     def set_output_interface(self, rs232_interface=True):
         """ Sets the output interface.
 
-        Default is serial (rs232_insterface=True)
+        Default is serial (rs232_interface=True)
         Set rs232_interface to False for GPIB
         """
         string = "OUTX {}".format((int(rs232_interface)+1)%2)
@@ -333,7 +333,7 @@ class SR850:
 
     @check_units(frequency='Hz')
     def set_reference_frequency(self, frequency):
-        """ Sets the freqeuncy of the reference source"""
+        """ Sets the frequency of the reference source"""
         return self._set('FREQ', 'Hz', frequency)
 
     def get_reference_frequency(self):
@@ -472,7 +472,7 @@ class SR850:
         return self._set_enum('ICPL', input_coupling)
 
     def get_input_coupling(self):
-        """ Returns the input couplig mode"""
+        """ Returns the input coupling mode"""
         return self._get_enum('ICPL', InputCoupling)
 
     @check_enums(line_filter=LineFilter)
@@ -694,7 +694,7 @@ class SR850:
 
     @check_enums(aux_in=AuxInput)
     def get_aux_in(self, aux_in):
-        """ Returns the voltage of the specified auxillary input.
+        """ Returns the voltage of the specified auxiliary input.
 
         aux_in should be of type AuxIn  """
         command_string = 'OAUX?{}'.format(aux_in.value)
@@ -777,9 +777,9 @@ class SR850:
         return self._get(command_string, 'V', QM=False)
 
     def read_simultaneously(self, parameters):
-        """ Returns simultaneosly the values the given parameters
+        """ Returns simultaneously the values of the given parameters
 
-        the list parameters should have between two and 6 elements of the type
+        the list parameters should have between two and six elements of the type
         Parameter"""
         command_string = "SNAP?"
         i = 0
@@ -918,7 +918,7 @@ class SR850:
     @check_enums(status_byte=StatusByte)
     def _read_status_byte(self, status_byte):
         """ Returns a bool indicating the status byte indicated by status_byte,
-        which should be a memeber of enumerator class StatusByte """
+        which should be a member of enumerator class StatusByte """
         command_string = "*STB? {}".format(status_byte.value)
         value = self._rsrc.query(command_string)
         return bool(int(value))
