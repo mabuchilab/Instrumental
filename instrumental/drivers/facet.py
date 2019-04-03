@@ -60,6 +60,24 @@ class FacetData(object):
     def set_value(self, value):
         self.facet.set_value(self.owner, value)
 
+    def create_widget(self, parent=None):
+        if self.facet.type == float:
+            if self.facet.units:
+                from ..gui import UDoubleSpinBox
+                w = UDoubleSpinBox(parent, units=self.facet.units)
+                if self.cached_val is not None:
+                    w.setUValue(self.cached_val)
+                def set_widget_value(event):
+                    w.setUValue(event.new)
+                self.observe(set_widget_value)
+                w.uValueChanged.connect(self.set_value)
+            else:
+                from ..gui import QDoubleSpinBox
+                w = QDoubleSpinBox(parent)
+            return w
+        raise TypeError("Facet type '{}' is not associated with a widget "
+                        "type".format(self.facet.type))
+
 
 class Facet(object):
     """Property-like class representing an attribute of an instrument.
