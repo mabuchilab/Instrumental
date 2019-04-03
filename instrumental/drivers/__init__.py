@@ -19,7 +19,7 @@ from weakref import WeakSet
 from inspect import isfunction
 from importlib import import_module
 
-from .facet import Facet, ManualFacet, MessageFacet, SCPI_Facet
+from .facet import Facet, ManualFacet, MessageFacet, SCPI_Facet, FacetGroup
 from ..log import get_logger
 from .. import conf
 from ..util import cached_property
@@ -254,6 +254,9 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         if not hasattr(self.__class__, '_module'):
             self.__class__._module = import_driver(self._driver_name)
 
+        facet_data = [facet.instance(self) for facet in self._props]
+        self.facets = FacetGroup(facet_data)
+
     def _after_init(self):
         """Called just after _initialize"""
         cls = self.__class__
@@ -437,7 +440,7 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         """
         facet = getattr(self.__class__, name)
         facet_instance = facet.instance(self)
-        facet_instance.observers.append(callback)
+        facet_instance.observe(callback)
 
 
 class VisaMixin(Instrument):

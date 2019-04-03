@@ -17,11 +17,48 @@ log = get_logger(__name__)
 ChangeEvent = namedtuple('ChangeEvent', ['name', 'old', 'new'])
 
 
-class FacetInstance(object):
-    def __init__(self):
+class FacetGroup(object):
+    """A collection of an instrument's FacetData objects"""
+    def __init__(self, facet_data_list):
+        for facet_data in facet_data_list:
+            setattr(self, facet_data.facet.name, facet_data)
+        self._names = [fd.facet.name for fd in facet_data_list]
+
+    def __repr__(self):
+        return "<FacetGroup({})>".format(', '.join(name for name in self._names))
+
+    def __getitem__(self, key):
+        if key not in self._names:
+            raise KeyError
+        return self.__dict__[key]
+
+
+class FacetData(object):
+    """Per-instance Facet data"""
+    def __init__(self, parent_facet, owner):
         self.dirty = True
         self.cached_val = None
         self.observers = []
+        self.facet = parent_facet
+        self.owner = owner
+
+    def __repr__(self):
+        return "<FacetData '{}'>".format(self.facet.name)
+
+    def observe(self, callback):
+        """Add a callback to observe changes in a facet's value
+
+        The callback should be a callable accepting a ``ChangeEvent`` as its only argument. This
+        ``ChangeEvent`` is a namedtuple with ``name``, ``old``, and ``new`` fields. ``name`` is the
+        facet's name, ``old`` is the old value, and ``new`` is the new value.
+        """
+        self.observers.append(callback)
+
+    def get_value(self):
+        return self.facet.get_value(self.owner)
+
+    def set_value(self, value):
+        self.facet.set_value(self.owner, value)
 
 
 class Facet(object):
@@ -108,11 +145,11 @@ class Facet(object):
             raise ValueError("`limits` must be a sequence of length 1 to 3")
 
     def instance(self, obj):
-        """Get the FacetInstance associated with `obj`"""
+        """Get the FacetData associated with `obj`"""
         try:
             return obj.__dict__[self.name]
         except KeyError:
-            inst = FacetInstance()
+            inst = FacetData(self, obj)
             obj.__dict__[self.name] = inst
             return inst
 
