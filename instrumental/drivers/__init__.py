@@ -1,24 +1,28 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2017 Nate Bogdanowicz
+# Copyright 2013-2019 Nate Bogdanowicz
 
 from __future__ import division
 from past.builtins import basestring
 from future.utils import with_metaclass
 
+import os
 import re
 import abc
-import copy
 import atexit
 import socket
+import inspect
 import warnings
-import numbers
+import contextlib
+import os.path
+import pickle
 from weakref import WeakSet
 from inspect import isfunction
 from importlib import import_module
-from collections import OrderedDict, Mapping
 
+from .facet import Facet, ManualFacet, MessageFacet, SCPI_Facet, FacetGroup
 from ..log import get_logger
-from .. import conf, u, Q_
+from .. import conf
+from ..util import cached_property
 from ..driver_info import driver_info
 from ..errors import (InstrumentTypeError, InstrumentNotFoundError, ConfigError,
                       InstrumentExistsError)
@@ -28,6 +32,7 @@ log = get_logger(__name__)
 
 __all__ = ['Instrument', 'instrument', 'list_instruments', 'list_visa_instruments']
 
+internal_drivers = list(driver_info.keys())  # Hacky list for back-compat usage
 cleanup_funcs = []
 _legacy_params = {
     'ueye_cam_id': 'uc480_camera_id',
@@ -124,328 +129,6 @@ class ParamSet(object):
         return '{} = {}'.format(name, self._dict)
 
 
-class FacetInstance(object):
-    def __init__(self):
-        self.dirty = True
-        self.cached_val = None
-
-
-class Facet(object):
-    """Property-like class representing an attribute of an instrument.
-
-    Parameters
-    ----------
-    fget : callable, optional
-        A function to be used for getting the facet's value.
-    fset : callable, optional
-        A function to be used for setting the facet's value.
-    doc : str, optional
-        Docstring to describe the facet
-    cached : bool, optional
-        Whether the facet should use caching. If True, the repeated writes of the same value will
-        only write to the instrument once, while repeated reads of a value will only query the
-        instrument once. Therefore, one should be careful to use caching only when it makes sense.
-        Caching can be disabled on a per-get or per-set basis by using the `use_cache` parameter to
-        `get_value()` or `set_value()`.
-    type : callable, optional
-        Type of the outward-facing value of the facet. Typically an actual type like `int`, but can
-        be any callable that converts a value to the proper type.
-    units : pint.Units or corresponding str
-        Physical units of the facet's value. Used for converting both user input (when setting) and
-        the output of fget (when getting).
-    value : dict-like, optional
-        A map from 'external' values to 'internal' facet values. Used internally to convert input
-        values for use with fset and to convert values returned by fget into 'nice' values fit force
-        user consumption.
-    limits : sequence, optional
-        Limits specified in `[stop]`, `[start, stop]`, or `[start, stop, step]` format. When given,
-        raises a `ValueError` if a user tries to set a value that is out of range. `step`, if given,
-        is used to round an in-range value before passing it to fset.
-    """
-    def __init__(self, fget=None, fset=None, doc=None, cached=False, type=None, units=None,
-                 value=None, limits=None, name=None):
-        if fget is not None:
-            self.name = fget.__name__
-
-        self.fget = fget
-        self.fset = fset
-
-        if doc is None and fget is not None:
-            doc = fget.__doc__
-        self.__doc__ = doc
-
-        self.cacheable = cached
-        self.type = type
-        self.units = None if units is None else u.parse_units(units)
-        self.name = name  # This is auto-filled by InstrumentMeta.__new__ later
-        self._set_limits(limits)
-
-        if value is None:
-            self.values = None
-            self.in_map = None
-            self.out_map = None
-        elif isinstance(value, Mapping):
-            self.values = set(value)
-            self.in_map = value
-            self.out_map = {v:k for k,v in value.items()}
-        else:
-            self.values = set(value)
-            self.in_map = None
-            self.out_map = None
-
-    def _set_limits(self, limits):
-        if limits is not None:
-            for limit in limits:
-                if limit is not None and not isinstance(limit, (numbers.Number, basestring)):
-                    raise ValueError('Facet limits must be raw numbers, strings, or None')
-
-        if limits is None:
-            self.limits = (None, None, None)
-        elif len(limits) == 1:
-            self.limits = (0, limits[0], None)
-        elif len(limits) == 2:
-            self.limits = (limits[0], limits[1], None)
-        elif len(limits) == 3:
-            self.limits = (limits[0], limits[1], limits[2])
-        else:
-            raise ValueError("`limits` must be a sequence of length 1 to 3")
-
-    def instance(self, obj):
-        """Get the FacetInstance associated with `obj`"""
-        try:
-            return obj.__dict__[self.name]
-        except KeyError:
-            inst = FacetInstance()
-            obj.__dict__[self.name] = inst
-            return inst
-
-    def conv_set(self, value):
-        """Convert nice value to representation that fset takes"""
-        if isinstance(value, Q_):
-            value = value.magnitude
-        #if self.type is not None:
-        #    value = self.type(value)
-        if self.in_map:
-            value = self.in_map[value]
-        return value
-
-    def conv_get(self, value):
-        """Convert what fget returns to a nice output value"""
-        if self.out_map:
-            value = self.out_map[value]
-        if self.type is not None:
-            value = self.type(value)
-        if self.units is not None:
-            if isinstance(value, Q_):
-                value = value.to(self.units)
-            else:
-                value = Q_(value, self.units)
-        return value
-
-    def __get__(self, obj, objtype=None):
-        if obj is None:
-            return self
-        return self.get_value(obj)
-
-    def get_value(self, obj, use_cache=True):
-        if self.fget is None:
-            raise AttributeError
-
-        instance = self.instance(obj)
-
-        if not (self.cacheable and use_cache) or instance.dirty:
-            log.info('Getting value of facet %s', self.name)
-            instance.cached_val = self.conv_get(self.fget(obj))
-            instance.dirty = False
-        else:
-            log.info('Using cached value of facet %s', self.name)
-
-        log.info('Facet value was %s', instance.cached_val)
-        return instance.cached_val
-
-    def __set__(self, obj, qty):
-        self.set_value(obj, qty)
-
-    def convert_user_input(self, value, obj):
-        """Validate and convert an input value to its 'external' form"""
-        if self.units is not None:
-            q = to_quantity(value).to(self.units)
-            return Q_(self.convert_raw_input(q.magnitude, obj), q.units)
-        else:
-            return self.convert_raw_input(value, obj)
-
-    def convert_raw_input(self, input_value, obj):
-        value = input_value if self.type is None else self.type(input_value)
-        return self.check_limits(value, obj)
-
-    def _load_limits(self, obj):
-        return tuple((getattr(obj, l) if isinstance(l, basestring) else l)
-                     for l in self.limits)
-
-    def check_limits(self, value, obj):
-        """Check raw value (magnitude) against the Facet's limits"""
-        start, stop, step = self._load_limits(obj)
-        if start is not None and value < start:
-            raise ValueError("Value below lower limit of {}".format(
-                Q_(start, self.units) if self.units else start))
-        if stop is not None and value > stop:
-            raise ValueError("Value above upper limit of {}".format(
-                Q_(stop, self.units) if self.units else stop))
-
-        if step is not None:
-            offset = value - start
-            if offset % step != 0:
-                new_value = start + int(round(offset / step)) * step
-                log.info("Coercing value from %s to %s due to limit step", value, new_value)
-                return new_value
-
-        return value
-
-    def set_value(self, obj, value, use_cache=True):
-        if self.fset is None:
-            raise AttributeError("Cannot set a read-only Facet")
-
-        instance = self.instance(obj)
-        value = self.convert_user_input(value, obj)
-
-        if not (self.cacheable and use_cache) or instance.cached_val != value:
-            log.info('Setting value of facet %s', self.name)
-            self.fset(obj, self.conv_set(value))
-        else:
-            log.info('Skipping set of facet %s, cached value matches', self.name)
-
-        instance.cached_val = value
-        log.info('Facet value is %s', value)
-
-    def __call__(self, fget):
-        return self.getter(fget)
-
-    def getter(self, fget):
-        self.fget = fget
-        if not self.__doc__:
-            self.__doc__ = fget.__doc__
-        return self
-
-    def setter(self, fset):
-        self.fset = fset
-        if not self.__doc__:
-            self.__doc__ = fset.__doc__
-        return self
-
-
-def to_quantity(value):
-    """Convert to a pint.Quantity
-
-    This function handles offset units in strings slightly better than Q_ does. It uses caching to
-    avoid reparsing strings.
-    """
-    try:
-        quantity = copy.copy(to_quantity.cache[value])
-    except (KeyError, TypeError):  # key is missing or unhashable
-        quantity = _to_quantity(value)
-
-    if isinstance(value, basestring):
-        to_quantity.cache[value] = copy.copy(quantity)  # Guard against mutation
-
-    return quantity
-
-
-to_quantity.cache = {}
-
-
-def _to_quantity(value):
-    """Convert to a pint.Quantity
-
-    This function handles offset units in strings slightly better than Q_ does.
-    """
-    try:
-        return Q_(value)
-    except Exception as e:
-        log.info(e)
-
-    try:
-        mag_str, units = value.split()
-        try:
-            mag = int(mag_str)
-        except ValueError:
-            mag = float(mag_str)
-
-        return Q_(mag, units)
-    except Exception as e:
-        raise ValueError('Could not construct Quantity from {}'.format(value))
-
-
-class AbstractFacet(Facet):
-    __isabstractmethod__ = True
-
-
-def MessageFacet(get_msg=None, set_msg=None, convert=None, **kwds):
-    """Convenience function for creating message-based Facets.
-
-    Creates `fget` and `fset` functions that are passed to `Facet`, based on message templates.
-    This is primarily used for writing your own Facet-creating helper functions for message-based
-    drivers that have a unique message format. For standard SCPI-style messages, you can use
-    `SCPI_Facet()` directly.
-
-    This is for use with `VisaMixin`, as it assumes the instrument has `write` and `query` methods.
-
-    Parameters
-    ----------
-    get_msg : str, optional
-        Message used to query the facet's value. If omitted, getting is unsupported.
-    set_msg : str, optional
-        Message used to set the facet's value. This string is filled in with
-        `set_msg.format(value)`, where value is the user-given value being set.
-    convert : function or callable
-        Function that converts both the string returned by querying the instrument and the set-value
-        before it is passed to `str.format()`. Usually something like `int` or `float`.
-    **kwds :
-        Any other keywords are passed along to the `Facet` constructor
-    """
-
-    if get_msg is None:
-        fget = None
-    elif convert:
-        def fget(obj):
-            return convert(obj.query(get_msg))
-    else:
-        def fget(obj):
-            return obj.query(get_msg)
-
-    if set_msg is None:
-        fset = None
-    elif convert:
-        def fset(obj, value):
-            obj.write(set_msg.format(convert(value)))
-    else:
-        def fset(obj, value):
-            obj.write(set_msg.format(value))
-
-    return Facet(fget, fset, **kwds)
-
-
-def SCPI_Facet(msg, convert=None, readonly=False, **kwds):
-    """Facet factory for use in VisaMixin subclasses that use SCPI messages
-
-    Parameters
-    ----------
-    msg : str
-        Base message used to create SCPI get- and set-messages. For example, if `msg='voltage'`, the
-        get-message is `'voltage?'` and the set-message becomes `'voltage {}'`, where `{}` gets
-        filled in by the value being set.
-    convert : function or callable
-        Function that converts both the string returned by querying the instrument and the set-value
-        before it is passed to `str.format()`. Usually something like `int` or `float`.
-    readonly : bool, optional
-        Whether the Facet should be read-only.
-    **kwds :
-        Any other keywords are passed along to the `Facet` constructor
-    """
-    get_msg = msg + '?'
-    set_msg = None if readonly else msg + ' {}'
-    return MessageFacet(get_msg, set_msg, convert=convert, **kwds)
-
-
 class InstrumentMeta(abc.ABCMeta):
     """Instrument metaclass.
 
@@ -486,6 +169,8 @@ class InstrumentMeta(abc.ABCMeta):
                                 value.__doc__ = doc
                             break
 
+        add_driver_info(clsname, classdict)
+
         classdict['_instances'] = WeakSet()
         if '__init__' in classdict:
             raise TypeError("Subclasses of Instrument may not reimplement __init__. You should "
@@ -496,12 +181,36 @@ class InstrumentMeta(abc.ABCMeta):
         return super(InstrumentMeta, metacls).__new__(metacls, clsname, bases, classdict)
 
 
+def add_driver_info(classname, classdict):
+    """Add an entry in driver_info for class given by classname and classdict"""
+    module_name = classdict['__module__']
+    if module_name.startswith('instrumental.'):
+        return  # Ignore internal drivers, use static driver_info
+    entry = driver_info.setdefault(module_name, {})
+
+    cls_params = classdict.get('_INST_PARAMS_', [])
+    params = entry.setdefault('params', [])
+    for cls_param in cls_params:
+        if cls_param not in params:
+            params.append(cls_param)  # Should we do this?
+
+    entry.setdefault('classes', []).append(classname)
+    entry.setdefault('imports', [])
+
+    if 'visa_address' in cls_params:
+        visa_info = entry.setdefault('visa_info', {})
+        visa_info['classname'] = classdict.get('_INST_VISA_INFO_')
+
+
+def driver_takes_param(module_name, param_name):
+    return param_name in driver_info.get(module_name, {}).get('params', ())
+
+
 class Instrument(with_metaclass(InstrumentMeta, object)):
     """
     Base class for all instruments.
     """
     _all_instances = {}
-    _allow_sharing = False  # Should we allow returning existing instruments?
 
     @classmethod
     def _create(cls, paramset, **other_attrs):
@@ -510,6 +219,18 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         for name, value in other_attrs.items():
             setattr(obj, name, value)
         obj._paramset = ParamSet(cls, **paramset)
+
+        matching_insts = [open_inst for open_inst in obj._instances
+                          if obj._paramset.matches(open_inst._paramset)]
+        if matching_insts:
+            if _REOPEN_POLICY == 'strict':
+                raise InstrumentExistsError("Device instance already exists, cannot open in strict "
+                                            "mode")
+            elif _REOPEN_POLICY == 'reuse':
+                # TODO: Should we return something other than the first element?
+                return matching_insts[0]
+            elif _REOPEN_POLICY == 'new':
+                pass  # Cross our fingers and try to open a new instance
 
         obj._before_init()
         obj._fill_out_paramset()
@@ -529,12 +250,12 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
     def _before_init(self):
         """Called just before _initialize"""
         self._driver_name = driver_submodule_name(self.__class__.__module__)
-        self._module = import_driver(self._driver_name)
+        # TODO: consider setting the _module at the class level
+        if not hasattr(self.__class__, '_module'):
+            self.__class__._module = import_driver(self._driver_name)
 
-        if not self._allow_sharing:
-            for open_inst in self._instances:
-                if self._paramset.matches(open_inst._paramset):
-                    raise InstrumentExistsError("Device already open")
+        facet_data = [facet.instance(self) for facet in self._props]
+        self.facets = FacetGroup(facet_data)
 
     def _after_init(self):
         """Called just after _initialize"""
@@ -684,15 +405,117 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
         # Reload newly modified file
         conf.load_config_file()
 
+    @cached_property
+    def _state_path(self):
+        if not getattr(self, '_alias', None):
+            raise RuntimeError('Instrument must have an alias to provide a default path for saving '
+                               'or loading its state. An alias will be set by using '
+                               'save_instrument() or loading an instrument by alias')
+        inst_module = inspect.getmodule(self.__class__)
+        filename = '{}-{}.{}.pkl'.format(self._alias, inst_module.__name__, self.__class__.__name__)
+        if not os.path.exists(conf.save_dir):
+            os.makedirs(conf.save_dir)
+        return os.path.join(conf.save_dir, filename)
+
+    def _save_state(self, state_path=None):
+        """Save instrument state to a pickle file"""
+        state_path = state_path or self._state_path
+        with open(state_path, 'wb') as f:
+            pickle.dump(self.__dict__, f)
+
+    def _load_state(self, state_path=None):
+        """Load instrument state from a pickle file"""
+        state_path = state_path or self._state_path
+        with open(state_path, 'rb') as f:
+            state = pickle.load(f)
+            self.__dict__.update(state)
+            print(state)
+
+    def observe(self, name, callback):
+        """Add a callback to observe changes in a facet's value
+
+        The callback should be a callable accepting a ``ChangeEvent`` as its only argument. This
+        ``ChangeEvent`` is a namedtuple with ``name``, ``old``, and ``new`` fields. ``name`` is the
+        facet's name, ``old`` is the old value, and ``new`` is the new value.
+        """
+        facet = getattr(self.__class__, name)
+        facet_instance = facet.instance(self)
+        facet_instance.observe(callback)
+
 
 class VisaMixin(Instrument):
     def write(self, message, *args, **kwds):
-        """Write `message` to the instrument's VISA resource"""
-        self._rsrc.write(message.format(*args, **kwds))
+        """Write a string message to the instrument's VISA resource
+
+        Calls format(*args, **kwds) to format the message. This allows for clean inclusion of
+        parameters. For example:
+
+        >>> inst.write('source{}:value {}', channel, value)
+        """
+        full_message = message.format(*args, **kwds)
+        if self._in_transaction:
+            if full_message[0] != ':':
+                full_message = ':' + full_message
+            self._message_queue.append(full_message)
+        else:
+            self._rsrc.write(full_message)
 
     def query(self, message, *args, **kwds):
-        """Query the instrument's VISA resource with `message`"""
+        """Query the instrument's VISA resource with `message`
+
+        Flushes the message queue if called within a transaction.
+        """
+        if self._in_transaction:
+            self._flush_message_queue()  # TODO: combine query with this message?
         return self._rsrc.query(message.format(*args, **kwds))
+
+    @contextlib.contextmanager
+    def transaction(self):
+        """Transaction context manager to auto-chain VISA messages
+
+        Queues individual messages written with the `write()` method and sends them all at once,
+        joined by ';'. Messages are actually sent (1) when a call to `query()` is made and (2)
+        upon the end of transaction.
+
+        This is especially useful when using higher-level functions that call `write()`, as it lets
+        you combine multiple logical operations into a single message (if only using writes), which
+        can be faster than sending lots of little messages.
+
+        Be cognizant that a visa resource's write and query methods are not transaction-aware, only
+        VisaMixin's are. If you need to call one of these methods (e.g. write_raw), make sure you
+        flush the message queue manually with `_flush_message_queue()`.
+
+        As an example:
+
+            >>> with myinst.transaction():
+            ...     myinst.write('A')
+            ...     myinst.write('B')
+            ...     myinst.query('C?')  # Query forces flush. Writes "A;B" and queries "C?"
+            ...     myinst.write('D')
+            ...     myinst.write('E')  # End of transaction block, writes "D;E"
+        """
+        self._start_transaction()
+        yield
+        self._end_transaction()
+
+    def _start_transaction(self):
+        self._message_queue = []
+
+    def _end_transaction(self):
+        self._flush_message_queue()
+        self._message_queue = None  # signals end of transaction
+
+    def _flush_message_queue(self):
+        """Write all queued messages at once"""
+        if not self._in_transaction:
+            return
+        message = ';'.join(self._message_queue)
+        self._rsrc.write(message)
+        self._message_queue = []
+
+    @property
+    def _in_transaction(self):
+        return getattr(self, '_message_queue', None) is not None
 
     @property
     def resource(self):
@@ -959,7 +782,7 @@ def get_idn(inst):
     """
     import visa
     try:
-        idn = inst.ask("*IDN?")
+        idn = inst.query("*IDN?")
         log.info("*IDN? gives '{}'".format(idn.strip()))
     except UnicodeDecodeError as e:
         log.info("UnicodeDecodeError while getting IDN. Probably a non-Visa Serial device")
@@ -988,7 +811,12 @@ def get_idn(inst):
 def import_driver(driver_name, raise_errors=False):
     try:
         log.info("Importing driver module '%s'", driver_name)
-        return import_module('.' + driver_name, __package__)
+        # TODO: store full module names in driver_info (or add leading dot) so that external
+        # drivers don't have possible name conflicts
+        if driver_name in internal_drivers:
+            return import_module('.' + driver_name, __package__)
+        else:
+            return import_module(driver_name)
     except Exception as e:
         log.info("Error when importing driver module %s: <<%s>>", driver_name, str(e))
         if raise_errors:
@@ -1075,7 +903,7 @@ def find_visa_instrument(params):
 
         try:
             driver_module, classname = find_visa_driver_class(visa_inst)
-        except:
+        except Exception:
             visa_inst.close()
             raise
 
@@ -1247,10 +1075,34 @@ def find_full_params(normalized_params, driver_module):
             return inst_params
 
 
+# Pretty hacky, but is actually the *least* crazy way I can think of doing this right now. Somehow
+# we have to get this info to the Instrument class when it's instantiating a new instrument, the
+# paths to that code are many, varied, and winding.
+_REOPEN_POLICY = None
+@contextlib.contextmanager
+def _reopen_context(reopen_policy):
+    global _REOPEN_POLICY
+    if reopen_policy not in ('strict', 'reuse', 'new'):
+        raise ValueError("Reopen policy must be one of 'strict', 'reuse', 'new'")
+    _REOPEN_POLICY = reopen_policy
+    yield
+    _REOPEN_POLICY = None
+
+
 def instrument(inst=None, **kwargs):
     """
     Create any Instrumental instrument object from an alias, parameters,
     or an existing instrument.
+
+    reopen_policy : str of ('strict', 'reuse', 'new'), optional
+        How to handle the reopening of an existing instrument.
+        'strict' - disallow reopening an instrument with an existing instance which hasn't been
+        cleaned up yet.
+        'reuse' - if an instrument is being reopened, return the existing instance
+        'new' - always create a new instance of the instrument class. *Not recommended* unless you
+        know exactly what you're doing. The instrument objects are not synchronized with one
+        another.
+        By default, follows the 'reuse' policy.
 
     >>> inst1 = instrument('MYAFG')
     >>> inst2 = instrument(visa_address='TCPIP::192.168.1.34::INSTR')
@@ -1260,25 +1112,27 @@ def instrument(inst=None, **kwargs):
     log.info('Called instrument() with inst=%s, kwargs=%s', inst, kwargs)
     if isinstance(inst, Instrument):
         return inst
-    params, alias = _extract_params(inst, kwargs)
 
-    if 'server' in params:
-        from . import remote
-        host = params['server']
-        session = remote.client_session(host)
-        inst = session.instrument(params)
-    elif 'visa_address' in params:
-        inst = find_visa_instrument(params)
-    elif 'module' in params and 'visa_address' in driver_info[params['module']]['params']:
-        inst = find_visa_instrument_by_module(params)
-    else:
-        inst = find_nonvisa_instrument(params)
+    with _reopen_context(kwargs.pop('reopen_policy', 'reuse')):
+        params, alias = _extract_params(inst, kwargs)
 
-    if inst is None:
-        raise Exception("No instrument found that matches {}".format(params))
+        if 'server' in params:
+            from . import remote
+            host = params['server']
+            session = remote.client_session(host)
+            inst = session.instrument(params)
+        elif 'visa_address' in params:
+            inst = find_visa_instrument(params)
+        elif 'module' in params and driver_takes_param(params['module'], 'visa_address'):
+            inst = find_visa_instrument_by_module(params)
+        else:
+            inst = find_nonvisa_instrument(params)
 
-    inst._alias = alias
-    return inst
+        if inst is None:
+            raise Exception("No instrument found that matches {}".format(params))
+
+        inst._alias = alias
+        return inst
 
 
 def register_cleanup(func):
@@ -1300,7 +1154,7 @@ def _close_atexit():
                 log.info('Closing %s', inst)
                 try:
                     inst.close()
-                except:
+                except Exception:
                     pass  # Instrument may have already been closed
     log.info('Done closing instruments')
 

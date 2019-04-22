@@ -1,19 +1,13 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018 Nate Bogdanowicz
+# Copyright 2018-2019 Nate Bogdanowicz
 """
-Driver module for Agilent MXG signal generators. Initially developed for and tested onthe N5181A.
+Driver module for Agilent signal generators.
+
+MXG driver was initially developed for and tested on the N5181A.
 """
 from enum import Enum
 from . import FunctionGenerator
 from .. import VisaMixin, SCPI_Facet
-from ... import u, Q_
-
-_INST_PARAMS = ['visa_address']
-_INST_VISA_INFO = {
-    'AgilentMXG': ('Agilent Technologies',
-                   ['N5181A']),
-    'Agilent33250A': ('Agilent Technologies', ['Agilent33250A']),
-}
 
 
 def _convert_enum(enum_type):
@@ -46,6 +40,9 @@ class FreqMode(Enum):
 
 
 class AgilentMXG(FunctionGenerator, VisaMixin):
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('Agilent Technologies', ['N5181A'])
+
     def _initialize(self):
         self._rsrc.read_termination = '\n'
 
@@ -61,7 +58,11 @@ class AgilentMXG(FunctionGenerator, VisaMixin):
     # sweep triggering
     # load a list sweep file
 
+
 class Agilent33250A(FunctionGenerator, VisaMixin):
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('Agilent Technologies', ['Agilent33250A'])
+
     def _initialize(self):
         self._rsrc.read_termination = '\n'
 
@@ -69,4 +70,10 @@ class Agilent33250A(FunctionGenerator, VisaMixin):
     voltage = SCPI_Facet('VOLT', convert=float, units='V')
 
 
+class AgilentE4400B(FunctionGenerator, VisaMixin):
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('Hewlett-Packard', ['ESG-1000B'])
+    def _initialize(self):
+        self._rsrc.read_termination = '\n'
 
+    frequency = SCPI_Facet('FREQ:FIXED', convert=float, units='Hz')

@@ -23,11 +23,14 @@ with open(os.path.join(base_dir, 'instrumental', '__about__.py')) as f:
     exec(f.read(), about)
 
 # Load driver info
-with open(os.path.join(base_dir, 'instrumental', 'driver_info.py')) as f:
-    namespace = {}
-    exec(f.read(), namespace)
-    driver_info = namespace['driver_info']
-extras = {k:v['imports'] for k,v in driver_info.items()}
+try:
+    with open(os.path.join(base_dir, 'instrumental', 'driver_info.py')) as f:
+        namespace = {}
+        exec(f.read(), namespace)
+        driver_info = namespace['driver_info']
+    extras = {k:v['imports'] for k,v in driver_info.items()}
+except FileNotFoundError:
+    extras = {}
 
 # Check for cffi
 post_install_msgs = []
