@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2017 Dodd Gray, Nate Bogdanowicz
 """
 Driver for VISA control of HC Photonics TC038 temperature controller
+Created on Tue Sep 09 18:16:07 2014
+
+@author:
 """
 
-from __future__ import unicode_literals
-
-from pyvisa.constants import Parity
-
+#import numpy as np
+from ... import u, Q_ #, visa
+from .. import _get_visa_instrument, _ParamDict
 from . import TempController
 from .. import VisaMixin, Facet
 from ..util import visa_context
@@ -100,4 +101,4 @@ class TC038(TempController, VisaMixin):
         self._write_register(120, value)
 
     def close(self):
-        self._rsrc.close()
+        self._inst.close()

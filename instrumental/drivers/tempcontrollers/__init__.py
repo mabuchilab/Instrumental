@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# Copyright 2017 Dodd Gray
+# Copyright 2014 Chris Rogers, Nate Bogdanowicz
 """
-Package containing drivers for temperature controllers.
+Package containing drivers for power meters.
 """
 from .. import Instrument
 

@@ -72,7 +72,7 @@ _INST_VISA_INFO = {
     'TDS_200': ('TEKTRONIX', ['TDS 210']),
     'TDS_3000': ('TEKTRONIX', ['TDS 3032', 'TDS 3034B']),
     'MSO_DPO_4000': ('TEKTRONIX', ['MSO4034', 'DPO4034', 'DPO2024'])
-
+    }
 MODEL_CHANNELS = {
     'TDS 210': 2,
     'TDS 220': 2,
@@ -277,25 +277,41 @@ class TekScope(Scope, VisaMixin):
         inst.read_termination = None
         # inst.end_input = visa.constants.SerialTermination.none
         inst.write("curve?")
+        n_tries_max = 3
+        n_tries = 0
+        success = False
+        while (not(success) and (n_tries<n_tries_max)):
+            try:
+                with inst.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
+                    # old code
+                    # (_, width), _ = inst.visalib.read(inst.session, 2)  # read first 2 bytes
+                    (_, width) = str(inst.visalib.read(inst.session, 2)[0],'utf-8')  # read first 2 bytes
+                    num_bytes = int(inst.visalib.read(inst.session, int(width))[0])
+                    buf = bytearray(num_bytes)
+                    cursor = 0
+                    while cursor < num_bytes:
+                        raw_bin, _ = inst.visalib.read(inst.session, num_bytes-cursor)
+                        buf[cursor:cursor+len(raw_bin)] = raw_bin
+                        cursor += len(raw_bin)
+                        print(cursor)
+                if old_params:
+                    # inst.end_input = old_end_input
+                    inst.read_termination = old_read_termination
+                    inst.timeout = old_timeout
+                inst.read()  # Eat termination
 
-        with inst.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
-            # old code
-            # (_, width), _ = inst.visalib.read(inst.session, 2)  # read first 2 bytes
-            (_, width) = str(inst.visalib.read(inst.session, 2)[0],'utf-8')  # read first 2 bytes
-            num_bytes = int(inst.visalib.read(inst.session, int(width))[0])
-            buf = bytearray(num_bytes)
-            cursor = 0
-            while cursor < num_bytes:
-                raw_bin, _ = inst.visalib.read(inst.session, num_bytes-cursor)
-                buf[cursor:cursor+len(raw_bin)] = raw_bin
-                cursor += len(raw_bin)
-                print(cursor)
-        if old_params:
-            inst.end_input = old_end_input
-            inst.read_termination = old_read_termination
-            inst.timeout = old_timeout
-        inst.read()  # Eat termination
+                success = True
+            except:
+                print(f'Warning: tek scope trace transfer routine failed on attempt {n_tries+1} of {n_tries_max+1}')
+                print('attempting to re-initialize VISA comms settings to regain communication access to the scope...')
+                if old_params:
+                    # inst.end_input = old_end_input
+                    inst.read_termination = old_read_termination
+                    inst.timeout = old_timeout
+                inst.read()  # Eat termination
 
+                n_tries+=1
+                out = default_value
         num_points = int(num_bytes // 2)
         raw_data_y = np.frombuffer(buf, dtype='>i2', count=num_points)
 
@@ -701,6 +717,93 @@ class TDS_200(TekScope):
     """A Tektronix TDS 200 series oscilloscope"""
     _INST_PARAMS_ = ['visa_address']
     _INST_VISA_INFO_ = ('TEKTRONIX', ['TDS 210', 'TDS 220', 'TDS 224'])
+
+# class TDS_600(TekScope):
+#     """A Tektronix TDS 600 series oscilloscope"""
+#     def get_data(self, channel=1):
+#         """Retrieve a trace from the scope.
+#         Pulls data from channel `channel` and returns it as a tuple ``(t,y)``
+#         of unitful arrays.
+#         Parameters
+#         ----------
+#         channel : int, optional
+#             Channel number to pull trace from. Defaults to channel 1.
+#         Returns
+#         -------
+#         t, y : pint.Quantity arrays
+#             Unitful arrays of data from the scope. ``t`` is in seconds, while
+#             ``y`` is in volts.
+#         """
+#         self.write("data:source ch{}".format(channel))
+#         #stop = int(self.query("wfmpre:nr_pt?"))  # Get source's number of points
+#         #stop = 10000
+#         stop = int(self.query(f'wfmp:ch{channel}?').split(';')[0].split(',')[4][1:-7])
+#         self.write("data:width 2")
+#         self.write("data:encdg RIBinary")
+#         self.write("data:start 1")
+#         self.write("data:stop {}".format(stop))
+#
+#         #self.resource.flow_control = 1  # Soft flagging (XON/XOFF flow control)
+#
+#         with self.resource.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT),\
+#              visa_context(self.resource, timeout=10000, read_termination=None,
+#                           end_input=visa.constants.SerialTermination.none):
+#
+#             self.write("curve?")
+#             visalib = self.resource.visalib
+#             session = self.resource.session
+#             # NB: Must take slice of bytes returned by visalib.read,
+#             # to keep from autoconverting to int
+#             width_byte = visalib.read(session, 2)[0][1:]  # read first 2 bytes
+#             num_bytes = int(visalib.read(session, int(width_byte))[0])
+#             buf = bytearray(num_bytes)
+#             cursor = 0
+#             while cursor < num_bytes:
+#                 raw_bin, _ = visalib.read(session, num_bytes-cursor)
+#                 buf[cursor:cursor+len(raw_bin)] = raw_bin
+#                 cursor += len(raw_bin)
+#
+#         self.resource.read()  # Eat termination
+#
+#         num_points = int(num_bytes // 2)
+#         raw_data_y = np.frombuffer(buf, dtype='>i2', count=num_points)
+#
+#         # Get scale and offset factors
+#         x_scale = Q_(self.query(f'wfmp:ch{channel}?').split(';')[0].split(',')[3][1:-4]).to(u.second).m  #float(self.query("wfmpre:xincr?"))
+#         y_scale = float(self.query(f'ch{channel}?').split(';')[1]) #float(self.query("wfmpre:ymult?"))
+#         x_zero = 0 #float(self.query("wfmpre:xzero?"))
+#         y_zero = 0 #float(self.query("wfmpre:yzero?"))
+#         x_offset = 0 #float(self.query("wfmpre:pt_off?"))
+#         y_offset = float(self.query(f'wfmp:ch{channel}?').split(';')[-1][:-1])
+#
+#         x_unit = Q_('second')
+#         y_unit = Q_('volt')
+#         # x_unit_str = self.query(f'wfmp:ch{channel}?').split(';')[3]
+#         # y_unit_str = self.query(f'wfmp:ch{channel}?').split(';')[7]
+#         #
+#         # unit_map = {
+#         #     'U': '',
+#         #     'Volts': 'V'
+#         # }
+#         #
+#         # x_unit_str = unit_map.get(x_unit_str, x_unit_str)
+#         # try:
+#         #     x_unit = u.parse_units(x_unit_str)
+#         # except UndefinedUnitError:
+#         #     x_unit = u.dimensionless
+#         #
+#         # y_unit_str = unit_map.get(y_unit_str, y_unit_str)
+#         # try:
+#         #     y_unit = u.parse_units(y_unit_str)
+#         # except UndefinedUnitError:
+#         #     y_unit = u.dimensionless
+#
+#         raw_data_x = np.arange(1, num_points+1)
+#
+#         data_x = Q_((raw_data_x - x_offset)*x_scale + x_zero, x_unit)
+#         data_y = Q_((raw_data_y - y_offset)*y_scale + y_zero, y_unit)
+#
+#         return data_x, data_y
 
 # class TDS_600(TekScope):
 #     """A Tektronix TDS 600 series oscilloscope"""
