@@ -11,8 +11,8 @@ header_info = {
         'header': 'NIDAQmx.h'
     },
     'linux*': {
-        'path': '/usr/local/natinst/nidaqmx/include',
-        'header': 'NIDAQmx.h'
+        'path': '/usr/local/natinst/nidaqmxbase/include',
+        'header': 'NIDAQmxBase.h'
     },
     'darwin*': {
         'path': '/Applications/National Instruments/NI-DAQmx Base/includes',
@@ -20,7 +20,7 @@ header_info = {
     },
 }
 
-lib_names = {'win*': 'nicaiu', 'linux*': 'nidaqmx', 'darwin*': 'nidaqmxbase'}
+lib_names = {'win*': 'nicaiu', 'linux*': 'nidaqmxbase', 'darwin*': 'nidaqmxbase'}
 
 
 def build():

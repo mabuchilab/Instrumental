@@ -1,4 +1,4 @@
-# Auto-generated 2019-03-27T19:05:51.954411
+# Auto-generated 2019-04-24T15:21:59.914853
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -30,6 +30,14 @@ driver_info = OrderedDict([
             'Agilent33250A': ('Agilent Technologies', ['Agilent33250A']),
             'AgilentE4400B': ('Hewlett-Packard', ['ESG-1000B']),
             'AgilentMXG': ('Agilent Technologies', ['N5181A']),
+        },
+    }),
+    ('funcgenerators.rigol', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': [],
+        'visa_info': {
+            'DG800': ('Rigol Technologies', ['DG812']),
         },
     }),
     ('funcgenerators.tektronix', {
@@ -119,6 +127,14 @@ driver_info = OrderedDict([
         'imports': [],
         'visa_info': {
             'GPD_3303S': ('GW INSTEK', ['GPD-3303S']),
+        },
+    }),
+    ('scopes.agilent', {
+        'params': ['visa_address'],
+        'classes': ['DSO_1000'],
+        'imports': ['pyvisa', 'visa'],
+        'visa_info': {
+            'DSO_1000': ('Agilent Technologies', ['DSO1024A']),
         },
     }),
     ('scopes.tektronix', {

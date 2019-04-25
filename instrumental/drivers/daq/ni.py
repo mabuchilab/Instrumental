@@ -103,7 +103,7 @@ def ret_errcheck(code):
 
 class NiceNI(NiceLib):
     _info_ = load_lib('ni', __package__)
-    _prefix_ = ('DAQmxBase_', 'DAQmx_', 'DAQmx')
+    _prefix_ = ('DAQmxBase_', 'DAQmxBase', 'DAQmx_', 'DAQmx')
     _buflen_ = 1024
     _use_numpy_ = True
     _ret_ = ret_errcheck

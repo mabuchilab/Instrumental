@@ -28,7 +28,8 @@ class GPD_3303S(PowerSupply, VisaMixin):
         channel = int(channel)
         if int(channel) not in [1, 2]:
             raise ValueError('channel must be 1 or 2')
-        self.write('VSET%i:%f' % (channel, voltage))
+        query = 'VSET%i:%.3f' % (channel, voltage) 
+        self.write(query)
     
     def get_current(self, channel):
         channel = int(channel)
