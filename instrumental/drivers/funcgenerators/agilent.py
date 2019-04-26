@@ -61,7 +61,7 @@ class AgilentMXG(FunctionGenerator, VisaMixin):
 
 class Agilent33250A(FunctionGenerator, VisaMixin):
     _INST_PARAMS_ = ['visa_address']
-    _INST_VISA_INFO_ = ('Agilent Technologies', ['Agilent33250A'])
+    _INST_VISA_INFO_ = ('Agilent Technologies', ['33250A'])
 
     def _initialize(self):
         self._rsrc.read_termination = '\n'
