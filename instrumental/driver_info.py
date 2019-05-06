@@ -1,4 +1,4 @@
-# Auto-generated 2019-04-26T09:38:10.166813
+# Auto-generated 2019-05-06T16:23:11.970004
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -49,12 +49,12 @@ driver_info = OrderedDict([
         },
     }),
     ('laserdiodecontrollers.ilx_lightwave', {
-        'params': [],
+        'params': ['visa_address'],
         'classes': ['LDC3724B'],
         'imports': [],
         'visa_info': {
             'LDC3724B': ('ILX Lightwave', ['3724B']),
-        }
+        },
     }),
     ('lockins.sr844', {
         'params': ['visa_address'],
