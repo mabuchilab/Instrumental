@@ -1,26 +1,30 @@
 # -*- coding: utf-8 -*-
 """
-Copyright 2015 Christopher Rogers
+Copyright 2015-2018 Christopher Rogers
 
 Class to control Princeton Instruments Cameras using the PICAM SDK
 
 Installation
 ----------------
-The PICAM SDK must be installed.  It is available from the Princeton
-Instruments ftp site.
-The .dlls Picam.dll Picc.dll, Pida.dll and Pidi.dll must be copied to a
-directory on the system path.
-Note that the .dlls found first on the system path must match the version
-of the headers installed with the Picam SDK.
+The PICAM SDK must be installed. It is available from the Princeton Instruments ftp site. The .dlls
+Picam.dll Picc.dll, Pida.dll and Pidi.dll must be copied to a directory on the system path. Note
+that the .dlls found first on the system path must match the version of the headers installed with
+the Picam SDK.
 """
+from future.utils import PY2
 
 from warnings import warn
-from numpy import frombuffer, sum, uint16, hstack, vstack
+
+from numpy import frombuffer, sum, uint16, vstack
 from enum import Enum
 from nicelib import NiceLib, load_lib, RetHandler, ret_ignore, Sig, NiceObject
-from ...errors import Error, InstrumentNotFoundError
+
+from ...errors import Error
 from ..util import check_units, check_enums
 from ... import Q_
+
+if PY2:
+    memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
 
 
 class PicamError(Error):
@@ -30,13 +34,15 @@ class PicamError(Error):
 lib = load_lib('picam', __package__)
 BYTES_PER_PIXEL = 2
 
+
 @RetHandler(num_retvals=0)
 def ret_error(error):
     if error != 0:
         if bool(NicePicamLib.IsLibraryInitialized()):
             NicePicamLib.GetEnumerationString(lib.PicamEnumeratedType_Error, error)
         else:
-           ret_enum_string_error(error)
+            ret_enum_string_error(error)
+
 
 @RetHandler(num_retvals=0)
 def ret_enum_string_error(error):
@@ -49,6 +55,7 @@ def ret_enum_string_error(error):
             raise PicamError('Enumeration value not defined.')
         else:
             raise PicamError('Error when getting enumeration string.  Error code {}'.format(error))
+
 
 class NicePicamLib(NiceLib):
     """Wrapper for Picam.dll"""
@@ -208,6 +215,7 @@ class NicePicamLib(NiceLib):
         #WaitForAcquisitionUpdate = Sig(camera, readout_time_out, available, status)
         WaitForAcquisitionUpdate = Sig('in', 'in', 'out', 'out')
 
+
 class EnumTypes():
     """ Class containg the enumerations in Picam.dll"""
     def __init__(self):
@@ -226,7 +234,7 @@ class EnumTypes():
                 if enum_type == '':
                     enum_type_dict[enum_name] = value
                 else:
-                    if not enum_type_dict.has_key(enum_type):
+                    if enum_type not in enum_type_dict:
                         enum_type_dict[enum_type] = {}
                     enum_type_dict[enum_type][enum_name] = value
         for enum_type, enum_dict in enum_type_dict.items():
@@ -236,8 +244,9 @@ class EnumTypes():
 
 PicamEnums = EnumTypes()
 
+
 class PicamRoi():
-    """ Class defining a region of interest.  
+    """ Class defining a region of interest.
     All values are in pixels.  """
     def __init__(self, x, width, y, height, x_binning=1, y_binning=1):
         self.x = x
@@ -246,6 +255,7 @@ class PicamRoi():
         self.height = height
         self.x_binning = x_binning
         self.y_binning = y_binning
+
 
 class PicamAcquisitionError(PicamError):
     def __init__(self, value):
@@ -260,6 +270,7 @@ class PicamAcquisitionError(PicamError):
             return "ConnectionLost"
         else:
             return "An unkown error with code {}".format(self.value)
+
 
 class PicamCamera():
     """ A Picam Camera """
@@ -320,7 +331,7 @@ class PicamCamera():
 
     def _create_rois(self, roi_list):
         """ Returns a C data PicamRois structure created from roi_list
-        
+
         roi_list shoudl be a list containing instances of ``PicamRois``"""
         N_roi = len(roi_list)
         roi_array = self._ffi.new('struct PicamRoi[{}]'.format(N_roi))
@@ -372,7 +383,7 @@ class PicamCamera():
 
     def get_param(self, parameter, default=False):
         """ Returns the value of the specified parameter.
-        
+
         ``parameter`` should be an integer of corresponding to a PicamParameter
         enumerator.
         If ``default`` is ``True``, then the default value of the parameter is
@@ -381,7 +392,7 @@ class PicamCamera():
 
     def set_param(self, parameter, value=None, canset=False):
         """ Sets the value of the specified parameter to ``value``.
-        
+
         ``parameter`` should be an integer of corresponding to a PicamParameter
         enumerator.
         If ``canset`` is ``True``, then a boolean indicating whether it is possible
@@ -390,7 +401,7 @@ class PicamCamera():
         return self._getset_param(parameter, value, canset)
 
     def _getset_param(self, parameter, value=None, canset=False,
-                     default=False, commit=True):
+                      default=False, commit=True):
         """Gets or sets the value of parameter 'parameter' for camera
         cam_name
 
@@ -503,12 +514,12 @@ class PicamCamera():
         ``size`` """
         ffi = self._NicePicamLib._ffi
         # This copies the buffer
-        buf = buffer(ffi.buffer(address, size)[:])
+        buf = memoryview(ffi.buffer(address, size)[:])
         return frombuffer(buf, data_type)
 
     def get_frame_shapes(self, rois=None):
         """Returns the region of interest frame shapes as a list of tuples
-        
+
         The tuples correspond to the number of x and y pixels in each region of interest
 
         If rois is None, then the current region of interest array is used
@@ -572,7 +583,7 @@ class PicamCamera():
                 roi_data = vstack([roi_data, temp])
             roi_data = roi_data.reshape((count,) + shape[::-1])
 
-            if count==1:
+            if count == 1:
                 roi_data = roi_data[0,:,:]
 
             if average:
@@ -635,7 +646,7 @@ class PicamCamera():
     def set_adc_speed(self, frequency, canset=False):
         """Sets the ADC Frequency
 
-        For many cameras, the possible values are very constrained - 
+        For many cameras, the possible values are very constrained -
         typical ccd cameras accept only 2MHz and 0.1MHz work."""
         param = self.enums.Parameter.AdcSpeed
         return self._getset_param(param, frequency.to('MHz').m, canset)
@@ -673,7 +684,7 @@ class PicamCamera():
         param = self.enums.Parameter.ReadoutCount
         return self._getset_param(param, default=default)
 
-    def set_readout_count(self, readout_count=None, canset=False ):
+    def set_readout_count(self, readout_count=None, canset=False):
         """ Sets the number of readouts for an asynchronous aquire.
 
         This does NOT affect the number of readouts for self.aqcuire
@@ -685,7 +696,7 @@ class PicamCamera():
         """ Get the mode for the timestamp portion of the frame metadata. """
         param = self.enums.Parameter.TimeStamps
         return self.enums.TimeStampsMask(self._getset_param(param,
-                                                           default=default))
+                                                            default=default))
 
     @check_enums(gain = PicamEnums.AdcAnalogGain)
     def set_time_stamp_mode(self, mode, canset=False):
@@ -704,7 +715,7 @@ class PicamCamera():
         """ Get the shutter operation mode."""
         param = self.enums.Parameter.ShutterTimingMode
         return self.enums.ShutterTimingMode(self._getset_param(param,
-                                                              default=default))
+                                                               default=default))
 
     def open_shutter(self):
         """ Opens the shutter """
@@ -756,7 +767,7 @@ class Picam():
         if cameras is None:
             self.cams = {}
             default_cam = 'first_camera'
-            self.open_first_camera(default_cam)   
+            self.open_first_camera(default_cam)
         else:
             for name, cam_id in cameras.iteritems():
                 self.open_camera(cam_id, name)
@@ -793,7 +804,7 @@ class Picam():
         Returns a string containing version information for the Picam dll
         """
         major, minor, distribution, release = self._NicePicamLib.GetVersion()
-        
+
         temp = (major, minor, distribution, release/100, release%100)
         version = 'Version {0[0]}.{0[1]}.{0[2]} released in 20{0[3]}-{0[4]}'
         return version.format(temp)
@@ -884,7 +895,7 @@ class Picam():
         ID_array, count = self.get_available_camera_IDs()
         if count == 0:
             raise PicamError('No cameras available - could not open first camera')
-        if count ==1:
+        if count == 1:
             id = ID_array
         else:
             id = ID_array[0]

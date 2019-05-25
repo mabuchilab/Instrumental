@@ -3,8 +3,11 @@
 """
 Driver Module for Thorlabs CCSXXX series spectrometers. Currently Windows only.
 """
+from future.utils import PY2
+
 import time
 from enum import Enum
+
 import numpy as np
 from visa import ResourceManager
 from cffi import FFI
@@ -15,6 +18,9 @@ from ..util import check_units, check_enums
 from .. import ParamSet
 from ...errors import Error
 from ... import Q_
+
+if PY2:
+    memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
 
 IDLE = 2
 CONT_SCAN = 4
@@ -209,7 +215,7 @@ class CCS(Spectrometer):
 
         Note also that this cancels other scans in progress.
         """
-        self._NiceCCS.startScanExtTrig()
+        self._NiceCCS.startScanExtTrg()
 
     def start_cont_scan_trg(self):
         """Arms spectrometer for continuous external triggering.
@@ -223,7 +229,7 @@ class CCS(Spectrometer):
 
         Note also that this cancels other scans in progress.
         """
-        self._NiceCCS.startScanContExtTrig()
+        self._NiceCCS.startScanContExtTrg()
 
     def stop_scan(self):
         # This is hacky but they do not provide a good function to stop a scan.
@@ -290,7 +296,7 @@ class CCS(Spectrometer):
     def _cdata_to_numpy(self, cdata, data_type=float, size=None):
         if size is None:
             size = self._NiceCCSLib.TLCCS_NUM_PIXELS*BYTES_PER_DOUBLE
-        buf = buffer(ffi.buffer(ffi.addressof(cdata), size)[:])
+        buf = memoryview(ffi.buffer(ffi.addressof(cdata), size)[:])
         return np.frombuffer(buf, data_type)
 
     def _get_raw_scan_data(self):

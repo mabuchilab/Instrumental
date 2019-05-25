@@ -4,8 +4,10 @@ import numpy as np
 import scipy.misc
 from qtpy.QtCore import Qt, QTimer, Signal, QRect, QRectF, QPoint
 from qtpy.QtGui import QPixmap, QImage, QColor, QPen, QMouseEvent, QPainter
-from qtpy.QtWidgets import QGraphicsView, QGraphicsScene, QMainWindow, QLabel, QStyle
+from qtpy.QtWidgets import (QGraphicsView, QGraphicsScene, QMainWindow, QLabel, QStyle,
+                            QDoubleSpinBox)
 from qtpy import PYSIDE, PYQT5
+from . import u, Q_
 
 mpl, FigureCanvas, Figure = None, None, None
 def load_matplotlib():
@@ -373,3 +375,47 @@ class CroppableCameraView(QGraphicsView):
             raise Exception("Unsupported color mode")
 
         return image
+
+
+class UDoubleSpinBox(QDoubleSpinBox):
+    """A unitful QDoubleSpinBox"""
+    uValueChanged = Signal(Q_)
+
+    def __init__(self, parent=None, units=None):
+        QDoubleSpinBox.__init__(self, parent)
+        if units is not None:
+            self.setSuffix(' ' + str(units))
+        self._units = u(self.suffix().strip()).units
+        self.valueChanged.connect(self._emit_uValueChanged)
+
+    def _emit_uValueChanged(self, value):
+        self.uValueChanged.emit(Q_(value, self._units))
+
+    def uValue(self):
+        """Unitful value"""
+        return Q_(self.value(), self._units)
+
+    def setSuffix(self, suffix):
+        super(UDoubleSpinBox, self).setSuffix(suffix)
+        self._units = u(suffix.strip()).units
+
+    def units(self):
+        return self._units
+
+    def setUValue(self, value):
+        self.setValue(value.m_as(self._units))
+
+    def clone(self):
+        new = UDoubleSpinBox()
+        new.setSuffix(self.suffix())
+        new.setDecimals(self.decimals())
+        new.setMinimum(self.minimum())
+        new.setMaximum(self.maximum())
+        new.setSingleStep(self.singleStep())
+        new.setValue(self.value())
+        return new
+
+    def format(self, value):
+        """Format a value as the spinbox does"""
+        spec = '.{}f'.format(self.decimals())
+        return format(value.magnitude, spec) + self.suffix()

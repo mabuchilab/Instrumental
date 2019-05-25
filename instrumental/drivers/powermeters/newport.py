@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014 Chris Rogers, Nate Bogdanowicz
+# Copyright 2014-2019 Chris Rogers, Nate Bogdanowicz
 """
 Driver module for Newport power meters. Supports:
 
@@ -23,9 +23,6 @@ from .. import Facet, MessageFacet, VisaMixin, deprecated
 from ..util import visa_timeout_context
 from ... import Q_, u
 
-_INST_PRIORITY = 8  # IDN isn't supported
-_INST_PARAMS = ['visa_address']
-
 
 def _check_visa_support(visa_inst):
     with visa_timeout_context(visa_inst, 100):
@@ -46,6 +43,8 @@ def MyFacet(msg, readonly=False, **kwds):
 
 class Newport_1830_C(PowerMeter, VisaMixin):
     """A Newport 1830-C power meter"""
+    _INST_PRIORITY_ = 8  # IDN isn't supported
+    _INST_PARAMS_ = ['visa_address']
 
     # Status byte codes
     _PARAM_ERROR = 1
@@ -86,13 +85,13 @@ class Newport_1830_C(PowerMeter, VisaMixin):
             Power in units of watts, regardless of the power meter's current
             'units' setting.
         """
-        original_units = self._rsrc.query('U?')
+        original_units = self.query('U?')
         if original_units != '1':
-            self._rsrc.write('U1')  # Measure in watts
-            power = float(self._rsrc.query('D?'))
-            self._rsrc.write('U' + original_units)
+            self.write('U1')  # Measure in watts
+            power = float(self.query('D?'))
+            self.write('U' + original_units)
         else:
-            power = float(self._rsrc.query('D?'))
+            power = float(self.query('D?'))
 
         return Q_(power, 'watts')
 
@@ -168,7 +167,7 @@ class Newport_1830_C(PowerMeter, VisaMixin):
     @deprecated('attenuator')
     def enable_attenuator(self, enabled=True):
         """Enable the power meter attenuator"""
-        self._rsrc.write('A{}'.format(int(enabled)))
+        self.write('A{}', int(enabled))
 
     @deprecated('attenuator')
     def disable_attenuator(self):
@@ -184,7 +183,7 @@ class Newport_1830_C(PowerMeter, VisaMixin):
         enabled : bool
             whether the attenuator is enabled
         """
-        val = self._rsrc.write('A?')
+        val = self.write('A?')
         return bool(val)
 
     def get_valid_power(self, max_attempts=10, polling_interval=0.1*u.s)):
@@ -241,18 +240,18 @@ class Newport_1830_C(PowerMeter, VisaMixin):
 
         The slow filter uses a 16-measurement running average.
         """
-        self._rsrc.write('F1')
+        self.write('F1')
 
     def set_medium_filter(self):
         """Set the averaging filter to medium mode
 
         The medium filter uses a 4-measurement running average.
         """
-        self._rsrc.write('F2')
+        self.write('F2')
 
     def set_no_filter(self):
         """Set the averaging filter to fast mode, i.e. no averaging"""
-        self._rsrc.write('F3')
+        self.write('F3')
 
     def get_filter(self):
         """Get the current setting for the averaging filter
@@ -262,12 +261,12 @@ class Newport_1830_C(PowerMeter, VisaMixin):
         SLOW_FILTER, MEDIUM_FILTER, NO_FILTER
             the current averaging filter
         """
-        val = self._rsrc.query("F?")
+        val = self.query("F?")
         return int(val)
 
     def enable_hold(self, enable=True):
         """Enable hold mode"""
-        self._rsrc.write('G{}'.format(int(not enable)))
+        self.write('G{}', int(not enable))
 
     def disable_hold(self):
         """Disable hold mode"""
@@ -281,7 +280,7 @@ class Newport_1830_C(PowerMeter, VisaMixin):
         enabled : bool
             True if in hold mode, False if in run mode
         """
-        val = int(self._rsrc.query('G?'))
+        val = int(self.query('G?'))
         return (val == 0)
 
     def is_measurement_valid(self):
@@ -303,7 +302,7 @@ class Newport_1830_C(PowerMeter, VisaMixin):
         Sets the current power measurement as the reference power for future dB
         or relative measurements.
         """
-        self._rsrc.write('S')
+        self.write('S')
 
     def enable_zero(self, enable=True):
         """Enable the zero function
@@ -311,7 +310,7 @@ class Newport_1830_C(PowerMeter, VisaMixin):
         When enabled, the next power reading is stored as a background value
         and is subtracted off of all subsequent power readings.
         """
-        self._rsrc.write("Z{}".format(int(enable)))
+        self.write("Z{}", int(enable))
 
     def disable_zero(self):
         """Disable the zero function"""
@@ -319,7 +318,7 @@ class Newport_1830_C(PowerMeter, VisaMixin):
 
     def zero_enabled(self):
         """Whether the zero function is enabled"""
-        val = int(self._rsrc.query('Z?'))  # Need to cast to int first
+        val = int(self.query('Z?'))  # Need to cast to int first
         return bool(val)
 
     def set_units(self, units):
@@ -352,7 +351,7 @@ class Newport_1830_C(PowerMeter, VisaMixin):
         if units not in valid_units:
             raise Exception("`units` must be one of 'watts', 'dbm', 'db', or 'rel")
 
-        self._rsrc.write('U{}'.format(valid_units[units]))
+        self.write('U{}', valid_units[units])
 
     def get_units(self):
         """Get the units used for displaying power measurements
@@ -362,15 +361,15 @@ class Newport_1830_C(PowerMeter, VisaMixin):
         units : str
             'watts', 'db', 'dbm', or 'rel'
         """
-        val = int(self._rsrc.query('U?'))
+        val = int(self.query('U?'))
         units = {1: 'watts', 2: 'db', 3: 'dbm', 4: 'rel'}
         return units[val]
 
     @property
     def local_lockout(self):
         """Whether local-lockout is enabled"""
-        return bool(self._rsrc.query('L?'))
+        return bool(self.query('L?'))
 
     @local_lockout.setter
     def local_lockout(self, enable):
-        self._rsrc.write("L{}".format(int(enable)))
+        self.write("L{}", int(enable))

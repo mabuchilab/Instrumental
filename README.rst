@@ -14,6 +14,9 @@
    :target: https://instrumental-lib.readthedocs.io
    :alt: Documentation
 
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.2556399.svg
+   :target: https://doi.org/10.5281/zenodo.2556399
+
 
 |logo| Instrumental
 ===================
@@ -58,3 +61,5 @@ For install information, documentation, examples, and more, see our page on
 
 .. |logo| image:: images/logo-small.png
           :alt: Instrumental
+
+If you would like to cite Instrumental, to give it more visibility to other researchers, you can cite the repository through Zenodo (DOI: 10.5281/zenodo.2556399).

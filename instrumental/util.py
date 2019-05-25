@@ -22,6 +22,29 @@ def save_result(filename):
     return decorator
 
 
+def cached_as(filename):
+    """Decorator to cache return value(s) in a pickle file
+
+    If a file with the given filename exists, it is unpickled and that value is returned. Otherwise,
+    the decorated function is called, and its return value is returned, after pickling and saving it
+    for later use.
+    """
+    import os.path
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwds):
+            if os.path.exists(filename):
+                with open(filename, 'rb') as fh:
+                    return pickle.load(fh)
+            else:
+                retval = func(*args, **kwds)
+                with open(filename, 'wb') as fh:
+                    pickle.dump(retval, fh)
+                return retval
+        return wrapper
+    return decorator
+
+
 def to_str(value, encoding='utf-8'):
     """Convert value to a str type
 
@@ -58,3 +81,19 @@ def call_with_timeout(func, timeout):
         cur_time = time.time()
 
     raise TimeoutError
+
+
+# From http://code.activestate.com/recipes/576563-cached-property/#c3
+def cached_property(fun):
+    """A memoize decorator for class properties."""
+    @wraps(fun)
+    def get(self):
+        try:
+            return self._cache[fun]
+        except AttributeError:
+            self._cache = {}
+        except KeyError:
+            pass
+        ret = self._cache[fun] = fun(self)
+        return ret
+    return property(get)

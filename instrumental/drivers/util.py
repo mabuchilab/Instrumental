@@ -1,18 +1,64 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2017 Nate Bogdanowicz
+# Copyright 2015-2019 Nate Bogdanowicz
 """
 Helpful utilities for writing drivers.
 """
+import copy
 import contextlib
 from inspect import getargspec
 import pint
 
 from past.builtins import basestring
 
-from . import decorator, to_quantity
+from . import decorator
 from .. import Q_, u
+from ..log import get_logger
+
+log = get_logger(__name__)
 
 __all__ = ['check_units', 'unit_mag', 'check_enums', 'as_enum', 'visa_timeout_context']
+
+
+def to_quantity(value):
+    """Convert to a pint.Quantity
+
+    This function handles offset units in strings slightly better than Q_ does. It uses caching to
+    avoid reparsing strings.
+    """
+    try:
+        quantity = copy.copy(to_quantity.cache[value])
+    except (KeyError, TypeError):  # key is missing or unhashable
+        quantity = _to_quantity(value)
+
+    if isinstance(value, basestring):
+        to_quantity.cache[value] = copy.copy(quantity)  # Guard against mutation
+
+    return quantity
+
+
+to_quantity.cache = {}
+
+
+def _to_quantity(value):
+    """Convert to a pint.Quantity
+
+    This function handles offset units in strings slightly better than Q_ does.
+    """
+    try:
+        return Q_(value)
+    except Exception as e:
+        log.info(e)
+
+    try:
+        mag_str, units = value.split()
+        try:
+            mag = int(mag_str)
+        except ValueError:
+            mag = float(mag_str)
+
+        return Q_(mag, units)
+    except Exception as e:
+        raise ValueError('Could not construct Quantity from {}'.format(value))
 
 
 def as_enum(enum_type, arg):

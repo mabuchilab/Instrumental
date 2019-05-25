@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2017 Nate Bogdanowicz
+# Copyright 2014-2018 Nate Bogdanowicz
 """
 Driver module for Tektronix function generators. Currently supports:
 
@@ -7,6 +7,7 @@ Driver module for Tektronix function generators. Currently supports:
 """
 import numpy as np
 from . import FunctionGenerator
+from .. import VisaMixin, MessageFacet
 from ... import u, Q_
 
 _INST_PARAMS = ['visa_address']
@@ -15,10 +16,10 @@ _INST_VISA_INFO = {
                  ['AFG3011', 'AFG3021B', 'AFG3022B', 'AFG3101', 'AFG3102', 'AFG3251', 'AFG3252'])
 }
 
-_shapes = ['sinusoid', 'square', 'pulse', 'ramp', 'prnoise', 'dc', 'sinc',
-           'gaussian', 'lorentz', 'erise', 'edecay', 'haversine']
+_shapes = ['sinusoid', 'square', 'pulse', 'ramp', 'prnoise', 'dc', 'sinc', 'gaussian', 'lorentz',
+           'erise', 'edecay', 'haversine', 'user1', 'user2', 'user3', 'user4', 'ememory', 'efile']
 _abbrev_shapes = ['sin', 'squ', 'puls', 'ramp', 'prn', 'dc', 'sinc', 'gaus',
-                  'lor', 'eris', 'edec', 'hav']
+                  'lor', 'eris', 'edec', 'hav', 'user', 'emem', 'efil']
 _amp_keys = ['vpp', 'vrms', 'dbm']
 _volt_keys = ['vpp', 'vrms', 'dbm', 'offset', 'high', 'low']
 
@@ -53,7 +54,27 @@ def _verify_sweep_args(kwargs):
         raise Exception('May include only start/stop or center/span')
 
 
-class AFG_3000(FunctionGenerator):
+def infer_termination(msg_str):
+    if msg_str.endswith('\r\n'):
+        return '\r\n'
+    elif msg_str.endswith('\r'):
+        return '\r'
+    elif msg_str.endswith('\n'):
+        return '\n'
+    return None
+
+
+def VoltageFacet(msg, readonly=False, **kwds):
+    get_msg = msg + '?'
+    set_msg = None if readonly else msg + ' {}V'
+    return MessageFacet(get_msg, set_msg, convert=float, units='V', **kwds)
+
+
+class AFG_3000(FunctionGenerator, VisaMixin):
+    def _initialize(self):
+        response = self.query('*IDN?')
+        self._rsrc.read_termination = infer_termination(response)
+
     def set_function(self, **kwargs):
         """
         Set selected function parameters. Useful for setting multiple
@@ -64,9 +85,9 @@ class AFG_3000(FunctionGenerator):
 
         Parameters
         ----------
-        shape : {'SINusoid', 'SQUare', 'PULSe', 'RAMP', 'PRNoise', 'DC', \
+        shape : {'SINusoid', 'SQUare', 'PULSe', 'RAMP', 'PRNoise', 'DC',
         'SINC', 'GAUSsian', 'LORentz', 'ERISe', 'EDECay', 'HAVersine',
-        'USER1', 'USER2', 'USER3', 'USER4', 'EMEMory'}, optional
+        'USER1', 'USER2', 'USER3', 'USER4', 'EMEMory', 'EFILe'}, optional
             Shape of the waveform. Case-insenitive, abbreviation or full
             string.
         phase : pint.Quantity or string or number, optional
@@ -93,7 +114,7 @@ class AFG_3000(FunctionGenerator):
         if 'dbm' in kwargs:
             self.set_dbm(kwargs['dbm'], channel)
         if 'offset' in kwargs:
-            self.set_offset(kwargs['channel'], channel)
+            self.set_offset(kwargs['offset'], channel)
         if 'high' in kwargs:
             self.set_high(kwargs['high'], channel)
         if 'low' in kwargs:
@@ -120,7 +141,7 @@ class AFG_3000(FunctionGenerator):
         """
         if not _is_valid_shape(shape):
             raise Exception("Error: invalid shape '{}'".format(shape))
-        self._rsrc.write('source{}:function:shape {}'.format(channel, shape))
+        self.write('source{}:function:shape {}', channel, shape)
 
     def get_vpp(self, channel=1):
         """ Get the peak-to-peak voltage of the current waveform.
@@ -155,15 +176,15 @@ class AFG_3000(FunctionGenerator):
         return self._get_amplitude('dbm', channel)
 
     def _get_amplitude(self, units, channel):
-        old_units = self._rsrc.query('source{}:voltage:unit?'.format(channel))
+        old_units = self.query('source{}:voltage:unit?', channel)
 
         if old_units.lower() != units.lower():
-            self._rsrc.write('source{}:voltage:unit {}'.format(channel, units))
-            resp = self._rsrc.query('source{}:voltage:amplitude?'.format(channel))
-            self._rsrc.write('source{}:voltage:unit {}'.format(channel, old_units))
+            self.write('source{}:voltage:unit {}', channel, units)
+            resp = self.query('source{}:voltage:amplitude?', channel)
+            self.write('source{}:voltage:unit {}', channel, old_units)
         else:
             # Don't need to switch units
-            resp = self._rsrc.query('source{}:voltage:amplitude?'.format(channel))
+            resp = self.query('source{}:voltage:amplitude?', channel)
         return float(resp) * u.V
 
     def set_vpp(self, vpp, channel=1):
@@ -201,7 +222,7 @@ class AFG_3000(FunctionGenerator):
     def _set_amplitude(self, val, units, channel):
         val = Q_(val)
         mag = val.to('V').magnitude
-        self._rsrc.write('source{}:voltage {}{}'.format(channel, mag, units))
+        self.write('source{}:voltage {}{}', channel, mag, units)
 
     def set_offset(self, offset, channel=1):
         """ Set the voltage offset of the current waveform.
@@ -215,7 +236,7 @@ class AFG_3000(FunctionGenerator):
         """
         offset = Q_(offset)
         mag = offset.to('V').magnitude
-        self._rsrc.write('source{}:voltage:offset {}V'.format(channel, mag))
+        self.write('source{}:voltage:offset {}V', channel, mag)
 
     def set_high(self, high, channel=1):
         """ Set the high voltage level of the current waveform.
@@ -229,7 +250,7 @@ class AFG_3000(FunctionGenerator):
         """
         high = Q_(high)
         mag = high.to('V').magnitude
-        self._rsrc.write('source{}:voltage:high {}V'.format(channel, mag))
+        self.write('source{}:voltage:high {}V', channel, mag)
 
     def set_low(self, low, channel=1):
         """ Set the low voltage level of the current waveform.
@@ -243,7 +264,7 @@ class AFG_3000(FunctionGenerator):
         """
         low = Q_(low)
         mag = low.to('V').magnitude
-        self._rsrc.write('source{}:voltage:low {}V'.format(channel, mag))
+        self.write('source{}:voltage:low {}V', channel, mag)
 
     def set_phase(self, phase, channel=1):
         """ Set the phase offset of the current waveform.
@@ -258,7 +279,13 @@ class AFG_3000(FunctionGenerator):
         if phase < -u.pi or phase > +u.pi:
             raise Exception("Phase out of range. Must be between -pi and +pi")
         mag = phase.to('rad').magnitude
-        self._rsrc.write('source{}:phase {}rad'.format(channel, mag))
+        self.write('source{}:phase {}rad', channel, mag)
+
+    # Facets for the *current* channel
+    offset = VoltageFacet('source:voltage:offset')
+    amplitude = VoltageFacet('source:voltage:amplitude')
+    high = VoltageFacet('source:voltage:high')
+    low = VoltageFacet('source:voltage:low')
 
     def enable_AM(self, enable=True, channel=1):
         """ Enable amplitude modulation mode.
@@ -269,11 +296,11 @@ class AFG_3000(FunctionGenerator):
             Whether to enable or disable AM
         """
         val = 'on' if enable else 'off'
-        self._rsrc.write('source{}:am:state {}'.format(channel, val))
+        self.write('source{}:am:state {}', channel, val)
 
     def disable_AM(self, channel=1):
         """ Disable amplitude modulation mode. """
-        self._rsrc.write('source{}:am:state off'.format(channel))
+        self.write('source{}:am:state off', channel)
 
     def AM_enabled(self, channel=1):
         """ Returns whether amplitude modulation is enabled.
@@ -283,7 +310,7 @@ class AFG_3000(FunctionGenerator):
         bool
             Whether AM is enabled.
         """
-        resp = self._rsrc.query('source{}:am:state?'.format(channel))
+        resp = self.query('source{}:am:state?', channel)
         return bool(int(resp))
 
     def enable_FM(self, enable=True, channel=1):
@@ -295,11 +322,11 @@ class AFG_3000(FunctionGenerator):
             Whether to enable or disable FM
         """
         val = 'on' if enable else 'off'
-        self._rsrc.write('source{}:fm:state {}'.format(channel, val))
+        self.write('source{}:fm:state {}', channel, val)
 
     def disable_FM(self, channel=1):
         """ Disable frequency modulation mode. """
-        self._rsrc.write('source{}:fm:state off'.format(channel))
+        self.write('source{}:fm:state off', channel)
 
     def FM_enabled(self, channel=1):
         """ Returns whether frequency modulation is enabled.
@@ -309,7 +336,7 @@ class AFG_3000(FunctionGenerator):
         bool
             Whether FM is enabled.
         """
-        resp = self._rsrc.query('source{}:fm:state?'.format(channel))
+        resp = self.query('source{}:fm:state?', channel)
         return bool(int(resp))
 
     def enable_FSK(self, enable=True, channel=1):
@@ -321,11 +348,11 @@ class AFG_3000(FunctionGenerator):
             Whether to enable or disable FSK
         """
         val = 'on' if enable else 'off'
-        self._rsrc.write('source{}:fskey:state {}'.format(channel, val))
+        self.write('source{}:fskey:state {}', channel, val)
 
     def disable_FSK(self, channel=1):
         """ Disable frequency-shift keying mode. """
-        self._rsrc.write('source{}:fskey:state off'.format(channel))
+        self.write('source{}:fskey:state off', channel)
 
     def FSK_enabled(self, channel=1):
         """ Returns whether frequency-shift keying modulation is enabled.
@@ -335,7 +362,7 @@ class AFG_3000(FunctionGenerator):
         bool
             Whether FSK is enabled.
         """
-        resp = self._rsrc.query('source{}:fskey:state?'.format(channel))
+        resp = self.query('source{}:fskey:state?', channel)
         return bool(int(resp))
 
     def enable_PWM(self, enable=True, channel=1):
@@ -347,11 +374,11 @@ class AFG_3000(FunctionGenerator):
             Whether to enable or disable PWM
         """
         val = 'on' if enable else 'off'
-        self._rsrc.write('source{}:pwm:state {}'.format(channel, val))
+        self.write('source{}:pwm:state {}', channel, val)
 
     def disable_PWM(self, channel=1):
         """ Disable pulse width modulation mode. """
-        self._rsrc.write('source{}:pwm:state off'.format(channel))
+        self.write('source{}:pwm:state off', channel)
 
     def PWM_enabled(self, channel=1):
         """ Returns whether pulse width modulation is enabled.
@@ -361,7 +388,7 @@ class AFG_3000(FunctionGenerator):
         bool
             Whether PWM is enabled.
         """
-        resp = self._rsrc.query('source{}:pwm:state?'.format(channel))
+        resp = self.query('source{}:pwm:state?', channel)
         return bool(int(resp))
 
     def enable_PM(self, enable=True, channel=1):
@@ -373,11 +400,11 @@ class AFG_3000(FunctionGenerator):
             Whether to enable or disable PM
         """
         val = 'on' if enable else 'off'
-        self._rsrc.write('source{}:pm:state {}'.format(channel, val))
+        self.write('source{}:pm:state {}', channel, val)
 
     def disable_PM(self, channel=1):
         """ Disable phase modulation mode. """
-        self._rsrc.write('source{}:pm:state off'.format(channel))
+        self.write('source{}:pm:state off', channel)
 
     def PM_enabled(self, channel=1):
         """ Returns whether phase modulation is enabled.
@@ -387,7 +414,7 @@ class AFG_3000(FunctionGenerator):
         bool
             Whether PM is enabled.
         """
-        resp = self._rsrc.query('source{}:pm:state?'.format(channel))
+        resp = self.query('source{}:pm:state?', channel)
         return bool(int(resp))
 
     def enable_burst(self, enable=True, channel=1):
@@ -399,11 +426,11 @@ class AFG_3000(FunctionGenerator):
             Whether to enable or disable burst mode.
         """
         val = 'on' if enable else 'off'
-        self._rsrc.write('source{}:burst:state {}'.format(channel, val))
+        self.write('source{}:burst:state {}', channel, val)
 
     def disable_burst(self, channel=1):
         """ Disable burst mode. """
-        self._rsrc.write('source{}:burst:state off'.format(channel))
+        self.write('source{}:burst:state off', channel)
 
     def burst_enabled(self, channel=1):
         """ Returns whether burst mode is enabled.
@@ -413,7 +440,7 @@ class AFG_3000(FunctionGenerator):
         bool
             Whether burst mode is enabled.
         """
-        resp = self._rsrc.query('source{}:burst:state?'.format(channel))
+        resp = self.query('source{}:burst:state?', channel)
         return bool(int(resp))
 
     def set_frequency(self, freq, change_mode=True, channel=1):
@@ -427,13 +454,13 @@ class AFG_3000(FunctionGenerator):
             If True, will set the frequency mode to `fixed`.
         """
         if change_mode:
-            self._rsrc.write('source{}:freq:mode fixed'.format(channel))
+            self.write('source{}:freq:mode fixed', channel)
         val = Q_(freq).to('Hz').magnitude
-        self._rsrc.write('source{}:freq {}Hz'.format(channel, val))
+        self.write('source{}:freq {}Hz', channel, val)
 
     def get_frequency(self, channel=1):
         """ Get the frequency to be used in fixed frequency mode. """
-        resp = self._rsrc.query('source{}:freq?'.format(channel))
+        resp = self.query('source{}:freq?', channel)
         return Q_(resp, 'Hz')
 
     def set_frequency_mode(self, mode, channel=1):
@@ -449,7 +476,7 @@ class AFG_3000(FunctionGenerator):
         """
         if mode.lower() not in ['fixed', 'sweep']:
             raise Exception("Mode must be 'fixed' or 'sweep'")
-        self._rsrc.write('source{}:freq:mode {}'.format(channel, mode))
+        self.write('source{}:freq:mode {}', channel, mode)
 
     def get_frequency_mode(self, channel=1):
         """ Get the frequency mode.
@@ -459,7 +486,7 @@ class AFG_3000(FunctionGenerator):
         'fixed' or 'sweep'
             The frequency mode
         """
-        resp = self._rsrc.query('source{}:freq:mode?'.format(channel))
+        resp = self.query('source{}:freq:mode?', channel)
         return 'sweep' if 'sweep'.startswith(resp.lower()) else 'fixed'
 
     def sweep_enabled(self, channel=1):
@@ -487,7 +514,7 @@ class AFG_3000(FunctionGenerator):
             The start frequency of the sweep in Hz-compatible units
         """
         val = Q_(start).to('Hz').magnitude
-        self._rsrc.write('source{}:freq:start {}Hz'.format(channel, val))
+        self.write('source{}:freq:start {}Hz', channel, val)
 
     def set_sweep_stop(self, stop, channel=1):
         """ Set the sweep stop frequency.
@@ -501,7 +528,7 @@ class AFG_3000(FunctionGenerator):
             The stop frequency of the sweep in Hz-compatible units
         """
         val = Q_(stop).to('Hz').magnitude
-        self._rsrc.write('source{}:freq:stop {}Hz'.format(channel, val))
+        self.write('source{}:freq:stop {}Hz', channel, val)
 
     def set_sweep_span(self, span, channel=1):
         """ Set the sweep frequency span.
@@ -515,7 +542,7 @@ class AFG_3000(FunctionGenerator):
             The frequency span of the sweep in Hz-compatible units
         """
         val = Q_(span).to('Hz').magnitude
-        self._rsrc.write('source{}:freq:span {}Hz'.format(channel, val))
+        self.write('source{}:freq:span {}Hz', channel, val)
 
     def set_sweep_center(self, center, channel=1):
         """ Set the sweep frequency center.
@@ -529,7 +556,7 @@ class AFG_3000(FunctionGenerator):
             The center frequency of the sweep in Hz-compatible units
         """
         val = Q_(center).to('Hz').magnitude
-        self._rsrc.write('source{}:freq:center {}Hz'.format(channel, val))
+        self.write('source{}:freq:center {}Hz', channel, val)
 
     def set_sweep_time(self, time, channel=1):
         """ Set the sweep time.
@@ -546,7 +573,7 @@ class AFG_3000(FunctionGenerator):
         val = Q_(time).to('s').magnitude
         if not (1e-3 <= val <= 200):
             raise Exception("Sweep time must be between 1 ms and 200 s")
-        self._rsrc.write('source{}:sweep:time {}s'.format(channel, val))
+        self.write('source{}:sweep:time {}s', channel, val)
 
     def set_sweep_hold_time(self, time, channel=1):
         """ Set the hold time of the sweep.
@@ -560,7 +587,7 @@ class AFG_3000(FunctionGenerator):
             The hold time in second-compatible units
         """
         val = Q_(time).to('s').magnitude
-        self._rsrc.write('source{}:sweep:htime {}s'.format(channel, val))
+        self.write('source{}:sweep:htime {}s', channel, val)
 
     def set_sweep_return_time(self, time, channel=1):
         """ Set the return time of the sweep.
@@ -575,7 +602,7 @@ class AFG_3000(FunctionGenerator):
             The return time in second-compatible units
         """
         val = Q_(time).to('s').magnitude
-        self._rsrc.write('source{}:sweep:rtime {}s'.format(channel, val))
+        self.write('source{}:sweep:rtime {}s', channel, val)
 
     def set_sweep_spacing(self, spacing, channel=1):
         """ Set whether a sweep is linear or logarithmic.
@@ -587,7 +614,7 @@ class AFG_3000(FunctionGenerator):
         """
         if spacing.lower() not in ['lin', 'linear', 'log', 'logarithmic']:
             raise Exception("Spacing must be 'LINear' or 'LOGarithmic'")
-        self._rsrc.write('source{}:sweep:spacing {}'.format(channel, spacing))
+        self.write('source{}:sweep:spacing {}', channel, spacing)
 
     def set_sweep(self, channel=1, **kwargs):
         """ Set selected sweep parameters.
@@ -646,9 +673,20 @@ class AFG_3000(FunctionGenerator):
         val = Q_(depth).magnitude
         if not (0.0 <= val <= 120.0):
             raise Exception("Depth must be between 0.0 and 120.0")
-        self._rsrc.write('source{}:am:depth {:.1f}pct'.format(channel, val))
+        self.write('source{}:am:depth {:.1f}pct', channel, val)
 
-    def set_arb_func(self, data, interp=None, num_pts=10000):
+    def set_arb_from_func(self, func, domain, num_pts=10000, copy_to=None):
+        """Write arbitrary waveform sampled from a function"""
+        start, end = domain
+        ts = np.linspace(start, end, num_pts)
+        y = np.fromiter((func(t) for t in ts), dtype=float, count=num_pts)
+        self._write_normalized_func(y)
+        if copy_to is not None:
+            if copy_to not in (1,2,3,4):
+                raise ValueError('destination must be an int 1-4')
+            self.write('data:copy user{},ememory', copy_to)
+
+    def set_arb_func(self, data, interp=None, num_pts=10000, copy_to=None):
         """ Write arbitrary waveform data to EditMemory.
 
         Parameters
@@ -666,6 +704,10 @@ class AFG_3000(FunctionGenerator):
             Number of points to use in interpolation. Default is 10000. Must
             be greater than or equal to the number of points in `data`, and at
             most 131072.
+        copy_to : int (1-4)
+            User memory slot into which the function is saved. The data is first transferred into
+            edit memory, then copied to the destination. If None (the default), does not copy into
+            user memory.
         """
         data = np.asanyarray(data)
         if data.ndim != 1:
@@ -684,16 +726,25 @@ class AFG_3000(FunctionGenerator):
             func = interp1d(x, data, kind=interp)
             data = func(np.linspace(0, num_pts-1, num_pts))
 
+        self._write_normalized_func(data)
+
+        if copy_to is not None:
+            if copy_to not in (1,2,3,4):
+                raise ValueError('destination must be an int 1-4')
+            self.write('data:copy user{},ememory', copy_to)
+
+    def _write_normalized_func(self, data):
         # Normalize data to between 0 and 16,382
         min = data.min()
         max = data.max()
         data = (data-min)*(16382/(max-min))
         data = data.astype('>u2')  # Convert to big-endian 16-bit unsigned int
 
-        bytes = data.tostring()
-        num = len(bytes)
-        bytes = b"#{}{}".format(len(str(num)), num) + bytes
-        self._rsrc.write_raw(b'data ememory,' + bytes)
+        bytestr = data.tostring()
+        num = len(bytestr)
+        bytestr = "#{}{}".format(len(str(num)), num).encode() + bytestr
+        self._rsrc._flush_message_queue()  # before write_raw
+        self._rsrc.write_raw(b'data ememory,' + bytestr)
 
     def get_ememory(self):
         """ Get array of data from edit memory.
@@ -703,11 +754,16 @@ class AFG_3000(FunctionGenerator):
         numpy.array
             Data retrieved from the AFG's edit memory.
         """
-        self._rsrc.write('data? ememory')
+        self.write('data? ememory')
+        self._rsrc._flush_message_queue()  # before read_raw
         resp = self._rsrc.read_raw()
-        if resp[0] != b'#':
+        if resp[0:1] != b'#':  # Slice for py2/3 compat
             raise Exception("Binary reponse missing header! Something's wrong.")
-        header_width = int(resp[1]) + 2
+        header_width = int(resp[1:2]) + 2
         num_bytes = int(resp[2:header_width])
         data = np.frombuffer(resp, dtype='>u2', offset=header_width, count=int(num_bytes/2))
         return data
+
+    def trigger(self):
+        """Manually force a trigger event"""
+        self.write('trig')

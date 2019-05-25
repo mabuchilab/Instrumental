@@ -46,6 +46,8 @@ lab equipment.
 To download Instrumental or browse its source, see our `GitHub page
 <https://github.com/mabuchilab/Instrumental>`_.
 
+You can cite Instrumental through Zenodo (DOI: 10.5281/zenodo.2556399).
+
 .. NOTE::
     Instrumental is currently still under heavy development, so its interfaces
     are subject to change. Contributions are greatly appreciated, see :doc:`driver-dev` and :doc:`developer` for more info.
