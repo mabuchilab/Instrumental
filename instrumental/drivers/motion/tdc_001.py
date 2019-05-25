@@ -8,6 +8,8 @@ in the path.
 """
 from enum import Enum
 from time import sleep
+from warnings import warn
+import traceback
 from numpy import zeros
 import os.path
 from nicelib import NiceLib, Sig, NiceObject, RetHandler, ret_return
@@ -88,8 +90,15 @@ class TDC001(Motion):
 
         self._open()
         self._start_polling(polling_period)
-        self._NiceTDC.LoadSettings()
-        self._set_real_world_units()
+
+        try:
+            self._NiceTDC.LoadSettings()
+            self._set_real_world_units()
+        except Error as e:
+            warn_string = "TDC001 with SN {} did not initialize successfully."
+            warn_string += "  The motion control device connected to the controller "
+            warn_string += "may not support auto-loading of parameters. \n\n"
+            warn(warn_string.format(self.serial_number) + traceback.format_exc())
 
         if allow_all_moves:
             self._set_software_approach_policy(self.SoftwareApproachPolicy.AllowAll)
