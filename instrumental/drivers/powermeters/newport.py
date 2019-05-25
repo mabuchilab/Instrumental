@@ -16,10 +16,12 @@ One can then connect and measure the power using the following sequence::
     <Quantity(3.003776, 'W')>
 
 """
+import time
+
 from . import PowerMeter
 from .. import Facet, MessageFacet, VisaMixin, deprecated
 from ..util import visa_timeout_context
-from ... import Q_
+from ... import Q_, u
 
 _INST_PRIORITY = 8  # IDN isn't supported
 _INST_PARAMS = ['visa_address']
@@ -184,6 +186,55 @@ class Newport_1830_C(PowerMeter, VisaMixin):
         """
         val = self._rsrc.write('A?')
         return bool(val)
+
+    def get_valid_power(self, max_attempts=10, polling_interval=0.1*u.s)):
+        """Returns a valid power reading
+
+        This convience function will try to measure a valid power up to a
+        maximum of `max_attempts` times, pausing for time
+        `polling_interval` between each attempt.
+        If a power reading is taken when the power meter is over-range,
+        saturated, or busy, the reading will be invalid.
+        In practice, this function also seems to mitigate
+        the fact that about 1 in 500 power readings mysteriously fails.
+
+        Parameters
+        ----------
+        max_attempts : integer
+            maximum number of attempts to measure a valid power
+
+        polling_interval : Quantity
+            time to wait between measurement attemps, in units of time
+
+        Returns
+        -------
+        power : Quantity
+            Power in units of watts, regardless of the power meter's current
+            'units' setting.
+        """
+        self.enable_auto_range()
+        i_attempts = 0
+        is_valid = False
+
+        while not is_valid:
+            self.disable_hold()
+            time.sleep(polling_interval.to('s').m)
+            self.enable_hold()
+            i_attempts += 1
+
+            try:
+                is_valid = self.is_measurement_valid()
+                if is_valid:
+                    power = self.power
+                    self.disable_hold()
+                    return power
+            except:
+                is_valid = False
+                if i_attempts > max_attempts:
+                    self.disable_hold()
+                    err_string = "No valid power readings were taken over the maximum allowed number of attempts `max_attempts`."
+                    err_string += "  The power meter is likely saturated."
+                    raise Exception(err_string)
 
     def set_slow_filter(self):
         """Set the averaging filter to slow mode
