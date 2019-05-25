@@ -57,9 +57,9 @@ class ThorlabsCCSError(Error):
 def ccs_errcheck(error_code, niceobj):
     if error_code != 0:
         if niceobj is None:
-            raise ThorlabsCCSError(NiceCCSLib.error_message(0, error_code)[0])
+            raise ThorlabsCCSError(NiceCCSLib.error_message(0, error_code))
         else:
-            raise ThorlabsCCSError(niceobj.error_message(error_code)[0])
+            raise ThorlabsCCSError(niceobj.error_message(error_code))
 
 
 class NiceCCSLib(NiceLib):
