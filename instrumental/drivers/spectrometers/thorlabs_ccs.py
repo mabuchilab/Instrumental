@@ -7,6 +7,7 @@ from future.utils import PY2
 
 import time
 from enum import Enum
+from warnings import warn
 
 import numpy as np
 from visa import ResourceManager
@@ -28,6 +29,7 @@ DATA_READY = 16
 WAITING_FOR_TRIG = 128
 NUM_RAW_PIXELS = 3648
 BYTES_PER_DOUBLE = 8
+MAX_ATTEMPTS = 10  # maximum number of attempts to take a spectrum
 
 ffi = FFI()
 
@@ -234,7 +236,7 @@ class CCS(Spectrometer):
     def stop_scan(self):
         # This is hacky but they do not provide a good function to stop a scan.
         integration_time = self.get_integration_time()
-        self.set_integration_time('1ms', False)
+        self.set_integration_time('2ms', False)
         self.start_single_scan()
         time.sleep(0.001)
         self.set_integration_time(integration_time, False)
@@ -310,13 +312,31 @@ class CCS(Spectrometer):
         """ Resets the device."""
         self._NiceCCS.reset()
 
-    def stop_and_clear(self):
-        """ Stops any scans in progress, and clears any data waiting to transmit."""
-        self.stop_scan()
-        while self.is_data_ready():
-            self.get_scan_data()
+    def stop_and_clear(self, max_attempts=MAX_ATTEMPTS):
+        """ Stops any scans in progress, and clears any data waiting to transmit.
+        Parameters
+        ----------
+        max_attempts : int, Default=MAX_ATTEMPTS=10
+            Maximum number of attempts to attempt to clear the spectrometer"""
+        attempt = 0
+        success = False
+        while not success:
+            attempt += 1
+            try:
+                self.stop_scan()
+                while self.is_data_ready():
+                    self.get_scan_data()
+                success = True
+            except:
+                warn(Warning("Data was not successfully acquired: Retrying now"))
+            if attempt > max_attempts:
+                self.stop_scan()
+                while self.is_data_ready():
+                    self.get_scan_data()
+                success = True
 
-    def take_data(self, integration_time=None, num_avg=1, use_background=False):
+    def take_data(self, integration_time=None, num_avg=1, use_background=False,
+                  max_attempts=MAX_ATTEMPTS):
         """Returns scan data.
 
         The data can be averaged over a number of trials 'num_Avg' if desired.
@@ -332,6 +352,8 @@ class CCS(Spectrometer):
         use_background : bool, Default=False
             If true, the spectrometer subtracts the current background spectra
             (stored in self._background) from the data.
+        max_attempts : int, Default=MAX_ATTEMPTS=10
+            Maximum number of attempts to attempt to clear the spectrometer
 
         Returns
         -------
@@ -340,7 +362,7 @@ class CCS(Spectrometer):
         wavelength_data : numpy array of float of size (self.numpixel, 1)
             The wavelength (in nm) corresponding to each pixel.
         """
-        self.stop_and_clear()
+        self.stop_and_clear(max_attempts)
         if integration_time is not None:
             self.set_integration_time(integration_time)
         else:
@@ -362,7 +384,7 @@ class CCS(Spectrometer):
             if sum(temp >= (1.0 - 1e-5)):
                 raise Warning('Raw data is saturated')
 
-        self.stop_and_clear()
+        self.stop_and_clear(max_attempts)
         data = data/num_avg
         if use_background:
             data = data-self._background
