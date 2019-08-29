@@ -941,7 +941,7 @@ class UC480_Camera(Camera):
         else:
             raise Error("Unrecognized trigger mode {}".format(mode))
 
-        ret = lib.is_SetExternalTrigger(self._hcam, new_mode)
+        ret = lib.is_SetExternalTrigger(self._id, new_mode)
         if ret != lib.SUCCESS:
             raise Error("Failed to set external trigger. Return code 0x{:x}".format(ret))
         else:
