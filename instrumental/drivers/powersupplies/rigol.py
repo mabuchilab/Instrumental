@@ -10,8 +10,8 @@ from visa import ResourceManager
 import pyvisa
 import re
 
-_INST_PARAMS_ = ['visa_address']
-_INST_VISA_INFO_ = {
+_INST_PARAMS = ['visa_address']
+_INST_VISA_INFO = {
     'DP700': ('RIGOL TECHNOLOGIES', ['DP711', 'DP712']),
 }
 
@@ -53,6 +53,8 @@ class DP700(RigolPowerSupply, VisaMixin):
     current_protection_state = SCPI_Facet('SOURce:CURRent:PROTection:STATe', convert=OnOffState)
     output = SCPI_Facet('OUTPut:STATe', convert=OnOffState)
     beeper = SCPI_Facet('SYSTem:BEEPer', convert=OnOffState)
+    measured_voltage = SCPI_Facet('MEASure:VOLTage', convert=float, readonly=True, units='A')
+    measured_current = SCPI_Facet('MEASure:CURRent', convert=float, readonly=True, units='A')
 
     @property
     def manufacturer(self):
@@ -73,12 +75,6 @@ class DP700(RigolPowerSupply, VisaMixin):
     def version(self):
         _, _, _, version = self.query('*IDN?').rstrip().split(',', 4)
         return version
-
-    def get_measured_voltage(self):
-        return Q_(self.query(':MEASure:VOLTage?'), ureg.volt)
-
-    def get_measured_current(self):
-        return Q_(self.query(':MEASure:CURRent?'), ureg.ampere)
 
     @current_protection_state.setter
     def current_protection_state(self, val):

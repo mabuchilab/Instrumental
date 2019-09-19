@@ -7,7 +7,7 @@ Driver module for Rigol oscilloscopes. Currently supports
 import visa
 from pyvisa.constants import InterfaceType
 import numpy as np
-from pint import UndefinedUnitError
+from pint import UndefinedUnitError, UnitRegistry
 from . import Scope
 from .. import VisaMixin, SCPI_Facet, Facet
 from ..util import visa_context
@@ -20,8 +20,8 @@ import time
 import numpy as np
 from struct import unpack
 
-_INST_PARAMS_ = ['visa_address']
-_INST_VISA_INFO_ = {
+_INST_PARAMS = ['visa_address']
+_INST_VISA_INFO = {
     'DS1000Z': ('RIGOL TECHNOLOGIES', ['DS1054Z']),
 }
 
@@ -62,6 +62,9 @@ class RigolScope(Scope, VisaMixin):
     A base class for Rigol Technologies Scopes
     """
 
+    probe1 = SCPI_Facet(':CHANnel1:PROBe', convert=float)
+    scale1 = SCPI_Facet(':CHANnel1:SCALe', convert=float)
+    timebase_main_scale = SCPI_Facet(':TIMebase:MAIN:SCALe', convert=float)
     yinc = SCPI_Facet(':WAVeform:YINCrement', convert=float)
     yref = SCPI_Facet(':WAVeform:YREFerence', convert=float)
     yorig = SCPI_Facet(':WAVeform:YORigin', convert=float)
@@ -103,6 +106,18 @@ class RigolScope(Scope, VisaMixin):
         self.write('SYSTem:BEEPer %s' % OnOffState(val).name)
 
     @property
+    def display_data(self):
+        return self._rsrc.query_binary_values(':DISPlay:DATA? ON,OFF,PNG', datatype='B', container=bytes)
+
+    @property
+    def ppulses_min(self):
+        return self.query(':MEASure:STATistic:ITEM? MINimum,PPULses')
+
+    @property
+    def ppulses_max(self):
+        return self.query(':MEASure:STATistic:ITEM? MAXimum,PPULses')
+
+    @property
     def vmax_averages(self):
         return self.query(':MEASure:STATistic:ITEM? AVERages,VMAX')
 
@@ -117,6 +132,9 @@ class RigolScope(Scope, VisaMixin):
     @property
     def vmin(self):
         return self.query(':MEASure:ITEM? VMIN')
+
+    def autoscale(self):
+        self.write(':AUToscale')
 
     def get_data(self):
         self.write(':WAV:SOUR CHAN1')
