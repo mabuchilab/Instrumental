@@ -76,6 +76,9 @@ class DP700(RigolPowerSupply, VisaMixin):
         _, _, _, version = self.query('*IDN?').rstrip().split(',', 4)
         return version
 
+    def reset(self):
+        self.write('*RST')
+
     @current_protection_state.setter
     def current_protection_state(self, val):
         val = int(bool(val))

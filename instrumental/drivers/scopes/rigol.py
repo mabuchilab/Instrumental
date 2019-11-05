@@ -95,6 +95,9 @@ class RigolScope(Scope, VisaMixin):
         _, _, _, version = self.query('*IDN?').rstrip().split(',', 4)
         return version
 
+    def reset(self):
+        self.write('*RST')
+
     @property
     def beeper(self):
         val = self.query('SYSTem:BEEPer?')
