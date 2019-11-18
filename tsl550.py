@@ -8,36 +8,23 @@ other things make the usb connection appear as a serial port, must be
 installed.
 """
 from __future__ import division
-from . import Laser
 import sys
 import time
 import struct
+import visa
 
-import serial
-# from ..util import visa_timeout_context
+# import serial
 
-# _INST_PRIORITY = 6
-# _INST_PARAMS = ['visa_address']
+from instrumental.drivers.lasers import Laser
+from instrumental.drivers import VisaMixin
+from instrumental import Q_
 
-# TRUE = '#t'
-# FALSE = '#f'
-# bool_dict = {'#t': True, '#f': False}
-
-
-# def _check_visa_support(visa_inst):
-#     with visa_timeout_context(visa_inst, 50):
-#         try:
-#             visa_inst.query('(param-ref system-type)')
-#             return 'FemtoFiber'
-#         except:
-#             pass
-#     return None
-
-class TSL550(Laser):
+class TSL550(Laser, VisaMixin):
     """ A Santec TSL-550 laser.
 
     Lasers can only be accessed by their serial port address.
     """
+    _INST_PARAMS_ = ['visa_address']
 
     # continuous, two-way, external trigger, constant frequency interval
     SWEEP_MODE_MAP = {
@@ -66,27 +53,29 @@ class TSL550(Laser):
     MINIMUM_WAVELENGTH = 1500
     MAXIMUM_WAVELENGTH = 1630
 
-    def _initialize(self, address="COM4", baudrate=9600, terminator="\r"):
+    def _initialize(self):
         """
         Connect to the TSL550. Address is the serial port, baudrate
-        can be set on the device, terminator is the string the marks
-        the end of the command.
+        can be set on the device.
 
         Address will change based on specific connection settings.
         """
+        # TODO: Maybe; if the termination isn't working for Py3, try encoding it.
+        # if sys.version_info.major >= 3: # Python 3 compatibility: convert to bytes
+        #     terminator = terminator.encode("ASCII")
+        # self.terminator = terminator
 
-        self.device = serial.Serial(address, baudrate=baudrate, timeout=0)
-        self.device.flushInput()
-        self.device.flushOutput()
-
-        if sys.version_info.major >= 3: # Python 3 compatibility: convert to bytes
-            terminator = terminator.encode("ASCII")
-        self.terminator = terminator
+        self.resource.write_termination = '\r'
+        self.resource.read_termination = '\r'
+        self.resource.baud_rate = 9600
+        self.resource.timeout = 100
+        self.resource.query_delay = 0.05
+        self.resource.flush(visa.constants.VI_READ_BUF_DISCARD)
+        self.resource.flush(visa.constants.VI_WRITE_BUF_DISCARD)
 
         # Make sure the shutter is on
-        #self.is_on = True
-        print(self.write("SU"))
-        shutter = self.closeShutter()
+        print(self.query("SU"))
+        shutter = self.close_shutter()
 
         # Set power management to auto
         self.power_control = "auto"
@@ -95,31 +84,37 @@ class TSL550(Laser):
         # Set sweep mode to continuous, two-way, trigger off
         self.sweep_set_mode()
 
-    def write(self, command):
-        """
-        Write a command to the TSL550. Returns the response (if any).
-        """
+    def ident(self):
+        return self.query('*IDN?')
 
-        # Convert to bytes (Python 3 compatibility)
-        if sys.version_info.major >= 3:
-            command = command.encode("ASCII")
+    # def write(self, command):
+    #     """
+    #     Write a command to the TSL550. Returns the response (if any).
+    #     """
 
-        # Write the command
-        self.device.write(command + self.terminator)
-        time.sleep(0.05)
+    #     # Convert to bytes (Python 3 compatibility)
+    #     if sys.version_info.major >= 3:
+    #         command = command.encode("ASCII")
 
-        # Read response
-        response     = ""
-        in_byte     = self.device.read()
+    #     print(command)
 
-        while in_byte != self.terminator:
-            if sys.version_info.major >= 3:
-                response += in_byte.decode("ASCII")
-            else:
-                response += in_byte
-            in_byte = self.device.read()
+    #     # # Write the command
+    #     # self.device.write(command + self.terminator)
+    #     self.query(command)
+    #     # time.sleep(0.05)
 
-        return response
+    #     # # Read response
+    #     # response     = ""
+    #     # in_byte     = self.device.read()
+
+    #     # while in_byte != self.terminator:
+    #     #     if sys.version_info.major >= 3:
+    #     #         response += in_byte.decode("ASCII")
+    #     #     else:
+    #     #         response += in_byte
+    #     #     in_byte = self.device.read()
+
+    #     # return response
 
     def _set_var(self, name, precision, val):
         """
@@ -132,20 +127,24 @@ class TSL550(Laser):
         else:
             command = name
 
-        response = self.write(command)
-        return float(response)
+        # # Convert to bytes (Python 3 compatibility)
+        # if sys.version_info.major >= 3:
+        #     command = command.encode("ASCII")
+
+        response = self.query(command)
+        return response
 
     def on(self):
         """Turn on the laser diode"""
 
         self.is_on = True
-        self.write("LO")
+        self.query("LO")
 
     def off(self):
         """Turn off the laser diode"""
 
         self.is_on = False
-        self.write("LF")
+        self.query("LF")
 
     def wavelength(self, val=None):
         """
@@ -183,13 +182,13 @@ class TSL550(Laser):
         """Turn on automatic power control."""
 
         self.power_control = "auto"
-        self.write("AF")
+        self.query("AF")
 
     def power_manual(self):
         """Turn on manual power control."""
 
         self.power_control = "manual"
-        self.write("AO")
+        self.query("AO")
 
     def sweep_wavelength(self, start, stop, duration, number=1,
                          delay=0, continuous=True, step_size=1,
@@ -335,22 +334,22 @@ class TSL550(Laser):
         operation mode with sweep_set_mode.
         """
 
-        self.write("SZ{:d}".format(num)) # Set number of sweeps
-        self.write("SG") # Start sweeping
+        self.query("SZ{:d}".format(num)) # Set number of sweeps
+        self.query("SG") # Start sweeping
 
     def sweep_pause(self):
         """
         Pause the sweep. Use sweep_resume to resume.
         """
 
-        self.write("SP")
+        self.query("SP")
 
     def sweep_resume(self):
         """
         Resume a paused sweep.
         """
 
-        self.write("SR")
+        self.query("SR")
 
     def sweep_stop(self, immediate=True):
         """
@@ -363,7 +362,7 @@ class TSL550(Laser):
         if immediate:
             self.sweep_pause()
 
-        self.write("SQ")
+        self.query("SQ")
 
     def sweep_status(self):
         """
@@ -379,7 +378,7 @@ class TSL550(Laser):
         one sweep and the start of the next in one-way sweep mode.
         """
 
-        return int(self.write("SK"))
+        return int(self.query("SK"))
 
     def sweep_set_mode(self, continuous=True, twoway=True, trigger=False, const_freq_step=False):
         r"""
@@ -401,7 +400,7 @@ class TSL550(Laser):
         except KeyError:
             raise AttributeError("Invalid sweep configuration.")
 
-        self.write("SM{}".format(mode))
+        self.query("SM{}".format(mode))
 
     def sweep_get_mode(self):
         """
@@ -409,7 +408,7 @@ class TSL550(Laser):
         sweep_set_mode for what the parameters mean.
         """
 
-        mode_num = int(self.write("SM"))
+        mode_num = int(self.query("SM"))
         mode_settings = TSL550.SWEEP_MODE_MAP_REV[mode_num]
 
         return {
@@ -473,28 +472,28 @@ class TSL550(Laser):
     def sweep_end_frequency(self, val=None):
         return self._set_var("FF", 5, val)
 
-    def openShutter(self):
+    def open_shutter(self):
         """Opens the laser's shutter."""
-        return self.write("SO")
+        return self.query("SO")
 
-    def closeShutter(self):
+    def close_shutter(self):
         """Opens the laser's shutter."""
-        return self.write("SC")
+        return self.query("SC")
 
     def trigger_enable_output(self):
         """
         Enables the output trigger signal.
         """
-        self.write("TRE")
+        self.query("TRE")
 
     def trigger_disable_output(self):
         """
         Disables the output trigger signal.
         """
-        self.write("TRD")
+        self.query("TRD")
 
     def trigger_get_mode(self):
-        current_state = self.write("TM")
+        current_state = self.query("TM")
         if current_state == 1:
             return "Stop"
         elif current_state == 2:
@@ -514,7 +513,7 @@ class TSL550(Laser):
             mode = 3
         else:
             raise ValueError("Invalide output trigger mode supplied. Choose from None, Stop, Start, and Step.")
-        current_state = int(self.write("TM{}".format(mode)))
+        current_state = int(self.query("TM{}".format(mode)))
         if current_state == 1:
             return "Stop"
         elif current_state == 2:
@@ -531,7 +530,7 @@ class TSL550(Laser):
         Returns the number of wavelength points stored in the wavelength
         logging feature.
         """
-        return self.write("TN")
+        return self.query("TN")
 
     def wavelength_logging(self):
         """
@@ -540,7 +539,7 @@ class TSL550(Laser):
         are met (see manual page 6-5).
         """
         # stop laser from outputting
-        self.write("SU")
+        self.query("SU")
 
         # First, get the number of wavelength points
         num_points = self.wavelength_logging_number()
@@ -569,16 +568,39 @@ class TSL550(Laser):
             wavelength_points.append(current_wavelength)
 
         # stop laser from outputting
-        self.write("SU")
+        self.query("SU")
         return wavelength_points
 
     def print_status(self):
         """
         Query the status of the laser and print its results.
         """
-        status = self.write("SU")
+        status = self.query("SU")
 
         # Check if LD is on
         self.is_on = True if int(status) < 0 else False
 
-        return status
+        return status 
+
+# from ..util import visa_timeout_context
+
+# _INST_PRIORITY = 6
+# _INST_PARAMS = ['visa_address']
+
+# TRUE = '#t'
+# FALSE = '#f'
+# bool_dict = {'#t': True, '#f': False}
+
+
+# def _check_visa_support(visa_inst):
+#     with visa_timeout_context(visa_inst, 50):
+#         try:
+#             visa_inst.query('(param-ref system-type)')
+#             return 'FemtoFiber'
+#         except:
+#             pass
+#     return None
+
+
+
+
