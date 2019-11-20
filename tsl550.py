@@ -84,37 +84,11 @@ class TSL550(Laser, VisaMixin):
         # Set sweep mode to continuous, two-way, trigger off
         self.sweep_set_mode()
 
+    def close(self):
+        pass
+
     def ident(self):
         return self.query('*IDN?')
-
-    # def write(self, command):
-    #     """
-    #     Write a command to the TSL550. Returns the response (if any).
-    #     """
-
-    #     # Convert to bytes (Python 3 compatibility)
-    #     if sys.version_info.major >= 3:
-    #         command = command.encode("ASCII")
-
-    #     print(command)
-
-    #     # # Write the command
-    #     # self.device.write(command + self.terminator)
-    #     self.query(command)
-    #     # time.sleep(0.05)
-
-    #     # # Read response
-    #     # response     = ""
-    #     # in_byte     = self.device.read()
-
-    #     # while in_byte != self.terminator:
-    #     #     if sys.version_info.major >= 3:
-    #     #         response += in_byte.decode("ASCII")
-    #     #     else:
-    #     #         response += in_byte
-    #     #     in_byte = self.device.read()
-
-    #     # return response
 
     def _set_var(self, name, precision, val):
         """
@@ -152,7 +126,7 @@ class TSL550(Laser, VisaMixin):
         specified, return the current one. Units: nm.
         """
 
-        return self._set_var("WA", 4, val)
+        return Q_(self._set_var("WA", 4, val), 'nm')
 
     def frequency(self, val=None):
         """
@@ -160,7 +134,7 @@ class TSL550(Laser, VisaMixin):
         specified, return the current one. Units: THz.
         """
 
-        return self._set_var("FQ", 5, val)
+        return Q_(self._set_var("FQ", 5, val), 'THz')
 
     def power_mW(self, val=None):
         """
@@ -168,7 +142,7 @@ class TSL550(Laser, VisaMixin):
         specified, return the current one.
         """
 
-        return self._set_var("LP", 2, val)
+        return Q_(self._set_var("LP", 2, val), 'mW')
 
     def power_dBm(self, val=None):
         """
@@ -424,7 +398,7 @@ class TSL550(Laser, VisaMixin):
         is not provided, the current one will be returned.
         """
 
-        return self._set_var("SN", 1, val)
+        return Q_(self._set_var("SN", 1, val), 'nm / s')
 
     def sweep_step_wavelength(self, val=None):
         """
@@ -433,7 +407,7 @@ class TSL550(Laser, VisaMixin):
         Units: nm
         """
 
-        return self._set_var("WW", 4, val)
+        return Q_(self._set_var("WW", 4, val), 'nm')
 
     def sweep_step_frequency(self, val=None):
         """
@@ -442,15 +416,15 @@ class TSL550(Laser, VisaMixin):
         provided, the current one will be returned. Units: THz
         """
 
-        return self._set_var("WF", 5, val)
+        return Q_(self._set_var("WF", 5, val), 'THz')
 
     def sweep_step_time(self, val=None):
         """
         Set the duration of each step in the stepwise sweep. If a new
-        value is not provided, the current one will be returned.
+        value is not provided, the current one will be returned. Units: s
         """
 
-        return self._set_var("SB", 1, val)
+        return Q_(self._set_var("SB", 1, val), 's')
 
     def sweep_delay(self, val=None):
         """
@@ -458,19 +432,83 @@ class TSL550(Laser, VisaMixin):
         a new value is not provided, the current one will be returned. Units: s
         """
 
-        return self._set_var("SA", 1, val)
+        return Q_(self._set_var("SA", 1, val), 's')
 
     def sweep_start_wavelength(self, val=None):
-        return self._set_var("SS", 4, val)
+        """
+        Sets the start wavelength of a sweep.
+
+        Sets the starting wavelength for subsequent sweeps. If no value
+        is specified, the current starting wavelength setting is returned.
+
+        Parameters
+        ----------
+        val : float, optional
+            The starting value of the wavelength sweep in nanometers.
+
+        Returns
+        -------
+        wavelength
+            A `Quantity` object containing the current setting and its units (nm).
+        """
+        return Q_(self._set_var("SS", 4, val), 'nm')
 
     def sweep_start_frequency(self, val=None):
-        return self._set_var("FS", 5, val)
+        """
+        Sets the start frequency of a sweep.
+
+        Sets the starting frequency for subsequent sweeps. If no value
+        is specified, the current starting frequency setting is returned.
+
+        Parameters
+        ----------
+        val : float, optional
+            The starting value of the frequency sweep in terahertz.
+
+        Returns
+        -------
+        frequency
+            A `Quantity` object containing the current setting and its units (THz).
+        """
+        return Q_(self._set_var("FS", 5, val), 'THz')
 
     def sweep_end_wavelength(self, val=None):
-        return self._set_var("SE", 4, val)
+        """
+        Sets the end wavelength of a sweep.
+
+        Sets the ending wavelength for subsequent sweeps. If no value
+        is specified, the current ending wavelength setting is returned.
+
+        Parameters
+        ----------
+        val : float, optional
+            The ending value of the wavelength sweep in nanometers.
+
+        Returns
+        -------
+        wavelength
+            A `Quantity` object containing the current setting and its units (nm).
+        """
+        return Q_(self._set_var("SE", 4, val), 'nm')
 
     def sweep_end_frequency(self, val=None):
-        return self._set_var("FF", 5, val)
+        """
+        Sets the end frequency of a sweep.
+
+        Sets the ending frequency for subsequent sweeps. If no value
+        is specified, the current ending frequency setting is returned.
+
+        Parameters
+        ----------
+        val : float, optional
+            The ending value of the frequency sweep in THz.
+
+        Returns
+        -------
+        frequency
+            A `Quantity` object containing the current setting and its units (THz).
+        """
+        return Q_(self._set_var("FF", 5, val), 'THz')
 
     def open_shutter(self):
         """Opens the laser's shutter."""
@@ -581,26 +619,3 @@ class TSL550(Laser, VisaMixin):
         self.is_on = True if int(status) < 0 else False
 
         return status 
-
-# from ..util import visa_timeout_context
-
-# _INST_PRIORITY = 6
-# _INST_PARAMS = ['visa_address']
-
-# TRUE = '#t'
-# FALSE = '#f'
-# bool_dict = {'#t': True, '#f': False}
-
-
-# def _check_visa_support(visa_inst):
-#     with visa_timeout_context(visa_inst, 50):
-#         try:
-#             visa_inst.query('(param-ref system-type)')
-#             return 'FemtoFiber'
-#         except:
-#             pass
-#     return None
-
-
-
-
