@@ -1,30 +1,59 @@
 # -*- coding: utf-8  -*-
-# Copyright 2018-2019 Sequoia Ploeg and Alec Hammond
 """
-Driver for the Santec TSL-550 laser.
+Driver for the Santec TSL-550 Tunable Laser.
+Copyright 2018-2019 Sequoia Ploeg and Alec Hammond
 
 The Santec TSL-550 drivers, which among
 other things make the usb connection appear as a serial port, must be
 installed.
+
+
+Warning
+-------
+An unidentifiable bug results in the return value of many functions being the setting of the laser
+BEFORE the update instead of the commanded setting. To verify some value has been set to 
+the commanded value, call its respective a second time without any arguments.
 """
 from __future__ import division
 import sys
 import time
 import struct
-import visa
-
-# import serial
+import pyvisa as visa
 
 from instrumental.drivers.lasers import Laser
-from instrumental.drivers import VisaMixin
+from instrumental.drivers import VisaMixin, ParamSet
 from instrumental import Q_
+
+_INST_PARAMS_ = ['visa_address']
+_INST_VISA_INFO_ = {
+    'TSL550': ('SANTEC', ['TSL-550']),
+}
+
+def list_instruments():
+    """Get a list of all Santec TSL-550 lasers currently attached."""
+    paramsets = []
+    search_string = "ASRL?*"
+    rm = visa.ResourceManager()
+    raw_spec_list = rm.list_resources(search_string)
+
+    for spec in raw_spec_list:
+        try:
+            inst = rm.open_resource(spec, read_termination='\r', write_termination='\r')
+            idn = inst.query("*IDN?")
+            manufacturer, model, serial, version = idn.rstrip().split(',', 4)
+            if 'TSL-550' in model:
+                paramsets.append(ParamSet(TSL550, visa_address=spec, manufacturer=manufacturer, serial=serial, model=model, version=version))
+        except visa.errors.VisaIOError as vio:
+            # Ignore unknown serial devices
+            pass
+
+    return paramsets
 
 class TSL550(Laser, VisaMixin):
     """ A Santec TSL-550 laser.
 
     Lasers can only be accessed by their serial port address.
     """
-    _INST_PARAMS_ = ['visa_address']
 
     # continuous, two-way, external trigger, constant frequency interval
     SWEEP_MODE_MAP = {
@@ -74,7 +103,7 @@ class TSL550(Laser, VisaMixin):
         self.resource.flush(visa.constants.VI_WRITE_BUF_DISCARD)
 
         # Make sure the shutter is on
-        print(self.query("SU"))
+        self.query("SU")
         shutter = self.close_shutter()
 
         # Set power management to auto
@@ -86,9 +115,6 @@ class TSL550(Laser, VisaMixin):
 
     def close(self):
         pass
-
-    def ident(self):
-        return self.query('*IDN?')
 
     def _set_var(self, name, precision, val):
         """
@@ -108,58 +134,159 @@ class TSL550(Laser, VisaMixin):
         response = self.query(command)
         return response
 
+    def ident(self):
+        """
+        Query the device to identify itself.
+
+        Returns
+        -------
+        str
+            SANTEC,TSL-550,########,****.****
+            # field = serial number of the device
+            * field = firmware version
+
+        >>> laser.ident()
+        'SANTEC,TSL-550,06020001,0001.0000'
+        """
+
+        return self.query('*IDN?')
+
     def on(self):
-        """Turn on the laser diode"""
+        """
+        Turns on the laser diode.
+        """
 
         self.is_on = True
         self.query("LO")
 
     def off(self):
-        """Turn off the laser diode"""
+        """
+        Turns off the laser diode.
+        """
 
         self.is_on = False
         self.query("LF")
 
     def wavelength(self, val=None):
         """
-        Tune the laser to a new wavelength. If a value is not
-        specified, return the current one. Units: nm.
+        Sets the output wavelength. If a value is not specified, returns the currently set wavelength.
+
+        Parameters
+        ----------
+        val : float, optional
+            The wavelength the laser will be set to in nanometers.
+            Step: 0.0001 (nm)
+
+        Returns
+        -------
+        Quantity
+            The currently set wavelength in nanometers, and its units.
+
+        You can get the current wavelength by calling without arguments.
+
+        >>> laser.wavelength()
+        <Quantity(1630.0, 'nanometer')>
+
+        The following sets the output wavelength to 1560.123 nanometers.
+
+        >>> laser.wavelength(1560.123)
+        <Quantity(1630.0, 'nanometer')> # Bug returns the last set wavelength
         """
 
-        return Q_(self._set_var("WA", 4, val), 'nm')
+        return Q_(float(self._set_var("WA", 4, val)), 'nm')
 
     def frequency(self, val=None):
         """
-        Tune the laser to a new wavelength. If a value is not
-        specified, return the current one. Units: THz.
+        Tune the laser to a new frequency. If a value is not
+        specified, returns the currently set frequency.
+
+        Parameters
+        ----------
+        val : float, optional
+            The frequency to set the laser to in terahertz.
+            Step: 0.00001 (THz)
+
+        Returns
+        -------
+        Quantity
+            The currently set frequency in terahertz, and its units.
+
+        >>> laser.frequency()
+        <Quantity(183.92175, 'terahertz')>
+        >>> laser.frequency(192.0000)
+        <Quantity(183.92175, 'terahertz')> # Bug returns the last set frequency
         """
 
-        return Q_(self._set_var("FQ", 5, val), 'THz')
+        return Q_(float(self._set_var("FQ", 5, val)), 'THz')
 
     def power_mW(self, val=None):
         """
         Set the output optical power in milliwatts. If a value is not
-        specified, return the current one.
+        specified, return the current output power.
+
+        Parameters
+        ----------
+        val : float, optional
+            The power to be set on the laser in milliwatts.
+            Range: 0.02 - 20 (mW, typical)
+            Minimum step: 0.01 (mW)
+
+        Returns
+        -------
+        Quantity
+            The currently set power in milliwatts, with its units.
+
+        >>> laser.power_mW()
+        <Quantity(2e-05, 'milliwatt')>
+        >>> laser.power_mW(10)
+        <Quantity(2e-05, 'milliwatt')> # Bug returns the last set power
         """
 
-        return Q_(self._set_var("LP", 2, val), 'mW')
+        return Q_(float(self._set_var("LP", 2, val)), 'mW')
 
     def power_dBm(self, val=None):
         """
-        Set the output optical power in decibel-milliwatts. If a value
-        is not specified, return the current one.
+        Set the output optical power in decibel-milliwatts (dBm). If a value
+        is not specified, returns the current power.
+
+        Parameters
+        ----------
+        val : float, optional
+            The power to be set on the laser in decibel-milliwatts.
+            Range: -17 to +13 (dBm, typical)
+            Minimum step: 0.01 (dB)
+
+        Returns
+        -------
+        float
+            The currently set power in decibel-milliwatts.
+
+        You can get the current power by calling without arguments.
+        The below code indicates the currently output power is -40 dBm.
+
+        >>> laser.power_dBm()
+        -040.000
+
+        The following sets the output optical power to +3 dBm.
+
+        >>> laser.power_dBm(3)
+        -040.000 # Bug returns the last set power
         """
 
-        return self._set_var("OP", 2, val)
+        return float(self._set_var("OP", 2, val))
 
     def power_auto(self):
-        """Turn on automatic power control."""
+        """
+        Turn on automatic power control.
+        """
 
         self.power_control = "auto"
         self.query("AF")
 
     def power_manual(self):
-        """Turn on manual power control."""
+        """
+        Turn on manual power control.
+        """
 
         self.power_control = "manual"
         self.query("AO")
@@ -306,6 +433,11 @@ class TSL550(Laser, VisaMixin):
         and end wavelengths with
         sweep_(start|end)_(wavelength|frequency), and the sweep
         operation mode with sweep_set_mode.
+
+        Parameters
+        ----------
+        num : int, optional
+            The number of times to perform the sweep (default is 1).
         """
 
         self.query("SZ{:d}".format(num)) # Set number of sweeps
@@ -313,7 +445,8 @@ class TSL550(Laser, VisaMixin):
 
     def sweep_pause(self):
         """
-        Pause the sweep. Use sweep_resume to resume.
+        Pause the sweep.  When a fast sweep speed is set, pause will 
+        not function. Use `sweep_resume()` to resume.
         """
 
         self.query("SP")
@@ -327,10 +460,19 @@ class TSL550(Laser, VisaMixin):
 
     def sweep_stop(self, immediate=True):
         """
-        Prematurely quit a sweep. If the parameter immediate is True,
+        Prematurely quit a sweep. 
+        
+        If the parameter immediate is True,
         the sweep will stop at once. If the parameter is False and the
         sweep is continuous, the sweep will stop once if finishes the
         current sweep.
+
+        Parameters
+        ----------
+        immediate : bool
+            If true, the sweep will stop at once. If false and the
+            sweep is continuous, the sweep will stop once it reaches
+            the end wavelength of its current sweep (the default is `True`).
         """
 
         if immediate:
@@ -340,16 +482,28 @@ class TSL550(Laser, VisaMixin):
 
     def sweep_status(self):
         """
-        Check on the current condition of the sweeping function. It
-        will return one of TSL550.SWEEP_OFF, TSL550.SWEEP_RUNNING,
-        TSL550.SWEEP_PAUSED, TSL550.SWEEP_TRIGGER_WAIT,
-        TSL550.SWEEP_JUMP. The first three states are
-        self-explanatory, but the last two require more detail. If the
-        status is TSL550.SWEEP_TRIGGER_WAIT, that means that the sweep
-        has been set to start on an external trigger and that trigger
-        has not yet been received. If the status is TSL550.SWEEP_JUMP,
-        that means that the laser is transitioning between the end of
-        one sweep and the start of the next in one-way sweep mode.
+        Gets the current condition of the sweeping function. 
+        
+        Returns
+        -------
+        status : int
+            The status code correspond to the following:
+            0: Stop (`TSL550.SWEEP_OFF`)
+            1: Executing (`TSL550.SWEEP_RUNNING`)
+            2: Pause (`TSL550.SWEEP_PAUSED`)
+            3: Awaiting Trigger (`TSL550.SWEEP_TRIGGER_WAIT`)
+                This means that the sweep has been set to start on 
+                an external trigger and that trigger has not yet 
+                been received.
+            4: Setting to sweep start wavelength (`TSL550.SWEEP_JUMP`)
+                This means that the laser is transitioning between 
+                the end of one sweep and the start of the next in 
+                one-way sweep mode.
+
+        >>> laser.sweep_status()
+        0
+        >>> laser.sweep_status() == laser.SWEEP_OFF
+        True
         """
 
         return int(self.query("SK"))
@@ -396,43 +550,127 @@ class TSL550(Laser, VisaMixin):
         """
         Set the speed of the continuous sweep, in nm/s. If a new value
         is not provided, the current one will be returned.
+
+        Parameters
+        ----------
+        val : float, optional
+            The sweep speed of the laser, in nm/s.
+            Range: 1.0 - 100 (nm/s)
+            Step: 0.1 (nm/s)
+
+        Returns
+        -------
+        Quantity
+            The sweep speed of the laser in nm/s, with its units.
+
+        >>> laser.sweep_speed()
+        <Quantity(26.0, 'nanometer / second')>
+        >>> laser.sweep_speed(25)
+        <Quantity(25.0, 'nanometer / second')>
         """
 
-        return Q_(self._set_var("SN", 1, val), 'nm / s')
+        return Q_(float(self._set_var("SN", 1, val)), 'nm / s')
 
     def sweep_step_wavelength(self, val=None):
         """
         Set the size of each step in the stepwise sweep. If a new
         value is not provided, the current one will be returned.
-        Units: nm
+
+        Parameters
+        ----------
+        val : float, optional
+            The step size in the stepwise sweep in nanometers.
+            Range: 0.0001 - 160 (nm)
+            Step: 0.0001 (nm)
+
+        Returns
+        -------
+        Quantity
+            The set step size in a stepwise sweep in nm, and its units.
+
+        >>> laser.sweep_step_wavelength()
+        <Quantity(1.0, 'nanometer')>
+        >>> laser.sweep_step_wavelength(2.2)
+        <Quantity(2.2, 'nanometer')>
         """
 
-        return Q_(self._set_var("WW", 4, val), 'nm')
+        return Q_(float(self._set_var("WW", 4, val)), 'nm')
 
     def sweep_step_frequency(self, val=None):
         """
         Set the size of each step in the stepwise sweep when constant
         frequency intervals are enabled. If a new value is not
         provided, the current one will be returned. Units: THz
+
+        Parameters
+        ----------
+        val : float, optional
+            The step size of each step in the stepwise sweep in terahertz.
+            Range: 0.00002 - 19.76219 (THz)
+            Step: 0.00001 (THz)
+
+        Returns
+        -------
+        Quantity
+            The set step size in THz, and its units.
+
+        >>> laser.sweep_step_frequency()
+        <Quantity(0.1, 'terahertz')>
+        >>> laser.sweep_step_frequency(0.24)
+        <Quantity(0.24, 'terahertz')>
         """
 
-        return Q_(self._set_var("WF", 5, val), 'THz')
+        return Q_(float(self._set_var("WF", 5, val)), 'THz')
 
     def sweep_step_time(self, val=None):
         """
         Set the duration of each step in the stepwise sweep. If a new
-        value is not provided, the current one will be returned. Units: s
+        value is not provided, the current one will be returned.
+
+        Parameters
+        ----------
+        val : float, optional
+            The duration of each step in seconds.
+            Range: 0 - 999.9 (s)
+            Step: 0.1 (s)
+
+        Returns
+        -------
+        Quantity
+            The set duration of each step in seconds.
+
+        >>> laser.sweep_step_time()
+        <Quantity(0.5, 'second')>
+        >>> laser.sweep_step_time(0.8)
+        <Quantity(0.8, 'second')>
         """
 
-        return Q_(self._set_var("SB", 1, val), 's')
+        return Q_(float(self._set_var("SB", 1, val)), 's')
 
     def sweep_delay(self, val=None):
         """
         Set the time between consecutive sweeps in continuous mode. If
-        a new value is not provided, the current one will be returned. Units: s
+        a new value is not provided, the current one will be returned.
+
+        Parameters
+        ----------
+        val : float, optional
+            The delay between sweeps in seconds.
+            Range: 0 - 999.9 (s)
+            Step: 0.1 (s)
+
+        Returns
+        -------
+        Quantity
+            The set delay between sweeps in seconds.
+
+        >>> laser.sweep_delay()
+        <Quantity(0.0, 'second')>
+        >>> laser.sweep_delay(1.5)
+        <Quantity(1.5, 'second')>
         """
 
-        return Q_(self._set_var("SA", 1, val), 's')
+        return Q_(float(self._set_var("SA", 1, val)), 's')
 
     def sweep_start_wavelength(self, val=None):
         """
@@ -445,13 +683,20 @@ class TSL550(Laser, VisaMixin):
         ----------
         val : float, optional
             The starting value of the wavelength sweep in nanometers.
+            Step: 0.0001 (nm)
 
         Returns
         -------
-        wavelength
-            A `Quantity` object containing the current setting and its units (nm).
+        Quantity
+            The current sweep start wavelength in nm, and its units.
+
+        >>> laser.sweep_start_wavelength()
+        <Quantity(1500.0, 'nanometer')>
+        >>> laser.sweep_start_wavelength(1545)
+        <Quantity(1545.0, 'nanometer')>
         """
-        return Q_(self._set_var("SS", 4, val), 'nm')
+
+        return Q_(float(self._set_var("SS", 4, val)), 'nm')
 
     def sweep_start_frequency(self, val=None):
         """
@@ -464,13 +709,20 @@ class TSL550(Laser, VisaMixin):
         ----------
         val : float, optional
             The starting value of the frequency sweep in terahertz.
+            Step: 0.00001 (THz)
 
         Returns
         -------
-        frequency
-            A `Quantity` object containing the current setting and its units (THz).
+        Quantity
+            The current sweep start frequency in THz, and its units.
+
+        >>> laser.sweep_start_frequency()
+        <Quantity(199.86164, 'terahertz')>
+        >>> laser.sweep_start_frequency(196)
+        <Quantity(195.99999, 'terahertz')>
         """
-        return Q_(self._set_var("FS", 5, val), 'THz')
+
+        return Q_(float(self._set_var("FS", 5, val)), 'THz')
 
     def sweep_end_wavelength(self, val=None):
         """
@@ -483,13 +735,20 @@ class TSL550(Laser, VisaMixin):
         ----------
         val : float, optional
             The ending value of the wavelength sweep in nanometers.
+            Step: 0.0001 (nm)
 
         Returns
         -------
-        wavelength
-            A `Quantity` object containing the current setting and its units (nm).
+        Quantity
+            The current sweep end wavelength in nm, and its units.
+
+        >>> laser.sweep_end_wavelength()
+        <Quantity(1630.0, 'nanometer')>
+        >>> laser.sweep_end_wavelength(1618)
+        <Quantity(1618.0, 'nanometer')>
         """
-        return Q_(self._set_var("SE", 4, val), 'nm')
+
+        return Q_(float(self._set_var("SE", 4, val)), 'nm')
 
     def sweep_end_frequency(self, val=None):
         """
@@ -502,32 +761,47 @@ class TSL550(Laser, VisaMixin):
         ----------
         val : float, optional
             The ending value of the frequency sweep in THz.
+            Step: 0.00001 (THz)
 
         Returns
         -------
-        frequency
-            A `Quantity` object containing the current setting and its units (THz).
+        Quantity
+            The current sweep end frequency in THz, and its units.
+
+        >>> laser.sweep_end_frequency()
+        <Quantity(183.92175, 'terahertz')>
+        >>> laser.sweep_end_frequency(185.5447)
+        <Quantity(185.5447, 'terahertz')>
         """
-        return Q_(self._set_var("FF", 5, val), 'THz')
+
+        return Q_(float(self._set_var("FF", 5, val)), 'THz')
 
     def open_shutter(self):
-        """Opens the laser's shutter."""
+        """
+        Opens the laser's shutter.
+        """
+        
         return self.query("SO")
 
     def close_shutter(self):
-        """Opens the laser's shutter."""
+        """
+        Opens the laser's shutter.
+        """
+        
         return self.query("SC")
 
     def trigger_enable_output(self):
         """
         Enables the output trigger signal.
         """
+
         self.query("TRE")
 
     def trigger_disable_output(self):
         """
         Disables the output trigger signal.
         """
+
         self.query("TRD")
 
     def trigger_get_mode(self):
@@ -567,8 +841,16 @@ class TSL550(Laser, VisaMixin):
         """
         Returns the number of wavelength points stored in the wavelength
         logging feature.
+
+        Returns
+        -------
+        int
+            A value between 0 and 65535, the number of recorded data points.
+
+        >>> laser.wavelength_logging_number()
+        5001
         """
-        return self.query("TN")
+        return int(self.query("TN"))
 
     def wavelength_logging(self):
         """
@@ -587,9 +869,10 @@ class TSL550(Laser, VisaMixin):
 
         # Now petition the laser for the wavelength points
         command = "TA"
-        if sys.version_info.major >= 3:
-            command = command.encode("ASCII")
-        self.device.write(command + self.terminator)
+        # if sys.version_info.major >= 3:
+        #     command = command.encode("ASCII")
+        # self.device.write(command + self.terminator)
+        self.device.write(command)
         time.sleep(0.1)
 
         # Iterate through wavelength points

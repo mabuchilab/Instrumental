@@ -186,6 +186,12 @@ driver_info = OrderedDict([
         'imports': [],
         'visa_info': {},
     }),
+    ('lasers.tsl550', {
+        'params': ['visa_address'],
+        'classes': ['TSL550'],
+        'imports': ['pyvisa'],
+        'visa_info': {},
+    }),
     ('powermeters.newport', {
         'params': ['visa_address'],
         'classes': ['Newport_1830_C'],
