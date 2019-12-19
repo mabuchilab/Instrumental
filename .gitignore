@@ -19,3 +19,6 @@ _*lib.py
 Release/
 errortext.c
 errortext.pyd
+
+env/
+.vscode/
