@@ -10,9 +10,9 @@ installed.
 
 Warning
 -------
-An unidentifiable bug results in the return value of many functions being the setting of the laser
-BEFORE the update instead of the commanded setting. To verify some value has been set to 
-the commanded value, call its respective a second time without any arguments.
+An unidentifiable bug results in the return value of some functions being the setting of the laser
+BEFORE the update (instead of the commanded setting). To verify some value has been set to 
+the commanded value, simply call its respective function a second time without any arguments.
 """
 from __future__ import division
 import sys
@@ -89,10 +89,6 @@ class TSL550(Laser, VisaMixin):
 
         Address will change based on specific connection settings.
         """
-        # TODO: Maybe; if the termination isn't working for Py3, try encoding it.
-        # if sys.version_info.major >= 3: # Python 3 compatibility: convert to bytes
-        #     terminator = terminator.encode("ASCII")
-        # self.terminator = terminator
 
         self.resource.write_termination = '\r'
         self.resource.read_termination = '\r'
@@ -133,6 +129,9 @@ class TSL550(Laser, VisaMixin):
 
         response = self.query(command)
         return response
+
+    def read_bytes(self, count, chunk_size=None, break_on_termchar=False):
+        return self._rsrc.read_bytes(count, chunk_size, break_on_termchar)
 
     def ident(self):
         """
@@ -294,6 +293,7 @@ class TSL550(Laser, VisaMixin):
     def sweep_wavelength(self, start, stop, duration, number=1,
                          delay=0, continuous=True, step_size=1,
                          twoway=False, trigger=False):
+        # TODO: Test and document.
         r"""
         Conduct a sweep between two wavelengths. This method goes from
         the start wavelength to the stop wavelength (units:
@@ -362,6 +362,7 @@ class TSL550(Laser, VisaMixin):
     def sweep_frequency(self, start, stop, duration, number=1,
                         delay=0, continuous=True, step_size=1,
                         twoway=False, trigger=False):
+        # TODO: Test and document.
         r"""
         Conduct a sweep between two frequencies. This method goes from
         the start frequency to the stop frequency (units: terahertz).
@@ -461,16 +462,11 @@ class TSL550(Laser, VisaMixin):
     def sweep_stop(self, immediate=True):
         """
         Prematurely quit a sweep. 
-        
-        If the parameter immediate is True,
-        the sweep will stop at once. If the parameter is False and the
-        sweep is continuous, the sweep will stop once if finishes the
-        current sweep.
 
         Parameters
         ----------
         immediate : bool
-            If true, the sweep will stop at once. If false and the
+            If `True`, the sweep will stop at once. If `False` and the
             sweep is continuous, the sweep will stop once it reaches
             the end wavelength of its current sweep (the default is `True`).
         """
@@ -511,16 +507,28 @@ class TSL550(Laser, VisaMixin):
     def sweep_set_mode(self, continuous=True, twoway=True, trigger=False, const_freq_step=False):
         r"""
         Set the mode of the sweep. Options:
-        - Continuous or stepwise:
+
+        Parameters
+        ----------
+        continuous : bool, optional
+            Continuous (`True`, default) or stepwise (`False`).
                 /        _|
                /  vs   _|
               /      _|
-        - Two-way:
+        twoway : bool, optional
+            Two-way (`True`, default) or one-directional with reset (`False`).
                 /\        /   /
                /  \  vs  /   /
               /    \    /   /
-        - Constant frequency interval (requires stepwise mode)
-        - Start from external trigger
+        trigger : bool, optional
+            Start on external trigger (defaults to `False`).
+        const_freq_step : bool, optional
+            Constant frequency interval, requires stepwise mode (defaults to `False`).
+
+        Raises
+        ------
+        AttributeError
+            If the sweep configuration is invalid.
         """
 
         try:
@@ -534,6 +542,15 @@ class TSL550(Laser, VisaMixin):
         """
         Return the current sweep configuration as a dictionary. See
         sweep_set_mode for what the parameters mean.
+
+        Returns
+        -------
+        mode : dict
+            A dictionary containing boolean values for the keys `continuous`,
+            `twoway`, `trigger`, and `const_freq_step`.
+
+        >>> laser.sweep_get_mode()
+        {'continuous': True, 'twoway': True, 'trigger': False, 'const_freq_step': False}
         """
 
         mode_num = int(self.query("SM"))
@@ -785,28 +802,47 @@ class TSL550(Laser, VisaMixin):
 
     def close_shutter(self):
         """
-        Opens the laser's shutter.
+        Closes the laser's shutter.
         """
         
         return self.query("SC")
 
     def trigger_enable_output(self):
         """
-        Enables the output trigger signal.
+        Enables the external trigger signal input.
         """
 
         self.query("TRE")
 
     def trigger_disable_output(self):
         """
-        Disables the output trigger signal.
+        Disables the external trigger signal input.
         """
 
         self.query("TRD")
 
+    # TODO: Create an all-in-one function for this.
+
     def trigger_get_mode(self):
+        # TODO: Test this function
+        """
+        Reads out the currently set value for the timing of the 
+        trigger signal output.
+
+        Returns
+        -------
+        mode : str
+            A string representing the mode for the trigger signal 
+            output timing.
+            0: "None"
+            1: "Stop"
+            2: "Start"
+            3: "Step"
+        """
         current_state = self.query("TM")
-        if current_state == 1:
+        if current_state == 0:
+            return "None"
+        elif current_state == 1:
             return "Stop"
         elif current_state == 2:
             return "Start"
@@ -814,6 +850,7 @@ class TSL550(Laser, VisaMixin):
             return "Step"
 
     def trigger_set_mode(self,val=None):
+        # TODO: Test and write docs for this function.
         mode = 0
         if val == "None" or val == None:
             mode = 0
@@ -834,6 +871,7 @@ class TSL550(Laser, VisaMixin):
             return "Step"
 
     def trigger_set_step(self,step):
+        # TODO: Test and document
         return self._set_var("TW", 4, val=step)
 
 
@@ -857,6 +895,22 @@ class TSL550(Laser, VisaMixin):
         Creates a list of all the wavelength points logged into the laser's
         buffer. Assumes that all the correct sweep and triggering protocol
         are met (see manual page 6-5).
+
+        Returns
+        -------
+        points : list
+            A Python list of length `laser.wavelength_logging_number()`. Each
+            item in the list is represented in nanometers.
+
+        >>> laser.wavelength_logging_number()
+        417
+        >>> wl = laser.wavelength_logging()
+        >>> len(wl)
+        417
+        >>> type(wl)
+        <class 'list'>
+        >>> wl[0]
+        1675.0276
         """
         # stop laser from outputting
         self.query("SU")
@@ -869,17 +923,14 @@ class TSL550(Laser, VisaMixin):
 
         # Now petition the laser for the wavelength points
         command = "TA"
-        # if sys.version_info.major >= 3:
-        #     command = command.encode("ASCII")
-        # self.device.write(command + self.terminator)
-        self.device.write(command)
+        self.write(command)
         time.sleep(0.1)
 
         # Iterate through wavelength points
         for nWave in range(int(num_points)):
             while True:
                 try:
-                    in_byte = self.device.read(4)
+                    in_byte = self.read_bytes(4)
                     current_wavelength = float(struct.unpack(">I", in_byte)[0]) / 1e4
                     break
                 except:
@@ -892,9 +943,54 @@ class TSL550(Laser, VisaMixin):
         self.query("SU")
         return wavelength_points
 
-    def print_status(self):
+    def status(self):
         """
         Query the status of the laser and print its results.
+
+        Returns
+        -------
+        code : str
+            A status code for the status of the laser. It is a 7-character 
+            string status comprising a code and 6 digits (with positions represented
+            as '-654321'), interpreted as follows:
+
+            Code [-/none]: Laser diode (LD) status
+                '-': ON
+                none: OFF
+            6th digit [0/1]: Coherence control
+                0: OFF
+                1: ON
+            5th digit [0/1]: Fine-tuning
+                0: OFF
+                1: ON
+            4th digit [0-5]: Control mode of output power, attenuator, and power
+                monitor range, according to the following table:
+                Value | Power control | Attenuator control | Power monitor range control
+                0 | Auto | Hold | Auto
+                1 | Manual | Hold (Manual) | Auto
+                2 | Auto | Auto | Auto
+                4 | Auto | Hold | Hold
+                5 | Manual | Hold (Manual) | Hold
+            3rd digit [0/1]: Laser diode temperature error
+                0: No error
+                1: Error occurred
+            2nd digit [0/1]: Laser diode current limit error
+                0: No error
+                1: Error occurred
+            1st digit [0-7]: Operation status
+                0: Operation is completed
+                1: Wavelength is tuning
+                2: Laser diode current is setting (LD is on state and power control is Auto)
+                3: Wavelength is tuning and LD current is setting
+                4: Attenuator is setting
+                5: Wavelength is setting and attenuator is setting
+                6: LD current is setting and attenuator is setting
+                7: Wavelength is tuning, LD current is setting, and attenuator is setting
+
+        The following example shows the laser as on and all operations as complete.
+
+        >>> laser.print_status()
+        '-011000'
         """
         status = self.query("SU")
 
