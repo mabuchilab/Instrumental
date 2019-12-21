@@ -291,6 +291,7 @@ class PCO_Camera(Camera):
         desc = self._get_camera_description()
         hstep = desc.wRoiHorStepsDESC
         vstep = desc.wRoiVertStepsDESC
+        hw_supports_roi = (hstep > 0)
 
         if x1 <= x0:
             raise Error("ROI must have x1 > x0")
@@ -303,37 +304,42 @@ class PCO_Camera(Camera):
         x1 = min(self.max_width, x1)
         y1 = min(self.max_width, y1)
 
-        # Round and center x coords (must be symmetric in dual-ADC mode)
-        cx = self.max_width // 2
-        xdiff = max(cx - x0, x1 - cx) - 1
-        xdiff = (xdiff // hstep + 1) * hstep
-        fx0 = cx - xdiff
-        fx1 = cx + xdiff
+        if hw_supports_roi:
+            # Round and center x coords (must be symmetric in dual-ADC mode)
+            cx = self.max_width // 2
+            xdiff = max(cx - x0, x1 - cx) - 1
+            xdiff = (xdiff // hstep + 1) * hstep
+            fx0 = cx - xdiff
+            fx1 = cx + xdiff
 
-        # Round and center y coords (must be symmetric for pco.edge)
-        cy = self.max_height // 2
-        ydiff = max(cy - y0, y1 - cy) - 1
-        ydiff = (ydiff // vstep + 1) * vstep
-        fy0 = cy - ydiff
-        fy1 = cy + ydiff
+            # Round and center y coords (must be symmetric for pco.edge)
+            cy = self.max_height // 2
+            ydiff = max(cy - y0, y1 - cy) - 1
+            ydiff = (ydiff // vstep + 1) * vstep
+            fy0 = cy - ydiff
+            fy1 = cy + ydiff
+
+            try:
+                self._cam.SetROI(fx0+1, fy0+1, fx1, fy1)
+            except Error as e:
+                if e.code == 0xA00A3001:
+                    raise Error(
+                        "ROI coordinates out of range; asked for x0,y0 = {},{} and x1,y1 = {},{}.\n"
+                        "However, x0 must be in the range [0, {}], and x1 must be in the range"
+                        " [x0+1, {}]; y0 must be in [0, {}] and y1 must be in [y0+1, {}]".format(
+                            x0, y0, x1, y1, self.max_width-1, self.max_width,
+                            self.max_height-1, self.max_height))
+                raise
+            self._sizes_changed = True
+        else:
+            fx0 = 0
+            fy0 = 0
 
         # Save for later
         self._soft_width = x1 - x0
         self._soft_height = y1 - y0
         self._roi_trim_left = x0 - fx0
         self._roi_trim_top = y0 - fy0
-
-        try:
-            self._cam.SetROI(fx0+1, fy0+1, fx1, fy1)
-        except Error as e:
-            if e.code == 0xA00A3001:
-                raise Error("ROI coordinates out of range; asked for x0,y0 = {},{} and x1,y1 = {},{}.\n"
-                            "However, x0 must be in the range [0, {}], and x1 must be in the range"
-                            " [x0+1, {}]; y0 must be in [0, {}] and y1 must be in [y0+1, {}]".format(
-                                x0, y0, x1, y1, self.max_width-1, self.max_width,
-                                self.max_height-1, self.max_height))
-            raise
-        self._sizes_changed = True
 
     def _get_ROI(self):
         x0, y0, x1, y1 = self._cam.GetROI()
