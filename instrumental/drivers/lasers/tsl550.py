@@ -123,10 +123,6 @@ class TSL550(Laser, VisaMixin):
         else:
             command = name
 
-        # # Convert to bytes (Python 3 compatibility)
-        # if sys.version_info.major >= 3:
-        #     command = command.encode("ASCII")
-
         response = self.query(command)
         return response
 
@@ -821,10 +817,7 @@ class TSL550(Laser, VisaMixin):
 
         self.query("TRD")
 
-    # TODO: Create an all-in-one function for this.
-
     def trigger_get_mode(self):
-        # TODO: Test this function
         """
         Reads out the currently set value for the timing of the 
         trigger signal output.
@@ -850,7 +843,19 @@ class TSL550(Laser, VisaMixin):
             return "Step"
 
     def trigger_set_mode(self,val=None):
-        # TODO: Test and write docs for this function.
+        """
+        Sets the trigger mode.
+
+        Parameters
+        ----------
+        val : str, opt
+            One of: "None", "Stop", "Start", "Step".
+        
+        Returns
+        -------
+        str
+            The final mode. "Stop", "Start", or "Step"
+        """
         mode = 0
         if val == "None" or val == None:
             mode = 0
@@ -870,9 +875,26 @@ class TSL550(Laser, VisaMixin):
         elif current_state == 3:
             return "Step"
 
-    def trigger_set_step(self,step):
-        # TODO: Test and document
-        return self._set_var("TW", 4, val=step)
+    def trigger_set_step(self, step=None):
+        """
+        Sets (or returns) the interval of the trigger signal output.
+
+        Parameters
+        ----------
+        step : float
+            The interval of the trigger signal output, in nanometers.
+            Range: 0.0001 - 160 (nm)
+            Step: 0.0001 (nm)
+
+        Returns
+        -------
+        val : float
+            The currently set value (returned both on set and on read).
+
+        >>> laser.trigger_set_step()
+        <Quantity(0.012, 'nanometer')>
+        """
+        return Q_(float(self._set_var("TW", 4, val=step)), 'nm')
 
 
     def wavelength_logging_number(self):
