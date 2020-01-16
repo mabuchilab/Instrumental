@@ -8,3 +8,5 @@ Create :py:class:`~instrumental.drivers.lasers.Laser` objects using :py:func:`~i
     :maxdepth: 1
 
     femto-ferb
+    tsl550
+    
