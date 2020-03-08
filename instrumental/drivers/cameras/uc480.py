@@ -75,8 +75,7 @@ def cmd_ret_handler(getcmd_names, cmd_pos=1):
         if int(funcargs[cmd_pos]) in getcmd_vals:
             return result
         elif result != info._defs['IS_SUCCESS']:
-            err_code, err_msg = niceobj.GetError()
-            raise UC480Error(code=result, msg=err_msg)
+            raise get_last_error(result, niceobj)
 
     return wrap
 
@@ -108,8 +107,20 @@ def ret_errcheck(result):
 @RetHandler(num_retvals=0)
 def ret_cam_errcheck(result, niceobj):
     if result != NiceUC480.SUCCESS:
+        raise get_last_error(result, niceobj)
+
+
+def get_last_error(result, niceobj):
+    """Get UC480Error describing the last error
+
+    Tries to recover if GetError() fails.
+    """
+    try:
         err_code, err_msg = niceobj.GetError()
-        raise UC480Error(code=result, msg=err_msg)
+    except Exception:
+        err_msg = ('Error. While handling this error, GetError failed, so no error message '
+                   'is available. Please look up the error code in the DCx SDK manual')
+    return UC480Error(code=result, msg=err_msg)
 
 
 class NiceUC480(NiceLib):
