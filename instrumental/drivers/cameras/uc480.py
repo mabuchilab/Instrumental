@@ -110,6 +110,12 @@ def ret_cam_errcheck(result, niceobj):
         raise get_last_error(result, niceobj)
 
 
+@RetHandler(num_retvals=0)
+def ret_geterror(result, niceobj):
+    if result != NiceUC480.SUCCESS:
+        raise UC480Error(code=result, msg='Call to GetError() failed')
+
+
 def get_last_error(result, niceobj):
     """Get UC480Error describing the last error
 
@@ -151,7 +157,7 @@ class NiceUC480(NiceLib):
         ExitImageQueue = Sig('in')
         FreeImageMem = Sig('in', 'in', 'in')
         GetActSeqBuf = Sig('in', 'out', 'out', 'out')
-        GetError = Sig('in', 'out', 'bufout')
+        GetError = Sig('in', 'out', 'bufout', ret=ret_geterror)
         GetImageMemPitch = Sig('in', 'out')
         GetSensorInfo = Sig('in', 'out')
         HasVideoStarted = Sig('in', 'out')
