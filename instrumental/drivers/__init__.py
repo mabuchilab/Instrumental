@@ -222,8 +222,10 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
                           if cls_paramset.matches(open_inst._paramset)]
         if matching_insts:
             if _REOPEN_POLICY == 'strict':
-                raise InstrumentExistsError("Device instance already exists, cannot open in strict "
-                                            "mode")
+                raise InstrumentExistsError(
+                    "Device instance already exists, cannot open in strict mode. Use a reopen "
+                    "policy of 'reuse' or 'new' if other behavior is desired. See the Instrumental "
+                    "docs for more information")
             elif _REOPEN_POLICY == 'reuse':
                 # TODO: Should we return something other than the first element?
                 log.info('Reopen Policy is "reuse": returning existing instrument')
@@ -1121,7 +1123,7 @@ def instrument(inst=None, **kwargs):
     if isinstance(inst, Instrument):
         return inst
 
-    with _reopen_context(kwargs.pop('reopen_policy', 'reuse')):
+    with _reopen_context(kwargs.pop('reopen_policy', 'strict')):
         params, alias = _extract_params(inst, kwargs)
 
         if 'server' in params:

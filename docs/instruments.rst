@@ -208,3 +208,41 @@ This gives our DAQ the alias `myDAQ`, which can then be used to open it easily::
     <instrumental.drivers.daq.ni.NIDAQ at 0xb71...>
 
 The default version of `instrumental.conf` also provides some commented-out example entries to help make things clear.
+
+
+Reopen Policy
+~~~~~~~~~~~~~
+
+By default, Instrumental will prevent you from double-opening an instrument::
+
+    >>> cam1 = instrument('myCamera')
+    >>> cam2 = instrument('myCamera')  # results in an InstrumentExistsError
+
+Usually it makes the most sense to simply reuse a previously-opened instrument rather than re-creating it. So, by default an exception is raised in if double-creation is attempted. However, this behavior is configurable via the ``reopen_policy`` parameter upon instrument creation.
+
+::
+
+    >>> cam1 = instrument('myCamera')
+    >>> cam2 = instrument('myCamera', reopen_policy='reuse')
+    >>> cam1 is cam2
+    True
+
+::
+
+    >>> cam1 = instrument('myCamera')
+    >>> cam2 = instrument('myCamera', reopen_policy='new')  # Might cause a driver error
+    >>> cam1 is cam2
+    False
+
+The available policies are:
+
+``strict``
+    The default policy; raises an ``InstrumentExistsError`` if an ``Instrument`` object already exists that matches the given paramset.
+
+``reuse``
+    Returns the previously-created instrument object if it exists.
+
+``new``
+    Simply create the instrument as usual. Not recommended; only use this if you really know what you're doing, as the instrument driver is unlikely to support two objects controlling a single device.
+
+For these purposes, an instrument "already exists" if the given paramset matches that of any ``Instrument`` which hasn't yet been garbage collected. Thus, an instrument *can* be re-created even under the ``strict`` policy as long as the old instrument has been fully deleted, either manually via ``del`` or automatically by it going out of scope.
