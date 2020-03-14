@@ -601,7 +601,7 @@ class UC480_Camera(Camera):
         self._serial = self._paramset['serial']
         self._model = self._paramset['model']
 
-        self._in_use = False
+        self.is_open = False
         self._width, self._height = 0, 0
         self._color_depth = 0
         self._color_mode = 0
@@ -612,8 +612,7 @@ class UC480_Camera(Camera):
         self._queue_enabled = False
         self._trigger_mode = lib.SET_TRIGGER_OFF
 
-        self._open()
-        self._load_constants()
+        self.open()
 
     def _load_constants(self):
         self._max_master_gain = self._dev.SetHWGainFactor(lib.INQUIRE_MASTER_GAIN_FACTOR, 100) / 100.
@@ -624,7 +623,7 @@ class UC480_Camera(Camera):
         self._blacklevel_offset_inc = offset_range.s32Inc
 
     def __del__(self):
-        if self._in_use:
+        if self.is_open:
             self.close()  # In case someone forgot to close()
 
     def set_auto_exposure(self, enable=True):
@@ -668,10 +667,20 @@ class UC480_Camera(Camera):
             self._allocate_mem_seq(num_bufs)
         self._color_mode = mode
 
-    def _open(self, num_bufs=1):
-        """ Connect to the camera and set up the image memory."""
+    def open(self, num_bufs=1, force=False):
+        """ Connect to the camera and set up the image memory.
+
+        Parameters
+        ----------
+        force : bool
+            If True, run the open routine even if the camera is already open (``self.is_open`` is
+            True).
+        """
+        if self.is_open and not force:
+            return
+
         self._dev = lib.Camera(self._id, ffi.NULL)
-        self._in_use = True
+        self.is_open = True
         self._refresh_sizes()
         log.debug('image width=%d, height=%d', self.width, self.height)
 
@@ -683,6 +692,8 @@ class UC480_Camera(Camera):
         self._frame_event = win32event.CreateEvent(None, True, False, '')  # Don't auto-reset
         self._dev.InitEvent(self._seq_event.handle, lib.SET_EVENT_SEQ)
         self._dev.InitEvent(self._frame_event.handle, lib.SET_EVENT_FRAME)
+
+        self._load_constants()
 
     def _init_colormode(self):
         log.debug("Initializing default color mode")
@@ -718,14 +729,24 @@ class UC480_Camera(Camera):
         # Initialize display
         self._dev.SetDisplayMode(lib.SET_DM_DIB)
 
-    def close(self):
-        """Close the camera and release the associated image memory."""
+    def close(self, force=False):
+        """Close the camera and release the associated image memory.
+
+        Parameters
+        ----------
+        force : bool
+            If True, run the close routine even if the camera is already closed (``self.is_open`` is
+            False).
+        """
+        if not self.is_open and not force:
+            return
+
         self._dev.ExitEvent(lib.SET_EVENT_SEQ)
         self._dev.ExitEvent(lib.SET_EVENT_FRAME)
 
         try:
             self._dev.ExitCamera()
-            self._in_use = False
+            self.is_open = False
         except Exception as e:
             log.error("Failed to close camera")
             log.error(str(e))
