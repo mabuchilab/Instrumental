@@ -216,13 +216,10 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
     def _create(cls, paramset, **other_attrs):
         """Factory method meant to be used by `instrument()`"""
         log.debug('Calling _create()')
-        obj = object.__new__(cls)  # Avoid our version of __new__
-        for name, value in other_attrs.items():
-            setattr(obj, name, value)
-        obj._paramset = ParamSet(cls, **paramset)
+        cls_paramset = ParamSet(cls, **paramset)
 
-        matching_insts = [open_inst for open_inst in obj._instances
-                          if obj._paramset.matches(open_inst._paramset)]
+        matching_insts = [open_inst for open_inst in cls._instances
+                          if cls_paramset.matches(open_inst._paramset)]
         if matching_insts:
             if _REOPEN_POLICY == 'strict':
                 raise InstrumentExistsError("Device instance already exists, cannot open in strict "
@@ -235,6 +232,10 @@ class Instrument(with_metaclass(InstrumentMeta, object)):
                 log.info('Reopen Policy is "new": creating new instance')
                 pass  # Cross our fingers and try to open a new instance
 
+        obj = object.__new__(cls)  # Avoid our version of __new__
+        for name, value in other_attrs.items():
+            setattr(obj, name, value)
+        obj._paramset = cls_paramset
         obj._before_init()
         obj._fill_out_paramset()
         log.debug('Calling _initialize()')
