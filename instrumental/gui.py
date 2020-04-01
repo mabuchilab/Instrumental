@@ -48,11 +48,12 @@ def create_figure_window(title=''):
 
 
 class CameraView(QLabel):
-    def __init__(self, camera=None):
+    def __init__(self, camera=None, autoresize=True):
         super(CameraView, self).__init__()
         self.camera = camera
         self._cmin = 0
         self._cmax = None
+        self.autoresize = autoresize
 
     def grab_image(self):
         arr = self.camera.grab_image()
@@ -93,9 +94,11 @@ class CameraView(QLabel):
             raise Exception("Unsupported color mode")
 
         self.setPixmap(QPixmap.fromImage(image))
-        pixmap_size = self.pixmap().size()
-        if pixmap_size != self.size():
-            self.setMinimumSize(self.pixmap().size())
+
+        if self.autoresize:
+            pixmap_size = self.pixmap().size()
+            if pixmap_size != self.size():
+                self.setMinimumSize(pixmap_size)
 
     def _wait_for_frame(self):
         frame_ready = self.camera.wait_for_frame(timeout='0 ms')
