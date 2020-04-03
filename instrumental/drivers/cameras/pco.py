@@ -368,19 +368,7 @@ class PCO_Camera(Camera):
 
     def _data_depth(self):
         """The depth of the data format that will be transferred to the PC's buffer"""
-        info = self._get_transfer_parameter()
-        dataformat = info.DataFormat & lib.PCO_CL_DATAFORMAT_MASK
-        depth_map = {
-            lib.PCO_CL_DATAFORMAT_5x16:  16,
-            lib.PCO_CL_DATAFORMAT_5x12L: 16,
-            lib.PCO_CL_DATAFORMAT_5x12:  12,
-            lib.PCO_CL_DATAFORMAT_5x12R: 12,
-            lib.PCO_CL_DATAFORMAT_10x8:   8,
-        }
-        if dataformat not in depth_map:
-            raise Exception("Unrecognized dataformat {}".format(dataformat))
-
-        return depth_map[dataformat]
+        return self._get_camera_description().wDynResDESC
 
     def _get_pixelrate(self):
         pixelrate = self._cam.GetPixelRate()
