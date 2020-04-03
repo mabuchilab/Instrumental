@@ -419,7 +419,9 @@ class PCO_Camera(Camera):
                 nbufs = 1
 
         # Clean up existing buffers
-        self._cam.SetRecordingState(0)
+        # If currently recording, stop recording.
+        if self._cam.GetRecordingState():
+            self._cam.SetRecordingState(0)
         self._clear_queue()
         self._free_buffers()
 
