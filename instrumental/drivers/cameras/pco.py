@@ -417,7 +417,7 @@ class PCO_Camera(Camera):
             try:
                 self._cam.SetROI(fx0+1, fy0+1, fx1, fy1)
             except Error as e:
-                if e.code == 0xA00A3001:
+                if e.return_code == e.hex_string_to_return_code("0xA00A3001"):
                     raise Error(
                         "ROI coordinates out of range; asked for x0,y0 = {},{} and x1,y1 = {},{}.\n"
                         "However, x0 must be in the range [0, {}], and x1 must be in the range"
@@ -744,7 +744,7 @@ def list_instruments():
             log.info("Opening PCO camera")
             hCam, _ = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p)  # This is reallllyyyy sloowwwww
         except Error as e:
-            if e.code == 0x800A300D:
+            if e.return_code == e.hex_string_to_return_code("0x800A300D"):
                 return []  # No cameras attached/turned on
             raise
 
