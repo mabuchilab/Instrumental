@@ -19,7 +19,7 @@ from nicelib import NiceLib, Sig, NiceObject, RetHandler
 from . import Camera
 from ..util import as_enum, unit_mag, check_units
 from .. import ParamSet
-from ...errors import Error, TimeoutError
+from ...errors import Error, TimeoutError, PCOError
 from ...log import get_logger
 from ... import Q_, u
 
@@ -72,11 +72,10 @@ def get_error_text(ret_code):
 
 
 @RetHandler(num_retvals=0)
-def pco_errcheck(code):
-    if code != 0:
-        e = Error(get_error_text(code))
-        e.code = code & 0xFFFFFFFF
-        raise e
+def pco_error_check(return_code):
+    if return_code != 0:
+        error = PCOError(return_code)
+        raise error
 
 
 class NicePCO(NiceLib):
