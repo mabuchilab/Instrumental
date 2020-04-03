@@ -82,7 +82,7 @@ class NicePCO(NiceLib):
     _ffi_ = ffi
     _ffilib_ = lib
     _prefix_ = 'PCO_'
-    _ret_ = pco_errcheck
+    _ret_ = pco_error_check
 
     def _struct_maker_(*args):
         """PCO makes you fill in the wSize field of many structs"""
@@ -149,7 +149,7 @@ class NicePCO(NiceLib):
             params_p = ffi.new('PCO_SC2_CL_TRANSFER_PARAM *')
             void_p = ffi.cast('void *', params_p)
             ret = lib.PCO_GetTransferParameter(hcam, void_p, ffi.sizeof(params_p[0]))
-            pco_errcheck.__func__(ret)
+            pco_error_check.__func__(ret)
             return params_p[0]
 
 
