@@ -310,9 +310,15 @@ class PCO_Camera(Camera):
         self._trig_mode = as_enum(self.TriggerMode, mode)
         self._cam.SetTriggerMode(self._trig_mode.value)
 
-        struct = self._cam.GetHWIOSignal(0)
-        struct.wPolarity = 0x04 if rising else 0x08
-        self._cam.SetHWIOSignal(0, ffi.addressof(struct))
+        HW_IO_SIGNAL_DESCRIPTOR = 0x40000000
+        supports_hw_io_signal = bool(
+            self._get_camera_description().dwGeneralCapsDESC1 &
+            HW_IO_SIGNAL_DESCRIPTOR
+        )
+        if supports_hw_io_signal:
+            struct = self._cam.GetHWIOSignal(0)
+            struct.wPolarity = 0x04 if rising else 0x08
+            self._cam.SetHWIOSignal(0, ffi.addressof(struct))
 
     def _open(self, cam_num):
         openStruct_p = ffi.new('PCO_OpenStruct *')
