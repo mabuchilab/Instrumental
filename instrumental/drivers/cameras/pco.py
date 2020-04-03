@@ -302,7 +302,7 @@ class PCO_Camera(Camera):
         x0 = max(0, x0)
         y0 = max(0, y0)
         x1 = min(self.max_width, x1)
-        y1 = min(self.max_width, y1)
+        y1 = min(self.max_height, y1)
 
         if hw_supports_roi:
             # Round and center x coords (must be symmetric in dual-ADC mode)
