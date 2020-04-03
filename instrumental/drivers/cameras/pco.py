@@ -109,6 +109,7 @@ class NicePCO(NiceLib):
         GetSizes = Sig('in', 'out', 'out', 'out', 'out')
         SetROI = Sig('in', 'in', 'in', 'in', 'in')
         GetROI = Sig('in', 'out', 'out', 'out', 'out')
+        GetCameraType = Sig('in', 'out')
         GetInfoString = Sig('in', 'in', 'buf', 'len')
         GetCameraName = Sig('in', 'buf', 'len', buflen=40)
         GetRecordingState = Sig('in', 'out')
@@ -145,11 +146,36 @@ class NicePCO(NiceLib):
         SetTransferParametersAuto = Sig('in', 'ignore', 'ignore')
 
         def GetTransferParameter(self):
-            hcam, = self._handles
-            params_p = ffi.new('PCO_SC2_CL_TRANSFER_PARAM *')
+            # This function needs to be wrapped manually because the buffer
+            # object passed to it is a void * and the type of the structure
+            # that it points to depends on the camera's interface type (USB,
+            # Firewire, etc.)
+            camera_handle, = self._handles
+
+            # Figure out type of interface, necessary to make correct type for
+            # params_p. See PCO documentation on Transfer Parameter Structures
+            # and PCO_GetCameraType's Interface Type Codes.
+            interface_type_index = self.GetCameraType().wInterfaceType
+            interface_params_dict = {
+                1: 'PCO_1394_TRANSFER_PARAM',  # Firewire
+                2: 'PCO_SC2_CL_TRANSFER_PARAM',  # Camera Link
+                3: 'PCO_USB_TRANSFER_PARAM',  # USB 2.0
+                4: 'PCO_GIGE_TRANSFER_PARAM',  # GigE
+                5: '',  # Serial Interface, Not sure what to put here
+                6: 'PCO_USB_TRANSFER_PARAM',  # USB 3.0
+                7: 'PCO_SC2_CL_TRANSFER_PARAM',  # CLHS
+            }
+
+            # Construct input arguments
+            struct_type = interface_params_dict[interface_type_index]
+            params_p = ffi.new(struct_type + ' *')
             void_p = ffi.cast('void *', params_p)
-            ret = lib.PCO_GetTransferParameter(hcam, void_p, ffi.sizeof(params_p[0]))
-            pco_error_check.__func__(ret)
+            struct_size = ffi.sizeof(params_p[0])
+
+            # Finally call the library function and return the result
+            return_code = lib.PCO_GetTransferParameter(
+                camera_handle, void_p, struct_size)
+            pco_error_check.__func__(return_code)
             return params_p[0]
 
 
