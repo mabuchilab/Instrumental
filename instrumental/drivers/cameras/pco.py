@@ -542,6 +542,10 @@ class PCO_Camera(Camera):
 
     def start_capture(self, **kwds):
         self._handle_kwds(kwds)
+        
+        # If currently recording, stop recording.
+        if self._cam.GetRecordingState():
+            self._cam.SetRecordingState(0)
 
         self._set_binning(kwds['vbin'], kwds['hbin'])
         self._set_ROI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
