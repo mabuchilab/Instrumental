@@ -86,14 +86,20 @@ class NicePCO(NiceLib):
     _ret_ = pco_errcheck
 
     def _struct_maker_(*args):
-        """PCO makes you fill in the wSize field of every struct"""
+        """PCO makes you fill in the wSize field of many structs"""
         struct_p = ffi.new(*args)
-        struct_p[0].wSize = ffi.sizeof(struct_p[0])
+
+        # Only set wSize if the object has that property
+        if hasattr(struct_p[0], 'wSize'):
+            struct_p[0].wSize = ffi.sizeof(struct_p[0])
+
         for name, field in ffi.typeof(struct_p[0]).fields:
             # Only goes one level deep for now
             if field.type.kind == 'struct':
                 s = getattr(struct_p[0], name)
-                s.wSize = ffi.sizeof(s)
+                # Only set wSize if the object has that property
+                if hasattr(s, 'wSize'):
+                    s.wSize = ffi.sizeof(s)
         return struct_p
 
     OpenCamera = Sig('inout', 'ignore')
