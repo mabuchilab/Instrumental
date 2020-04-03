@@ -105,46 +105,92 @@ class NicePCO(NiceLib):
     OpenCameraEx = Sig('inout', 'inout')
 
     class Camera(NiceObject):
+        # Note: Not all functions are wrapped yet. Additionally, not all PCO
+        # cameras support all pco.sdk functions. Some functions may be manually
+        # wrapped using cffi directly if NiceLib can't handle the function
+        # directly, e.g. GetTransferParameter() below.
+
+        # Functions from pco.sdk manual section 2.1 "Camera Access"
         CloseCamera = Sig('in')
-        GetSizes = Sig('in', 'out', 'out', 'out', 'out')
-        SetROI = Sig('in', 'in', 'in', 'in', 'in')
-        GetROI = Sig('in', 'out', 'out', 'out', 'out')
+
+        # Functions from pco.sdk manual section 2.2 "Camera Description"
+        GetCameraDescription = Sig('in', 'out')
+
+        # Functions from pco.sdk manual section 2.3 "General Camera Status"
         GetCameraType = Sig('in', 'out')
         GetInfoString = Sig('in', 'in', 'buf', 'len')
         GetCameraName = Sig('in', 'buf', 'len', buflen=40)
-        GetRecordingState = Sig('in', 'out')
-        SetRecordingState = Sig('in', 'in')
-        SetDelayExposureTime = Sig('in', 'in', 'in', 'in', 'in')
-        GetDelayExposureTime = Sig('in', 'out', 'out', 'out', 'out')
-        SetFrameRate = Sig('in', 'out', 'in', 'inout', 'inout')
-        GetFrameRate = Sig('in', 'out', 'out', 'out')
+        GetFirmwareInfo = Sig('in', 'in', 'out')
+
+        # Functions from pco.sdk manual section 2.4 "General Camera Control"
         ArmCamera = Sig('in')
-        SetBinning = Sig('in', 'in', 'in')
+        CamLinkSetImageParameters = Sig('in', 'in', 'in')
+        ResetSettingsToDefault = Sig('in')
+
+        # Functions from pco.sdk manual section 2.5 "Image Sensor"
+        GetSizes = Sig('in', 'out', 'out', 'out', 'out')
+        GetSensorFormat = Sig('in', 'out')
+        SetSensorFormat = Sig('in', 'in')
+        GetROI = Sig('in', 'out', 'out', 'out', 'out')
+        SetROI = Sig('in', 'in', 'in', 'in', 'in')
         GetBinning = Sig('in', 'out', 'out')
+        SetBinning = Sig('in', 'in', 'in')
+        GetPixelRate = Sig('in', 'out')
+        SetPixelRate = Sig('in', 'in')
+        GetIRSensitivity = Sig('in', 'out')
+        SetIRSensitivity = Sig('in', 'in')
         GetActiveLookupTable = Sig('in', 'out', 'out')
         SetActiveLookupTable = Sig('in', 'inout', 'inout')
-        GetPixelRate = Sig('in', 'out')
-        # GetTransferParameter = ('in', 'buf', 'len')
+        GetLookupTableInfo = Sig('in', 'in', 'out', 'buf', 'len', 'out', 'out',
+                                 'out', 'out', buflen=20)
+
+        # Functions from pco.sdk manual section 2.6 "Timing Control"
+        GetDelayExposureTime = Sig('in', 'out', 'out', 'out', 'out')
+        SetDelayExposureTime = Sig('in', 'in', 'in', 'in', 'in')
+        GetFrameRate = Sig('in', 'out', 'out', 'out')
+        SetFrameRate = Sig('in', 'out', 'in', 'inout', 'inout')
         GetTriggerMode = Sig('in', 'out')
         SetTriggerMode = Sig('in', 'in')
         ForceTrigger = Sig('in', 'out')
-        AllocateBuffer = Sig('in', 'inout', 'in', 'inout', 'inout')
-        CamLinkSetImageParameters = Sig('in', 'in', 'in')
-        FreeBuffer = Sig('in', 'in')
-        CancelImages = Sig('in')
-        AddBufferEx = Sig('in', 'in', 'in', 'in', 'in', 'in', 'in')
-        GetBufferStatus = Sig('in', 'in', 'out', 'out')
-        GetLookupTableInfo = Sig('in', 'in', 'out', 'buf', 'len', 'out', 'out', 'out', 'out',
-                                 buflen=20)
-        GetCameraDescription = Sig('in', 'out')
-        EnableSoftROI = Sig('in', 'in', 'in', 'in')
         GetHWIOSignalDescriptor = Sig('in', 'in', 'out')
         GetHWIOSignal = Sig('in', 'in', 'out')
         SetHWIOSignal = Sig('in', 'in', 'in')
-        GetIRSensitivity = Sig('in', 'out')
-        SetIRSensitivity = Sig('in', 'in')
-        SetTransferParametersAuto = Sig('in', 'ignore', 'ignore')
+        GetTimestampMode = Sig('in', 'out')
+        SetTimestampMode = Sig('in', 'in')
 
+        # Functions from pco.sdk manual section 2.7 "Recording Control"
+        GetRecordingState = Sig('in', 'out')
+        SetRecordingState = Sig('in', 'in')
+        GetStorageMode = Sig('in', 'out')
+        SetStorageMode = Sig('in', 'in')
+        GetRecorderSubmode = Sig('in', 'out')
+        SetRecorderSubmode = Sig('in', 'in')
+
+        # Functions from pco.sdk manual section 2.8 "Storage Control"
+        GetActiveRamSegment = Sig('in', 'out')
+
+        # Functions from pco.sdk manual section 2.9 "Image Information"
+        GetSegmentStruct = Sig('in', 'out', 'out')
+        GetNumberOfImagesInSegment = Sig('in', 'in', 'out', 'out')
+        GetBitAlignment = Sig('in', 'out')
+        SetBitAlignment = Sig('in', 'in')
+
+        # Functions from pco.sdk manual section 2.10 "Buffer Management"
+        AllocateBuffer = Sig('in', 'inout', 'in', 'inout', 'inout')
+        FreeBuffer = Sig('in', 'in')
+        GetBufferStatus = Sig('in', 'in', 'out', 'out')
+        GetBuffer = Sig('in', 'in', 'out', 'out')
+
+        # Functions from pco.sdk manual section 2.11 "Image Acquisition"
+        GetImageEx = Sig('in', 'in', 'in', 'in', 'in', 'in', 'in', 'in')
+        AddBufferEx = Sig('in', 'in', 'in', 'in', 'in', 'in', 'in')
+        CancelImages = Sig('in')
+        GetPendingBuffer = Sig('in', 'out')
+        WaitforBuffer = Sig('in', 'in', 'in', 'in')
+        EnableSoftROI = Sig('in', 'in', 'in', 'in')
+
+        # Functions from pco.sdk manual section 2.12 "Driver Management"
+        # GetTransferParameter = ('in', 'buf', 'len')
         def GetTransferParameter(self):
             # This function needs to be wrapped manually because the buffer
             # object passed to it is a void * and the type of the structure
@@ -175,8 +221,26 @@ class NicePCO(NiceLib):
             # Finally call the library function and return the result
             return_code = lib.PCO_GetTransferParameter(
                 camera_handle, void_p, struct_size)
-            pco_error_check.__func__(return_code)
+            pco_error_check.__func__(return_code)  # pylint: disable=no-member
             return params_p[0]
+
+        # Functions from pco.sdk manual section 2.13 "Special Commands
+        # PCO.Edge"
+        SetTransferParametersAuto = Sig('in', 'ignore', 'ignore')
+
+        # Functions from pco.sdk manual section 2.14 "Special Commands
+        # PCO.Dimax"
+
+        # Functions from pco.sdk manual section 2.15 "Special Commands
+        # PCO.Dimax with HD-SDI"
+
+        # Functions from pco.sdk manual section 2.16 "Special Commands
+        # PCO.Film"
+
+        # Functions from pco.sdk manual section 2.17 "Lens Control"
+
+        # Functions from pco.sdk manual section 2.18 "Special Commands
+        # PCO.Dicam"
 
 
 class BufferInfo(object):
