@@ -479,6 +479,11 @@ class PCO_Camera(Camera):
     def _get_sizes(self):
         if self._sizes_changed:
             x_act, y_act, x_max, y_max = self._cam.GetSizes()
+            # y_max is set to twice the sensor height if the camera supports
+            # double image mode, so we'll divide it by two if the camera does
+            # support that mode (indicated by wDoubleImageDESC=1).
+            if self._get_camera_description().wDoubleImageDESC:
+                y_max = int(y_max / 2)
             self._cached_sizes = x_act, y_act, x_max, y_max
             self._sizes_changed = False
         return self._cached_sizes
