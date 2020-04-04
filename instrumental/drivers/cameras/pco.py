@@ -359,6 +359,11 @@ class PCO_Camera(Camera):
             self._cached_cam_desc = self._cam.GetCameraDescription()
         return self._cached_cam_desc
 
+    def _is_using_camera_link(self):
+        """Returns True if communicating over Camera Link and False otherwise"""
+        # Interface Type 2 is camera link
+        return (self._cam.GetCameraType().wInterfaceType == 2)
+
     @unit_mag(delay='ns', exposure='ns')
     def _set_delay_exposure_time(self, delay, exposure):
         delay_ns = int(round(delay))
@@ -565,17 +570,28 @@ class PCO_Camera(Camera):
         if 'trig' in kwds:
             self.set_trigger_mode(kwds['trig'], kwds.get('rising', True))
 
-        # Prepare CameraLink interface
-        width, height, _, _ = self._get_sizes()
-        self._cam.SetTransferParametersAuto()
-        self._cam.ArmCamera()
-        self._cam.CamLinkSetImageParameters(width, height)
+        # Prepare CameraLink interface if using one.
+        if self._is_using_camera_link():
+            width, height, _, _ = self._get_sizes()
+            self._cam.SetTransferParametersAuto()
+            self._cam.ArmCamera()
+            self._cam.CamLinkSetImageParameters(width, height)
+
+        # Counterintuitively we have to start recording before adding the image
+        # buffers for PCO cameras, except the ones that use a Camera Link
+        # interface.
+        if not self._is_using_camera_link():
+            self._cam.ArmCamera()
+            self._cam.SetRecordingState(1)
 
         # Add buffers to the queue
         for buf in self.buffers:
             self._push_on_queue(buf)
 
-        self._cam.SetRecordingState(1)
+        # If using a Camera Link interface, start recording now that the buffers
+        # have been added.
+        if self._is_using_camera_link():
+            self._cam.SetRecordingState(1)
 
         if self._trig_mode == self.TriggerMode.software:
             self._cam.ForceTrigger()
