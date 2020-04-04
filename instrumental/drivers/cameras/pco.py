@@ -540,7 +540,10 @@ class PCO_Camera(Camera):
         """Calculate the size (in bytes) a buffer needs to hold an image with the current
         settings."""
         width, height, _, _ = self._get_sizes()
-        return (width * height * self._data_depth()) // 16 * 2
+        # Get number of bytes needed per pixel, 1 byte is 8 bits. Invert twice
+        # to round up instead of down.
+        bytes_per_pixel = - (-self._data_depth() // 8)
+        return (width * height * bytes_per_pixel)
 
     def _set_binning(self, hbin, vbin):
         self._cam.SetBinning(hbin, vbin)
