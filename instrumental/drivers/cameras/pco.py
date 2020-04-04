@@ -674,7 +674,17 @@ class PCO_Camera(Camera):
         # Prepare CameraLink interface
         width, height, _, _ = self._get_sizes()
         self._cam.SetTransferParametersAuto()
-        self._set_framerate(framerate, kwds['exposure_time'])
+        # Call SetFrameRate() for cameras that support it.
+        try:
+            self._set_framerate(framerate, kwds['exposure_time'])
+        except PCOError as e:
+            if e.return_code == e.hex_string_to_return_code("0x80331020"):
+                # In this case the camera doesn't support SetFrameRate().
+                pass
+            else:
+                # In this case some other error was thrown, so we'll re-raise
+                # it.
+                raise e
         self._cam.ArmCamera()
         self._cam.CamLinkSetImageParameters(width, height)
 
