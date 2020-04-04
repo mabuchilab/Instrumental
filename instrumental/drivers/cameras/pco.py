@@ -671,9 +671,10 @@ class PCO_Camera(Camera):
         self._set_ROI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
         self._cam.ArmCamera()
 
-        # Prepare CameraLink interface
-        width, height, _, _ = self._get_sizes()
-        self._cam.SetTransferParametersAuto()
+        # Prepare CameraLink interface if using one.
+        if self._is_using_camera_link():
+            width, height, _, _ = self._get_sizes()
+            self._cam.SetTransferParametersAuto()
         # Call SetFrameRate() for cameras that support it.
         try:
             self._set_framerate(framerate, kwds['exposure_time'])
@@ -686,18 +687,29 @@ class PCO_Camera(Camera):
                 # it.
                 raise e
         self._cam.ArmCamera()
-        self._cam.CamLinkSetImageParameters(width, height)
+        if self._is_using_camera_link():
+            self._cam.CamLinkSetImageParameters(width, height)
 
         self.shutter = 'continuous'
         if self._frame_size() != self._buf_size or len(self.buffers) < 2:
             self._allocate_buffers(nbufs=2)
         self._cam.ArmCamera()
 
+        # Counterintuitively we have to start recording before adding the image
+        # buffers for PCO cameras, except the ones that use a Camera Link
+        # interface.
+        if not self._is_using_camera_link():
+            self._cam.SetRecordingState(1)
+
         # Add all the buffers to the queue
         for buf in self.buffers:
             self._push_on_queue(buf)
 
-        self._cam.SetRecordingState(1)
+        # If using a Camera Link interface, start recording now that the buffers
+        # have been added.
+        if self._is_using_camera_link():
+            self._cam.SetRecordingState(1)
+
         self._cam.ForceTrigger()
 
     def stop_live_video(self):
