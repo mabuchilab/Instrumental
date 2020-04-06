@@ -49,6 +49,7 @@ MODEL_CHANNELS = {
     'TDS 3054': 4,
     'TDS 3054B': 4,
     'TDS 3054C': 4,
+    'TDS7154': 4,
     'MSO2012': 2,
     'DPO2012': 2,
     'MSO2014': 4,
@@ -503,6 +504,18 @@ class TDS_3000(StatScope):
     waveform_length = SCPI_Facet('wfmpre:nr_pt', convert=int, readonly=True,
                                  doc="Record length of the source waveform")
     datetime = TekScope._datetime
+
+
+class TDS_7000(TekScope):
+    """A Tektronix TDS 7000 series oscilloscope"""
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('TEKTRONIX', ['TDS7154', 'TDS7254',
+                                      'TDS7404'])
+
+    max_waveform_length = 500000
+    
+    waveform_length = SCPI_Facet('WFMOutpre:NR_Pt?', convert=int, readonly=True,
+                                 doc="Record length of the source waveform")
 
 
 class MSO_DPO_2000(StatScope):
