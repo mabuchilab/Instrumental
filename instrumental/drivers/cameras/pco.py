@@ -8,6 +8,7 @@ from future.utils import PY2
 import os
 import os.path
 import tempfile
+import warnings
 from enum import Enum
 from time import clock
 
@@ -663,7 +664,7 @@ class PCO_Camera(Camera):
         return self.get_captured_image(timeout=timeout, copy=copy, **kwds)
 
     @check_units(framerate='Hz')
-    def start_live_video(self, framerate='10Hz', **kwds):
+    def start_live_video(self, framerate='10Hz', enable_framerate_warning=True, **kwds):
         self._handle_kwds(kwds)
 
         self.set_trigger_mode(self.TriggerMode.auto)
@@ -680,7 +681,10 @@ class PCO_Camera(Camera):
             self._set_framerate(framerate, kwds['exposure_time'])
         except PCOError as e:
             if e.return_code == e.hex_string_to_return_code("0x80331020"):
-                # In this case the camera doesn't support SetFrameRate().
+                # In this case the camera doesn't support SetFrameRate(). Issue
+                # a warning if set to do so.
+                if enable_framerate_warning:
+                    warnings.warn("Camera does not support PCO_SetFrameRate().")
                 pass
             else:
                 # In this case some other error was thrown, so we'll re-raise
