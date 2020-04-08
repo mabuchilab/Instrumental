@@ -19,3 +19,4 @@ _*lib.py
 Release/
 errortext.c
 errortext.pyd
+errortext.*.pyd
