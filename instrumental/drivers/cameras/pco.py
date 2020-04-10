@@ -663,9 +663,15 @@ class PCO_Camera(Camera):
         self.start_capture(**kwds)
         return self.get_captured_image(timeout=timeout, copy=copy, **kwds)
 
-    @check_units(framerate='Hz')
-    def start_live_video(self, framerate='10Hz', enable_framerate_warning=True, **kwds):
+    @check_units(framerate='?Hz')
+    def start_live_video(self, framerate=None, **kwds):
         self._handle_kwds(kwds)
+
+        # Set framerate to default value if it is None.
+        explicit_framerate = True
+        if framerate is None:
+            framerate = '10Hz'
+            explicit_framerate = False
 
         self.set_trigger_mode(self.TriggerMode.auto)
         self._set_binning(kwds['vbin'], kwds['hbin'])
@@ -681,11 +687,11 @@ class PCO_Camera(Camera):
             self._set_framerate(framerate, kwds['exposure_time'])
         except PCOError as e:
             if e.return_code == e.hex_string_to_return_code("0x80331020"):
-                # In this case the camera doesn't support SetFrameRate(). Issue
-                # a warning if set to do so.
-                if enable_framerate_warning:
-                    warnings.warn("Camera does not support PCO_SetFrameRate().")
-                pass
+                # In this case the camera doesn't support SetFrameRate(). Raise
+                # an error if tbe user explicitly requested a framerate.
+                if explicit_framerate:
+                    message = "Camera does not support a fixed framerate."
+                    raise ValueError(message)
             else:
                 # In this case some other error was thrown, so we'll re-raise
                 # it.
