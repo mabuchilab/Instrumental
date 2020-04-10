@@ -8,6 +8,7 @@ from future.utils import PY2
 import os
 import os.path
 import tempfile
+import warnings
 from enum import Enum
 from time import clock
 
@@ -19,7 +20,7 @@ from nicelib import NiceLib, Sig, NiceObject, RetHandler
 from . import Camera
 from ..util import as_enum, unit_mag, check_units
 from .. import ParamSet
-from ...errors import Error, TimeoutError
+from ...errors import Error, TimeoutError, PCOError
 from ...log import get_logger
 from ... import Q_, u
 
@@ -72,80 +73,175 @@ def get_error_text(ret_code):
 
 
 @RetHandler(num_retvals=0)
-def pco_errcheck(code):
-    if code != 0:
-        e = Error(get_error_text(code))
-        e.code = code & 0xFFFFFFFF
-        raise e
+def pco_error_check(return_code):
+    if return_code != 0:
+        error = PCOError(return_code)
+        raise error
 
 
 class NicePCO(NiceLib):
     _ffi_ = ffi
     _ffilib_ = lib
     _prefix_ = 'PCO_'
-    _ret_ = pco_errcheck
+    _ret_ = pco_error_check
 
     def _struct_maker_(*args):
-        """PCO makes you fill in the wSize field of every struct"""
+        """PCO makes you fill in the wSize field of many structs"""
         struct_p = ffi.new(*args)
-        struct_p[0].wSize = ffi.sizeof(struct_p[0])
+
+        # Only set wSize if the object has that property
+        if hasattr(struct_p[0], 'wSize'):
+            struct_p[0].wSize = ffi.sizeof(struct_p[0])
+
         for name, field in ffi.typeof(struct_p[0]).fields:
             # Only goes one level deep for now
             if field.type.kind == 'struct':
                 s = getattr(struct_p[0], name)
-                s.wSize = ffi.sizeof(s)
+                # Only set wSize if the object has that property
+                if hasattr(s, 'wSize'):
+                    s.wSize = ffi.sizeof(s)
         return struct_p
 
     OpenCamera = Sig('inout', 'ignore')
     OpenCameraEx = Sig('inout', 'inout')
 
     class Camera(NiceObject):
+        # Note: Not all functions are wrapped yet. Additionally, not all PCO
+        # cameras support all pco.sdk functions. Some functions may be manually
+        # wrapped using cffi directly if NiceLib can't handle the function
+        # directly, e.g. GetTransferParameter() below.
+
+        # Functions from pco.sdk manual section 2.1 "Camera Access"
         CloseCamera = Sig('in')
-        GetSizes = Sig('in', 'out', 'out', 'out', 'out')
-        SetROI = Sig('in', 'in', 'in', 'in', 'in')
-        GetROI = Sig('in', 'out', 'out', 'out', 'out')
+
+        # Functions from pco.sdk manual section 2.2 "Camera Description"
+        GetCameraDescription = Sig('in', 'out')
+
+        # Functions from pco.sdk manual section 2.3 "General Camera Status"
+        GetCameraType = Sig('in', 'out')
         GetInfoString = Sig('in', 'in', 'buf', 'len')
         GetCameraName = Sig('in', 'buf', 'len', buflen=40)
-        GetRecordingState = Sig('in', 'out')
-        SetRecordingState = Sig('in', 'in')
-        SetDelayExposureTime = Sig('in', 'in', 'in', 'in', 'in')
-        GetDelayExposureTime = Sig('in', 'out', 'out', 'out', 'out')
-        SetFrameRate = Sig('in', 'out', 'in', 'inout', 'inout')
-        GetFrameRate = Sig('in', 'out', 'out', 'out')
+        GetFirmwareInfo = Sig('in', 'in', 'out')
+
+        # Functions from pco.sdk manual section 2.4 "General Camera Control"
         ArmCamera = Sig('in')
-        SetBinning = Sig('in', 'in', 'in')
+        CamLinkSetImageParameters = Sig('in', 'in', 'in')
+        ResetSettingsToDefault = Sig('in')
+
+        # Functions from pco.sdk manual section 2.5 "Image Sensor"
+        GetSizes = Sig('in', 'out', 'out', 'out', 'out')
+        GetSensorFormat = Sig('in', 'out')
+        SetSensorFormat = Sig('in', 'in')
+        GetROI = Sig('in', 'out', 'out', 'out', 'out')
+        SetROI = Sig('in', 'in', 'in', 'in', 'in')
         GetBinning = Sig('in', 'out', 'out')
+        SetBinning = Sig('in', 'in', 'in')
+        GetPixelRate = Sig('in', 'out')
+        SetPixelRate = Sig('in', 'in')
+        GetIRSensitivity = Sig('in', 'out')
+        SetIRSensitivity = Sig('in', 'in')
         GetActiveLookupTable = Sig('in', 'out', 'out')
         SetActiveLookupTable = Sig('in', 'inout', 'inout')
-        GetPixelRate = Sig('in', 'out')
-        # GetTransferParameter = ('in', 'buf', 'len')
+        GetLookupTableInfo = Sig('in', 'in', 'out', 'buf', 'len', 'out', 'out',
+                                 'out', 'out', buflen=20)
+
+        # Functions from pco.sdk manual section 2.6 "Timing Control"
+        GetDelayExposureTime = Sig('in', 'out', 'out', 'out', 'out')
+        SetDelayExposureTime = Sig('in', 'in', 'in', 'in', 'in')
+        GetFrameRate = Sig('in', 'out', 'out', 'out')
+        SetFrameRate = Sig('in', 'out', 'in', 'inout', 'inout')
         GetTriggerMode = Sig('in', 'out')
         SetTriggerMode = Sig('in', 'in')
         ForceTrigger = Sig('in', 'out')
-        AllocateBuffer = Sig('in', 'inout', 'in', 'inout', 'inout')
-        CamLinkSetImageParameters = Sig('in', 'in', 'in')
-        FreeBuffer = Sig('in', 'in')
-        CancelImages = Sig('in')
-        AddBufferEx = Sig('in', 'in', 'in', 'in', 'in', 'in', 'in')
-        GetBufferStatus = Sig('in', 'in', 'out', 'out')
-        GetLookupTableInfo = Sig('in', 'in', 'out', 'buf', 'len', 'out', 'out', 'out', 'out',
-                                 buflen=20)
-        GetCameraDescription = Sig('in', 'out')
-        EnableSoftROI = Sig('in', 'in', 'in', 'in')
         GetHWIOSignalDescriptor = Sig('in', 'in', 'out')
         GetHWIOSignal = Sig('in', 'in', 'out')
         SetHWIOSignal = Sig('in', 'in', 'in')
-        GetIRSensitivity = Sig('in', 'out')
-        SetIRSensitivity = Sig('in', 'in')
+        GetTimestampMode = Sig('in', 'out')
+        SetTimestampMode = Sig('in', 'in')
+
+        # Functions from pco.sdk manual section 2.7 "Recording Control"
+        GetRecordingState = Sig('in', 'out')
+        SetRecordingState = Sig('in', 'in')
+        GetStorageMode = Sig('in', 'out')
+        SetStorageMode = Sig('in', 'in')
+        GetRecorderSubmode = Sig('in', 'out')
+        SetRecorderSubmode = Sig('in', 'in')
+
+        # Functions from pco.sdk manual section 2.8 "Storage Control"
+        GetActiveRamSegment = Sig('in', 'out')
+
+        # Functions from pco.sdk manual section 2.9 "Image Information"
+        GetSegmentStruct = Sig('in', 'out', 'out')
+        GetNumberOfImagesInSegment = Sig('in', 'in', 'out', 'out')
+        GetBitAlignment = Sig('in', 'out')
+        SetBitAlignment = Sig('in', 'in')
+
+        # Functions from pco.sdk manual section 2.10 "Buffer Management"
+        AllocateBuffer = Sig('in', 'inout', 'in', 'inout', 'inout')
+        FreeBuffer = Sig('in', 'in')
+        GetBufferStatus = Sig('in', 'in', 'out', 'out')
+        GetBuffer = Sig('in', 'in', 'out', 'out')
+
+        # Functions from pco.sdk manual section 2.11 "Image Acquisition"
+        GetImageEx = Sig('in', 'in', 'in', 'in', 'in', 'in', 'in', 'in')
+        AddBufferEx = Sig('in', 'in', 'in', 'in', 'in', 'in', 'in')
+        CancelImages = Sig('in')
+        GetPendingBuffer = Sig('in', 'out')
+        WaitforBuffer = Sig('in', 'in', 'in', 'in')
+        EnableSoftROI = Sig('in', 'in', 'in', 'in')
+
+        # Functions from pco.sdk manual section 2.12 "Driver Management"
+        # GetTransferParameter = ('in', 'buf', 'len')
+        def GetTransferParameter(self):
+            # This function needs to be wrapped manually because the buffer
+            # object passed to it is a void * and the type of the structure
+            # that it points to depends on the camera's interface type (USB,
+            # Firewire, etc.)
+            camera_handle, = self._handles
+
+            # Figure out type of interface, necessary to make correct type for
+            # params_p. See PCO documentation on Transfer Parameter Structures
+            # and PCO_GetCameraType's Interface Type Codes.
+            interface_type_index = self.GetCameraType().wInterfaceType
+            interface_params_dict = {
+                1: 'PCO_1394_TRANSFER_PARAM',  # Firewire
+                2: 'PCO_SC2_CL_TRANSFER_PARAM',  # Camera Link
+                3: 'PCO_USB_TRANSFER_PARAM',  # USB 2.0
+                4: 'PCO_GIGE_TRANSFER_PARAM',  # GigE
+                5: '',  # Serial Interface, Not sure what to put here
+                6: 'PCO_USB_TRANSFER_PARAM',  # USB 3.0
+                7: 'PCO_SC2_CL_TRANSFER_PARAM',  # CLHS
+            }
+
+            # Construct input arguments
+            struct_type = interface_params_dict[interface_type_index]
+            params_p = ffi.new(struct_type + ' *')
+            void_p = ffi.cast('void *', params_p)
+            struct_size = ffi.sizeof(params_p[0])
+
+            # Finally call the library function and return the result
+            return_code = lib.PCO_GetTransferParameter(
+                camera_handle, void_p, struct_size)
+            pco_error_check.__func__(return_code)  # pylint: disable=no-member
+            return params_p[0]
+
+        # Functions from pco.sdk manual section 2.13 "Special Commands
+        # PCO.Edge"
         SetTransferParametersAuto = Sig('in', 'ignore', 'ignore')
 
-        def GetTransferParameter(self):
-            hcam, = self._handles
-            params_p = ffi.new('PCO_SC2_CL_TRANSFER_PARAM *')
-            void_p = ffi.cast('void *', params_p)
-            ret = lib.PCO_GetTransferParameter(hcam, void_p, ffi.sizeof(params_p[0]))
-            pco_errcheck.__func__(ret)
-            return params_p[0]
+        # Functions from pco.sdk manual section 2.14 "Special Commands
+        # PCO.Dimax"
+
+        # Functions from pco.sdk manual section 2.15 "Special Commands
+        # PCO.Dimax with HD-SDI"
+
+        # Functions from pco.sdk manual section 2.16 "Special Commands
+        # PCO.Film"
+
+        # Functions from pco.sdk manual section 2.17 "Lens Control"
+
+        # Functions from pco.sdk manual section 2.18 "Special Commands
+        # PCO.Dicam"
 
 
 class BufferInfo(object):
@@ -215,9 +311,15 @@ class PCO_Camera(Camera):
         self._trig_mode = as_enum(self.TriggerMode, mode)
         self._cam.SetTriggerMode(self._trig_mode.value)
 
-        struct = self._cam.GetHWIOSignal(0)
-        struct.wPolarity = 0x04 if rising else 0x08
-        self._cam.SetHWIOSignal(0, ffi.addressof(struct))
+        HW_IO_SIGNAL_DESCRIPTOR = 0x40000000
+        supports_hw_io_signal = bool(
+            self._get_camera_description().dwGeneralCapsDESC1 &
+            HW_IO_SIGNAL_DESCRIPTOR
+        )
+        if supports_hw_io_signal:
+            struct = self._cam.GetHWIOSignal(0)
+            struct.wPolarity = 0x04 if rising else 0x08
+            self._cam.SetHWIOSignal(0, ffi.addressof(struct))
 
     def _open(self, cam_num):
         openStruct_p = ffi.new('PCO_OpenStruct *')
@@ -258,6 +360,11 @@ class PCO_Camera(Camera):
             self._cached_cam_desc = self._cam.GetCameraDescription()
         return self._cached_cam_desc
 
+    def _is_using_camera_link(self):
+        """Returns True if communicating over Camera Link and False otherwise"""
+        # Interface Type 2 is camera link
+        return (self._cam.GetCameraType().wInterfaceType == 2)
+
     @unit_mag(delay='ns', exposure='ns')
     def _set_delay_exposure_time(self, delay, exposure):
         delay_ns = int(round(delay))
@@ -291,6 +398,7 @@ class PCO_Camera(Camera):
         desc = self._get_camera_description()
         hstep = desc.wRoiHorStepsDESC
         vstep = desc.wRoiVertStepsDESC
+        hw_supports_roi = (hstep > 0)
 
         if x1 <= x0:
             raise Error("ROI must have x1 > x0")
@@ -301,39 +409,44 @@ class PCO_Camera(Camera):
         x0 = max(0, x0)
         y0 = max(0, y0)
         x1 = min(self.max_width, x1)
-        y1 = min(self.max_width, y1)
+        y1 = min(self.max_height, y1)
 
-        # Round and center x coords (must be symmetric in dual-ADC mode)
-        cx = self.max_width // 2
-        xdiff = max(cx - x0, x1 - cx) - 1
-        xdiff = (xdiff // hstep + 1) * hstep
-        fx0 = cx - xdiff
-        fx1 = cx + xdiff
+        if hw_supports_roi:
+            # Round and center x coords (must be symmetric in dual-ADC mode)
+            cx = self.max_width // 2
+            xdiff = max(cx - x0, x1 - cx) - 1
+            xdiff = (xdiff // hstep + 1) * hstep
+            fx0 = cx - xdiff
+            fx1 = cx + xdiff
 
-        # Round and center y coords (must be symmetric for pco.edge)
-        cy = self.max_height // 2
-        ydiff = max(cy - y0, y1 - cy) - 1
-        ydiff = (ydiff // vstep + 1) * vstep
-        fy0 = cy - ydiff
-        fy1 = cy + ydiff
+            # Round and center y coords (must be symmetric for pco.edge)
+            cy = self.max_height // 2
+            ydiff = max(cy - y0, y1 - cy) - 1
+            ydiff = (ydiff // vstep + 1) * vstep
+            fy0 = cy - ydiff
+            fy1 = cy + ydiff
+
+            try:
+                self._cam.SetROI(fx0+1, fy0+1, fx1, fy1)
+            except Error as e:
+                if e.return_code == e.hex_string_to_return_code("0xA00A3001"):
+                    raise Error(
+                        "ROI coordinates out of range; asked for x0,y0 = {},{} and x1,y1 = {},{}.\n"
+                        "However, x0 must be in the range [0, {}], and x1 must be in the range"
+                        " [x0+1, {}]; y0 must be in [0, {}] and y1 must be in [y0+1, {}]".format(
+                            x0, y0, x1, y1, self.max_width-1, self.max_width,
+                            self.max_height-1, self.max_height))
+                raise
+            self._sizes_changed = True
+        else:
+            fx0 = 0
+            fy0 = 0
 
         # Save for later
         self._soft_width = x1 - x0
         self._soft_height = y1 - y0
         self._roi_trim_left = x0 - fx0
         self._roi_trim_top = y0 - fy0
-
-        try:
-            self._cam.SetROI(fx0+1, fy0+1, fx1, fy1)
-        except Error as e:
-            if e.code == 0xA00A3001:
-                raise Error("ROI coordinates out of range; asked for x0,y0 = {},{} and x1,y1 = {},{}.\n"
-                            "However, x0 must be in the range [0, {}], and x1 must be in the range"
-                            " [x0+1, {}]; y0 must be in [0, {}] and y1 must be in [y0+1, {}]".format(
-                                x0, y0, x1, y1, self.max_width-1, self.max_width,
-                                self.max_height-1, self.max_height))
-            raise
-        self._sizes_changed = True
 
     def _get_ROI(self):
         x0, y0, x1, y1 = self._cam.GetROI()
@@ -357,19 +470,7 @@ class PCO_Camera(Camera):
 
     def _data_depth(self):
         """The depth of the data format that will be transferred to the PC's buffer"""
-        info = self._get_transfer_parameter()
-        dataformat = info.DataFormat & lib.PCO_CL_DATAFORMAT_MASK
-        depth_map = {
-            lib.PCO_CL_DATAFORMAT_5x16:  16,
-            lib.PCO_CL_DATAFORMAT_5x12L: 16,
-            lib.PCO_CL_DATAFORMAT_5x12:  12,
-            lib.PCO_CL_DATAFORMAT_5x12R: 12,
-            lib.PCO_CL_DATAFORMAT_10x8:   8,
-        }
-        if dataformat not in depth_map:
-            raise Exception("Unrecognized dataformat {}".format(dataformat))
-
-        return depth_map[dataformat]
+        return self._get_camera_description().wDynResDESC
 
     def _get_pixelrate(self):
         pixelrate = self._cam.GetPixelRate()
@@ -384,6 +485,11 @@ class PCO_Camera(Camera):
     def _get_sizes(self):
         if self._sizes_changed:
             x_act, y_act, x_max, y_max = self._cam.GetSizes()
+            # y_max is set to twice the sensor height if the camera supports
+            # double image mode, so we'll divide it by two if the camera does
+            # support that mode (indicated by wDoubleImageDESC=1).
+            if self._get_camera_description().wDoubleImageDESC:
+                y_max = int(y_max / 2)
             self._cached_sizes = x_act, y_act, x_max, y_max
             self._sizes_changed = False
         return self._cached_sizes
@@ -408,7 +514,9 @@ class PCO_Camera(Camera):
                 nbufs = 1
 
         # Clean up existing buffers
-        self._cam.SetRecordingState(0)
+        # If currently recording, stop recording.
+        if self._cam.GetRecordingState():
+            self._cam.SetRecordingState(0)
         self._clear_queue()
         self._free_buffers()
 
@@ -438,13 +546,20 @@ class PCO_Camera(Camera):
         """Calculate the size (in bytes) a buffer needs to hold an image with the current
         settings."""
         width, height, _, _ = self._get_sizes()
-        return (width * height * self._data_depth()) // 16 * 2
+        # Get number of bytes needed per pixel, 1 byte is 8 bits. Invert twice
+        # to round up instead of down.
+        bytes_per_pixel = - (-self._data_depth() // 8)
+        return (width * height * bytes_per_pixel)
 
     def _set_binning(self, hbin, vbin):
         self._cam.SetBinning(hbin, vbin)
 
     def start_capture(self, **kwds):
         self._handle_kwds(kwds)
+        
+        # If currently recording, stop recording.
+        if self._cam.GetRecordingState():
+            self._cam.SetRecordingState(0)
 
         self._set_binning(kwds['vbin'], kwds['hbin'])
         self._set_ROI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
@@ -456,17 +571,28 @@ class PCO_Camera(Camera):
         if 'trig' in kwds:
             self.set_trigger_mode(kwds['trig'], kwds.get('rising', True))
 
-        # Prepare CameraLink interface
-        width, height, _, _ = self._get_sizes()
-        self._cam.SetTransferParametersAuto()
-        self._cam.ArmCamera()
-        self._cam.CamLinkSetImageParameters(width, height)
+        # Prepare CameraLink interface if using one.
+        if self._is_using_camera_link():
+            width, height, _, _ = self._get_sizes()
+            self._cam.SetTransferParametersAuto()
+            self._cam.ArmCamera()
+            self._cam.CamLinkSetImageParameters(width, height)
+
+        # Counterintuitively we have to start recording before adding the image
+        # buffers for PCO cameras, except the ones that use a Camera Link
+        # interface.
+        if not self._is_using_camera_link():
+            self._cam.ArmCamera()
+            self._cam.SetRecordingState(1)
 
         # Add buffers to the queue
         for buf in self.buffers:
             self._push_on_queue(buf)
 
-        self._cam.SetRecordingState(1)
+        # If using a Camera Link interface, start recording now that the buffers
+        # have been added.
+        if self._is_using_camera_link():
+            self._cam.SetRecordingState(1)
 
         if self._trig_mode == self.TriggerMode.software:
             self._cam.ForceTrigger()
@@ -537,32 +663,63 @@ class PCO_Camera(Camera):
         self.start_capture(**kwds)
         return self.get_captured_image(timeout=timeout, copy=copy, **kwds)
 
-    @check_units(framerate='Hz')
-    def start_live_video(self, framerate='10Hz', **kwds):
+    @check_units(framerate='?Hz')
+    def start_live_video(self, framerate=None, **kwds):
         self._handle_kwds(kwds)
+
+        # Set framerate to default value if it is None.
+        explicit_framerate = True
+        if framerate is None:
+            framerate = '10Hz'
+            explicit_framerate = False
 
         self.set_trigger_mode(self.TriggerMode.auto)
         self._set_binning(kwds['vbin'], kwds['hbin'])
         self._set_ROI(kwds['left'], kwds['top'], kwds['right'], kwds['bot'])
         self._cam.ArmCamera()
 
-        # Prepare CameraLink interface
-        width, height, _, _ = self._get_sizes()
-        self._cam.SetTransferParametersAuto()
-        self._set_framerate(framerate, kwds['exposure_time'])
+        # Prepare CameraLink interface if using one.
+        if self._is_using_camera_link():
+            width, height, _, _ = self._get_sizes()
+            self._cam.SetTransferParametersAuto()
+        # Call SetFrameRate() for cameras that support it.
+        try:
+            self._set_framerate(framerate, kwds['exposure_time'])
+        except PCOError as e:
+            if e.return_code == e.hex_string_to_return_code("0x80331020"):
+                # In this case the camera doesn't support SetFrameRate(). Raise
+                # an error if tbe user explicitly requested a framerate.
+                if explicit_framerate:
+                    message = "Camera does not support a fixed framerate."
+                    raise ValueError(message)
+            else:
+                # In this case some other error was thrown, so we'll re-raise
+                # it.
+                raise e
         self._cam.ArmCamera()
-        self._cam.CamLinkSetImageParameters(width, height)
+        if self._is_using_camera_link():
+            self._cam.CamLinkSetImageParameters(width, height)
 
         self.shutter = 'continuous'
         if self._frame_size() != self._buf_size or len(self.buffers) < 2:
             self._allocate_buffers(nbufs=2)
         self._cam.ArmCamera()
 
+        # Counterintuitively we have to start recording before adding the image
+        # buffers for PCO cameras, except the ones that use a Camera Link
+        # interface.
+        if not self._is_using_camera_link():
+            self._cam.SetRecordingState(1)
+
         # Add all the buffers to the queue
         for buf in self.buffers:
             self._push_on_queue(buf)
 
-        self._cam.SetRecordingState(1)
+        # If using a Camera Link interface, start recording now that the buffers
+        # have been added.
+        if self._is_using_camera_link():
+            self._cam.SetRecordingState(1)
+
         self._cam.ForceTrigger()
 
     def stop_live_video(self):
@@ -653,7 +810,7 @@ def list_instruments():
             log.info("Opening PCO camera")
             hCam, _ = NicePCO.OpenCameraEx(ffi.NULL, openStruct_p)  # This is reallllyyyy sloowwwww
         except Error as e:
-            if e.code == 0x800A300D:
+            if e.return_code == e.hex_string_to_return_code("0x800A300D"):
                 return []  # No cameras attached/turned on
             raise
 
