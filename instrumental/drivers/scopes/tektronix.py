@@ -181,7 +181,7 @@ class TekScope(Scope, VisaMixin):
             'yun': strstr(self.query("wfmpre:yun?")),
         }
 
-    def get_data(self, channel=1, width=2):
+    def get_data(self, channel=1, width=2, bounds=None):
         """Retrieve a trace from the scope.
 
         Pulls data from channel `channel` and returns it as a tuple ``(t,y)``
@@ -193,6 +193,8 @@ class TekScope(Scope, VisaMixin):
             Channel number to pull trace from. Defaults to channel 1.
         width : int, optional
             Number of bytes per sample of data pulled from the scope. 1 or 2.
+        bounds : tuple, optional
+            (start, stop) index from where to start and stop. Index starts at 1.
 
         Returns
         -------
@@ -205,14 +207,24 @@ class TekScope(Scope, VisaMixin):
 
         with self.transaction():
             self.write("data:source ch{}".format(channel))
+            self.write("data:width {}", width)
+            self.write("data:encdg RIBinary")
+
+        if bounds == None:
+            start = 1
             try:
                 # scope *should* truncate this to record length if it's too big
                 stop = self.max_waveform_length
             except AttributeError:
                 stop = 1000000
-            self.write("data:width {}", width)
-            self.write("data:encdg RIBinary")
-            self.write("data:start 1")
+            
+        else:
+            start, stop = bounds
+            if start < 1 or start > self.waveform_length or stop > self.waveform_length:
+                raise ValueError('(start, stop) must be in range (1,{})'.format(self.waveform_length))
+
+        with self.transaction():
+            self.write("data:start {}".format(start))
             self.write("data:stop {}".format(stop))
 
         #self.resource.flow_control = 1  # Soft flagging (XON/XOFF flow control)
@@ -513,10 +525,8 @@ class TDS_7000(TekScope):
                                       'TDS7404'])
 
     max_waveform_length = 500000
-    
-    waveform_length = SCPI_Facet('WFMOutpre:NR_Pt?', convert=int, readonly=True,
+    waveform_length = SCPI_Facet('horizontal:recordlength', convert=int, readonly=True,
                                  doc="Record length of the source waveform")
-
 
 class MSO_DPO_2000(StatScope):
     """A Tektronix MSO/DPO 2000 series oscilloscope."""
