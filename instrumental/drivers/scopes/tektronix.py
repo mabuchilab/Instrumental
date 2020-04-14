@@ -193,8 +193,8 @@ class TekScope(Scope, VisaMixin):
             Channel number to pull trace from. Defaults to channel 1.
         width : int, optional
             Number of bytes per sample of data pulled from the scope. 1 or 2.
-        bounds : tuple, optional
-            (start, stop) index from where to start and stop. Index starts at 1.
+        bounds : tuple of int, optional
+            (start, stop) tuple of first and last sample to read. Index starts at 1.
 
         Returns
         -------
@@ -210,18 +210,15 @@ class TekScope(Scope, VisaMixin):
             self.write("data:width {}", width)
             self.write("data:encdg RIBinary")
 
-        if bounds == None:
+        if bounds is None:
             start = 1
-            try:
-                # scope *should* truncate this to record length if it's too big
-                stop = self.max_waveform_length
-            except AttributeError:
-                stop = 1000000
-            
+            # scope *should* truncate this to record length if it's too big
+            stop = getattr(self, 'max_waveform_length', 1000000)
         else:
             start, stop = bounds
-            if start < 1 or start > self.waveform_length or stop > self.waveform_length:
-                raise ValueError('(start, stop) must be in range (1,{})'.format(self.waveform_length))
+            wfm_len = self.waveform_length
+            if not (1 <= start <= stop <= wfm_len):
+                raise ValueError('bounds must satisfy 1 <= start <= stop <= {}'.format(wfm_len))
 
         with self.transaction():
             self.write("data:start {}".format(start))
