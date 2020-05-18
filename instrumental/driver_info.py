@@ -24,12 +24,13 @@ driver_info = OrderedDict([
     }),
     ('funcgenerators.agilent', {
         'params': ['visa_address'],
-        'classes': ['Agilent33250A', 'AgilentE4400B', 'AgilentMXG'],
+        'classes': ['Agilent33250A', 'AgilentE4400B', 'AgilentMXG', 'Agilent81110A'],
         'imports': [],
         'visa_info': {
             'Agilent33250A': ('Agilent Technologies', ['33250A']),
             'AgilentE4400B': ('Hewlett-Packard', ['ESG-1000B']),
             'AgilentMXG': ('Agilent Technologies', ['N5181A']),
+            'Agilent81110A': ('Hewlett-Packard', ['HP81110A']),
         },
     }),
     ('funcgenerators.rigol', {
