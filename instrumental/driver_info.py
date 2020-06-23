@@ -1,4 +1,4 @@
-# Auto-generated 2019-05-06T16:23:11.970004
+# Auto-generated 2019-09-19T15:55:57.247343
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -36,9 +36,9 @@ driver_info = OrderedDict([
     ('funcgenerators.rigol', {
         'params': ['visa_address'],
         'classes': [],
-        'imports': [],
+        'imports': ['visa'],
         'visa_info': {
-            'DG800': ('Rigol Technologies', ['DG812']),
+            'DG800': ('Rigol Technologies', ['DG811', 'DG812']),
         },
     }),
     ('funcgenerators.tektronix', {
@@ -132,12 +132,28 @@ driver_info = OrderedDict([
             'GPD_3303S': ('GW INSTEK', ['GPD-3303S']),
         },
     }),
+    ('powersupplies.rigol', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': ['pyvisa', 'visa'],
+        'visa_info': {
+            'DP700': ('RIGOL TECHNOLOGIES', ['DP711', 'DP712']),
+        },
+    }),
     ('scopes.agilent', {
         'params': ['visa_address'],
         'classes': ['DSO_1000'],
         'imports': ['pyvisa', 'visa'],
         'visa_info': {
             'DSO_1000': ('Agilent Technologies', ['DSO1024A']),
+        },
+    }),
+    ('scopes.rigol', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': ['pyvisa', 'visa'],
+        'visa_info': {
+            'DS1000Z': ('RIGOL TECHNOLOGIES', ['DS1054Z']),
         },
     }),
     ('scopes.tektronix', {

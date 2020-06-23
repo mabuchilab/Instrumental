@@ -94,6 +94,9 @@ class DG800(RigolFunctionGenerator, VisaMixin):
         _, _, _, version = self.query('*IDN?').rstrip().split(',', 4)
         return version
 
+    def reset(self):
+        self.write('*RST')
+
     @property
     def output1(self):
         val = self.query('OUTPut1:STATe?')
