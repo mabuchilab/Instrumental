@@ -6,9 +6,14 @@ Driver module for Agilent signal generators.
 MXG driver was initially developed for and tested on the N5181A.
 """
 from enum import Enum
+from pint import UnitRegistry
 from . import FunctionGenerator
 from .. import VisaMixin, SCPI_Facet
 from ... import u, Q_
+
+
+ureg = UnitRegistry()
+
 
 def _convert_enum(enum_type):
     """Check if arg is an instance or key of enum_type, and return that enum
@@ -28,10 +33,21 @@ def _convert_enum(enum_type):
 class TriggerSource(Enum):
     bus = 'BUS'
     immediate = 'IMMMEDIATE'
-    external = 'EXTERNAL'
+    external = 'EXT'
     key = 'KEY'
     timer = 'TIMER'
-    manual = 'MANUAL'
+    manual = 'MAN'
+    
+    
+class TriggerSensing(Enum):
+    edge = 'EDG'
+    level = 'LEV'
+    
+    
+class TriggerSlope(Enum):
+    positive = 'POS'
+    negative = 'NEG'
+    either = 'EITH'
 
 
 class FreqMode(Enum):
@@ -60,6 +76,10 @@ class AgilentMXG(FunctionGenerator, VisaMixin):
 
 class OnOffState(Enum):
     ON = True
+    OFF = False
+
+class CombinedState(Enum):
+    PLUS = True
     OFF = False
 
 class Agilent33250A(FunctionGenerator, VisaMixin):
@@ -104,7 +124,44 @@ class Agilent81110A(FunctionGenerator, VisaMixin):
     
     def get_polarity(self, channel=1):
         return self.query("OUTP{:d}:POL?", channel)
+    
+    def set_trigger_source(self, source):
+        """ Set the trigger source.
 
+        Parameters
+        ----------
+        source : either "MAN" for manual or "EXT" for external
+        """
+        self.write('ARM:SOUR ' + source)
+
+    
+    def get_trigger_source(self):
+        return TriggerSource(self.query("ARM:SOUR?")).name
+    
+    def set_trigger_sensing(self, sensing):
+        """ Set the trigger sensing.
+    
+        Parameters
+        ----------
+        sensing : either "EDGE" for edge or "LEV" for level
+        """
+        self.write('ARM:SENS ' + sensing)
+    
+    def get_trigger_sensing(self):
+        return TriggerSensing(self.query("ARM:SENS?")).name
+    
+    def set_trigger_slope(self, slope):
+        """ Set the trigger slope.
+    
+        Parameters
+        ----------
+        slope : either "POS" for positive or "NEG" for negative or "EITH" for either.
+        """
+        self.write('ARM:SLOP ' + slope)
+    
+    def get_trigger_slope(self):
+        return TriggerSlope(self.query("ARM:SLOP?")).name
+    
     def get_errors(self):
         return self.query('SYST:ERR?')
 
@@ -168,7 +225,7 @@ class Agilent81110A(FunctionGenerator, VisaMixin):
         """
         high = Q_(high)
         mag = high.to('V').magnitude
-        self.write('VOLT{:d}:HIGH {:f}V', channel, mag)
+        self.write('VOLT{:d}:HIGH {:5.2f}V', channel, mag)
 
     def set_low(self, low, channel=1):
         """ Set the low voltage level.
@@ -185,7 +242,7 @@ class Agilent81110A(FunctionGenerator, VisaMixin):
         """
         low = Q_(low)
         mag = low.to('V').magnitude
-        self.write('VOLT{:d}:LOW {:f}V', channel, mag)
+        self.write('VOLT{:d}:LOW {:5.2f}V', channel, mag)
 
     @property
     def output1(self):
@@ -206,3 +263,27 @@ class Agilent81110A(FunctionGenerator, VisaMixin):
     def output2(self, val):
         val = int(bool(val))
         self.write('OUTP2 %s' % OnOffState(val).name)
+    
+    @property
+    def combined(self):
+        val = self.query('CHAN:MATH?')
+        if val == "PLUS":
+            return True
+        else:
+            return False
+    
+    @combined.setter
+    def combined(self, val):
+        val = int(bool(val))
+        self.write('CHAN:MATH ' + CombinedState(val).name)
+    
+    @property
+    def trigger_level(self):
+        val = self.query('ARM:LEV?')
+        return Q_(val, ureg.volt)
+    
+    @trigger_level.setter
+    def trigger_level(self, val):
+        low = Q_(val)
+        mag = low.to('V').magnitude
+        self.write('ARM:LEV {:5.2f}V', mag)
