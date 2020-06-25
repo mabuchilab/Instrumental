@@ -6,13 +6,9 @@ Driver module for Agilent signal generators.
 MXG driver was initially developed for and tested on the N5181A.
 """
 from enum import Enum
-from pint import UnitRegistry
 from . import FunctionGenerator
 from .. import VisaMixin, SCPI_Facet
 from ... import u, Q_
-
-
-ureg = UnitRegistry()
 
 
 def _convert_enum(enum_type):
@@ -280,7 +276,7 @@ class Agilent81110A(FunctionGenerator, VisaMixin):
     @property
     def trigger_level(self):
         val = self.query('ARM:LEV?')
-        return Q_(val, ureg.volt)
+        return Q_(val, u.V)
     
     @trigger_level.setter
     def trigger_level(self, val):

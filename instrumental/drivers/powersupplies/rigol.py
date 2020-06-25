@@ -2,8 +2,7 @@
 
 from . import PowerSupply
 from .. import VisaMixin, Facet, SCPI_Facet
-from ... import Q_
-from pint import UnitRegistry
+from ... import u, Q_
 from .. import ParamSet
 from enum import Enum
 from visa import ResourceManager
@@ -14,8 +13,6 @@ _INST_PARAMS_ = ['visa_address']
 _INST_VISA_INFO_ = {
     'DP700': ('RIGOL TECHNOLOGIES', ['DP711', 'DP712']),
 }
-
-ureg = UnitRegistry()
 
 def list_instruments():
     """Get a list of all power supplies currently attached"""
@@ -75,10 +72,10 @@ class DP700(RigolPowerSupply, VisaMixin):
         return version
 
     def get_measured_voltage(self):
-        return Q_(self.query(':MEASure:VOLTage?'), ureg.volt)
+        return Q_(self.query(':MEASure:VOLTage?'), u.V)
 
     def get_measured_current(self):
-        return Q_(self.query(':MEASure:CURRent?'), ureg.ampere)
+        return Q_(self.query(':MEASure:CURRent?'), u.A)
 
     @current_protection_state.setter
     def current_protection_state(self, val):
