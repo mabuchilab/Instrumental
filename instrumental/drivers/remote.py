@@ -4,7 +4,7 @@
 Support for instruments on remote servers.
 """
 
-from __future__ import absolute_import, unicode_literals, print_function
+
 import atexit
 import socket
 import struct
@@ -19,7 +19,7 @@ from ..log import get_logger
 try:
     import socketserver
 except ImportError:
-    import SocketServer as socketserver
+    import socketserver as socketserver
 
 log = get_logger(__name__)
 
@@ -267,7 +267,7 @@ class ServerSession(Session):
 
     def _get_shared_inst(self, params):
         """Get shared instrument if it exists, otherwise create it and add it to the table"""
-        key = frozenset(params.items())
+        key = frozenset(list(params.items()))
         with self.shared_table_lock:
             # Get or create instrument
             try:
@@ -298,7 +298,7 @@ class ServerSession(Session):
                 pass
 
             # Delete instrument from shared_obj_table
-            keys_to_remove = [k for k,v in self.shared_obj_table.items()
+            keys_to_remove = [k for k,v in list(self.shared_obj_table.items())
                               if v is entry.obj]
             for key in keys_to_remove:
                 del self.shared_obj_table[key]
@@ -408,7 +408,7 @@ class ServerSession(Session):
 
         # Clean up before we exit
         log.info('Cleaning up open objects')
-        for entry in self.obj_table.values():
+        for entry in list(self.obj_table.values()):
             if isinstance(entry.obj, Instrument):
                 if entry.share:
                     self._close_shared_inst(entry)
@@ -522,5 +522,5 @@ client_session.sessions = {}
 
 @atexit.register
 def _cleanup_sessions():
-    for session in client_session.sessions.values():
+    for session in list(client_session.sessions.values()):
         session.close()
