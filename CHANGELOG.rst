@@ -4,6 +4,53 @@ Change Log
 Unreleased
 ----------
 
+Added
+"""""
+- Groundwork for generic Thorlabs Kinesis support
+- New drivers:
+  - Agilent 33250A
+  - Agilent E4400B signal generator
+  - Agilent MXG signal generators
+  - GW Instek GPD-3303S programmable linear DC power supply
+  - ILX Lightwave 3724B laser diode controller
+  - Newmark NSC-A1 single axis USB stepper motor controller
+  - Rigol DS1000Z series oscilloscopes
+  - Rigol DP700 series power supplies
+  - Rohde & Schwarz FSEA 20 spectrum analyzer
+  - Stanford Research Systems SR844 lock-in amplifier
+  - Tektronix TDS7154 oscilloscopes
+  - Thorlabs APT (for non-Windows-exclusive control of devices)
+- Support for more models of Tektronix oscilloscope
+- ``load_csv()`` function for Tektronix oscilloscopes
+- Async functions for pulling data from Tektronix oscilloscopes
+- Helper function for getting a valid power from the Newport 1830-C
+- Better trigger support for NI DAQs
+- Pixelclock support for cameras.uc480
+- Support for loading saved instruments from an external driver
+- Transaction context manager for ``VisaMixin``
+- Facet-related:
+  - ``ManualFacet``
+  - ``FacetGroup``
+  -  Simple observer/callback pattern
+
+
+Changed
+"""""""
+- Fixed several uses of buffer/memoryview for Py2/3 compat
+- Updated Picam driver to be compatible with newer NiceLib versions
+- Fixed Py2/3 compat in remote module
+- Converted more modules to use new log module
+- Config directory changed to lowercase
+- Stabilized the order of entries generated in ``driver_info.py``
+- Improved uc480 error handling (#94)
+- Fixed error for PCO cameras without ROI support (#104)
+- Improved PCO camera support (thanks Zak Vendeiro)
+
+
+Removed
+"""""""
+
+
 
 (0.5) - 2018-2-20
 -----------------
@@ -28,6 +75,7 @@ Changed
 - Sped up ``check_units()`` and ``unit_mag()``
 - Added NiceLib header-cleanup hooks for recent changes to kinesis headers
 - Converted NiceLib drivers to use NiceLib 0.5
+- Added bounds handling to ``TekScope.get_data()``
 
 Removed
 """""""
