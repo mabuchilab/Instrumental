@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018 Nate Bogdanowicz
+# Copyright 2018-2020 Nate Bogdanowicz
 
-from nicelib import load_lib, NiceLib, Sig, RetHandler, ret_return
+from nicelib import load_lib, NiceLib, Sig, RetHandler, ret_return, ret_ignore
 from .common import KinesisError
 
 
@@ -19,10 +19,12 @@ def ret_success(ret, funcname):
 
 
 class NiceTLI(NiceLib):
-    """Mid-level wrapper for Thorlabs.MotionControl.DeviceManager.dll"""
+    """Mid-level wrapper for Thorlabs Kinesis TLI_ functions"""
+    # NOTE: Wraps FilterFlipper DLL now because as of August 2020, DeviceManager DLL does not
+    # include simulation-related functions
     _info_ = load_lib('tli_', __package__, builder='._build_kinesis',
                       kwargs={'shortname': 'tli',
-                              'sublib': 'Thorlabs.MotionControl.DeviceManager'})
+                              'sublib': 'Thorlabs.MotionControl.FilterFlipper'})
     _prefix_ = 'TLI_'
     _ret_ = ret_errcheck
 
@@ -32,3 +34,5 @@ class NiceTLI(NiceLib):
     GetDeviceListByTypeExt = Sig('buf', 'len', 'in')
     GetDeviceListByTypesExt = Sig('buf', 'len', 'in', 'in')
     GetDeviceInfo = Sig('in', 'out', ret=ret_success)
+    InitializeSimulations = Sig(ret=ret_ignore)
+    UninitializeSimulations = Sig(ret=ret_ignore)

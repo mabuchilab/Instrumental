@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018 Christopher Rogers, Dodd Gray, and Nate Bogdanowicz
+# Copyright 2016-2020 Christopher Rogers, Dodd Gray, and Nate Bogdanowicz
 """
 Driver for controlling Thorlabs Kinesis devices.
 """
 from __future__ import division
 
+import atexit
 from importlib import import_module
 
 from ...log import get_logger
@@ -25,6 +26,28 @@ def list_instruments():
     return [ParamSet(cls, serial=serial) for cls,serial in
             ((_try_get_class(sn), sn) for sn in serial_nums)
             if cls]
+
+
+def initialize_simulations():
+    """Initialize a connection to the Simulation Manager, which must already be running.
+
+    Can be called multiple times. For a simulated device to show up in `list_instruments`, this
+    function must be called after the device's creation.
+
+    This function automatically registers ``uninitialize_simulations`` to be called upon program
+    exit.
+    """
+    NiceTLI.InitializeSimulations()
+    atexit.register(uninitialize_simulations)
+
+
+def uninitialize_simulations():
+    """Release the connection to the Simulation Manager.
+
+    This function is automatically registered by ``initialize_simulations`` to be called upon
+    program exit.
+    """
+    NiceTLI.UninitializeSimulations()
 
 
 def _try_get_class(serial):

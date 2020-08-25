@@ -139,6 +139,8 @@ short __cdecl TLI_GetDeviceListExt(char *receiveBuffer, DWORD sizeOfBuffer);
 short __cdecl TLI_GetDeviceListByTypeExt(char *receiveBuffer, DWORD sizeOfBuffer, int typeID);
 short __cdecl TLI_GetDeviceListByTypesExt(char *receiveBuffer, DWORD sizeOfBuffer, int * typeIDs, int length);
 short __cdecl TLI_GetDeviceInfo(char const * serialNo, TLI_DeviceInfo *info);
+void __cdecl TLI_InitializeSimulations(void);
+void __cdecl TLI_UninitializeSimulations(void);
 """
 
 # Removing pass-by-ref:
