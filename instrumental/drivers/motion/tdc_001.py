@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018 Christopher Rogers, Nate Bogdanowicz
+# Copyright 2016-2020 Christopher Rogers, Nate Bogdanowicz
 """
 Driver for controlling Thorlabs TDC001 T-Cube DC Servo Motor Controllers using the Kinesis SDK.
 
@@ -7,12 +7,13 @@ One must place Thorlabs.MotionControl.DeviceManager.dll and Thorlabs.MotionContr
 in the path.
 """
 from enum import Enum
+import atexit
 from time import sleep
 from warnings import warn
 import traceback
 from numpy import zeros
 import os.path
-from nicelib import NiceLib, Sig, NiceObject, RetHandler, ret_return
+from nicelib import NiceLib, Sig, NiceObject, RetHandler, ret_return, ret_ignore
 from cffi import FFI
 from . import Motion
 from .. import ParamSet
@@ -53,6 +54,28 @@ def list_instruments():
     return [ParamSet(TDC001, serial=serial_str)
             for serial_str in device_list
             if serial_str and int(serial_str[:2]) == TDC001_TYPE]
+
+
+def initialize_simulations():
+    """Initialize a connection to the Simulation Manager, which must already be running.
+
+    Can be called multiple times. For a simulated device to show up in `list_instruments`, this
+    function must be called after the device's creation.
+
+    This function automatically registers ``uninitialize_simulations`` to be called upon program
+    exit.
+    """
+    NiceTDC001.InitializeSimulations()
+    atexit.register(uninitialize_simulations)
+
+
+def uninitialize_simulations():
+    """Release the connection to the Simulation Manager.
+
+    This function is automatically registered by ``initialize_simulations`` to be called upon
+    program exit.
+    """
+    NiceTDC001.UninitializeSimulations()
 
 
 class TravelMode(Enum):
@@ -304,6 +327,8 @@ class NiceTDC001(NiceLib):
     GetDeviceListExt = Sig('buf', 'len')
     GetDeviceListByTypeExt = Sig('buf', 'len', 'in')
     GetDeviceListByTypesExt = Sig('buf', 'len', 'in', 'in')
+    InitializeSimulations = Sig(ret=ret_ignore)
+    UninitializeSimulations = Sig(ret=ret_ignore)
 
     class TDC001(NiceObject):
         Open = Sig('in')

@@ -1489,3 +1489,7 @@
 	/// <seealso cref="CC_SetMotorParamsExt(char const * serialNo, long stepsPerRev, long gearBoxRatio, float pitch)" />
 	 short  CC_GetMotorParamsExt(char const * serialNo, double *stepsPerRev, double *gearBoxRatio, double *pitch);
 
+
+/* Added manually by natezb */
+void __cdecl TLI_InitializeSimulations(void);
+void __cdecl TLI_UninitializeSimulations(void);
