@@ -117,7 +117,7 @@ class TDC001(Motion):
         try:
             self._NiceTDC.LoadSettings()
             self._set_real_world_units()
-        except Error as e:
+        except Error:
             warn_string = "TDC001 with SN {} did not initialize successfully."
             warn_string += "  The motion control device connected to the controller "
             warn_string += "may not support auto-loading of parameters. \n\n"
@@ -141,7 +141,7 @@ class TDC001(Motion):
     def close(self):
         return self._NiceTDC.Close()
 
-    @check_units(polling_period = 'ms')
+    @check_units(polling_period='ms')
     def _start_polling(self, polling_period='200ms'):
         """Starts polling to periodically update the device status.
 
@@ -160,7 +160,6 @@ class TDC001(Motion):
         self.real_world_units = real_world_units
 
         self._set_real_world_unit_conversion()
-        return
 
     def get_status(self):
         """ Returns the status registry bits from the device."""
