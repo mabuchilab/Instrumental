@@ -1,12 +1,13 @@
 Change Log
 ==========
 
-Unreleased
-----------
+(0.6) - 2018-8-27
+-----------------
 
 Added
 """""
 - Groundwork for generic Thorlabs Kinesis support
+- Support for simulated Kinesis instruments
 - New drivers:
   - Agilent 33250A
   - Agilent E4400B signal generator
