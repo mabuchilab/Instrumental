@@ -1,4 +1,4 @@
-# Auto-generated 2019-05-06T16:23:11.970004
+# Auto-generated 2020-08-27T19:22:16.689582
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -24,21 +24,21 @@ driver_info = OrderedDict([
     }),
     ('funcgenerators.agilent', {
         'params': ['visa_address'],
-        'classes': ['Agilent33250A', 'AgilentE4400B', 'AgilentMXG', 'Agilent81110A'],
+        'classes': ['Agilent33250A', 'Agilent81110A', 'AgilentE4400B', 'AgilentMXG'],
         'imports': [],
         'visa_info': {
             'Agilent33250A': ('Agilent Technologies', ['33250A']),
+            'Agilent81110A': ('HEWLETT-PACKARD', ['HP81110A']),
             'AgilentE4400B': ('Hewlett-Packard', ['ESG-1000B']),
             'AgilentMXG': ('Agilent Technologies', ['N5181A']),
-            'Agilent81110A': ('Hewlett-Packard', ['HP81110A']),
         },
     }),
     ('funcgenerators.rigol', {
         'params': ['visa_address'],
         'classes': [],
-        'imports': [],
+        'imports': ['visa'],
         'visa_info': {
-            'DG800': ('Rigol Technologies', ['DG812']),
+            'DG800': ('Rigol Technologies', ['DG811', 'DG812']),
         },
     }),
     ('funcgenerators.tektronix', {
