@@ -6,7 +6,6 @@ Driver for PCO Pixelfly cameras.
 from future.utils import PY2
 
 import os.path
-from time import clock
 import numpy as np
 from scipy.interpolate import interp1d
 import win32event
@@ -21,6 +20,9 @@ from ... import Q_, u
 
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
+    from time import clock
+else:
+    from time import process_time as clock
 
 __all__ = ['Pixelfly']
 

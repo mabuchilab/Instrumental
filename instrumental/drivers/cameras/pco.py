@@ -10,7 +10,6 @@ import os.path
 import tempfile
 import warnings
 from enum import Enum
-from time import clock
 
 import numpy as np
 from cffi import FFI, cparser
@@ -28,6 +27,9 @@ log = get_logger(__name__)
 
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
+    from time import clock
+else:
+    from time import process_time as clock
 
 __all__ = ['PCO_Camera']
 
