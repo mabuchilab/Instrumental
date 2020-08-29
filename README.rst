@@ -25,6 +25,9 @@ Instrumental is a Python-based library for controlling lab hardware like cameras
 oscilloscopes, spectrometers, and more. It has high-level drivers for instruments from NI,
 Tektronix, Thorlabs, PCO, Photometrics, Burleigh, and others.
 
+.. NOTE::
+    Version 0.6 will be the last release to support Python 2, which was sunset on January 1, 2020. Future versions will only support Python 3.7+.
+
 Instrumental's goal is to make common tasks simple to perform, while still providing the
 flexibility to perform complex tasks with relative ease. It also makes it easy to mess around with
 instruments in the shell. For example, to list the available instruments and open one of them::
@@ -49,6 +52,7 @@ Then you can simply open it by name::
 
 Instrumental also bundles in some additional support code, including:
 
+* A server-client implementation for controlling instruments from remote machines
 * Plotting and curve fitting utilities
 * Utilities for acquiring and organizing data
 
