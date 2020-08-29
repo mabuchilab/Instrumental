@@ -1,4 +1,5 @@
-.. image:: ../images/logo.png
+.. image:: ../images/logo.svg
+    :class: logo
     :align: right
 
 Instrumental
