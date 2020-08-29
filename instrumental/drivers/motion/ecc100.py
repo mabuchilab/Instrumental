@@ -19,6 +19,13 @@ driver.
 """
 
 from __future__ import print_function
+
+import warnings
+warnings.warn(
+    "Driver {!r} is out of date and incompatible with the current Instrumental core. "
+    "Pull requests fixing this are welcome.".format(__name__)
+)
+
 import time
 from enum import Enum
 from ctypes import (c_int32, c_bool, byref, create_string_buffer,

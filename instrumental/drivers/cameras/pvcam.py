@@ -3,6 +3,11 @@
 """
 Driver for Photometrics cameras.
 """
+import warnings
+warnings.warn(
+    "Driver {!r} is out of date and incompatible with the current Instrumental core. "
+    "Pull requests fixing this are welcome.".format(__name__)
+)
 
 import time
 import os.path
