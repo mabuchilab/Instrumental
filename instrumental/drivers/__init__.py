@@ -457,7 +457,7 @@ class VisaMixin(Instrument):
     def write(self, message, *args, **kwds):
         """Write a string message to the instrument's VISA resource
 
-        Calls format(*args, **kwds) to format the message. This allows for clean inclusion of
+        Calls ``format(*args, **kwds)`` to format the message. This allows for clean inclusion of
         parameters. For example:
 
         >>> inst.write('source{}:value {}', channel, value)

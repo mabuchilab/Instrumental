@@ -85,8 +85,8 @@ class AFG_3000(FunctionGenerator, VisaMixin):
 
         Parameters
         ----------
-        shape : {'SINusoid', 'SQUare', 'PULSe', 'RAMP', 'PRNoise', 'DC',
-        'SINC', 'GAUSsian', 'LORentz', 'ERISe', 'EDECay', 'HAVersine',
+        shape : {'SINusoid', 'SQUare', 'PULSe', 'RAMP', 'PRNoise', 'DC', \
+        'SINC', 'GAUSsian', 'LORentz', 'ERISe', 'EDECay', 'HAVersine', \
         'USER1', 'USER2', 'USER3', 'USER4', 'EMEMory', 'EFILe'}, optional
             Shape of the waveform. Case-insenitive, abbreviation or full
             string.

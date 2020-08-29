@@ -76,6 +76,7 @@ def check_units(*pos, **named):
 
     Allows strings and anything that can be passed as a single arg to `pint.Quantity`.
     ::
+
         @check_units(value='V')
         def set_voltage(value):
             pass  # `value` will be a pint.Quantity with Volt-like units
@@ -124,6 +125,7 @@ def unit_mag(*pos, **named):
 
     Allows strings and anything that can be passed as a single arg to `pint.Quantity`.
     ::
+
         @unit_mag(value='V')
         def set_voltage(value):
             pass  # The input must be in Volt-like units and `value` will be a raw number
@@ -181,6 +183,7 @@ def check_enums(**kw_args):
 
     Allows strings and anything that can be passed to `~instrumental.drivers.util.as_enum`.
     ::
+
         @check_enums(mode=SampleMode)
         def set_mode(mode):
             pass  # `mode` will be of type SampleMode
@@ -351,6 +354,7 @@ def _unit_decorator(in_map, out_map, pos_args, named_args):
 def visa_timeout_context(resource, timeout):
     """Context manager for temporarily setting a visa resource's timeout.
     ::
+
         with visa_timeout_context(rsrc, 100):
              ...  # `rsrc` will have a timeout of 100 ms within this block
     """
