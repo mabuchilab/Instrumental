@@ -5,6 +5,17 @@ Writing Drivers
     :local:
     :depth: 2
 
+
+Examples
+--------
+
+.. toctree::
+    :maxdepth: 2
+    :titlesonly:
+
+    visa-dev-example
+    nicelib-dev-example
+
 ---------------------------------------------------------------------------------
 
 
