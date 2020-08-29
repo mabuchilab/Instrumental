@@ -58,8 +58,9 @@ class Mock(object):
         else:
             return Mock()
 
-# Include ctypes due to Windows-specific imports
-MOCK_MODULES = ['numpy', 'numpy.ctypeslib','scipy', 'scipy.special', 'scipy.interpolate',
+# Include ctypes due to Windows-specific imports. This forces us to also mock numpy.cytypeslib to
+# avoid a RecursionError.
+MOCK_MODULES = ['numpy.ctypeslib','scipy', 'scipy.special', 'scipy.interpolate',
                 'scipy.optimize', 'matplotlib', 'matplotlib.pyplot', 'matplotlib.widgets',
                 'matplotlib.transforms', 'matplotlib.cbook', 'ctypes', 'ctypes.wintypes', 'visa',
                 'pyvisa', 'pyvisa.constants', 'cffi', 'nicelib', 'win32event']
