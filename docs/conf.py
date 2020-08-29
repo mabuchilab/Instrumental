@@ -53,6 +53,8 @@ class Mock(object):
         # Don't use type magic b/c it messes some things up
         if name in ('__file__', '__path__'):
             return '/dev/null'
+        if name in ('__mro_entries__',):
+            raise AttributeError
         else:
             return Mock()
 
