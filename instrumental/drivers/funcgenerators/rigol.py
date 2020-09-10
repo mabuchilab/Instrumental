@@ -31,10 +31,9 @@ def list_instruments():
     model_string = ''
 
     for spec in SpecTypes:
-        model_string += '(VI_ATTR_MODEL_CODE==0x{:04X}) || '.format(spec.value)
-    model_string = model_string.rstrip(' || ')
-    search_string = "USB?*?{{VI_ATTR_MANF_ID==0x{:04X} && ({})}}".format(MANUFACTURER_ID, model_string)
-
+        model_string += '{:04X}|'.format(spec.value)
+    model_string = model_string.rstrip('|')
+    search_string = "USB\d::0x{:04X}::0x({})".format(MANUFACTURER_ID, model_string)
     rm = ResourceManager()
 
     try:

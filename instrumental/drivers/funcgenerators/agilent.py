@@ -36,7 +36,7 @@ class TriggerSource(Enum):
     
     
 class TriggerSensing(Enum):
-    edge = 'EDG'
+    edge = 'EDGE'
     level = 'LEV'
     
     
@@ -99,13 +99,7 @@ class AgilentE4400B(FunctionGenerator, VisaMixin):
 
     frequency = SCPI_Facet('FREQ:FIXED', convert=float, units='Hz')
 
-class Agilent81110A(FunctionGenerator, VisaMixin):
-    _INST_PARAMS_ = ['visa_address']
-    _INST_VISA_INFO_ = ('HEWLETT-PACKARD', ['HP81110A'])
-
-    def _initialize(self):
-        self._rsrc.read_termination = '\n'
-
+class AgilentFuncGenerator(FunctionGenerator, VisaMixin):
     def set_polarity(self, polarity, channel=1):
         """ Set the polarity of a channel.
 
@@ -283,3 +277,30 @@ class Agilent81110A(FunctionGenerator, VisaMixin):
         low = Q_(val)
         mag = low.to('V').magnitude
         self.write('ARM:LEV {:5.2f}V', mag)
+
+class Agilent81110A(AgilentFuncGenerator):
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('HEWLETT-PACKARD', ['HP81110A'])
+
+    def _initialize(self):
+        self._rsrc.read_termination = '\n'
+    
+    def set_subsystem(self, subsystem, channel=1):
+        """ Switch between substems commands.
+
+        Parameters
+        ----------
+        subsystem : either "VOLT" for voltage or "CURR" for current.
+        
+        channel: int
+            Channel number
+        """
+        self.write('HOLD{:d} {}', channel, subsystem)
+
+
+class Keysight81160A(AgilentFuncGenerator):
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('Agilent Technologies', ['81160A'])
+   
+    def _initialize(self):
+        self._rsrc.read_termination = '\n'
