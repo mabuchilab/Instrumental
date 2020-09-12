@@ -29,7 +29,7 @@ def list_instruments():
     """Get a list of all spectrometers currently attached"""
     paramsets = []
     model_string = '|'.join('{:04X}'.format(spec.value) for spec in SpecTypes)
-    search_string = "USB\d::0x{:04X}::0x({})".format(MANUFACTURER_ID, model_string)
+    search_string = "USB[0-9]*::0x{:04X}::0x({})".format(MANUFACTURER_ID, model_string)
     rm = ResourceManager()
 
     try:
