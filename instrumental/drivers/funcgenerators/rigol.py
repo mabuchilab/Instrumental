@@ -28,11 +28,7 @@ class Waveform(Enum):
 def list_instruments():
     """Get a list of all spectrometers currently attached"""
     paramsets = []
-    model_string = ''
-
-    for spec in SpecTypes:
-        model_string += '{:04X}|'.format(spec.value)
-    model_string = model_string.rstrip('|')
+    model_string = '|'.join('{:04X}'.format(spec.value) for spec in SpecTypes)
     search_string = "USB\d::0x{:04X}::0x({})".format(MANUFACTURER_ID, model_string)
     rm = ResourceManager()
 
