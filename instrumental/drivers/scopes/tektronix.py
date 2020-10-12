@@ -56,6 +56,18 @@ MODEL_CHANNELS = {
     'DPO2014': 4,
     'MSO2024': 4,
     'DPO2024': 4,
+    'MSO3012': 2,
+    'DPO3012': 2,
+    'MSO3014': 4,
+    'DPO3014': 4,
+    'MSO3032': 2,
+    'DPO3032': 2,
+    'MSO3034': 4,
+    'DPO3034': 4,
+    # MSO3052 does not exist
+    'DPO3052': 2,
+    'MSO3054': 4,
+    'DPO3054': 4,
     'MSO4032': 2,
     'DPO4032': 2,
     'MSO4034': 4,
@@ -580,6 +592,15 @@ class MSO_DPO_2000(StatScope):
         scale_s = max(2e-9, scale_s)
         scale_s = min(100., scale_s)
         self.write('hor:scale {:E}', scale_s)
+
+
+class MSO_DPO_3000(StatScope):
+    """A Tektronix MSO/DPO 3000 series oscilloscope."""
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('TEKTRONIX', ['MSO3012', 'DPO3012', 'MSO3014', 'DPO3014',
+                                      'MSO3032', 'DPO3032', 'MSO3034', 'DPO3034',
+                                      'DPO3052', 'MSO3054', 'DPO3054',])
+    datetime = TekScope._datetime
 
 
 class MSO_DPO_4000(StatScope):
