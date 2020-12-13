@@ -145,6 +145,14 @@ class Facet(object):
     def __repr__(self):
         return "<Facet '{}'>".format(self.name)
 
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return self.get_value(obj)
+
+    def __set__(self, obj, qty):
+        self.set_value(obj, qty)
+
     def _set_limits(self, limits):
         if limits is not None:
             for limit in limits:
@@ -194,11 +202,6 @@ class Facet(object):
                 value = Q_(value, self.units)
         return value
 
-    def __get__(self, obj, objtype=None):
-        if obj is None:
-            return self
-        return self.get_value(obj)
-
     def get_value(self, obj, use_cache=True):
         if self.fget is None:
             raise AttributeError
@@ -214,9 +217,6 @@ class Facet(object):
 
         log.debug('Facet value was %s', instance.cached_val)
         return instance.cached_val
-
-    def __set__(self, obj, qty):
-        self.set_value(obj, qty)
 
     def convert_user_input(self, value, obj):
         """Validate and convert an input value to its 'external' form"""
@@ -271,21 +271,6 @@ class Facet(object):
 
         instance.cached_val = value
         log.info('Facet value is %s', value)
-
-    def __call__(self, fget):
-        return self.getter(fget)
-
-    def getter(self, fget):
-        self.fget = fget
-        if not self.__doc__:
-            self.__doc__ = fget.__doc__
-        return self
-
-    def setter(self, fset):
-        self.fset = fset
-        if not self.__doc__:
-            self.__doc__ = fset.__doc__
-        return self
 
 
 class AbstractFacet(Facet):
