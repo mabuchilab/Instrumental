@@ -15,7 +15,6 @@ from matplotlib.pyplot import *
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 from matplotlib.transforms import Bbox
-from matplotlib.cbook import is_string_like
 
 from . import u, Q_
 
@@ -27,19 +26,20 @@ def _get_line_tups(*args):
     # Assume all args are either data or format strings, plt.plot will
     # deal with raising exceptions.
     # A line's arguments consist of [x], y, [fmt]
+    string_like = (str, np.str_)
     lines = []
     while args:
         fmt = ''
         y = Q_(args[0])
         if len(args) > 1:
-            if is_string_like(args[1]):
+            if isinstance(args[1], string_like):
                 fmt = args[1]
                 x = Q_(np.arange(y.shape[0], dtype=float))
                 args = args[2:]
             else:
                 x = y
                 y = Q_(args[1])
-                if len(args) > 2 and is_string_like(args[2]):
+                if len(args) > 2 and isinstance(args[2], string_like):
                     fmt = args[2]
                     args = args[3:]
                 else:
