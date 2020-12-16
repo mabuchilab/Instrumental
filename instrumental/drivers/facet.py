@@ -305,7 +305,7 @@ class Facet(object):
 
         instance = self.instance(obj)
         self._load_limits(obj)
-        value, nice_value = self.conv_set(value, obj)
+        value, nice_value = self.conv_set(value)
 
         if not (self.cacheable and use_cache) or instance.cached_val != nice_value:
             log.info('Setting value of facet %s', self.name)
