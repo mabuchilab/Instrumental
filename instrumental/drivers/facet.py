@@ -199,7 +199,7 @@ class Facet(object):
                     raise ValueError('Facet limits must be raw numbers, strings, or None')
 
         if limits is None:
-            pass
+            self.limits = (None, None, None)
         elif len(limits) == 1:
             self.validator = validators.strict_range
             self.values = (0, limits[0])
@@ -305,7 +305,7 @@ class Facet(object):
 
         instance = self.instance(obj)
         self._load_limits(obj)
-        value, nice_value = self.convert_user_input(value, obj)
+        value, nice_value = self.conv_set(value, obj)
 
         if not (self.cacheable and use_cache) or instance.cached_val != nice_value:
             log.info('Setting value of facet %s', self.name)
