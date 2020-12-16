@@ -7,9 +7,10 @@ from past.builtins import basestring
 import numbers
 from collections import Mapping, namedtuple
 
+from . import validators
+from .util import to_quantity
 from ..log import get_logger
 from .. import u, Q_
-from .util import to_quantity
 
 log = get_logger(__name__)
 
@@ -102,17 +103,30 @@ class Facet(object):
     units : pint.Units or corresponding str
         Physical units of the facet's value. Used for converting both user input (when setting) and
         the output of fget (when getting).
-    value : dict-like, optional
+    value : dict-like, deprecated
         A map from 'external' values to 'internal' facet values. Used internally to convert input
         values for use with fset and to convert values returned by fget into 'nice' values fit force
         user consumption.
-    limits : sequence, optional
+    limits : sequence, deprecated
         Limits specified in `[stop]`, `[start, stop]`, or `[start, stop, step]` format. When given,
         raises a `ValueError` if a user tries to set a value that is out of range. `step`, if given,
         is used to round an in-range value before passing it to fset.
+    name : str, optional
+        Name of the instance. Auto-filled by InstrumentMeta.__new__ later, but
+        only if the instance is an attribute of an Instrument instance.
+    validator: callable, optional
+        A function that takes both a value and a group of valid values and
+        returns a valid value, while it otherwise raises an exception
+    values: list, tuple, range, or dict-like; optional
+        Valid values that are checked against by the validator. If
+        :code:`map_values` is True, :code:`values` is instead used to map the
+        get/set value.
+    map_values: boolean, optional
+        flag that determines if values should be interpreted as a map.
+
     """
     def __init__(self, fget=None, fset=None, doc=None, cached=False, type=None, units=None,
-                 value=None, limits=None, name=None):
+                 value=None, limits=None, name=None, validator=None, values=None, map_values=False):
         if fget is not None:
             self.name = fget.__name__
 
@@ -127,20 +141,29 @@ class Facet(object):
         self.type = type
         self.units = None if units is None else u.parse_units(units)
         self.name = name  # This is auto-filled by InstrumentMeta.__new__ later
+        self.validator = validator
+        self.values = values
         self._set_limits(limits)
 
-        if value is None:
-            self.values = None
-            self.in_map = None
-            self.out_map = None
-        elif isinstance(value, Mapping):
-            self.values = set(value)
+        # First conditional 'if' is a residual of the handler for the
+        # deprecated value parameter. <git grep \.values> indicated
+        # self.values was not used elsewhere, and so it was removed.
+        self.in_map = None
+        self.out_map = None
+        if isinstance(value, Mapping):
             self.in_map = value
-            self.out_map = {v:k for k,v in value.items()}
-        else:
-            self.values = set(value)
-            self.in_map = None
-            self.out_map = None
+            self.out_map = {v: k for k, v in value.items()}
+        if map_values is True:
+            if isinstance(values, Mapping):
+                self.in_map = values
+                self.out_map = {v: k for k, v in self.in_map.items()}
+            elif isinstance(values, (list, tuple, range)):
+                self.in_map = {values[i]: i for i in range(len(values))}
+                self.out_map = {v: k for k, v in self.in_map.items()}
+            else:
+                raise ValueError(
+                    'If map_values is True, values must be of type list, '
+                    'tuple, range or Mapping')
 
     def __repr__(self):
         return "<Facet '{}'>".format(self.name)
@@ -153,22 +176,48 @@ class Facet(object):
     def __set__(self, obj, qty):
         self.set_value(obj, qty)
 
+    def __call__(self, fget):
+        return self.getter(fget)
+
+    def getter(self, fget):
+        self.fget = fget
+        if not self.__doc__:
+            self.__doc__ = fget.__doc__
+        return self
+
+    def setter(self, fset):
+        self.fset = fset
+        if not self.__doc__:
+            self.__doc__ = fset.__doc__
+        return self
+
     def _set_limits(self, limits):
+        '''Initialization for deprecated limits parameter'''
         if limits is not None:
             for limit in limits:
                 if limit is not None and not isinstance(limit, (numbers.Number, basestring)):
                     raise ValueError('Facet limits must be raw numbers, strings, or None')
 
         if limits is None:
-            self.limits = (None, None, None)
+            pass
         elif len(limits) == 1:
-            self.limits = (0, limits[0], None)
+            self.validator = validators.strict_range
+            self.values = (0, limits[0])
+            self.limits = (0, limits[0])
         elif len(limits) == 2:
-            self.limits = (limits[0], limits[1], None)
+            self.validator = validators.strict_range
+            self.values = (limits[0], limits[1])
+            self.limits = (limits[0], limits[1])
         elif len(limits) == 3:
+            self.validator = lambda value, values: validators.discrete_range(value, values[:2], values[2])
+            self.values = (limits[0], limits[1], limits[2])
             self.limits = (limits[0], limits[1], limits[2])
         else:
             raise ValueError("`limits` must be a sequence of length 1 to 3")
+
+    def _load_limits(self, obj):
+        self.values = tuple((getattr(obj, l) if isinstance(l, basestring) else l)
+                     for l in self.limits)
 
     def instance(self, obj):
         """Get the FacetData associated with `obj`"""
@@ -180,14 +229,46 @@ class Facet(object):
             return inst
 
     def conv_set(self, value):
-        """Convert nice value to representation that fset takes"""
-        if isinstance(value, Q_):
-            value = value.magnitude
-        #if self.type is not None:
-        #    value = self.type(value)
-        if self.in_map:
-            value = self.in_map[value]
-        return value
+        """Convert and validate user input value.
+
+        Converts and validates users inputs, returning a 'nice' user-side
+        value for caching, and its mapped-magnitude for fset.
+
+        Parameters
+        ----------
+        value : Q_ or corresponsing str, or a number
+            The unprocessed user input
+
+        Returns
+        ----------
+        nice_value : A converted and validated user-side value. Unitful or not
+            depending of self.units.
+        value : The magnitude of the nice_val. To be used for fset, but still
+            requires mapping.
+
+        """
+        if self.units is not None:
+            value = to_quantity(value).to(self.units).magnitude
+            if self.type is not None:
+                value = self.type(value)
+            if self.validator is not None:
+                value = self.validator(value, self.values)
+            nice_value = Q_(value, self.units)
+            if self.in_map:
+                value = self.in_map[value]
+            return value, nice_value
+        else:
+            if isinstance(value, Q_):
+                value = value.magnitude  # Note: user input of 100 <Unit('nanometer')>
+                                         # and 100 <Unit('meter')> yield same value
+            if self.type is not None:
+                value = self.type(value)
+            if self.validator is not None:
+                value = self.validator(value, self.values)
+            nice_value = value
+            if self.in_map:
+                value = self.in_map[value]
+            return value, nice_value
 
     def conv_get(self, value):
         """Convert what fget returns to a nice output value"""
@@ -218,59 +299,25 @@ class Facet(object):
         log.debug('Facet value was %s', instance.cached_val)
         return instance.cached_val
 
-    def convert_user_input(self, value, obj):
-        """Validate and convert an input value to its 'external' form"""
-        if self.units is not None:
-            q = to_quantity(value).to(self.units)
-            return Q_(self.convert_raw_input(q.magnitude, obj), q.units)
-        else:
-            return self.convert_raw_input(value, obj)
-
-    def convert_raw_input(self, input_value, obj):
-        value = input_value if self.type is None else self.type(input_value)
-        return self.check_limits(value, obj)
-
-    def _load_limits(self, obj):
-        return tuple((getattr(obj, l) if isinstance(l, basestring) else l)
-                     for l in self.limits)
-
-    def check_limits(self, value, obj):
-        """Check raw value (magnitude) against the Facet's limits"""
-        start, stop, step = self._load_limits(obj)
-        if start is not None and value < start:
-            raise ValueError("Value below lower limit of {}".format(
-                Q_(start, self.units) if self.units else start))
-        if stop is not None and value > stop:
-            raise ValueError("Value above upper limit of {}".format(
-                Q_(stop, self.units) if self.units else stop))
-
-        if step is not None:
-            offset = value - start
-            if offset % step != 0:
-                new_value = start + int(round(offset / step)) * step
-                log.debug("Coercing value from %s to %s due to limit step", value, new_value)
-                return new_value
-
-        return value
-
     def set_value(self, obj, value, use_cache=True):
         if self.fset is None:
             raise AttributeError("Cannot set a read-only Facet")
 
         instance = self.instance(obj)
-        value = self.convert_user_input(value, obj)
+        self._load_limits(obj)
+        value, nice_value = self.convert_user_input(value, obj)
 
-        if not (self.cacheable and use_cache) or instance.cached_val != value:
+        if not (self.cacheable and use_cache) or instance.cached_val != nice_value:
             log.info('Setting value of facet %s', self.name)
-            self.fset(obj, self.conv_set(value))
-            change = ChangeEvent(name=self.name, old=instance.cached_val, new=value)
+            self.fset(obj, value)
+            change = ChangeEvent(name=self.name, old=instance.cached_val, new=nice_value)
             for callback in instance.observers:
                 callback(change)
         else:
             log.info('Skipping set of facet %s, cached value matches', self.name)
 
-        instance.cached_val = value
-        log.info('Facet value is %s', value)
+        instance.cached_val = nice_value
+        log.info('Facet value is %s', nice_value)
 
 
 class AbstractFacet(Facet):
