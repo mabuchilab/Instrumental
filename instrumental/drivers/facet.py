@@ -199,7 +199,7 @@ class Facet(object):
                     raise ValueError('Facet limits must be raw numbers, strings, or None')
 
         if limits is None:
-            self.limits = (None, None, None)
+            self.limits = None
         elif len(limits) == 1:
             self.validator = validators.strict_range
             self.values = (0, limits[0])
@@ -216,8 +216,10 @@ class Facet(object):
             raise ValueError("`limits` must be a sequence of length 1 to 3")
 
     def _load_limits(self, obj):
-        self.values = tuple((getattr(obj, l) if isinstance(l, basestring) else l)
-                     for l in self.limits)
+        if self.limits is not None:
+            self.values = tuple(
+                (getattr(obj, l) if isinstance(l, basestring) else l)
+                 for l in self.limits)
 
     def instance(self, obj):
         """Get the FacetData associated with `obj`"""
@@ -305,7 +307,7 @@ class Facet(object):
 
         instance = self.instance(obj)
         self._load_limits(obj)
-        value, nice_value = self.conv_set(value)
+        value, nice_value = self.conv_set(value, obj)
 
         if not (self.cacheable and use_cache) or instance.cached_val != nice_value:
             log.info('Setting value of facet %s', self.name)
