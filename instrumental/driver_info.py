@@ -103,6 +103,12 @@ driver_info = OrderedDict([
         'classes': ['NSCA1'],
         'imports': ['visa'],
     }),
+    ('motion.newport', {
+        'params': ['visa_address'],
+        'classes': ['ESP300'],
+        'imports': [],
+        'visa_info': {},
+    }),
     ('motion.tdc_001', {
         'params': ['serial'],
         'classes': ['TDC001'],
