@@ -151,7 +151,7 @@ class NiceNI(NiceLib):
         _sigs_ = sig_pattern((
             ('Get{}', Sig('in', 'out')),
             ('Set{}', Sig('in', 'in')),
-        ), (
+        ),(
             'SampTimingType',
             'SampQuantSampMode',
             'ReadOffset',
@@ -568,7 +568,7 @@ class Task(object):
         you may instead prefer to use `write()`, `read()`, `start()`, `stop()`, etc. directly.
         """
         # TODO: Decide if/when to do this. See `_setup_triggers` for more info
-        # if not self._trig_set_up:
+        #if not self._trig_set_up:
         #    self._setup_triggers()
 
         self.write(write_data, autostart=False)
@@ -710,7 +710,7 @@ class Task(object):
         if is_scalar:
             res['t'] = Q_(0., 's')
         else:
-            end_t = (n_samps_read - 1) / self.fsamp.m_as('Hz') if self.fsamp is not None else 0
+            end_t = (n_samps_read-1)/self.fsamp.m_as('Hz') if self.fsamp is not None else 0
             res['t'] = Q_(np.linspace(0., end_t, n_samps_read), 's')
         return res
 
