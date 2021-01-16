@@ -756,7 +756,7 @@ class Task(object):
 class TaskMultiDevice(object):
     """A high-level task that can synchronize use of multiple channel types
     when using multiple NI devices simultaneously.
-    
+
     The difference with the Task is that the channels and MiniTask need to be differentiated between the devices. So, a full path needs to be used in channel dictionary, and MiniTask need to be a dictionary of devices where each device has it's own channel types.
     """
 
@@ -888,6 +888,7 @@ class TaskMultiDevice(object):
         try:
             read_data = self.read()
         finally:
+            self.wait_until_done()
             self.stop()
 
         return read_data
@@ -1010,7 +1011,7 @@ class TaskMultiDevice(object):
     def wait_until_done(self, timeout=None):
         """Wait until the task is done"""
         # Only wait for one task, since they should all finish at the same time... I think
-        dev_mtasks = next(iter(self._mtasks))
+        dev_mtasks = next(iter(self._mtasks.values()))
         mtask = next(iter(dev_mtasks.values()))
         mtask.wait_until_done(timeout)
 
@@ -1058,18 +1059,21 @@ class TaskMultiDevice(object):
             mx_task.WriteAnalogF64(
                 n_samps_per_chan, autostart, -1., Val.GroupByChannel, arr)
 
-    # TODO: FINISH this!
+    # TODO: need to test this
     def _write_DO_channels(self, data, autostart=True):
         if 'DO' not in self._mtasks:
             return
-        mx_task=self._mtasks['DO']._mx_task
-        # TODO: add check that input data is the right length
-        arr=np.fromiter((ch._create_DO_int(value)
-                           for (ch_name, ch) in self.channels.items() if ch.type == 'DO'
-                           for value in data[ch_name]),
-                          dtype='uint32')
-        n_samps_per_chan=len(list(data.values())[0])
-        mx_task.WriteDigitalU32(n_samps_per_chan, autostart, -1, Val.GroupByChannel, arr)
+        for dev_name, dev_mtasks in self._mtasks.items():
+            if 'DO' not in dev_mtasks:
+                continue
+            mx_task = dev_mtasks['DO']._mx_task
+            # TODO: add check that input data is the right length
+            arr = np.fromiter((ch._create_DO_int(value)
+                               for (ch_name, ch) in self.channels.items() if ch.type == 'DO'
+                               for value in data[ch_name]),
+                              dtype='uint32')
+            n_samps_per_chan = len(list(data.values())[0])
+            mx_task.WriteDigitalU32(n_samps_per_chan, autostart, -1, Val.GroupByChannel, arr)
 
     def __enter__(self):
         return self
