@@ -11,8 +11,9 @@ from .. import ParamSet
 from ... import Q_, u
 
 
-def list_instruments():
-    return [ParamSet(TDC001_APT, port=p.device) for p in comports() if (p.vid, p.pid) == (0x0403, 0xfaf0)]
+def list_instruments(filter_serial_number=None):
+    return [ParamSet(TDC001_APT, port=p.device, serialnumber=p.serial_number) for p in comports() 
+            if (p.vid, p.pid) == (0x0403, 0xfaf0)]
 
 class APT(Motion):
     """Generic Thorlabs device, controlled via APT commands"""
