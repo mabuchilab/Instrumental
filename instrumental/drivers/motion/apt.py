@@ -128,7 +128,7 @@ class TDC001_APT(APT):
         """ Check if the move is completed.
         """
         rsp = self._ser.read(6)
-        if rsp == bytes([0x64, 0x04, 0x0e, 0x00, self.src | 0x80, self.dst ]):
+        if rsp[:4] == bytes([0x64, 0x04, 0x0e, 0x00, self.src | 0x80, self.dst ])[:4]:
             return True
         else:
             return False
@@ -152,7 +152,7 @@ class TDC001_APT(APT):
         """ Check if the device is homed.
         """
         rsp = self._ser.read(6)
-        if rsp == bytes([0x44, 0x04, 0x01, 0x00, self.src, self.dst]):
+        if rsp[:4] == bytes([0x44, 0x04, 0x01, 0x00, self.src, self.dst])[:4]:
             return True
         else:
             return False
