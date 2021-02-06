@@ -29,10 +29,11 @@ from ..errors import (InstrumentTypeError, InstrumentNotFoundError, ConfigError,
                       InstrumentExistsError)
 
 log = get_logger(__name__)
-vlog = get_logger('__instrumental_verbose__')
-sh = logging.StreamHandler()
-sh.setFormatter(logging.Formatter(fmt='%(message)s'))
-vlog.addHandler(sh)
+vlog = get_logger(__name__+'._verbose_')
+vlog.setLevel(DEBUG)
+vlog_handler = logging.StreamHandler()
+vlog_handler.setFormatter(logging.Formatter(fmt='%(message)s'))
+vlog.addHandler(vlog_handler)
 
 
 __all__ = ['Instrument', 'instrument', 'list_instruments', 'list_visa_instruments']
@@ -51,6 +52,7 @@ _legacy_params = {
 
 @contextlib.contextmanager
 def temp_loglevel(logger, log_level):
+    """`logger` can be a Logger or Handler"""
     old_level = logger.level
     logger.setLevel(log_level)
     try:
@@ -670,7 +672,7 @@ def list_instruments(server=None, verbose=True, module=None, blacklist=None):
     """
     log_level = DEBUG if verbose else WARNING
 
-    with temp_loglevel(vlog, log_level):
+    with temp_loglevel(vlog_handler, log_level):
         if server is not None:
             from . import remote
             session = remote.client_session(server)
