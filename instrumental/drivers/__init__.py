@@ -11,6 +11,7 @@ import abc
 import atexit
 import socket
 import inspect
+import logging
 import warnings
 import contextlib
 import os.path
@@ -20,7 +21,7 @@ from inspect import isfunction
 from importlib import import_module
 
 from .facet import Facet, ManualFacet, MessageFacet, SCPI_Facet, FacetGroup
-from ..log import get_logger
+from ..log import get_logger, DEBUG, WARNING
 from .. import conf
 from ..util import cached_property
 from ..driver_info import driver_info
@@ -28,6 +29,10 @@ from ..errors import (InstrumentTypeError, InstrumentNotFoundError, ConfigError,
                       InstrumentExistsError)
 
 log = get_logger(__name__)
+vlog = get_logger('__instrumental_verbose__')
+sh = logging.StreamHandler()
+sh.setFormatter(logging.Formatter(fmt='%(message)s'))
+vlog.addHandler(sh)
 
 
 __all__ = ['Instrument', 'instrument', 'list_instruments', 'list_visa_instruments']
@@ -42,6 +47,16 @@ _legacy_params = {
     'ccs_serial_number': 'ccs_spectrometer_serial',
     'ff_serial': 'flipper_motion_serial',
 }
+
+
+@contextlib.contextmanager
+def temp_loglevel(logger, log_level):
+    old_level = logger.level
+    logger.setLevel(log_level)
+    try:
+        yield
+    finally:
+        logger.setLevel(old_level)
 
 
 def driver_submodule_name(full_module_name):
@@ -566,6 +581,7 @@ def gen_visa_instruments():
     prev_addr = 'START'
     rm = visa.ResourceManager()
     visa_list = rm.list_resources()
+    vlog.info('Found VISA resources %r', visa_list)
     for addr in visa_list:
         if addr.startswith(prev_addr):
             continue
@@ -621,7 +637,7 @@ def list_visa_instruments():
     return list(gen_visa_instruments())
 
 
-def list_instruments(server=None, module=None, blacklist=None):
+def list_instruments(server=None, verbose=True, module=None, blacklist=None):
     """Returns a list of info about available instruments.
 
     May take a few seconds because it must poll hardware devices.
@@ -631,7 +647,7 @@ def list_instruments(server=None, module=None, blacklist=None):
     then get the actual instrument by passing the dict to
     :py:func:`~instrumental.drivers.instrument`.
 
-    >>> inst_list = get_instruments()
+    >>> inst_list = list_instruments()
     >>> print(inst_list)
     [<NIDAQ 'Dev1'>, <TEKTRONIX 'TDS 3032'>, <TEKTRONIX 'AFG3021B'>]
     >>> inst = instrument(inst_list[0])
@@ -652,54 +668,77 @@ def list_instruments(server=None, module=None, blacklist=None):
         contains the substring ``module`` in its full name. The full name includes both the driver
         group and the module, e.g. ``'cameras.pco'``.
     """
-    if server is not None:
-        from . import remote
-        session = remote.client_session(server)
-        return session.list_instruments()
+    log_level = DEBUG if verbose else WARNING
 
-    if blacklist is None:
-        blacklist = conf.prefs['driver_blacklist']
-    elif isinstance(blacklist, basestring):
-        blacklist = [blacklist]
+    with temp_loglevel(vlog, log_level):
+        if server is not None:
+            from . import remote
+            session = remote.client_session(server)
+            return session.list_instruments()
 
-    if module:
-        check_visa = any(module in driver_name and driver_name not in blacklist and
-                         'visa_info' in info_dict
-                         for driver_name,info_dict in driver_info.items())
-    else:
-        check_visa = True
+        if blacklist is None:
+            blacklist = conf.prefs['driver_blacklist']
+        elif isinstance(blacklist, basestring):
+            blacklist = [blacklist]
 
-    inst_list = []
-    if check_visa:
-        try:
-            import visa
+        visa_modules = [driver_name for driver_name,info_dict in driver_info.items()
+                        if 'visa_info' in info_dict]
+        if module:
+            check_visa = any(module in driver_name and driver_name not in blacklist and
+                             'visa_info' in info_dict
+                             for driver_name,info_dict in driver_info.items())
+        else:
+            check_visa = True
+
+        inst_list = []
+        if check_visa:
+            vlog.info('Checking for VISA instruments...')
             try:
-                inst_list.extend(list_visa_instruments())
-            except visa.VisaIOError:
-                pass  # Hide visa errors
-        except (ImportError, ConfigError):
-            pass  # Ignore if PyVISA not installed or configured
+                import visa
+                try:
+                    inst_list.extend(list_visa_instruments())
+                except visa.VisaIOError:
+                    pass  # Hide visa errors
+                vlog.info('    Found instruments %r', inst_list)
+            except ImportError:
+                vlog.info('pyvisa could not be imported, skipping VISA modules %r', visa_modules)
+            except ConfigError as e:
+                vlog.info('%s', str(e))
+                pass  # Ignore if PyVISA not installed or configured
+            vlog.info('')
+        else:
+            vlog.info("Not checking for VISA instruments, `module` '%s' does not match "
+                      "any VISA modules", module)
 
-    if module:
-        inst_list = [p for p in inst_list if module in p['module']]
+        if module:
+            inst_list = [p for p in inst_list if module in p['module']]
 
-    for mod_name in driver_info:
-        if module and module not in mod_name:
-            continue
+        vlog.info('Checking non-VISA driver modules...')
+        for mod_name in driver_info:
+            if mod_name in visa_modules:
+                continue
+            vlog.info('{%s}', mod_name)
+            if module and module not in mod_name:
+                vlog.info('Module name does not match %r, skipping', module)
+                continue
 
-        if mod_name in blacklist:
-            log.info("Skipping blacklisted driver module '%s'", mod_name)
-            continue
+            if mod_name in blacklist:
+                log.info("Skipping blacklisted driver module '%s'", mod_name)
+                vlog.info('    Module is in blacklist, skipping')
+                continue
 
-        driver_module = import_driver(mod_name, raise_errors=False)
-        if driver_module is None:
-            continue
+            driver_module = import_driver(mod_name, raise_errors=False)
+            if driver_module is None:
+                continue
 
-        try:
-            inst_list.extend(driver_module.list_instruments())
-        except AttributeError:
-            continue  # Module doesn't have a list_instruments() function
-    return inst_list
+            try:
+                mod_instruments = driver_module.list_instruments()
+                vlog.info('    Found instruments %r', mod_instruments)
+                inst_list.extend(mod_instruments)
+            except AttributeError:
+                vlog.info('    Module lacks a list_instruments() function')
+                continue  # Module doesn't have a list_instruments() function
+        return inst_list
 
 
 def list_saved_instruments():
@@ -828,6 +867,7 @@ def import_driver(driver_name, raise_errors=False):
         else:
             return import_module(driver_name)
     except Exception as e:
+        vlog.info("    Module failed to import, with error <<%s>>", str(e))
         log.info("Error when importing driver module %s: <<%s>>", driver_name, str(e))
         if raise_errors:
             raise
