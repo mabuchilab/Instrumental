@@ -11,10 +11,17 @@ header_info = {
         ),
         'header': 'picam.h'
     },
+    'linux*': {
+        'path': '/opt/PrincetonInstruments/picam/includes',
+        'header': 'picam.h'
+    },
 }
 
 # lib_names = {'win*': r"{PROGRAMFILES}\Princeton Instruments\PICam\Runtime\Picam.dll",}
-lib_names = {'win*': r"Picam.dll",}
+lib_names = {
+    'win*': r"Picam.dll",
+    'linux*': 'picam',
+}
 
 def build():
         build_lib(header_info, lib_names, '_picamlib', __file__,
