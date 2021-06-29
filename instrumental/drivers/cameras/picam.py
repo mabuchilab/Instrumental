@@ -529,9 +529,9 @@ class PicamCamera():
         shapes = []
         for i in range(rois.roi_count):
             roi = rois.roi_array[i]
-            x = roi.width/roi.x_binning
-            y = roi.height/roi.y_binning
-            shapes = shapes + [(x, y)]
+            x = roi.width // roi.x_binning
+            y = roi.height // roi.y_binning
+            shapes.append((x, y))
         return shapes
 
     def start_acquisition(self):
@@ -918,7 +918,7 @@ class Picam():
 
     def open_cameras(self, cam_dict):
         IDarray, n = self.get_available_camera_IDs()
-        for cam_name in cam_dict.iterkeys():
+        for cam_name in cam_dict.keys():
             for i in range(n):
                 if IDarray[i].model == cam_dict[cam_name]:
                     self.open_camera(IDarray[i], i)
