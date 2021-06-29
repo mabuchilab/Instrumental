@@ -19,8 +19,9 @@ from numpy import frombuffer, sum, uint16, vstack
 from enum import Enum
 from nicelib import NiceLib, load_lib, RetHandler, ret_ignore, Sig, NiceObject
 
-from ...errors import Error
+from .. import ParamSet
 from ..util import check_units, check_enums
+from ...errors import Error
 from ... import Q_
 
 if PY2:
@@ -54,15 +55,14 @@ def ret_enum_string_error(error):
         if error == lib.PicamError_EnumerationValueNotDefined:
             raise PicamError('Enumeration value not defined.')
         else:
-            raise PicamError('Error when getting enumeration string.  Error code {}'.format(error))
+            raise PicamError('Error when getting enumeration string. Error code {}'.format(error))
 
 
 class NicePicamLib(NiceLib):
     """Wrapper for Picam.dll"""
-    _info = lib
-    _buflen = 256
-    _prefix = 'Picam_'
-    # _ret = 'error'
+    _info_ = lib
+    _buflen_ = 256
+    _prefix_ = 'Picam_'
     _ret_ = ret_error
 
     GetVersion = Sig('out', 'out', 'out', 'out')
@@ -109,7 +109,10 @@ class NicePicamLib(NiceLib):
     DestroyModulationsConstraints = Sig('in')
     # DestroyPulseConstraints = Sig(constraint_array)
     DestroyPulseConstraints = Sig('in')
-    class NicePicam(NiceObject):
+
+    class Camera(NiceObject):
+        _init_ = 'OpenCamera'
+
         CloseCamera = Sig('in')
         IsCameraConnected = Sig('in', 'out')
         GetCameraID = Sig('in', 'out')
@@ -216,7 +219,11 @@ class NicePicamLib(NiceLib):
         WaitForAcquisitionUpdate = Sig('in', 'in', 'out', 'out')
 
 
-class EnumTypes():
+ffi = NicePicamLib._ffi
+ffilib = NicePicamLib._ffilib
+
+
+class EnumTypes(object):
     """ Class containg the enumerations in Picam.dll"""
     def __init__(self):
         enum_type_dict = self._get_enum_dict()
@@ -245,7 +252,7 @@ class EnumTypes():
 PicamEnums = EnumTypes()
 
 
-class PicamRoi():
+class PicamRoi(object):
     """ Class defining a region of interest.
     All values are in pixels.  """
     def __init__(self, x, width, y, height, x_binning=1, y_binning=1):
@@ -272,16 +279,54 @@ class PicamAcquisitionError(PicamError):
             return "An unkown error with code {}".format(self.value)
 
 
-class PicamCamera():
+class PicamCameraID(object):
+    def __init__(self, base_ptr, index):
+        self._base_ptr = base_ptr  # Keep a ref to prevent collection
+        self._struct_ptr = base_ptr[index]
+
+    def __repr__(self):
+        return f'<PicamCameraID(model={self.model!r}, serial_number={self.serial_number!r})>'
+
+    @property
+    def computer_interface(self):
+        return PicamEnums.ComputerInterface(self._struct_ptr.computer_interface)
+
+    @property
+    def model(self):
+        return PicamEnums.Model(self._struct_ptr.model)
+
+    @property
+    def sensor_name(self):
+        return ffi.string(self._struct_ptr.sensor_name)
+
+    @property
+    def serial_number(self):
+        return ffi.string(self._struct_ptr.serial_number)
+
+
+def list_instruments():
+    picam = Picam()
+    ids = picam.get_available_camera_IDs()
+    params = ParamSet(
+        PicamCamera,
+        serial=ffi.string(info.SerNo),
+        model=ffi.string(info.Model),
+        id=int(info.dwCameraID),
+    )
+    cams.append(params)
+
+
+class PicamCamera(object):
     """ A Picam Camera """
-    def __init__(self, name, handle, NicePicam, ffi, NicePicamLib, picam):
+
+    _NicePicamLib = NicePicamLib
+    _NicePicam = NicePicamLib.Camera
+    _ffi = NicePicamLib._ffi
+    _ffilib = NicePicamLib._ffilib
+
+    def __init__(self, name, picam):
         self.picam = picam
         self.name = name
-        self.handle = handle
-        self._NicePicam = NicePicam
-        self._ffi = ffi
-        self._ffilib = NicePicamLib._ffilib
-        self._NicePicamLib = NicePicamLib
         self.rois = None
         self.enums = PicamEnums
         self.id = self._ffi.addressof(self._NicePicam.GetCameraID())
@@ -752,38 +797,49 @@ class PicamCamera():
         return parameter_list
 
 
-class Picam():
+class Picam(object):
+    _NicePicamLib = NicePicamLib
+    _NicePicam = NicePicamLib.Camera
+    _ffi = NicePicamLib._ffi
+    _ffilib = NicePicamLib._ffilib
+    enums = PicamEnums
+
+    _open_count = 0
+
     def __init__(self, cameras=None, usedemo=False, default_cam=None):
         NicePicamLib.InitializeLibrary()
         self.cameras = {}
-        self._ffi = NicePicamLib._ffi
-        self._NicePicamLib = NicePicamLib
-        self.enums = PicamEnums
+        Picam._open_count += 1
 
-        if usedemo:
-            cam_id = self._ffi.addressof(NicePicamLib.ConnectDemoCamera(10, '1234'))
-            cameras = {'demo_camera': cam_id}
+        #if usedemo:
+        #    cam_id = self._ffi.addressof(NicePicamLib.ConnectDemoCamera(10, '1234'))
+        #    cameras = {'demo_camera': cam_id}
 
-        if cameras is None:
-            self.cams = {}
-            default_cam = 'first_camera'
-            self.open_first_camera(default_cam)
-        else:
-            for name, cam_id in cameras.iteritems():
-                self.open_camera(cam_id, name)
+        #if cameras is None:
+        #    default_cam = 'first_camera'
+        #    self.open_first_camera(default_cam)
+        #else:
+        #    for name, cam_id in cameras.items():
+        #        self.open_camera(cam_id, name)
 
-        if default_cam is None:
-            self.default_cam = cameras.keys()[0]
-        else:
-            if default_cam in self.cameras:
-                self.default_cam = default_cam
-            else:
-                raise PicamError("Default camera {} does not exist".format(default_cam))
+        #if default_cam is None:
+        #    self.default_cam = list(cameras.keys())[0]
+        #else:
+        #    if default_cam in self.cameras:
+        #        self.default_cam = default_cam
+        #    else:
+        #        raise PicamError("Default camera {} does not exist".format(default_cam))
+
+    def __del__(self):
+        self.close()
 
     def close(self):
         for camera in self.cameras.items:
             camera.close()
-        self._NicePicamLib.UninitializeLibrary()
+        Picam._open_count -= 1
+
+        if Picam._open_count <= 0:
+            self._NicePicamLib.UninitializeLibrary()
 
     def get_enumeration_string(self, enum_type, value):
         """ Returns the string of the associated with the enum 'value' of type
@@ -820,8 +876,9 @@ class Picam():
         count: int
             the number of available cameras
         """
-        ID_array, count = self._NicePicamLib.GetAvailableCameraIDs()
-        return ID_array, count
+        id_array, count = NicePicamLib.GetAvailableCameraIDs()
+        id_array = ffi.gc(id_array, NicePicamLib.DestroyCameraIDs)
+        return [PicamCameraID(id_array, i) for i in range(count)]
 
     def get_unavailable_camera_IDs(self):
         """
@@ -846,7 +903,7 @@ class Picam():
 
     def connect_demo_camera(self, model, serial_number):
         """Connects a demo camera of the specified model and serial number."""
-        self._NicePicamLib.ConnectDemoCamera(model, serial_number)
+        NicePicamLib.ConnectDemoCamera(model, serial_number)
 
     def get_available_demo_camera_models(self):
         """
@@ -901,20 +958,17 @@ class Picam():
             id = ID_array[0]
         self.open_camera(id, cam_name)
 
-    def add_camera(self, cam_name, handle, NicePicam):
-        """Adds a camera with the name cam_name and handle 'handle' to the
-        dictionairy of cameras, self.cameras"""
+    def add_camera(self, cam_name, nice_cam):
+        """Adds a camera with the name cam_name to the dictionary of cameras, self.cameras"""
         if cam_name in self.cameras:
             raise PicamError('Camera name {} already in use'.format(cam_name))
-        self.cameras[cam_name] = PicamCamera(cam_name, handle, NicePicam,
-                                             self._ffi, self._NicePicamLib, self)
+        self.cameras[cam_name] = PicamCamera(cam_name, nice_cam, self)
 
-    def open_camera(self, cam_id, cam_name):
-        """Opens the camera associated with cam_id, and assigns it the name
-        'cam_name'"""
-        handle = self._NicePicamLib.OpenCamera(cam_id)
-        NicePicam = self._NicePicamLib.NicePicam(handle)
-        self.add_camera(cam_name, handle, NicePicam)
+    def open_camera(self, cam_id : PicamCameraID, cam_name : str):
+        """Opens the camera associated with cam_id, and assigns it the name 'cam_name'"""
+        #handle = NicePicamLib.OpenCamera(cam_id)
+        nice_cam = NicePicamLib.Camera(cam_id)
+        self.add_camera(cam_name, nice_cam)
 
     def open_cameras(self, cam_dict):
         IDarray, n = self.get_available_camera_IDs()
