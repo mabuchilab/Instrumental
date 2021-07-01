@@ -40,9 +40,10 @@ BYTES_PER_PIXEL = 2
 def ret_error(error):
     if error != 0:
         if bool(NicePicamLib.IsLibraryInitialized()):
-            NicePicamLib.GetEnumerationString(lib.PicamEnumeratedType_Error, error)
+            msg = NicePicamLib.GetEnumerationString(lib.PicamEnumeratedType_Error, error)
+            raise PicamError(msg)
         else:
-            ret_enum_string_error(error)
+            ret_enum_string_error.__func__(error)
 
 
 @RetHandler(num_retvals=0)
