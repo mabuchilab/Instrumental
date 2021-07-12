@@ -644,7 +644,7 @@ class PicamCamera(Camera):
             try:
                 _params[p.name] = Parameter.create(self._dev, p)
             except PicamError as e:
-                print(p, e)
+                pass
         self.params = Parameters(_params)
 
     def close(self):
