@@ -898,13 +898,13 @@ class PicamCamera(Camera):
     #    """Whether or not the camera parameters are committed"""
     #    return bool(self._dev.AreParametersCommitted())
 
-    #def commit_parameters(self):
-    #    """Commits camera parameters"""
-    #    bad_params, n = self._dev.CommitParameters()
+    def commit_parameters(self):
+        """Commits camera parameters"""
+        bad_params, n = self._dev.CommitParameters()
 
-    #    if n > 0:
-    #        bad_str = ','.join(PicamEnums.Parameter(bad_params[i]).name for i in range(n))
-    #        raise PicamError("{} parameters were unsuccessfully committed: [{}]".format(n, bad_str))
+        if n > 0:
+            bad_str = ','.join(PicamEnums.Parameter(bad_params[i]).name for i in range(n))
+            raise PicamError("{} parameters were unsuccessfully committed: [{}]".format(n, bad_str))
 
     #def start_acquisition(self):
     #    """Begins an acquisition and returns immediately.
