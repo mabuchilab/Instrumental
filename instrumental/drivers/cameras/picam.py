@@ -701,7 +701,8 @@ class PicamCamera(Camera):
                 self._dev.StopAcquisition()
             else:
                 running = status.running
-                readouts.extend(self._extract_available_data(available_data, copy))
+                if available_data.readout_count > 0:
+                    readouts.extend(self._extract_available_data(available_data, copy))
 
         if error:
             if error.code == PicamEnums.Error.TimeOutOccurred:
