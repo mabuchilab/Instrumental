@@ -72,11 +72,11 @@ class Camera(Instrument):
         exposure immediately or ready the camera to start on an explicit (hardware or software)
         trigger.
 
-        It can be useful to invoke ``capture()`` and ``get_captured_image()`` explicitly if you
-        expect the capture sequence to take a long time and you'd like to perform some operations
-        while you wait for the camera::
+        It can be useful to invoke ``start_capture()`` and ``get_captured_image()`` explicitly if
+        you expect the capture sequence to take a long time and you'd like to perform some
+        operations while you wait for the camera::
 
-            >>> cam.capture()
+            >>> cam.start_capture()
             >>> do_other_useful_stuff()
             >>> arr = cam.get_captured_image()
 
