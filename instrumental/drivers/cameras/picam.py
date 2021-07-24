@@ -307,6 +307,17 @@ def struct_property(name):
     return property(fget, fset)
 
 
+# Used to ignore errors encountered when calling the Destroy functions, which usually happen because
+# the library has already been uninitialized.
+def ignore_error(func):
+    def wrapped(*args, **kwds):
+        try:
+            func(*args, **kwds)
+        except Exception as e:
+            log.info('Ignoring error "%s"', e)
+    return wrapped
+
+
 class PicamPulse(object):
     def __init__(self, pulse_ptr):
         self._struct_ptr = pulse_ptr
@@ -338,11 +349,6 @@ class PicamRoi(object):
     def __init__(self, parent, item_ptr):
         self._parent_ref = parent  # Keep a ref to prevent collection
         self._struct_ptr = item_ptr
-
-    @classmethod
-    def from_rois_struct(cls, rois):
-        rois = ffi.gc(rois, NicePicamLib.DestroyRois)
-        return [cls(rois, rois.roi_array[i]) for i in range(rois.roi_count)]
 
     def __repr__(self):
         return (f'PicamRoi({self.x=}, {self.y=}, {self.width=}, {self.height=}, '
@@ -392,7 +398,7 @@ class PicamCameraID(object):
 
     @classmethod
     def from_array(cls, id_array, count):
-        id_array = ffi.gc(id_array, NicePicamLib.DestroyCameraIDs)
+        id_array = ffi.gc(id_array, ignore_error(NicePicamLib.DestroyCameraIDs))
         return [cls(id_array, i) for i in range(count)]
 
     def __repr__(self):
@@ -483,9 +489,9 @@ class Parameter(object):
 
 class ModulationsParameter(Parameter):
     def get_value(self) -> PicamModulations:
-        _rois = self._dev.GetParameterModulationsValue(self._param)
-        rois = ffi.gc(_rois, NicePicamLib.DestroyModulations)
-        return PicamModulations(rois)
+        _ptr = self._dev.GetParameterModulationsValue(self._param)
+        ptr = ffi.gc(_ptr, ignore_error(NicePicamLib.DestroyModulations))
+        return PicamModulations(ptr)
 
     def set_value(self, value: PicamModulations):
         self._dev.SetParameterModulationsValue(self._param, value._ptr)
@@ -494,15 +500,15 @@ class ModulationsParameter(Parameter):
         return bool(self._dev.CanSetParameterModulationsValue(self._param, value._ptr))
 
     def get_default(self) -> PicamModulations:
-        _rois = self._dev.GetParameterModulationsDefaultValue(self._param)
-        rois = ffi.gc(_rois, NicePicamLib.DestroyModulations)
-        return PicamModulations(rois)
+        _ptr = self._dev.GetParameterModulationsDefaultValue(self._param)
+        ptr = ffi.gc(_ptr, ignore_error(NicePicamLib.DestroyModulations))
+        return PicamModulations(ptr)
 
 
 class PulseParameter(Parameter):
     def get_value(self) -> PicamPulse:
         _ptr = self._dev.GetParameterPulseValue(self._param)
-        ptr = ffi.gc(_ptr, NicePicamLib.DestroyPulses)
+        ptr = ffi.gc(_ptr, ignore_error(NicePicamLib.DestroyPulses))
         return PicamPulse(ptr)
 
     def set_value(self, value: PicamPulse):
@@ -513,15 +519,15 @@ class PulseParameter(Parameter):
 
     def get_default(self) -> PicamPulse:
         _ptr = self._dev.GetParameterPulseDefaultValue(self._param)
-        ptr = ffi.gc(_ptr, NicePicamLib.DestroyPulses)
+        ptr = ffi.gc(_ptr, ignore_error(NicePicamLib.DestroyPulses))
         return PicamPulse(ptr)
 
 
 class RoisParameter(Parameter):
     def get_value(self) -> PicamRois:
-        _rois = self._dev.GetParameterRoisValue(self._param)
-        rois = ffi.gc(_rois, NicePicamLib.DestroyRois)
-        return PicamRois(rois)
+        _ptr = self._dev.GetParameterRoisValue(self._param)
+        ptr = ffi.gc(_ptr, ignore_error(NicePicamLib.DestroyRois))
+        return PicamRois(ptr)
 
     def set_value(self, value: PicamRois):
         self._dev.SetParameterRoisValue(self._param, value._ptr)
@@ -530,9 +536,9 @@ class RoisParameter(Parameter):
         return bool(self._dev.CanSetParameterRoisValue(self._param, value._ptr))
 
     def get_default(self) -> PicamRois:
-        _rois = self._dev.GetParameterRoisDefaultValue(self._param)
-        rois = ffi.gc(_rois, NicePicamLib.DestroyRois)
-        return PicamRois(rois)
+        _ptr = self._dev.GetParameterRoisDefaultValue(self._param)
+        ptr = ffi.gc(_ptr, ignore_error(NicePicamLib.DestroyRois))
+        return PicamRois(ptr)
 
 
 class FloatingPointParameter(Parameter):
@@ -652,7 +658,7 @@ class PicamCamera(Camera):
         self._dev.CloseCamera()
 
     #
-    # TODO
+    # Generic Camera interface
     @property
     def width(self):
         self._get_rois()[0].width
@@ -746,7 +752,7 @@ class PicamCamera(Camera):
         readouts = self._extract_available_data(self._latest_available_data, copy)
         return readouts[0][0][0]
 
-    # /TODO
+    # /Generic Camera interface
     #
 
     #
@@ -819,7 +825,7 @@ class PicamCamera(Camera):
         rois_constraint = self._dev.GetParameterRoisConstraint(param, category)
         # NOTE: Do not keep references to sub-elements of this, as the memory will be cleaned
         # up once this object loses all direct Python references
-        return ffi.gc(rois_constraint, NicePicamLib.DestroyRoisConstraints)
+        return ffi.gc(rois_constraint, ignore_error(NicePicamLib.DestroyRoisConstraints))
 
     # /New
     #
