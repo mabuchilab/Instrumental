@@ -80,7 +80,8 @@ sys.path[0:0] = ['.', '..']
 # Enable output of __init__ methods
 def skip(app, what, name, obj, skip, options):
     if name == "__init__":
-        return False
+        excludes = options.get('exclude-members', [])
+        return '__init__' in excludes
     return skip
 
 def setup(app):

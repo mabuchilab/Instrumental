@@ -12,6 +12,7 @@ Create :py:class:`~instrumental.drivers.cameras.Camera` objects using :py:func:`
     cameras-tsi
     uc480-cameras
     cameras-pvcam
+    cameras-picam
 
 
 Generic Camera Interface
