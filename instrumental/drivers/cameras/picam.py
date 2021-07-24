@@ -1,16 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Copyright 2015-2018 Christopher Rogers
-
-Class to control Princeton Instruments Cameras using the PICAM SDK
-
-Installation
-----------------
-The PICAM SDK must be installed. It is available from the Princeton Instruments ftp site. The .dlls
-Picam.dll Picc.dll, Pida.dll and Pidi.dll must be copied to a directory on the system path. Note
-that the .dlls found first on the system path must match the version of the headers installed with
-the Picam SDK.
-"""
+# Copyright 2015-2021 Christopher Rogers, Nate Bogdanowicz
 from future.utils import PY2
 
 import time
@@ -273,22 +262,24 @@ class EnumTypes(object):
                 enum_type_dict[enum_type] = IntEnum(enum_type, enum_dict)
         return enum_type_dict
 
+
+#: Namespace of all the enums in the Picam SDK
 PicamEnums = EnumTypes()
 
 
-class PicamAcquisitionError(PicamError):
-    def __init__(self, value):
-        self.value = value
-
-    def __str__(self):
-        if self.value == NicePicamLib._ffilib.PicamAcquisitionErrorsMask_None:
-            return "No error occured"
-        elif self.value == NicePicamLib._ffilib.PicamAcquisitionErrorsMask_DataLost:
-            return "DataLost"
-        elif self.value == NicePicamLib._ffilib.PicamAcquisitionErrorsMask_ConnectionLost:
-            return "ConnectionLost"
-        else:
-            return "An unkown error with code {}".format(self.value)
+#class PicamAcquisitionError(PicamError):
+#    def __init__(self, value):
+#        self.value = value
+#
+#    def __str__(self):
+#        if self.value == NicePicamLib._ffilib.PicamAcquisitionErrorsMask_None:
+#            return "No error occured"
+#        elif self.value == NicePicamLib._ffilib.PicamAcquisitionErrorsMask_DataLost:
+#            return "DataLost"
+#        elif self.value == NicePicamLib._ffilib.PicamAcquisitionErrorsMask_ConnectionLost:
+#            return "ConnectionLost"
+#        else:
+#            return "An unkown error with code {}".format(self.value)
 
 
 # Destroyable data:
@@ -330,6 +321,10 @@ class PicamPulse(object):
 
 
 class PicamRois(object):
+    """List-like group of `PicamRoi` objects
+
+    Supports index-based access, e.g. ``roi = rois[0]``.
+    """
     def __init__(self, rois_ptr):
         self._ptr = rois_ptr
         self._rois = [PicamRoi(self, rois_ptr.roi_array[i]) for i in range(rois_ptr.roi_count)]
@@ -363,6 +358,10 @@ class PicamRoi(object):
 
 
 class PicamModulations(object):
+    """List-like group of `PicamModulation` objects
+
+    Supports index-based access, e.g. ``mod = mods[0]``.
+    """
     def __init__(self, mods_ptr):
         self._ptr = mods_ptr
         self._mods = [PicamModulation(self, mods_ptr.modulation_array[i])
@@ -374,6 +373,9 @@ class PicamModulations(object):
 
     def __getitem__(self, index):
         return self._mods[index]
+
+    def __len__(self):
+        return len(self._mods)
 
 
 class PicamModulation(object):
@@ -392,6 +394,7 @@ class PicamModulation(object):
 
 
 class PicamCameraID(object):
+    """Picam CameraID"""
     def __init__(self, base_ptr, index):
         self._base_ptr = base_ptr  # Keep a ref to prevent collection
         self._struct_ptr = base_ptr[index]
@@ -405,6 +408,7 @@ class PicamCameraID(object):
         return f'<PicamCameraID({self.model=}, {self.serial_number=})>'
 
     def to_params(self):
+        """Get an instrumental ParamSet describing this PicamCameraID"""
         is_demo = bool(NicePicamLib.IsDemoCamera(self._struct_ptr))
         return ParamSet(
             PicamCamera,
@@ -465,15 +469,15 @@ def _find_attached_camera_id(paramset):
     raise InstrumentNotFoundError("No camera found matching the given parameters")
 
 
-VT = PicamEnums.ValueType
-
 class Parameter(object):
+    """Base class for Picam Parameters"""
     def __init__(self, dev : NicePicamLib.Camera, parameter):
         self._dev = dev
         self._param = parameter
 
     @staticmethod
     def create(dev, parameter):
+        VT = PicamEnums.ValueType
         ptype = PicamEnums.ValueType(dev.GetParameterValueType(parameter))
         return {
             VT.Integer: IntegerParameter,
@@ -651,6 +655,8 @@ class PicamCamera(Camera):
                 _params[p.name] = Parameter.create(self._dev, p)
             except PicamError as e:
                 pass
+
+        #: Parameters of the camera
         self.params = Parameters(_params)
 
     def close(self):
