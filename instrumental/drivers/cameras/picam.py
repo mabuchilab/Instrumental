@@ -796,7 +796,6 @@ class PicamCamera(Camera):
         ]
         return data
 
-
     def set_roi(self, x=None, y=None, width=None, height=None, x_binning=None, y_binning=None):
         """Set one or more fields of the ROI
 
@@ -812,7 +811,7 @@ class PicamCamera(Camera):
         self.params.Rois.set_value(rois)
 
     def _get_rois(self):
-        return self.params.Roi.get_value()
+        return self.params.Rois.get_value()
 
     def _get_rois_constraint(self):
         param = PicamEnums.Parameter.Rois
