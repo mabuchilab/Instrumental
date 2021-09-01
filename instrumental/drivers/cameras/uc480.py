@@ -570,6 +570,14 @@ class BufferInfo(object):
         self.id = id
 
 
+COLORMODE_DEPTH = {
+    lib.CM_MONO8: 8,
+    lib.CM_MONO12: 12,
+    lib.CM_RGBA8_PACKED: 32,
+    lib.CM_BGRA8_PACKED: 32
+}
+
+
 class UC480_Camera(Camera):
     """A uc480-supported Camera"""
     DEFAULT_KWDS = Camera.DEFAULT_KWDS.copy()
@@ -651,13 +659,8 @@ class UC480_Camera(Camera):
         self._init_colormode()  # Ignore loaded color mode b/c we only support a few
 
         # Make sure memory is set up for right color depth
-        depth_map = {
-            lib.CM_MONO8: 8,
-            lib.CM_RGBA8_PACKED: 32,
-            lib.CM_BGRA8_PACKED: 32
-        }
         mode = self._dev.SetColorMode(lib.GET_COLOR_MODE)
-        depth = depth_map[mode]
+        depth = COLORMODE_DEPTH[mode]
         if depth != self._color_depth:
             log.debug("Color depth changed from %s to %s",
                       self._color_depth, depth)
@@ -696,22 +699,28 @@ class UC480_Camera(Camera):
         self._load_constants()
 
     def _init_colormode(self):
-        log.debug("Initializing default color mode")
-        sensor_mode = self._get_sensor_color_mode()
-        mode_map = {
-            lib.COLORMODE_MONOCHROME: (lib.CM_MONO8, 8),
-            lib.COLORMODE_BAYER: (lib.CM_RGBA8_PACKED, 32)
-        }
-        try:
-            mode, depth = mode_map[sensor_mode]
-        except KeyError:
-            raise Exception("Currently unsupported sensor color mode!")
+        mode = self._dev.SetColorMode(lib.GET_COLOR_MODE)
+
+        if mode not in COLORMODE_DEPTH:
+            log.debug("Keeping default color mode")
+            depth = COLORMODE_DEPTH[mode]
+        else:
+            log.debug("Mode not yet supported, setting fallback color mode")
+            sensor_mode = self._get_sensor_color_mode()
+            mode_map = {
+                lib.COLORMODE_MONOCHROME: (lib.CM_MONO8, 8),
+                lib.COLORMODE_BAYER: (lib.CM_RGBA8_PACKED, 32)
+            }
+            try:
+                mode, depth = mode_map[sensor_mode]
+            except KeyError:
+                raise Exception("Currently unsupported sensor color mode!")
+
+            self._dev.SetColorMode(self._color_mode)
 
         self._color_mode = mode
         self._color_depth = depth
         log.debug('color_depth=%d, color_mode=%d', depth, mode)
-
-        self._dev.SetColorMode(self._color_mode)
 
     def _free_image_mem_seq(self):
         self._dev.ClearSequence()
@@ -767,17 +776,19 @@ class UC480_Camera(Camera):
 
     def _array_from_buffer(self, buf):
         h = self.height
-        arr = np.frombuffer(buf, np.uint8)
 
         if self._color_mode == lib.CM_RGBA8_PACKED:
             w = self.bytes_per_line // 4
-            arr = arr.reshape((h, w, 4), order='C')[:,:,:3]
+            arr = np.frombuffer(buf, np.uint8).reshape((h, w, 4), order='C')[:,:,:3]
         elif self._color_mode == lib.CM_BGRA8_PACKED:
             w = self.bytes_per_line // 4
-            arr = arr.reshape((h, w, 4), order='C')[:, :, 2::-1]
+            arr = np.frombuffer(buf, np.uint8).reshape((h, w, 4), order='C')[:, :, 2::-1]
         elif self._color_mode == lib.CM_MONO8:
             w = self.bytes_per_line
-            arr = arr.reshape((h, w), order='C')
+            arr = np.frombuffer(buf, np.uint8).reshape((h, w), order='C')
+        elif self._color_mode == lib.CM_MONO12:
+            w = self.bytes_per_line // 2
+            arr = np.frombuffer(buf, np.uint16).reshape((h, w), order='C')
         else:
             raise Error("Unsupported color mode!")
         return arr
@@ -951,6 +962,7 @@ class UC480_Camera(Camera):
     def _color_mode_string(self):
         MAP = {
             lib.CM_MONO8: 'mono8',
+            lib.CM_MONO12: 'mono12',
             lib.CM_MONO16: 'mono16',
         }
         return MAP.get(self._color_mode)
