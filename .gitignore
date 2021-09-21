@@ -3,6 +3,7 @@
 *.cpython-35.pyc.[0-9]*
 *.pyo
 *.swp
+.idea/*
 
 _*lib.py
 !_*midlib.py
