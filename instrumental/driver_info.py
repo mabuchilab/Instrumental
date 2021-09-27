@@ -108,6 +108,11 @@ driver_info = OrderedDict([
         'classes': ['TDC001'],
         'imports': ['cffi', 'nicelib'],
     }),
+    ('motion._smaract.scu', {
+        'params': ['device_id', 'channel_index'],
+        'classes': ['SCU'],
+        'imports': ['nicelib'],
+    }),
     ('multimeters.hp', {
         'params': ['visa_address'],
         'classes': [],

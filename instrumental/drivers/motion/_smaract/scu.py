@@ -1,12 +1,12 @@
 from __future__ import division
 
-from instrumental import u
+from instrumental import u, Q_
 from instrumental.log import get_logger
 from instrumental.drivers import Facet
 from instrumental.drivers import ParamSet
 from instrumental.drivers.motion import Motion
 from instrumental.drivers.motion._smaract.scu_midlib import NiceSCU, SmarActError, OPERATING_MODES
-
+from instrumental.drivers.util import check_units
 
 log = get_logger(__name__)
 
@@ -18,7 +18,32 @@ def list_instruments():
     ids, Nids = NiceSCU.GetAvailableDevices(2048)
     if Nids == 1:
         ids = [ids]
-    return [ParamSet(id) for id in ids]
+    NiceSCU.InitDevices(OPERATING_MODES['SA_SYNCHRONOUS_COMMUNICATION'])
+    pset = []
+    for ind, idd in enumerate(ids):
+        try:
+            rotation = False
+            ind_channel = 0
+            while True:
+                act = NiceSCU.Actuator(ind, ind_channel)
+                sensor = bool(act.GetSensorPresent_S())
+                if sensor:
+                    try:
+                        act.GetAngle_S()
+                        rotation = True
+                    except SmarActError:
+                        rotation = False
+                ind_channel += 1
+        except SmarActError as e:
+            pass
+        for ind_channel in range(ind_channel):
+            pset.append(ParamSet(SCU if not sensor else SCURotation if rotation else SCULinear,
+                                 device_id=idd, channel_index=ind_channel, sensor=sensor,
+                                 rotation=rotation, nchannels=ind_channel,
+                                 units='steps' if not sensor else 'deg' if rotation else 'µm'))
+    NiceSCU.ReleaseDevices()
+
+    return pset
 
 
 class SCU(Motion):
@@ -27,60 +52,175 @@ class SCU(Motion):
     Takes the device index and channel index as init parameters
 
     """
+    _INST_PARAMS_ = ['device_id', 'channel_index']
+    dev_type = 'stepper'
+    units = 'steps'
 
-    def _initialize(self, device_index=0, channel_index=0):
+    def _initialize(self):
         """
-
-        Parameters
-        ----------
-        device_index
-        channel_index
 
         Returns
         -------
 
         """
         self.device_id = self._paramset['device_id']
-        self.device_index = device_index
-        self.channel_index = channel_index
+        self.channel_index = self._paramset['channel_index']
+        self.nchannels = self._paramset['nchannels']
+        self._hold_time = Q_('0ms')
+        self._actuator = None
+        self._internal_counter = 0
+        self._frequency = Q_('100Hz')
+        self._open(self.device_id)
 
-        self._open([self.device_id])
+        
+        #self._devs = [NiceSCU.Actuator(0, ind_channel) for ind_channel in range(self.nchannels)]
 
-        self._dev = NiceSCU.Actuator(self.device_index, self.channel_index)
-
-    def _open(self, ids):
+    def _open(self, device_id):
         try:
             NiceSCU.ReleaseDevices()
         except SmarActError as e:
-            print(e)
+            log.info('Cannot release SCU controller devices as none have been initialized yet')
 
-        for id in ids:
-            NiceSCU.AddDeviceToInitDevicesList(id)
-        NiceSCU.InitDevices()
-        self.actuator = NiceSCU.Actuator(self.device_index, self.channel_index)
+        NiceSCU.AddDeviceToInitDevicesList(device_id)
+        NiceSCU.InitDevices(OPERATING_MODES['SA_SYNCHRONOUS_COMMUNICATION'])
+
+        self._actuator = NiceSCU.Actuator(0, self.channel_index)
 
     def close(self):
         NiceSCU.ReleaseDevices()
 
     @classmethod
     def get_devices(cls):
-        devs, Ndevs = cls._lib.GetAvailableDevices(2048)
+        devs, Ndevs = NiceSCU.GetAvailableDevices(2048)
         if Ndevs == 1:
             return [devs]
         else:
             return devs
 
 
+    def has_sensor(self):
+        ret = self._actuator.GetSensorPresent_S()
+        if ret == NiceSCU._defs['SA_SENSOR_PRESENT']:
+            return True
+        else:
+            return False
+
+    @Facet(units='ms')
+    def hold_time(self):
+        return self._hold_time
+
+    @hold_time.setter
+    def hold_time(self, time):
+        self._hold_time = time
+
+    @Facet
+    def is_referenced(self):
+        ret = self._actuator.GetPhysicalPositionKnown_S()
+        if ret == NiceSCU._defs['SA_PHYSICAL_POSITION_KNOWN.']:
+            return True
+        else:
+            return False
+
+    @Facet(units='V', limits=('15V', '100V'))
+    def amplitude(self):
+        self._internal_counter = 0  # reset the internal counter
+        return self._actuator.GetAmplitude_S() / 10
+
+    @amplitude.setter
+    def amplitude(self, amp):
+        self._actuator.SetAmplitude_S(int(amp.magnitude * 10))
+
+    @Facet(units='Hz', limits=(1, 18500))
+    def frequency(self):
+        return self._frequency
+
+    @frequency.setter
+    def frequency(self, freq):
+        self._frequency = freq
+
+    @check_units(value='steps')
+    def move_to(self, value, move_type='rel'):
+        """
+
+        Parameters
+        ----------
+        value: (float) position in steps
+        move_type: (str) without sensor can only be 'rel' for relative motion fro a given number of steps
+        """
+
+        if move_type == 'abs':
+            log.info('No Absolute Move possible, only relative stepping is available')
+        else:
+            self._actuator.MoveStep_S(value, int(self.amplitude.magnitude * 10),
+                                      int(self.frequency.magnitude))
+            self._internal_counter += value
+
+    def move_home(self, autozero=True):
+        if not self.has_sensor:
+            log.info('No possible homing as no sensor is present')
+        else:
+            self._actuator.MoveToReference_S(self.hold_time.magnitude,
+                                           NiceSCU._defs['SA_AUTO_ZERO'] if autozero else
+                                           NiceSCU._defs['SA_NO_AUTO_ZERO'])
+
+    def check_position(self):
+        return Q_(self._internal_counter, 'steps')
+
 class SCULinear(SCU):
-    pass
+
+    dev_type = 'linear'
+    units = 'µm'
+
+    @check_units(value='µm')
+    def move_to(self, value, move_type='abs'):
+        """
+
+        Parameters
+        ----------
+        value: (float) position in µm
+        move_type: (str) either 'rel' for relative motion or 'abs' for absolute positioning
+        """
+
+        if move_type == 'abs':
+            self._actuator.MovePositionAbsolute_S(value.m_as('µm') * 10, self.hold_time.magnitude)  # takes value in 1/10 of µm
+        else:
+            self._actuator.MovePositionRelative_S(value.m_as('µm') * 10, self.hold_time.magnitude)   # takes value in 1/10 of µm
+
+    def check_position(self):
+        return Q_(self._actuator.GetPosition_S(), 'µm')
+
+class SCURotation(SCU):
+    dev_type = 'rotation'
+    units = 'deg'
+
+    @check_units(value='deg')
+    def move_to(self, value, move_type='abs'):
+        """
+
+        Parameters
+        ----------
+        value: (float) rotation in deg
+        move_type: (str) either 'rel' for relative motion or 'abs' for absolute positioning
+        """
+
+        if move_type == 'abs':
+            self._actuator.MoveAngleAbsolute_S(value.m_as('mdeg') * 10, self.hold_time.magnitude)  # takes value in 1/10 of µm
+        else:
+            self._actuator.MoveAngleRelative_S(value.m_as('mdeg') * 10, self.hold_time.magnitude)  # takes value in 1/10 of µm
+
+    def check_position(self):
+        return Q_(self._actuator.GetAngle_S(), 'deg')
 
 
 if __name__ == '__main__':
+    from instrumental import instrument
     paramsets = list_instruments()
-    try:
-        NiceSCU.ReleaseDevices()
-    except SmarActError as e:
-        print(e)
+    inst = instrument(paramsets[0])
+    # try:
+    #     NiceSCU.ReleaseDevices()
+    # except SmarActError as e:
+    #     print(e)
     ids = SCU.get_devices()
     scu = SCU(0, 0, ids)
+    pass
 
