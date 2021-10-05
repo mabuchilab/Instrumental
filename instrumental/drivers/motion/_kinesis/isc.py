@@ -73,21 +73,43 @@ class K10CR1(Motion):
         self.polling_period = polling_period
         self.dev.StartPolling(self.polling_period.m_as('ms'))
 
+    def get_info(self):
+        description = NiceISC.GetDeviceInfo(self.serial).description
+        return self.decode(description)
+
+
+    def decode(self, binary_string):
+        s = b''
+        for ind in range(len(binary_string)):
+            if binary_string[ind] != b'\x00':
+                s += binary_string[ind]
+            else:
+                break
+        return s.decode()
+
     @check_units(angle='deg')
-    def move_to(self, angle, wait=False):
-        """Rotate the stage to the given angle
+    def move_to(self, angle, wait=False, move_type='abs'):
+        """Rotate the stage to the given angle in absolute or relative units
 
         Parameters
         ----------
         angle : Quantity
             Angle that the stage will rotate to. Takes the stage offset into account.
+        wait: (bool) if True waits to receive message telling the move is done else returns
+        move_type: (str) either 'abs' (default) for absolute positioning or 'rel' for relative positioning
         """
         log.debug("Moving stage to {}".format(angle))
         log.debug("Current position is {}".format(self.position))
         self.dev.ClearMessageQueue()
-        self.dev.MoveToPosition(self._to_dev_units(angle + self.offset))
+        if move_type == 'abs':
+            self.dev.MoveToPosition(self._to_dev_units(angle + self.offset))
+        else:
+            self.dev.MoveRelative(self._to_dev_units(angle))
         if wait:
             self.wait_for_move()
+
+    def stop(self):
+        self.dev.StopImmediate()
 
     def _decode_message(self, msg_tup):
         msg_type_int, msg_id_int, msg_data_int = msg_tup
@@ -98,9 +120,9 @@ class K10CR1(Motion):
     def _wait_for_message(self, match_id):
         if not isinstance(match_id, (GenericDevice, GenericMotor, GenericDCMotor)):
             raise ValueError("Must specify message ID via enum")
-
         msg_id, msg_data = self._decode_message(self.dev.WaitForMessage())
         log.debug("Received kinesis message ({}: {})".format(msg_id, msg_data))
+
         while msg_id is not match_id:
             msg_id, msg_data = self._decode_message(self.dev.WaitForMessage())
             log.debug("Received kinesis message ({}: {})".format(msg_id, msg_data))
@@ -169,6 +191,14 @@ class K10CR1(Motion):
     @offset.setter
     def offset(self, offset):
         self._offset = offset
+
+    @Facet(units='deg')
+    def backlash(self):
+        return self._to_real_units(self.dev.GetBacklash())
+
+    @backlash.setter
+    def backlash(self, angle):
+        self.dev.SetBacklash(self._to_dev_units(angle))
 
     @Facet(units='deg')
     def position(self):

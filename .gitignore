@@ -21,3 +21,6 @@ Release/
 errortext.c
 errortext.pyd
 errortext.*.pyd
+*lextab.py
+*yacctab.py
+*lextab.py
