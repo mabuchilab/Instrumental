@@ -4,7 +4,7 @@ from instrumental import u, Q_
 from instrumental.log import get_logger
 from instrumental.drivers import Facet
 from instrumental.drivers import ParamSet
-from instrumental.drivers.motion import Motion
+from instrumental.drivers.motion.smaract import SmaractDevice
 from instrumental.drivers.motion._smaract.scu_midlib import NiceSCU, SmarActError, OPERATING_MODES
 from instrumental.drivers.util import check_units
 
@@ -46,7 +46,10 @@ def list_instruments():
     return pset
 
 
-class SCU(Motion):
+FREQ_LIMITS = Q_((1, 18500), units='Hz')  # Hz
+AMP_LIMITS = Q_((15, 100), units='V')  # V
+
+class SCU(SmaractDevice):
     """ Class for controlling actuators from smaract using the SCU controller
 
     Takes the device index and channel index as init parameters
@@ -66,14 +69,11 @@ class SCU(Motion):
         self.device_id = self._paramset['device_id']
         self.channel_index = self._paramset['channel_index']
         self.nchannels = self._paramset['nchannels']
-        self._hold_time = Q_('0ms')
+        self._hold_time = 0
         self._actuator = None
         self._internal_counter = 0
-        self._frequency = Q_('100Hz')
+        self._frequency = 100
         self._open(self.device_id)
-
-        
-        #self._devs = [NiceSCU.Actuator(0, ind_channel) for ind_channel in range(self.nchannels)]
 
     def _open(self, device_id):
         try:
@@ -88,6 +88,9 @@ class SCU(Motion):
 
     def close(self):
         NiceSCU.ReleaseDevices()
+
+    def stop(self):
+        self._actuator.Stop_S()
 
     @classmethod
     def get_devices(cls):
@@ -121,16 +124,21 @@ class SCU(Motion):
         else:
             return False
 
-    @Facet(units='V', limits=('15V', '100V'))
+    @Facet(units='V', limits=AMP_LIMITS.m_as('V'))
     def amplitude(self):
-        self._internal_counter = 0  # reset the internal counter
+
         return self._actuator.GetAmplitude_S() / 10
+
+    @property
+    def amplitude_limits(self):
+        return AMP_LIMITS
 
     @amplitude.setter
     def amplitude(self, amp):
-        self._actuator.SetAmplitude_S(int(amp.magnitude * 10))
+        self._internal_counter = 0  # reset the internal counter as it has no meaning if amplitude change
+        self._actuator.SetAmplitude_S(int(amp * 10))
 
-    @Facet(units='Hz', limits=(1, 18500))
+    @Facet(units='Hz', limits=FREQ_LIMITS.m_as('Hz'))
     def frequency(self):
         return self._frequency
 
@@ -138,7 +146,10 @@ class SCU(Motion):
     def frequency(self, freq):
         self._frequency = freq
 
-    @check_units(value='steps')
+    @property
+    def frequency_limits(self):
+        return FREQ_LIMITS
+
     def move_to(self, value, move_type='rel'):
         """
 
@@ -147,24 +158,34 @@ class SCU(Motion):
         value: (float) position in steps
         move_type: (str) without sensor can only be 'rel' for relative motion fro a given number of steps
         """
+        if isinstance(value, Q_):
+            value = value.magnitude
 
         if move_type == 'abs':
-            log.info('No Absolute Move possible, only relative stepping is available')
+            log.info('No Absolute Move possible, only relative stepping is available using a relative move using'
+                     'internal counter')
+            rel_value = value-self._internal_counter
+            self._actuator.MoveStep_S(int(rel_value), int(self.amplitude.magnitude * 10),
+                                      int(self.frequency.magnitude))
+            self._internal_counter += rel_value
         else:
-            self._actuator.MoveStep_S(value, int(self.amplitude.magnitude * 10),
+            self._actuator.MoveStep_S(int(value), int(self.amplitude.magnitude * 10),
                                       int(self.frequency.magnitude))
             self._internal_counter += value
 
     def move_home(self, autozero=True):
         if not self.has_sensor:
-            log.info('No possible homing as no sensor is present')
+
+            log.info('No possible homing as no sensor is present, trying to go to 0 internal counter')
+            self.move_to(Q_(-self._internal_counter, ''), 'rel')
+
         else:
             self._actuator.MoveToReference_S(self.hold_time.magnitude,
                                            NiceSCU._defs['SA_AUTO_ZERO'] if autozero else
                                            NiceSCU._defs['SA_NO_AUTO_ZERO'])
 
     def check_position(self):
-        return Q_(self._internal_counter, 'steps')
+        return Q_(self._internal_counter, '')
 
 class SCULinear(SCU):
 
