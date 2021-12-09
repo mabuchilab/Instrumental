@@ -26,7 +26,15 @@ def list_instruments():
             ind_channel = 0
             while True:
                 act = NiceSCU.Actuator(ind, ind_channel)
-                sensor = bool(act.GetSensorPresent_S())
+                try:
+                    act.GetStatus_S()
+                except SmarActError as e:
+                    # will fire an error if the ind_channel is invalid
+                    break
+                try:
+                    sensor = bool(act.GetSensorPresent_S())
+                except SmarActError as e:
+                    sensor = False
                 if sensor:
                     try:
                         act.GetAngle_S()
@@ -236,12 +244,11 @@ class SCURotation(SCU):
 if __name__ == '__main__':
     from instrumental import instrument
     paramsets = list_instruments()
-    inst = instrument(paramsets[0])
+    # inst = instrument(paramsets[0])
     # try:
     #     NiceSCU.ReleaseDevices()
     # except SmarActError as e:
     #     print(e)
     ids = SCU.get_devices()
-    scu = SCU(0, 0, ids)
     pass
 
