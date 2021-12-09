@@ -1,7 +1,12 @@
-# Auto-generated 2020-08-27T19:22:16.689582
+# Auto-generated 2021-07-02T10:20:07.035522
 from collections import OrderedDict
 
 driver_info = OrderedDict([
+    ('cameras.picam', {
+        'params': ['model', 'serial'],
+        'classes': ['PicamCamera'],
+        'imports': ['nicelib'],
+    }),
     ('cameras.pixelfly', {
         'params': ['number'],
         'classes': ['Pixelfly'],
@@ -24,13 +29,14 @@ driver_info = OrderedDict([
     }),
     ('funcgenerators.agilent', {
         'params': ['visa_address'],
-        'classes': ['Agilent33250A', 'Agilent81110A', 'AgilentE4400B', 'AgilentMXG'],
+        'classes': ['Agilent33250A', 'Agilent81110A', 'AgilentE4400B', 'AgilentMXG', 'Keysight81160A'],
         'imports': [],
         'visa_info': {
             'Agilent33250A': ('Agilent Technologies', ['33250A']),
             'Agilent81110A': ('HEWLETT-PACKARD', ['HP81110A']),
             'AgilentE4400B': ('Hewlett-Packard', ['ESG-1000B']),
             'AgilentMXG': ('Agilent Technologies', ['N5181A']),
+            'Keysight81160A': ('Agilent Technologies', ['81160A']),
         },
     }),
     ('funcgenerators.rigol', {
@@ -147,10 +153,11 @@ driver_info = OrderedDict([
     }),
     ('scopes.tektronix', {
         'params': ['visa_address'],
-        'classes': ['MSO_DPO_2000', 'MSO_DPO_4000', 'TDS_1000', 'TDS_200', 'TDS_2000', 'TDS_3000', 'TDS_7000'],
+        'classes': ['MSO_DPO_2000', 'MSO_DPO_3000', 'MSO_DPO_4000', 'TDS_1000', 'TDS_200', 'TDS_2000', 'TDS_3000', 'TDS_7000'],
         'imports': ['pyvisa', 'visa'],
         'visa_info': {
             'MSO_DPO_2000': ('TEKTRONIX', ['MSO2012', 'MSO2014', 'MSO2024', 'DPO2012', 'DPO2014', 'DPO2024']),
+            'MSO_DPO_3000': ('TEKTRONIX', ['MSO3012', 'DPO3012', 'MSO3014', 'DPO3014', 'MSO3032', 'DPO3032', 'MSO3034', 'DPO3034', 'DPO3052', 'MSO3054', 'DPO3054']),
             'MSO_DPO_4000': ('TEKTRONIX', ['MSO4032', 'DPO4032', 'MSO4034', 'DPO4034', 'MSO4054', 'DPO4054', 'MSO4104', 'DPO4104']),
             'TDS_1000': ('TEKTRONIX', ['TDS 1001B', 'TDS 1002B', 'TDS 1012B']),
             'TDS_200': ('TEKTRONIX', ['TDS 210', 'TDS 220', 'TDS 224']),

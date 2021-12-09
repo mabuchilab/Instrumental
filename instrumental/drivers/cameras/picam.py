@@ -1,34 +1,32 @@
 # -*- coding: utf-8 -*-
-"""
-Copyright 2015-2018 Christopher Rogers
-
-Class to control Princeton Instruments Cameras using the PICAM SDK
-
-Installation
-----------------
-The PICAM SDK must be installed. It is available from the Princeton Instruments ftp site. The .dlls
-Picam.dll Picc.dll, Pida.dll and Pidi.dll must be copied to a directory on the system path. Note
-that the .dlls found first on the system path must match the version of the headers installed with
-the Picam SDK.
-"""
+# Copyright 2015-2021 Christopher Rogers, Nate Bogdanowicz
 from future.utils import PY2
 
+import time
 from warnings import warn
 
-from numpy import frombuffer, sum, uint16, vstack
-from enum import Enum
+import numpy as np
+from enum import IntEnum
 from nicelib import NiceLib, load_lib, RetHandler, ret_ignore, Sig, NiceObject
 
-from ...errors import Error
+from . import Camera
+from .. import ParamSet, register_cleanup
 from ..util import check_units, check_enums
+from ...errors import Error, InstrumentNotFoundError, TimeoutError
+from ...log import get_logger
 from ... import Q_
+
+log = get_logger(__name__)
 
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
 
 
 class PicamError(Error):
-    pass
+    def __init__(self, msg, code=None):
+        super(Error, self).__init__(msg)
+        self.msg = msg
+        self.code = code
 
 
 lib = load_lib('picam', __package__)
@@ -38,31 +36,37 @@ BYTES_PER_PIXEL = 2
 @RetHandler(num_retvals=0)
 def ret_error(error):
     if error != 0:
+        code = PicamEnums.Error(error)
+
         if bool(NicePicamLib.IsLibraryInitialized()):
-            NicePicamLib.GetEnumerationString(lib.PicamEnumeratedType_Error, error)
+            msg = NicePicamLib.GetEnumerationString(lib.PicamEnumeratedType_Error, error).decode()
+            raise PicamError(msg, code)
         else:
-            ret_enum_string_error(error)
+            ret_enum_string_error.__func__(error)
 
 
 @RetHandler(num_retvals=0)
 def ret_enum_string_error(error):
     if error != 0:
+        code = PicamEnums.Error(error)
+
         if error == lib.PicamError_LibraryNotInitialized:
-            raise PicamError('Library not initialized')
+            msg = 'Library not initialized'
         if error == lib.PicamError_InvalidEnumeratedType:
-            raise PicamError('Invalid enumerated Type')
+            msg = 'Invalid enumerated Type'
         if error == lib.PicamError_EnumerationValueNotDefined:
-            raise PicamError('Enumeration value not defined.')
+            msg = 'Enumeration value not defined.'
         else:
-            raise PicamError('Error when getting enumeration string.  Error code {}'.format(error))
+            msg = 'Error when getting enumeration string. Error code {}'.format(code.name)
+
+        raise PicamError(msg, code)
 
 
 class NicePicamLib(NiceLib):
     """Wrapper for Picam.dll"""
-    _info = lib
-    _buflen = 256
-    _prefix = 'Picam_'
-    # _ret = 'error'
+    _info_ = lib
+    _buflen_ = 256
+    _prefix_ = 'Picam_'
     _ret_ = ret_error
 
     GetVersion = Sig('out', 'out', 'out', 'out')
@@ -109,7 +113,10 @@ class NicePicamLib(NiceLib):
     DestroyModulationsConstraints = Sig('in')
     # DestroyPulseConstraints = Sig(constraint_array)
     DestroyPulseConstraints = Sig('in')
-    class NicePicam(NiceObject):
+
+    class Camera(NiceObject):
+        _init_ = 'OpenCamera'
+
         CloseCamera = Sig('in')
         IsCameraConnected = Sig('in', 'out')
         GetCameraID = Sig('in', 'out')
@@ -203,7 +210,7 @@ class NicePicamLib(NiceLib):
         #AreParametersCommitted = Sig(camera, committed)
         AreParametersCommitted = Sig('in', 'out')
         #CommitParameters = Sig(camera, failed_parameter_array, failed_parameter_count)
-        CommitParameters = Sig('in', 'out', 'out')
+        CommitParameters = Sig('in', 'out', 'out', ret=ret_ignore)
         #Acquire = Sig(camera, readout_count, readout_time_out, available, errors)
         Acquire = Sig('in', 'in', 'in', 'out', 'out')
         #StartAcquisition = Sig(camera)
@@ -216,7 +223,20 @@ class NicePicamLib(NiceLib):
         WaitForAcquisitionUpdate = Sig('in', 'in', 'out', 'out')
 
 
-class EnumTypes():
+ffi = NicePicamLib._ffi
+ffilib = NicePicamLib._ffilib
+
+
+def _c_data_to_numpy(address, size, dtype=float):
+    """Creates a numpy array from a C array at ``address`` with ``size`` bytes.
+
+    Does *not* copy the data.
+    """
+    image_buf = memoryview(ffi.buffer(address, size))
+    return np.frombuffer(image_buf, dtype)
+
+
+class EnumTypes(object):
     """ Class containg the enumerations in Picam.dll"""
     def __init__(self):
         enum_type_dict = self._get_enum_dict()
@@ -239,575 +259,879 @@ class EnumTypes():
                     enum_type_dict[enum_type][enum_name] = value
         for enum_type, enum_dict in enum_type_dict.items():
             if isinstance(enum_dict, dict):
-                enum_type_dict[enum_type] = Enum(enum_type, enum_dict)
+                enum_type_dict[enum_type] = IntEnum(enum_type, enum_dict)
         return enum_type_dict
 
+
+#: Namespace of all the enums in the Picam SDK
 PicamEnums = EnumTypes()
 
 
-class PicamRoi():
-    """ Class defining a region of interest.
-    All values are in pixels.  """
-    def __init__(self, x, width, y, height, x_binning=1, y_binning=1):
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-        self.x_binning = x_binning
-        self.y_binning = y_binning
+#class PicamAcquisitionError(PicamError):
+#    def __init__(self, value):
+#        self.value = value
+#
+#    def __str__(self):
+#        if self.value == NicePicamLib._ffilib.PicamAcquisitionErrorsMask_None:
+#            return "No error occured"
+#        elif self.value == NicePicamLib._ffilib.PicamAcquisitionErrorsMask_DataLost:
+#            return "DataLost"
+#        elif self.value == NicePicamLib._ffilib.PicamAcquisitionErrorsMask_ConnectionLost:
+#            return "ConnectionLost"
+#        else:
+#            return "An unkown error with code {}".format(self.value)
 
 
-class PicamAcquisitionError(PicamError):
-    def __init__(self, value):
-        self.value = value
+# Destroyable data:
+#   The idea for any destroyable data is to immediately pass it through `ffi.gc()` to get a
+# reference-counting owner of the data. In some cases that data is an *array* of items. In this
+# case, each item-wrapping object we create must hold a reference to the parent array to prevent its
+# cleanup.
 
-    def __str__(self):
-        if self.value == NicePicamLib._ffilib.PicamAcquisitionErrorsMask_None:
-            return "No error occured"
-        elif self.value == NicePicamLib._ffilib.PicamAcquisitionErrorsMask_DataLost:
-            return "DataLost"
-        elif self.value == NicePicamLib._ffilib.PicamAcquisitionErrorsMask_ConnectionLost:
-            return "ConnectionLost"
-        else:
-            return "An unkown error with code {}".format(self.value)
+def struct_property(name):
+    def fget(self):
+        return getattr(self._struct_ptr, name)
+
+    def fset(self, value):
+        setattr(self._struct_ptr, name, value)
+
+    return property(fget, fset)
 
 
-class PicamCamera():
+# Used to ignore errors encountered when calling the Destroy functions, which usually happen because
+# the library has already been uninitialized.
+def ignore_error(func):
+    def wrapped(*args, **kwds):
+        try:
+            func(*args, **kwds)
+        except Exception as e:
+            log.info('Ignoring error "%s"', e)
+    return wrapped
+
+
+class PicamPulse(object):
+    def __init__(self, pulse_ptr):
+        self._struct_ptr = pulse_ptr
+
+    def __repr__(self):
+        return f'PicamPulse({self.delay=}, {self.width=})'
+
+    delay = struct_property('delay')
+    width = struct_property('width')
+
+
+class PicamRois(object):
+    """List-like group of `PicamRoi` objects
+
+    Supports index-based access, e.g. ``roi = rois[0]``.
+    """
+    def __init__(self, rois_ptr):
+        self._ptr = rois_ptr
+        self._rois = [PicamRoi(self, rois_ptr.roi_array[i]) for i in range(rois_ptr.roi_count)]
+
+    def __repr__(self):
+        rois = ', '.join(repr(roi) for roi in self._rois)
+        return f'PicamRois([{rois}])'
+
+    def __getitem__(self, index):
+        return self._rois[index]
+
+    def __len__(self):
+        return len(self._rois)
+
+
+class PicamRoi(object):
+    def __init__(self, parent, item_ptr):
+        self._parent_ref = parent  # Keep a ref to prevent collection
+        self._struct_ptr = item_ptr
+
+    def __repr__(self):
+        return (f'PicamRoi({self.x=}, {self.y=}, {self.width=}, {self.height=}, '
+                f'{self.x_binning=}, {self.y_binning=})')
+
+    x = struct_property('x')
+    y = struct_property('y')
+    x_binning = struct_property('x_binning')
+    y_binning = struct_property('y_binning')
+    width = struct_property('width')
+    height = struct_property('height')
+
+
+class PicamModulations(object):
+    """List-like group of `PicamModulation` objects
+
+    Supports index-based access, e.g. ``mod = mods[0]``.
+    """
+    def __init__(self, mods_ptr):
+        self._ptr = mods_ptr
+        self._mods = [PicamModulation(self, mods_ptr.modulation_array[i])
+                      for i in range(mods_ptr.modulation_count)]
+
+    def __repr__(self):
+        mods = ', '.join(repr(mod) for mod in self._mods)
+        return f'PicamModulations([{mods}])'
+
+    def __getitem__(self, index):
+        return self._mods[index]
+
+    def __len__(self):
+        return len(self._mods)
+
+
+class PicamModulation(object):
+    def __init__(self, parent, item_ptr):
+        self._parent_ref = parent  # Keep a ref to prevent collection
+        self._struct_ptr = item_ptr
+
+    def __repr__(self):
+        return (f'PicamModulation({self.duration=}, {self.frequency=}, {self.phase=}, '
+                f'{self.output_signal_frequency=})')
+
+    duration = struct_property('duration')
+    frequency = struct_property('frequency')
+    phase = struct_property('phase')
+    output_signal_frequency = struct_property('output_signal_frequency')
+
+
+class PicamCameraID(object):
+    """Picam CameraID"""
+    def __init__(self, base_ptr, index):
+        self._base_ptr = base_ptr  # Keep a ref to prevent collection
+        self._struct_ptr = base_ptr[index]
+
+    @classmethod
+    def from_array(cls, id_array, count):
+        id_array = ffi.gc(id_array, ignore_error(NicePicamLib.DestroyCameraIDs))
+        return [cls(id_array, i) for i in range(count)]
+
+    def __repr__(self):
+        return f'<PicamCameraID({self.model=}, {self.serial_number=})>'
+
+    def to_params(self):
+        """Get an instrumental ParamSet describing this PicamCameraID"""
+        is_demo = bool(NicePicamLib.IsDemoCamera(self._struct_ptr))
+        return ParamSet(
+            PicamCamera,
+            serial=self.serial_number,
+            model=self.model.name,
+            is_demo=is_demo,
+        )
+
+    @property
+    def computer_interface(self):
+        return PicamEnums.ComputerInterface(self._struct_ptr.computer_interface)
+
+    @property
+    def model(self):
+        return PicamEnums.Model(self._struct_ptr.model)
+
+    @property
+    def sensor_name(self):
+        return ffi.string(self._struct_ptr.sensor_name)
+
+    @property
+    def serial_number(self):
+        return ffi.string(self._struct_ptr.serial_number)
+
+
+def list_instruments():
+    cam_ids = sdk.get_available_camera_IDs()
+    return [cam_id.to_params() for cam_id in cam_ids]
+
+
+def _find_camera_id(paramset):
+    """Find camera_id from a paramset, connecting a demo camera if its missing"""
+    # NOTE this currently isn't that useful due to the way instrumental.instrument() looks for
+    # cameras. It directly calls list_instruments() and searches the results. We might consider
+    # changing that function, though saving a demo camera does seem like a pretty unusual case,
+    # practically speaking.
+    try:
+        return _find_attached_camera_id(paramset)
+    except InstrumentNotFoundError:
+        if not (paramset.get('is_demo') and 'model' in paramset and 'serial' in paramset):
+            raise
+
+    model_enum = PicamEnums.Model[paramset['model']]
+    sdk.connect_demo_camera(model_enum, paramset['serial'])
+    return _find_attached_camera_id(paramset)
+
+
+def _find_attached_camera_id(paramset):
+    cam_ids = sdk.get_available_camera_IDs()
+    if not cam_ids:
+        raise InstrumentNotFoundError("No cameras attached")
+
+    for cam_id in cam_ids:
+        cam_params = cam_id.to_params()
+        if paramset.matches(cam_params):
+            return cam_id
+
+    raise InstrumentNotFoundError("No camera found matching the given parameters")
+
+
+class Parameter(object):
+    """Base class for Picam Parameters"""
+    def __init__(self, dev : NicePicamLib.Camera, parameter):
+        self._dev = dev
+        self._param = parameter
+
+    @staticmethod
+    def create(dev, parameter):
+        VT = PicamEnums.ValueType
+        ptype = PicamEnums.ValueType(dev.GetParameterValueType(parameter))
+        return {
+            VT.Integer: IntegerParameter,
+            VT.Boolean: BooleanParameter,
+            VT.Enumeration: EnumerationParameter,
+            VT.LargeInteger: LargeIntegerParameter,
+            VT.FloatingPoint: FloatingPointParameter,
+            VT.Rois: RoisParameter,
+            VT.Pulse: PulseParameter,
+            VT.Modulations: ModulationsParameter,
+        }[ptype](dev, parameter)
+
+
+class ModulationsParameter(Parameter):
+    def get_value(self) -> PicamModulations:
+        _ptr = self._dev.GetParameterModulationsValue(self._param)
+        ptr = ffi.gc(_ptr, ignore_error(NicePicamLib.DestroyModulations))
+        return PicamModulations(ptr)
+
+    def set_value(self, value: PicamModulations):
+        self._dev.SetParameterModulationsValue(self._param, value._ptr)
+
+    def can_set(self, value: PicamModulations) -> bool:
+        return bool(self._dev.CanSetParameterModulationsValue(self._param, value._ptr))
+
+    def get_default(self) -> PicamModulations:
+        _ptr = self._dev.GetParameterModulationsDefaultValue(self._param)
+        ptr = ffi.gc(_ptr, ignore_error(NicePicamLib.DestroyModulations))
+        return PicamModulations(ptr)
+
+
+class PulseParameter(Parameter):
+    def get_value(self) -> PicamPulse:
+        _ptr = self._dev.GetParameterPulseValue(self._param)
+        ptr = ffi.gc(_ptr, ignore_error(NicePicamLib.DestroyPulses))
+        return PicamPulse(ptr)
+
+    def set_value(self, value: PicamPulse):
+        self._dev.SetParameterPulseValue(self._param, value._struct_ptr)
+
+    def can_set(self, value: PicamPulse) -> bool:
+        return bool(self._dev.CanSetParameterPulseValue(self._param, value._struct_ptr))
+
+    def get_default(self) -> PicamPulse:
+        _ptr = self._dev.GetParameterPulseDefaultValue(self._param)
+        ptr = ffi.gc(_ptr, ignore_error(NicePicamLib.DestroyPulses))
+        return PicamPulse(ptr)
+
+
+class RoisParameter(Parameter):
+    def get_value(self) -> PicamRois:
+        _ptr = self._dev.GetParameterRoisValue(self._param)
+        ptr = ffi.gc(_ptr, ignore_error(NicePicamLib.DestroyRois))
+        return PicamRois(ptr)
+
+    def set_value(self, value: PicamRois):
+        self._dev.SetParameterRoisValue(self._param, value._ptr)
+
+    def can_set(self, value: PicamRois) -> bool:
+        return bool(self._dev.CanSetParameterRoisValue(self._param, value._ptr))
+
+    def get_default(self) -> PicamRois:
+        _ptr = self._dev.GetParameterRoisDefaultValue(self._param)
+        ptr = ffi.gc(_ptr, ignore_error(NicePicamLib.DestroyRois))
+        return PicamRois(ptr)
+
+
+class FloatingPointParameter(Parameter):
+    def get_value(self) -> float:
+        return self._dev.GetParameterFloatingPointValue(self._param)
+
+    def set_value(self, value: float):
+        self._dev.SetParameterFloatingPointValue(self._param, value)
+
+    def can_set(self, value: float) -> bool:
+        return bool(self._dev.CanSetParameterFloatingPointValue(self._param, value))
+
+    def get_default(self) -> float:
+        return self._dev.GetParameterFloatingPointDefaultValue(self._param)
+
+
+class LargeIntegerParameter(Parameter):
+    def get_value(self) -> int:
+        return self._dev.GetParameterLargeIntegerValue(self._param)
+
+    def set_value(self, value: int):
+        self._dev.SetParameterLargeIntegerValue(self._param, value)
+
+    def can_set(self, value: int) -> bool:
+        return bool(self._dev.CanSetParameterLargeIntegerValue(self._param, value))
+
+    def get_default(self) -> int:
+        return self._dev.GetParameterLargeIntegerDefaultValue(self._param)
+
+
+class IntegerParameter(Parameter):
+    def get_value(self) -> int:
+        return self._dev.GetParameterIntegerValue(self._param)
+
+    def set_value(self, value: int):
+        self._dev.SetParameterIntegerValue(self._param, value)
+
+    def can_set(self, value: int) -> bool:
+        return bool(self._dev.CanSetParameterIntegerValue(self._param, value))
+
+    def get_default(self) -> int:
+        return self._dev.GetParameterIntegerDefaultValue(self._param)
+
+
+class BooleanParameter(IntegerParameter):
+    def get_value(self):
+        return bool(super().get_value())
+
+    def get_default(self):
+        return bool(super().get_default())
+
+
+class EnumerationParameter(IntegerParameter):
+    def __init__(self, dev, parameter):
+        super().__init__(dev, parameter)
+        etype = PicamEnums.EnumeratedType(self._dev.GetParameterEnumeratedType(self._param))
+        self._enumtype = getattr(PicamEnums, etype.name)
+
+    def get_value(self):
+        return self._enumtype(super().get_value())
+
+    def get_default_value(self):
+        return self._enumtype(super().get_default())
+
+
+class Parameters(object):
+    """Class to namespace Parameters"""
+    def __init__(self, parameters: dict[str, Parameter]):
+        self.parameters = parameters
+        for name, value in parameters.items():
+            setattr(self, name, value)
+
+
+class Timer(object):
+    def __init__(self, timeout):
+        self._end_time = None if (timeout is None) else (time.time() + timeout)
+
+    def time_left(self):
+        if self._end_time is None:
+            return -1
+        time_left = self._end_time - time.time()
+        return max(0, time_left)
+
+    def time_left_ms(self):
+        if self._end_time is None:
+            return -1
+        time_left = (self._end_time - time.time()) * 1000
+        return max(0, time_left)
+
+
+class PicamCamera(Camera):
     """ A Picam Camera """
-    def __init__(self, name, handle, NicePicam, ffi, NicePicamLib, picam):
-        self.picam = picam
-        self.name = name
-        self.handle = handle
-        self._NicePicam = NicePicam
-        self._ffi = ffi
-        self._ffilib = NicePicamLib._ffilib
-        self._NicePicamLib = NicePicamLib
-        self.rois = None
-        self.enums = PicamEnums
-        self.id = self._ffi.addressof(self._NicePicam.GetCameraID())
-        self._update_rois()
-        self._rois_keep_alive = []
+    _INST_PARAMS_ = ['serial', 'model']
 
-    def _update_rois(self):
-        self.rois_keep_alive = []
-        if self.rois is not None:
-            self.picam.destroy_rois(self.rois)
-        self.rois = self._get_rois()
-        self.frame_shapes = self.get_frame_shapes()
-        self.readout_stride = self._get_readout_stride()
-        self.n_pixels_per_readout = self.readout_stride/BYTES_PER_PIXEL
+    _NicePicamLib = NicePicamLib
+    _NicePicam = NicePicamLib.Camera
+    _ffi = NicePicamLib._ffi
+    _ffilib = NicePicamLib._ffilib
 
-    def _set_rois(self, rois, canset=False):
-        """ Set the region of interest structure. """
-        param = self.enums.Parameter.Rois
-        retval = self._getset_param(param, rois, canset)
-        if not canset:
-            self._update_rois()
-        return retval
+    def _initialize(self):
+        cam_id = _find_camera_id(self._paramset)
+        self._dev = NicePicamLib.Camera(cam_id._struct_ptr)
+        self._create_params()
+        self._latest_available_data = None
 
-    def _get_rois(self, default=False):
-        param = self.enums.Parameter.Rois
-        return self._getset_param(param, default=default)
+    def _create_params(self):
+        _params = {}
+        for p in PicamEnums.Parameter:
+            try:
+                _params[p.name] = Parameter.create(self._dev, p)
+            except PicamError as e:
+                pass
 
-    def set_frames(self, roi_list):
-        """Sets the region(s) of interest for the camera.
-
-        roi_list is a list containing region of interest elements, which can
-        be either instances of ``PicamRois`` or dictionaries that can be used
-        to instantiate ``PicamRois``"""
-        for i in range(len(roi_list)):
-            roi = roi_list[i]
-            if not isinstance(roi, PicamRoi):
-                roi = PicamRoi(**roi)
-                roi_list[i] = roi
-            if ((roi.width-roi.x) % roi.x_binning) != 0:
-                text = "(width-x) must be an integer multiple of x_binning"
-                raise(PicamError(text))
-            if ((roi.height-roi.y) % roi.y_binning) != 0:
-                text = "(height-y) must be an integer multiple of y_binning"
-                raise(PicamError(text))
-        rois = self._create_rois(roi_list)
-        self._set_rois(rois)
-
-    def _create_rois(self, roi_list):
-        """ Returns a C data PicamRois structure created from roi_list
-
-        roi_list shoudl be a list containing instances of ``PicamRois``"""
-        N_roi = len(roi_list)
-        roi_array = self._ffi.new('struct PicamRoi[{}]'.format(N_roi))
-        for i in range(N_roi):
-            roi_i = roi_list[i]
-            roi_array[i].x = roi_i.x
-            roi_array[i].width = roi_i.width
-            roi_array[i].x_binning = roi_i.x_binning
-            roi_array[i].y = roi_i.y
-            roi_array[i].height = roi_i.height
-            roi_array[i].y_binning = roi_i.y_binning
-
-        rois = self._ffi.new('struct PicamRois *')
-        rois.roi_count = N_roi
-        rois.roi_array = roi_array
-        self.rois_keep_alive.append((rois, roi_array))
-        return rois
+        #: Parameters of the camera
+        self.params = Parameters(_params)
 
     def close(self):
-        """ Close the connection to the camera"""
-        self._NicePicam.CloseCamera()
+        log.info('Closing Picam camera...')
+        self._dev.CloseCamera()
 
-    def get_cameraID(self):
-        """Returns the PicamID structure for the camera with name cam_name"""
-        return self._NicePicam.GetCameraID()
+    #
+    # Generic Camera interface
+    @property
+    def width(self):
+        self._get_rois()[0].width
 
-    def get_firmware_details(self):
-        """Returns the camera firmware details"""
-        firmware_array, count = self._NicePicamLib.GetFirmwareDetails(self.id)
-        if count == 0:
-            warn("No Firmware details available for camera {}".format(self.cam_name))
-        firmware_details = {}
-        for i in range(count):
-            name = self._ffi.string(firmware_array[i].name)
-            detail = self._ffi.string(firmware_array[i].detail)
-            firmware_details[name] = detail
-        self._destroy_firmware_details(firmware_array)
-        return firmware_details
+    @property
+    def height(self):
+        self._get_rois()[0].height
 
-    def _destroy_firmware_details(self, firmware_array):
-        """Releases the memory associated with the firmware details
-        ``firmware_array`` """
-        self._NicePicamLib.DestroyFirmwareDetails(firmware_array)
+    @property
+    def max_width(self):
+        return self._get_rois_constraint().width_constraint.maximum
 
-    def _get_readout_stride(self, default=False):
-        """Returns the length of a readout in bytes.  """
-        param = self.enums.Parameter.ReadoutStride
-        return self._getset_param(param, default=default)
+    @property
+    def max_height(self):
+        return self._get_rois_constraint().height_constraint.maximum
 
-    def get_param(self, parameter, default=False):
-        """ Returns the value of the specified parameter.
+    def start_capture(self, **kwds):
+        self._handle_kwds(kwds)
 
-        ``parameter`` should be an integer of corresponding to a PicamParameter
-        enumerator.
-        If ``default`` is ``True``, then the default value of the parameter is
-        returned."""
-        return self._getset_param(parameter, default=default)
+        self.set_roi(x=int(kwds['left']), y=int(kwds['top']),
+                     width=int(kwds['width']), height=int(kwds['height']),
+                     x_binning=kwds['hbin'], y_binning=kwds['vbin'])
+        self.params.ReadoutCount.set_value(kwds['n_frames'])
+        self.params.ExposureTime.set_value(int(kwds['exposure_time'].m_as('ms')))
 
-    def set_param(self, parameter, value=None, canset=False):
-        """ Sets the value of the specified parameter to ``value``.
+        self.commit_parameters()
+        self._dev.StartAcquisition()
 
-        ``parameter`` should be an integer of corresponding to a PicamParameter
-        enumerator.
-        If ``canset`` is ``True``, then a boolean indicating whether it is possible
-        to set the parameter to ``value`` is returned.  Note that this does not
-        actually set the parameter."""
-        return self._getset_param(parameter, value, canset)
+    @check_units(timeout='?ms')
+    def get_captured_image(self, timeout='1s', copy=True):
+        timer = Timer(Q_(timeout).m_as('s'))
 
-    def _getset_param(self, parameter, value=None, canset=False,
-                      default=False, commit=True):
-        """Gets or sets the value of parameter 'parameter' for camera
-        cam_name
+        error = None
+        readouts = []
+        running = True
 
-        If value==None and canset==False, the value of parameter is returned.
-        If value is not None and canset==False, the value of parameter is set
-        to value.
-        If value is not None and canset==True, a boolean indicating whether
-        parameter can be set to value is returned.
-        If default==False, then the default value of the parameter is returned
-        """
-        parameter = parameter.value
-        if default:
-            return self._getParameterDefaultValue(parameter)
-        if value is not None:
-            settable = self._canSetParameterValue(parameter, value)
-        if canset is True:
-            return settable
-        if value is not None:
-            if settable:
-                self._setParameterValue(parameter, value)
-                self.commit_parameters()
-                return
+        # Per the Picam API docs, we must call WaitForAcquisitionUpdate until status.running is
+        # False. If there's an error, we StopAcquisition and continue reading until finished.
+        while running:
+            timeout_ms = int(timer.time_left_ms())
+
+            try:
+                available_data, status = self._dev.WaitForAcquisitionUpdate(timeout_ms)
+            except PicamError as e:
+                error = e
+                self._dev.StopAcquisition()
             else:
-                raise(PicamError("Value is not settable"))
-                return
-        value = self._getParameterValue(parameter)
-        return value
+                running = status.running
+                if available_data.readout_count > 0:
+                    readouts.extend(self._extract_available_data(available_data, copy))
 
-    def get_parameter_value_type(self, parameter_type):
-        """Returns an enumerator of ``ValueType`` indicating the data
-        type associated with ``parameter_type``"""
-        value_type = self._NicePicam.GetParameterValueType(parameter_type)
-        return self.enums.ValueType(value_type)
+        if error:
+            if error.code == PicamEnums.Error.TimeOutOccurred:
+                raise TimeoutError("Timed out while waiting for image readout")
+            else:
+                raise error
 
-    def _turn_enum_into_integer(self, parameter, value=None):
-        param_type = self.get_parameter_value_type(parameter)
-        if value is not None:
-            if param_type == self.enums.ValueType.Enumeration:
-                value = value.value
-        if param_type == self.enums.ValueType.Enumeration:
-            param_type = self.enums.ValueType.Integer
-        return param_type, value
+        # For our standard API, only return first frame and ROI
+        if len(readouts) == 1:
+            return readouts[0][0][0]
+        else:
+            return tuple(ro[0][0] for ro in readouts)
 
-    def _getParameterValue(self, parameter):
-        """Returns the value of parameter ``parameter`` for camera cam_name"""
-        data_type, _ = self._turn_enum_into_integer(parameter)
-        if data_type == self.enums.ValueType.Rois:
-            value = self._NicePicam.GetParameterRoisValue(parameter)
-            return value
-        if data_type == self.enums.ValueType.FloatingPoint:
-            return self._NicePicam.GetParameterFloatingPointValue(parameter)
-        elif data_type == self.enums.ValueType.Integer:
-            return self._NicePicam.GetParameterIntegerValue(parameter)
-        elif data_type == self.enums.ValueType.LargeInteger:
-            return self._NicePicam.GetParameterLargeIntegerValue(parameter)
+    def grab_image(self, timeout='1s', copy=True, **kwds):
+        self.start_capture(**kwds)
+        return self.get_captured_image(timeout=timeout, copy=copy)
 
-    def _setParameterValue(self, parameter, value):
-        """Sets the value of the parameter ``parameter`` to value 'value'"""
-        data_type, value = self._turn_enum_into_integer(parameter, value)
-        if data_type == self.enums.ValueType.Rois:
-            self._NicePicam.SetParameterRoisValue(parameter, value)
-        elif data_type == self.enums.ValueType.FloatingPoint:
-            self._NicePicam.SetParameterFloatingPointValue(parameter, value)
-        elif data_type == self.enums.ValueType.Integer:
-            self._NicePicam.SetParameterIntegerValue(parameter, value)
-        elif data_type == self.enums.ValueType.LargeInteger:
-            self._NicePicam.SetParameterLargeIntegerValue(parameter, value)
+    def start_live_video(self, **kwds):
+        kwds['n_frames'] = 0
+        self.start_capture(**kwds)
 
-    def _canSetParameterValue(self, parameter, value):
-        """Returns a boolean indicating whether the parameter ``parameter`` can
-        be set to value 'value'"""
-        data_type, value = self._turn_enum_into_integer(parameter, value)
-        if data_type == self.enums.ValueType.Rois:
-            can_set = self._NicePicam.CanSetParameterRoisValue(parameter, value)
-        elif data_type == self.enums.ValueType.FloatingPoint:
-            can_set = self._NicePicam.CanSetParameterFloatingPointValue(parameter, value)
-        elif data_type == self.enums.ValueType.Integer:
-            can_set = self._NicePicam.CanSetParameterIntegerValue(parameter, value)
-        elif data_type == self.enums.ValueType.LargeInteger:
-            can_set = self._NicePicam.CanSetParameterLargeIntegerValue(parameter, value)
-        return bool(can_set)
+    def stop_live_video(self):
+        self._dev.StopAcquisition()
 
-    def _getParameterDefaultValue(self, parameter):
-        """Returns the default value of parameter ``parameter`` for camera
-        cam_name"""
-        data_type, _ = self._turn_enum_into_integer(parameter)
-        if data_type == self.enums.ValueType.Rois:
-            value = self._NicePicam.GetParameterRoisDefaultValue(parameter)
-            return value
-        if data_type == self.enums.ValueType.FloatingPoint:
-            return self._NicePicam.GetParameterFloatingPointDefaultValue(parameter)
-        elif data_type == self.enums.ValueType.Integer:
-            return self._NicePicam.GetParameterIntegerDefaultValue(parameter)
-        elif data_type == self.enums.ValueType.LargeInteger:
-            return self._NicePicam.GetParameterLargeIntegerDefaultValue(parameter)
+        running = True
+        while running:
+            _, status = self._dev.WaitForAcquisitionUpdate(-1)
+            running = status.running
 
-    def are_parameters_committed(self):
-        """Returns a boolean indicating whether or not the camera parameters
-        are committed"""
-        return bool(self._NicePicam.AreParametersCommitted())
+    @check_units(timeout='?ms')
+    def wait_for_frame(self, timeout=None):
+        timeout_ms = -1 if timeout is None else Q_(timeout).m_as('ms')
+        try:
+            self._latest_available_data, _ = self._dev.WaitForAcquisitionUpdate(timeout_ms)
+        except PicamError as e:
+            if e.code == PicamEnums.Error.TimeOutOccurred:
+                return False
+            raise
+
+    def latest_frame(self, copy=True):
+        readouts = self._extract_available_data(self._latest_available_data, copy)
+        return readouts[0][0][0]
+
+    # /Generic Camera interface
+    #
+
+    #
+    # New
+
+    def _extract_available_data(self, available_data, copy=True):
+        """Extract numpy arrays from available_data struct
+
+        Parameters
+        ----------
+        available_data : <cdata 'struct PicamAvailableData'>
+        copy : bool, optional
+             Whether to copy the data out of the Picam struct.
+
+        Returns
+        -------
+        A 3-D nested list of numpy arrays, indexed in order of (readout, frame, roi). Note that
+        this is not 'rectangular' as the ROIs can have different sizes.
+        """
+        n_readouts = available_data.readout_count
+        if n_readouts == 0:
+            raise PicamError('There are no readouts in available_data')
+
+        readout_stride = self.params.ReadoutStride.get_value()
+        size = readout_stride * n_readouts
+
+        all_data = _c_data_to_numpy(available_data.initial_readout, size, dtype=np.uint16)
+
+        rois = self.params.Rois.get_value()
+        roi_shapes = [(roi.width // roi.x_binning, roi.height // roi.y_binning) for roi in rois]
+
+        def extract_roi_data(arr, frame_offset):
+            roi_start = frame_offset
+            for w,h in roi_shapes:
+                roi_end = roi_start + w*h
+                roi_data = np.reshape(arr[roi_start:roi_end], (h,w))
+                yield roi_data.copy() if copy else roi_data
+                roi_start = roi_end
+
+        n_frames = self.params.FramesPerReadout.get_value()
+        frame_stride = self.params.FrameStride.get_value()
+
+        data = [
+            [list(extract_roi_data(all_data, i*readout_stride + j*frame_stride))
+             for j in range(n_frames)]
+            for i in range(n_readouts)
+        ]
+        return data
+
+    def set_roi(self, x=None, y=None, width=None, height=None, x_binning=None, y_binning=None):
+        """Set one or more fields of the ROI
+
+        If there are multiple ROIs, only applies to the first. Any args not given are left
+        unmodified.
+        """
+        kwds = {k:v for k,v in vars().items() if k != 'self' and v is not None}
+        rois = self.params.Rois.get_value()
+
+        for name, value in kwds.items():
+            setattr(rois[0], name, value)
+
+        self.params.Rois.set_value(rois)
+
+    def _get_rois(self):
+        return self.params.Rois.get_value()
+
+    def _get_rois_constraint(self):
+        param = PicamEnums.Parameter.Rois
+        category = PicamEnums.ConstraintCategory.Required
+        rois_constraint = self._dev.GetParameterRoisConstraint(param, category)
+        # NOTE: Do not keep references to sub-elements of this, as the memory will be cleaned
+        # up once this object loses all direct Python references
+        return ffi.gc(rois_constraint, ignore_error(NicePicamLib.DestroyRoisConstraints))
+
+    # /New
+    #
+
+    #
+    # Old
+
+    #def set_frames(self, roi_list):
+    #    """Sets the region(s) of interest for the camera.
+
+    #    roi_list is a list containing region of interest elements, which can
+    #    be either instances of ``PicamRois`` or dictionaries that can be used
+    #    to instantiate ``PicamRois``"""
+    #    for i in range(len(roi_list)):
+    #        roi = roi_list[i]
+    #        if not isinstance(roi, PicamRoi):
+    #            roi = PicamRoi(**roi)
+    #            roi_list[i] = roi
+    #        if ((roi.width-roi.x) % roi.x_binning) != 0:
+    #            text = "(width-x) must be an integer multiple of x_binning"
+    #            raise(PicamError(text))
+    #        if ((roi.height-roi.y) % roi.y_binning) != 0:
+    #            text = "(height-y) must be an integer multiple of y_binning"
+    #            raise(PicamError(text))
+    #    rois = self._create_rois(roi_list)
+    #    self._set_rois(rois)
+
+    #def _create_rois(self, roi_list):
+    #    """ Returns a C data PicamRois structure created from roi_list
+
+    #    roi_list shoudl be a list containing instances of ``PicamRois``"""
+    #    N_roi = len(roi_list)
+    #    roi_array = self._ffi.new('struct PicamRoi[{}]'.format(N_roi))
+    #    for i in range(N_roi):
+    #        roi_i = roi_list[i]
+    #        roi_array[i].x = roi_i.x
+    #        roi_array[i].width = roi_i.width
+    #        roi_array[i].x_binning = roi_i.x_binning
+    #        roi_array[i].y = roi_i.y
+    #        roi_array[i].height = roi_i.height
+    #        roi_array[i].y_binning = roi_i.y_binning
+
+    #    rois = self._ffi.new('struct PicamRois *')
+    #    rois.roi_count = N_roi
+    #    rois.roi_array = roi_array
+    #    self.rois_keep_alive.append((rois, roi_array))
+    #    return rois
+
+    #def get_cameraID(self):
+    #    """Returns the PicamID structure for the camera with name cam_name"""
+    #    return self._NicePicam.GetCameraID()
+
+    #def get_firmware_details(self):
+    #    """Returns the camera firmware details"""
+    #    firmware_array, count = NicePicamLib.GetFirmwareDetails(self.id)
+    #    if count == 0:
+    #        warn("No Firmware details available for camera {}".format(self.cam_name))
+    #    firmware_details = {}
+    #    for i in range(count):
+    #        name = self._ffi.string(firmware_array[i].name)
+    #        detail = self._ffi.string(firmware_array[i].detail)
+    #        firmware_details[name] = detail
+    #    NicePicamLib.DestroyFirmwareDetails(firmware_array)
+    #    return firmware_details
+
+    #def _turn_enum_into_integer(self, parameter, value=None):
+    #    param_type = self.get_parameter_value_type(parameter)
+    #    if value is not None:
+    #        if param_type == self.enums.ValueType.Enumeration:
+    #            value = value.value
+    #    if param_type == self.enums.ValueType.Enumeration:
+    #        param_type = self.enums.ValueType.Integer
+    #    return param_type, value
+
+    #def are_parameters_committed(self):
+    #    """Whether or not the camera parameters are committed"""
+    #    return bool(self._dev.AreParametersCommitted())
 
     def commit_parameters(self):
-        """Commits camera parameters."""
-        uncommitted, N = self._NicePicam.CommitParameters()
-        if N != 0:
-            raise PicamError("{} parameters were unsuccessfully committed.")
+        """Commits camera parameters"""
+        bad_params, n = self._dev.CommitParameters()
 
-    def _c_address_to_numpy(self, address, size, data_type=float):
-        """ Creates a numpy array from a c array at ``address`` with bytesize
-        ``size`` """
-        ffi = self._NicePicamLib._ffi
-        # This copies the buffer
-        buf = memoryview(ffi.buffer(address, size)[:])
-        return frombuffer(buf, data_type)
+        if n > 0:
+            bad_str = ','.join(PicamEnums.Parameter(bad_params[i]).name for i in range(n))
+            raise PicamError("{} parameters were unsuccessfully committed: [{}]".format(n, bad_str))
 
-    def get_frame_shapes(self, rois=None):
-        """Returns the region of interest frame shapes as a list of tuples
+    #def start_acquisition(self):
+    #    """Begins an acquisition and returns immediately.
 
-        The tuples correspond to the number of x and y pixels in each region of interest
+    #    The number of readouts is controlled by ``set_readout_count``.
+    #    """
+    #    self._NicePicam.StartAcquisition()
 
-        If rois is None, then the current region of interest array is used
-        """
-        if rois is None:
-            rois = self.rois
-        shapes = []
-        for i in range(rois.roi_count):
-            roi = rois.roi_array[i]
-            x = roi.width/roi.x_binning
-            y = roi.height/roi.y_binning
-            shapes = shapes + [(x, y)]
-        return shapes
+    #def stop_acquisition(self):
+    #    """Stops a currently running acuisition"""
+    #    self._NicePicam.StopAcquisition()
 
-    def start_acquisition(self):
-        """ This function begins an acquisition and returns immediately.
+    #def is_aqcuisition_running(self):
+    #    """Returns a boolean indicating whether an aqcuisition is running"""
+    #    return bool(self._NicePicam.IsAcquisitionRunning())
 
-        The number of readouts is controlled by ``set_readout_count``.
-        """
-        self._NicePicam.StartAcquisition()
+    #@check_units(timeout = 'ms')
+    #def wait_for_aqcuisition_update(self, timeout='-1ms'):
+    #    """ Waits for a readout  """
+    #    available, status = self._NicePicam.WaitForAcquisitionUpdate(timeout.to('ms').m)
+    #    if status.errors != 0:
+    #        raise PicamAcquisitionError(status.errors)
+    #    return available, status
 
-    def stop_acquisition(self):
-        """Stops a currently running acuisition"""
-        self._NicePicam.StopAcquisition()
+    #def get_readout_rate(self, default=False):
+    #    """ Returns the readout rate (in units of Hz) of camera cam_name,
+    #    given the current settings"""
+    #    parameter = self.enums.Parameter.ReadoutRateCalculation
+    #    return Q_(self._getset_param(parameter, default=default), 'Hz')
 
-    def is_aqcuisition_running(self):
-        """Returns a boolean indicating whether an aqcuisition is running"""
-        return bool(self._NicePicam.IsAcquisitionRunning())
+    #def get_readout_time(self, default=False):
+    #    """ Returns the readout time (in ms) """
+    #    param = self.enums.Parameter.ReadoutTimeCalculation
+    #    return Q_(self._getset_param(param, default=default), 'ms')
 
-    @check_units(timeout = 'ms')
-    def wait_for_aqcuisition_update(self, timeout='-1ms'):
-        """ Waits for a readout  """
-        available, status = self._NicePicam.WaitForAcquisitionUpdate(timeout.to('ms').m)
-        if status.errors != 0:
-            raise PicamAcquisitionError(status.errors)
-        return available, status
+    #@check_units(exposure = 'ms')
+    #def set_exposure_time(self, exposure, canset=False):
+    #    """sets the value of the exposure time """
+    #    param = self.enums.Parameter.ExposureTime
+    #    return self._getset_param(param, exposure.to('ms').m, canset)
 
-    def get_data_from_available(self, available_data, average=False):
-        """Returns an array of data corresponding to the data buffer given
-        by the PicamAvailableData structure
-        """
-        count = available_data.readout_count
-        if count == 0:
-            raise PicamError('There are no readouts in available_data')
-        readout_stride = self._get_readout_stride()
-        size = readout_stride * available_data.readout_count
-        data = self._c_address_to_numpy(available_data.initial_readout,
-                                        size, uint16)
-        data_list = []
-        index_start = 0
-        # loop over each roi
-        for shape in self.frame_shapes:
-            n_roi_pixels = shape[0]*shape[1]
-            index_end = n_roi_pixels + index_start
-            roi_data = data[index_start:index_end]
-            # loop over each readout
-            for i in range(1, count):
-                index_1 = index_start + i * self.n_pixels_per_readout
-                index_2 = index_end + i * self.n_pixels_per_readout
-                temp = data[index_1:index_2]
-                roi_data = vstack([roi_data, temp])
-            roi_data = roi_data.reshape((count,) + shape[::-1])
+    #def get_exposure_time(self, default=False):
+    #    """Returns value of the exposure time """
+    #    param = self.enums.Parameter.ExposureTime
+    #    return Q_(self._getset_param(param, default=default), 'ms')
 
-            if count == 1:
-                roi_data = roi_data[0,:,:]
+    #@check_enums(gain = PicamEnums.AdcAnalogGain)
+    #def set_adc_gain(self, gain, canset=False):
+    #    """Sets the ADC gain using an enum of type AdcAnalogGain."""
+    #    param = self.enums.Parameter.AdcAnalogGain
+    #    return self._getset_param(param, gain, canset)
 
-            if average:
-                roi_data = sum(roi_data, 2)/float(count)
+    #def get_adc_gain(self, default=False):
+    #    """Gets the ADC gain. """
+    #    param = self.enums.Parameter.AdcAnalogGain
+    #    value = self._getset_param(param, default=default)
+    #    return self.enums.AdcAnalogGain(value)
 
-            data_list.append(roi_data)
-            index_start = index_end
+    #@check_units(frequency='MHz')
+    #def set_adc_speed(self, frequency, canset=False):
+    #    """Sets the ADC Frequency
 
-        if len(self.frame_shapes) == 1:
-            return data_list[0]
-        else:
-            return data_list
+    #    For many cameras, the possible values are very constrained -
+    #    typical ccd cameras accept only 2MHz and 0.1MHz work."""
+    #    param = self.enums.Parameter.AdcSpeed
+    #    return self._getset_param(param, frequency.to('MHz').m, canset)
 
-    @check_units(timeout = 'ms')
-    def get_data(self, count=1, timeout='-1ms', average=False):
-        """Returns a numpy array of the pixel data for the specified camera.
+    #def get_adc_speed(self, default=False):
+    #    """Returns the ADC speed in MHz """
+    #    param = self.enums.Parameter.AdcSpeed
+    #    value = self._getset_param(param, default=default)
+    #    return Q_(value, 'MHz')
 
-        Note that this only works if there is a single ROI"""
-        available_data, error = self._NicePicam.Acquire(count,
-                                                        timeout.to('ms').m)
-        if error != 0:
-            raise PicamAcquisitionError()
-        return self.get_data_from_available(available_data, average)
+    #def get_temperature_reading(self):
+    #    """Returns the temperature of the sensor in degrees Centigrade"""
+    #    param = self.enums.Parameter.SensorTemperatureReading
+    #    return Q_(self._getset_param(param), 'celsius')
 
-    def get_readout_rate(self, default=False):
-        """ Returns the readout rate (in units of Hz) of camera cam_name,
-        given the current settings"""
-        parameter = self.enums.Parameter.ReadoutRateCalculation
-        return Q_(self._getset_param(parameter, default=default), 'Hz')
+    #@check_units(temperature = 'celsius')
+    #def set_temperature_setpoint(self, temperature, canset=False):
+    #    """Set the temperature setpoint """
+    #    param = self.enums.Parameter.SensorTemperatureSetPoint
+    #    return self._getset_param(param, temperature.to('celsius').m, canset)
 
-    def get_readout_time(self, default=False):
-        """ Returns the readout time (in ms) """
-        param = self.enums.Parameter.ReadoutTimeCalculation
-        return Q_(self._getset_param(param, default=default), 'ms')
+    #def get_temperature_setpoint(self, default=False):
+    #    """Returns the temperature setpoint """
+    #    param = self.enums.Parameter.SensorTemperatureSetPoint
+    #    value = self._getset_param(param, default=default)
+    #    return Q_(value, 'celsius')
 
-    @check_units(exposure = 'ms')
-    def set_exposure_time(self, exposure, canset=False):
-        """sets the value of the exposure time """
-        param = self.enums.Parameter.ExposureTime
-        return self._getset_param(param, exposure.to('ms').m, canset)
+    #def get_temperature_status(self):
+    #    """Returns the temperature status """
+    #    param = self.enums.Parameter.SensorTemperatureStatus
+    #    return self.enums.SensorTemperatureStatus(self._getset_param(param))
 
-    def get_exposure_time(self, default=False):
-        """Returns value of the exposure time """
-        param = self.enums.Parameter.ExposureTime
-        return Q_(self._getset_param(param, default=default), 'ms')
+    #def get_readout_count(self, default=False):
+    #    """ Gets the number of readouts for an asynchronous aquire. """
+    #    param = self.enums.Parameter.ReadoutCount
+    #    return self._getset_param(param, default=default)
 
-    @check_enums(gain = PicamEnums.AdcAnalogGain)
-    def set_adc_gain(self, gain, canset=False):
-        """Sets the ADC gain using an enum of type AdcAnalogGain."""
-        param = self.enums.Parameter.AdcAnalogGain
-        return self._getset_param(param, gain, canset)
+    #def set_readout_count(self, readout_count=None, canset=False):
+    #    """ Sets the number of readouts for an asynchronous aquire.
 
-    def get_adc_gain(self, default=False):
-        """Gets the ADC gain. """
-        param = self.enums.Parameter.AdcAnalogGain
-        value = self._getset_param(param, default=default)
-        return self.enums.AdcAnalogGain(value)
+    #    This does NOT affect the number of readouts for self.aqcuire
+    #    """
+    #    param = self.enums.Parameter.ReadoutCount
+    #    return self._getset_param(param, readout_count, canset)
 
-    @check_units(frequency='MHz')
-    def set_adc_speed(self, frequency, canset=False):
-        """Sets the ADC Frequency
+    #def get_time_stamp_mode(self, default=False):
+    #    """ Get the mode for the timestamp portion of the frame metadata. """
+    #    param = self.enums.Parameter.TimeStamps
+    #    return self.enums.TimeStampsMask(self._getset_param(param, default=default))
 
-        For many cameras, the possible values are very constrained -
-        typical ccd cameras accept only 2MHz and 0.1MHz work."""
-        param = self.enums.Parameter.AdcSpeed
-        return self._getset_param(param, frequency.to('MHz').m, canset)
+    #@check_enums(gain = PicamEnums.AdcAnalogGain)
+    #def set_time_stamp_mode(self, mode, canset=False):
+    #    """ Sets the mode of the timestamp portion of the frame metadata using
+    #    the enum ``TimeStampsMask`` """
+    #    param = self.enums.Parameter.TimeStamps
+    #    return self._getset_param(param, mode, canset)
 
-    def get_adc_speed(self, default=False):
-        """Returns the ADC speed in MHz """
-        param = self.enums.Parameter.AdcSpeed
-        value = self._getset_param(param, default=default)
-        return Q_(value, 'MHz')
+    #@check_enums(mode = PicamEnums.ShutterTimingMode)
+    #def set_shutter_mode(self, mode, canset=False):
+    #    """ Controls the shutter operation mode using the enum ``ShutterTimingMode``."""
+    #    param = self.enums.Parameter.ShutterTimingMode
+    #    return self._getset_param(param, mode, canset)
 
-    def get_temperature_reading(self):
-        """Returns the temperature of the sensor in degrees Centigrade"""
-        param = self.enums.Parameter.SensorTemperatureReading
-        return Q_(self._getset_param(param), 'celsius')
+    #def get_shutter_mode(self, default=False):
+    #    """ Get the shutter operation mode."""
+    #    param = self.enums.Parameter.ShutterTimingMode
+    #    return self.enums.ShutterTimingMode(self._getset_param(param, default=default))
 
-    @check_units(temperature = 'celsius')
-    def set_temperature_setpoint(self, temperature, canset=False):
-        """Set the temperature setpoint """
-        param = self.enums.Parameter.SensorTemperatureSetPoint
-        return self._getset_param(param, temperature.to('celsius').m, canset)
+    #def open_shutter(self):
+    #    """ Opens the shutter """
+    #    self.set_shutter_mode(self.enums.ShutterTimingMode.AlwaysOpen)
 
-    def get_temperature_setpoint(self, default=False):
-        """Returns the temperature setpoint """
-        param = self.enums.Parameter.SensorTemperatureSetPoint
-        value = self._getset_param(param, default=default)
-        return Q_(value, 'celsius')
+    #def close_shutter(self):
+    #    """ Closes the shutter """
+    #    self.set_shutter_mode(self.enums.ShutterTimingMode.AlwaysClosed)
 
-    def get_temperature_status(self):
-        """Returns the temperature status """
-        param = self.enums.Parameter.SensorTemperatureStatus
-        return self.enums.SensorTemperatureStatus(self._getset_param(param))
+    #def normal_shutter(self):
+    #    """ Puts the shutter into normal mode """
+    #    self.set_shutter_mode(self.enums.ShutterTimingMode.Normal)
 
-    def get_readout_count(self, default=False):
-        """ Gets the number of readouts for an asynchronous aquire. """
-        param = self.enums.Parameter.ReadoutCount
-        return self._getset_param(param, default=default)
+    #@check_enums(parameter = PicamEnums.Parameter)
+    #def does_parameter_exist(self, parameter):
+    #    """Returns a boolean indicating whether the parameter ``parameter`` exists"""
+    #    return bool(self._NicePicam.DoesParameterExist(parameter.value))
 
-    def set_readout_count(self, readout_count=None, canset=False):
-        """ Sets the number of readouts for an asynchronous aquire.
+    #@check_enums(parameter = PicamEnums.Parameter)
+    #def is_parameter_relevant(self, parameter):
+    #    """Returns a boolean indicating whether changing the parameter
+    #    ``parameter`` will affect the behaviour of camera given the
+    #    current settings"""
+    #    return bool(self._NicePicam.IsParameterRelevant(parameter.value))
 
-        This does NOT affect the number of readouts for self.aqcuire
-        """
-        param = self.enums.Parameter.ReadoutCount
-        return self._getset_param(param, readout_count, canset)
+    #def get_parameter_list(self):
+    #    """Returns an array of all the parameters of
+    #    camera and the number of parameters"""
+    #    parameter_list = []
+    #    params, count = self._NicePicam.GetParameters()
+    #    for i in range(count):
+    #        parameter_list.append(self.enums.Parameter(params[i]))
+    #    return parameter_list
 
-    def get_time_stamp_mode(self, default=False):
-        """ Get the mode for the timestamp portion of the frame metadata. """
-        param = self.enums.Parameter.TimeStamps
-        return self.enums.TimeStampsMask(self._getset_param(param,
-                                                            default=default))
-
-    @check_enums(gain = PicamEnums.AdcAnalogGain)
-    def set_time_stamp_mode(self, mode, canset=False):
-        """ Sets the mode of the timestamp portion of the frame metadata using
-        the enum ``TimeStampsMask`` """
-        param = self.enums.Parameter.TimeStamps
-        return self._getset_param(param, mode, canset)
-
-    @check_enums(mode = PicamEnums.ShutterTimingMode)
-    def set_shutter_mode(self, mode, canset=False):
-        """ Controls the shutter operation mode using the enum ``ShutterTimingMode``."""
-        param = self.enums.Parameter.ShutterTimingMode
-        return self._getset_param(param, mode, canset)
-
-    def get_shutter_mode(self, default=False):
-        """ Get the shutter operation mode."""
-        param = self.enums.Parameter.ShutterTimingMode
-        return self.enums.ShutterTimingMode(self._getset_param(param,
-                                                               default=default))
-
-    def open_shutter(self):
-        """ Opens the shutter """
-        self.set_shutter_mode(self.enums.ShutterTimingMode.AlwaysOpen)
-
-    def close_shutter(self):
-        """ Closes the shutter """
-        self.set_shutter_mode(self.enums.ShutterTimingMode.AlwaysClosed)
-
-    def normal_shutter(self):
-        """ Puts the shutter into normal mode """
-        self.set_shutter_mode(self.enums.ShutterTimingMode.Normal)
-
-    @check_enums(parameter = PicamEnums.Parameter)
-    def does_parameter_exist(self, parameter):
-        """Returns a boolean indicating whether the parameter ``parameter``
-        exists"""
-        return bool(self._NicePicam.DoesParameterExist(parameter.value))
-
-    @check_enums(parameter = PicamEnums.Parameter)
-    def is_parameter_relevant(self, parameter):
-        """Returns a boolean indicating whether changing the parameter
-        ``parameter`` will affect the behaviour of camera given the
-        current settings"""
-        return bool(self._NicePicam.IsParameterRelevant(parameter.value))
-
-    def get_parameter_list(self):
-        """Returns an array of all the parameters of
-        camera and the number of parameters"""
-        parameter_list = []
-        params, count = self._NicePicam.GetParameters()
-        for i in range(count):
-            parameter_list.append(self.enums.Parameter(params[i]))
-        return parameter_list
+    # /Old
+    #
 
 
-class Picam():
-    def __init__(self, cameras=None, usedemo=False, default_cam=None):
-        NicePicamLib.InitializeLibrary()
+class _PicamSDK(object):
+    _NicePicamLib = NicePicamLib
+    _NicePicam = NicePicamLib.Camera
+    _ffi = NicePicamLib._ffi
+    _ffilib = NicePicamLib._ffilib
+    enums = PicamEnums
+
+    def __init__(self):
+        self._open_count = 0
         self.cameras = {}
-        self._ffi = NicePicamLib._ffi
-        self._NicePicamLib = NicePicamLib
-        self.enums = PicamEnums
 
-        if usedemo:
-            cam_id = self._ffi.addressof(NicePicamLib.ConnectDemoCamera(10, '1234'))
-            cameras = {'demo_camera': cam_id}
+    def open(self):
+        self._open_count += 1
 
-        if cameras is None:
-            self.cams = {}
-            default_cam = 'first_camera'
-            self.open_first_camera(default_cam)
-        else:
-            for name, cam_id in cameras.iteritems():
-                self.open_camera(cam_id, name)
-
-        if default_cam is None:
-            self.default_cam = cameras.keys()[0]
-        else:
-            if default_cam in self.cameras:
-                self.default_cam = default_cam
-            else:
-                raise PicamError("Default camera {} does not exist".format(default_cam))
+        if not NicePicamLib.IsLibraryInitialized():
+            NicePicamLib.InitializeLibrary()
 
     def close(self):
-        for camera in self.cameras.items:
-            camera.close()
-        self._NicePicamLib.UninitializeLibrary()
+        self._open_count -= 1
 
-    def get_enumeration_string(self, enum_type, value):
-        """ Returns the string of the associated with the enum 'value' of type
-        'enumeration type'"""
-        return self._NicePicamLib.GetEnumerationString(enum_type, value)
+        if self._open_count <= 0:
+            for camera in self.cameras.values():
+                camera.close()
+            NicePicamLib.UninitializeLibrary()
 
-    def is_demo_camera(self, cam_id=None):
-        """
-        Returns a boolean indicating whether the camera corresponding to
-        cam_id is a demo camera
-        """
-        if cam_id is None:
-            cam_id = self.cam
-        return bool(self._NicePicamLib.IsDemoCamera(cam_id))
+    #def get_enumeration_string(self, enum_type, value):
+    #    """Get the string associated with the enum 'value' of type 'enum_type'"""
+    #    return NicePicamLib.GetEnumerationString(enum_type, value)
 
-    def get_version(self):
-        """
-        Returns a string containing version information for the Picam dll
-        """
-        major, minor, distribution, release = self._NicePicamLib.GetVersion()
+    #def is_demo_camera(self, cam_id=None):
+    #    """
+    #    Returns a boolean indicating whether the camera corresponding to
+    #    cam_id is a demo camera
+    #    """
+    #    if cam_id is None:
+    #        cam_id = self.cam
+    #    return bool(NicePicamLib.IsDemoCamera(cam_id))
 
-        temp = (major, minor, distribution, release/100, release%100)
-        version = 'Version {0[0]}.{0[1]}.{0[2]} released in 20{0[3]}-{0[4]}'
-        return version.format(temp)
+    #def get_version(self):
+    #    """
+    #    Returns a string containing version information for the Picam dll
+    #    """
+    #    major, minor, distribution, release = NicePicamLib.GetVersion()
+
+    #    temp = (major, minor, distribution, release/100, release%100)
+    #    version = 'Version {0[0]}.{0[1]}.{0[2]} released in 20{0[3]}-{0[4]}'
+    #    return version.format(temp)
 
     def get_available_camera_IDs(self):
         """Returns an array of cameras that it is currently possible to
@@ -820,116 +1144,116 @@ class Picam():
         count: int
             the number of available cameras
         """
-        ID_array, count = self._NicePicamLib.GetAvailableCameraIDs()
-        return ID_array, count
+        id_array, count = NicePicamLib.GetAvailableCameraIDs()
+        return PicamCameraID.from_array(id_array, count)
 
-    def get_unavailable_camera_IDs(self):
-        """
-        Returns an array of cameras that are either open or disconnected (it is
-        not possible to connect to these cameras)
+    #def get_unavailable_camera_IDs(self):
+    #    """
+    #    Returns an array of cameras that are either open or disconnected (it is
+    #    not possible to connect to these cameras)
 
-        Returns
-        -------
-        ID_array: array of PicamCameraID
-            ids of the unavailable cameras
-        count: int
-            the number of unavailable cameras
-        """
-        ID_array, count = self._NicePicamLib.GetUnavailableCameraIDs()
-        return ID_array, count
+    #    Returns
+    #    -------
+    #    ID_array: array of PicamCameraID
+    #        ids of the unavailable cameras
+    #    count: int
+    #        the number of unavailable cameras
+    #    """
+    #    ID_array, count = NicePicamLib.GetUnavailableCameraIDs()
+    #    return ID_array, count
 
-    def destroy_camera_ids(self, cam_ids):
-        """
-        Destroys the memory associated with string the picam_id 'cam_id'
-        """
-        self._NicePicamLib.DestroyCameraIDs(cam_ids)
+    #def destroy_camera_ids(self, cam_ids):
+    #    """
+    #    Destroys the memory associated with string the picam_id 'cam_id'
+    #    """
+    #    NicePicamLib.DestroyCameraIDs(cam_ids)
 
     def connect_demo_camera(self, model, serial_number):
         """Connects a demo camera of the specified model and serial number."""
-        self._NicePicamLib.ConnectDemoCamera(model, serial_number)
+        NicePicamLib.ConnectDemoCamera(model, serial_number)
 
-    def get_available_demo_camera_models(self):
-        """
-        Returns an array of all demo camera models that it is possible to
-        create, and the length of that array.
-        """
-        models, count = self._NicePicamLib.GetAvailableDemoCameraModels()
-        return models, count
+    #def get_available_demo_camera_models(self):
+    #    """
+    #    Returns an array of all demo camera models that it is possible to
+    #    create, and the length of that array.
+    #    """
+    #    models, count = NicePicamLib.GetAvailableDemoCameraModels()
+    #    return models, count
 
     def disconnect_demo_camera(self, cam_id):
-        """
-        Disconnects the demo camera specified by cam_id
-        """
-        self._NicePicamLib.DisconnectDemoCamera(cam_id)
+        """Disconnects the demo camera specified by cam_id"""
+        NicePicamLib.DisconnectDemoCamera(cam_id._struct_ptr)
 
-    def destroy_models(self, models):
-        """Releases memory associated with the array of cam_models 'models'"""
-        self._NicePicamLib.DestroyModels(models)
+    #def destroy_models(self, models):
+    #    """Releases memory associated with the array of cam_models 'models'"""
+    #    NicePicamLib.DestroyModels(models)
 
-    def is_camera_connected(self, cam_id):
-        """
-        Returns a boolean indicating whether the camera matching cam_id is
-        connected.
+    #def is_camera_connected(self, cam_id):
+    #    """
+    #    Returns a boolean indicating whether the camera matching cam_id is
+    #    connected.
 
-        Parameters
-        -------
-        cam_id: instance of PicamCameraID
-        """
-        return bool(self._NicePicamLib.IsCameraIDConnected(cam_id))
+    #    Parameters
+    #    -------
+    #    cam_id: instance of PicamCameraID
+    #    """
+    #    return bool(NicePicamLib.IsCameraIDConnected(cam_id))
 
-    def is_camera_open_elsewhere(self, cam_id):
-        """
-        Returns a boolean indicating whether the camera matching cam_id
-        is open in another program.
+    #def is_camera_open_elsewhere(self, cam_id):
+    #    """
+    #    Returns a boolean indicating whether the camera matching cam_id
+    #    is open in another program.
 
-        Parameters
-        -------
-        cam_id: instance of PicamCameraID
-        """
-        return bool(self._NicePicamLib.IsCameraIDOpenElsewhere(cam_id))
+    #    Parameters
+    #    -------
+    #    cam_id: instance of PicamCameraID
+    #    """
+    #    return bool(NicePicamLib.IsCameraIDOpenElsewhere(cam_id))
 
-    def open_first_camera(self, cam_name):
-        """
-        Opens the first available camera, and assigns it the name 'cam_name'
-        """
-        ID_array, count = self.get_available_camera_IDs()
-        if count == 0:
-            raise PicamError('No cameras available - could not open first camera')
-        if count == 1:
-            id = ID_array
-        else:
-            id = ID_array[0]
-        self.open_camera(id, cam_name)
+    #def open_first_camera(self, cam_name):
+    #    """
+    #    Opens the first available camera, and assigns it the name 'cam_name'
+    #    """
+    #    ID_array, count = self.get_available_camera_IDs()
+    #    if count == 0:
+    #        raise PicamError('No cameras available - could not open first camera')
+    #    if count == 1:
+    #        id = ID_array
+    #    else:
+    #        id = ID_array[0]
+    #    self.open_camera(id, cam_name)
 
-    def add_camera(self, cam_name, handle, NicePicam):
-        """Adds a camera with the name cam_name and handle 'handle' to the
-        dictionairy of cameras, self.cameras"""
-        if cam_name in self.cameras:
-            raise PicamError('Camera name {} already in use'.format(cam_name))
-        self.cameras[cam_name] = PicamCamera(cam_name, handle, NicePicam,
-                                             self._ffi, self._NicePicamLib, self)
+    #def add_camera(self, cam_name, nice_cam):
+    #    """Adds a camera with the name cam_name to the dictionary of cameras, self.cameras"""
+    #    if cam_name in self.cameras:
+    #        raise PicamError('Camera name {} already in use'.format(cam_name))
+    #    self.cameras[cam_name] = PicamCamera(nice_cam, self)
 
-    def open_camera(self, cam_id, cam_name):
-        """Opens the camera associated with cam_id, and assigns it the name
-        'cam_name'"""
-        handle = self._NicePicamLib.OpenCamera(cam_id)
-        NicePicam = self._NicePicamLib.NicePicam(handle)
-        self.add_camera(cam_name, handle, NicePicam)
+    #def open_camera(self, cam_id : PicamCameraID, cam_name : str):
+    #    """Opens the camera associated with cam_id, and assigns it the name 'cam_name'"""
+    #    #handle = NicePicamLib.OpenCamera(cam_id)
+    #    nice_cam = NicePicamLib.Camera(cam_id)
+    #    self.add_camera(cam_name, nice_cam)
 
-    def open_cameras(self, cam_dict):
-        IDarray, n = self.get_available_camera_IDs()
-        for cam_name in cam_dict.iterkeys():
-            for i in range(n):
-                if IDarray[i].model == cam_dict[cam_name]:
-                    self.open_camera(IDarray[i], i)
-                    break
-                if i == n-1:
-                    raise(PicamError("Camera {} does not exist".format(cam_name)))
+    #def open_cameras(self, cam_dict):
+    #    IDarray, n = self.get_available_camera_IDs()
+    #    for cam_name in cam_dict.keys():
+    #        for i in range(n):
+    #            if IDarray[i].model == cam_dict[cam_name]:
+    #                self.open_camera(IDarray[i], i)
+    #                break
+    #            if i == n-1:
+    #                raise(PicamError("Camera {} does not exist".format(cam_name)))
 
-    def destroy_rois(self, rois):
-        """Releases the memory associated with PicamRois structure 'rois'.
+    #def destroy_rois(self, rois):
+    #    """Releases the memory associated with PicamRois structure 'rois'.
 
-        NOTE: this only works for instances of rois created from
-        'getset_rois', and not for user-created rois from 'create_rois'
-        """
-        self._NicePicamLib.DestroyRois(rois)
+    #    NOTE: this only works for instances of rois created from
+    #    'getset_rois', and not for user-created rois from 'create_rois'
+    #    """
+    #    NicePicamLib.DestroyRois(rois)
+
+
+sdk = _PicamSDK()  # singleton
+sdk.open()
+register_cleanup(sdk.close)
