@@ -19,7 +19,7 @@ header_info = {
 }
 
 lib_names = {
-    'win*:32': ('TLPM_32.dll',),
+    'win*:32': ('TLPM_32',),
     'win*:64': ('TLPM_64',),
 }
 
