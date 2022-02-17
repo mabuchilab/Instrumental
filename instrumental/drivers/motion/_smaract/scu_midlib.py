@@ -52,6 +52,9 @@ class NiceSCU(NiceLib):
         _n_handles = 2
 
         GetSensorPresent_S = Sig('in', 'in', 'out')
+        GetSensorType_S = Sig('in', 'in', 'out')
+        SetSensorType_S = Sig('in', 'in', 'in')
+
         Stop_S = Sig('in', 'in')
         # for actuators with sensor
         GetPhysicalPositionKnown_S = Sig('in', 'in', 'out')

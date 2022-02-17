@@ -108,7 +108,6 @@ class SCU(SmaractDevice):
         else:
             return devs
 
-
     def has_sensor(self):
         ret = self._actuator.GetSensorPresent_S()
         if ret == NiceSCU._defs['SA_SENSOR_PRESENT']:

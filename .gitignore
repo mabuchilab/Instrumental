@@ -26,3 +26,4 @@ errortext.*.pyd
 *yacctab.py
 
 
+instrumental/drivers/motion/_smaract/lextab.py
