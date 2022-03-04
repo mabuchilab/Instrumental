@@ -57,6 +57,7 @@ def list_instruments():
 FREQ_LIMITS = Q_((1, 18500), units='Hz')  # Hz
 AMP_LIMITS = Q_((15, 100), units='V')  # V
 
+
 class SCU(SmaractDevice):
     """ Class for controlling actuators from smaract using the SCU controller
 
@@ -194,6 +195,7 @@ class SCU(SmaractDevice):
     def check_position(self):
         return Q_(self._internal_counter, '')
 
+
 class SCULinear(SCU):
 
     dev_type = 'linear'
@@ -216,6 +218,7 @@ class SCULinear(SCU):
 
     def check_position(self):
         return Q_(self._actuator.GetPosition_S(), 'µm')
+
 
 class SCURotation(SCU):
     dev_type = 'rotation'

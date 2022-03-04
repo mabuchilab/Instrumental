@@ -119,6 +119,11 @@ driver_info = OrderedDict([
         'classes': ['SCU'],
         'imports': ['nicelib'],
     }),
+    ('motion._madcitylabs.nanodrive', {
+        'params': ['serial'],
+        'classes': ['NanoDrive'],
+        'imports': ['nicelib'],
+    }),
     ('multimeters.hp', {
         'params': ['visa_address'],
         'classes': [],
