@@ -140,6 +140,11 @@ driver_info = OrderedDict([
             'PM100D': ('Thorlabs', ['PM100D']),
         },
     }),
+    ('powermeters.thorlabs_tlpm', {
+        'params': ['name', 'reset'],
+        'classes': ['TLPM'],
+        'imports': [],
+    }),
     ('powersupplies.gw_instek', {
         'params': ['visa_address'],
         'classes': ['GPD_3303S'],
