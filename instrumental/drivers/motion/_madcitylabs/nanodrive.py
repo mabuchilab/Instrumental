@@ -10,7 +10,6 @@ from instrumental import u, Q_
 from instrumental.log import get_logger
 from instrumental.drivers import Facet
 from instrumental.drivers import ParamSet
-from instrumental.drivers.motion.smaract import SmaractDevice
 from instrumental.drivers.motion._madcitylabs.nanodrive_midlib import NiceNanodrive, NiceNanoDriveError
 from instrumental.drivers.motion import Motion
 from instrumental.drivers.util import check_units
