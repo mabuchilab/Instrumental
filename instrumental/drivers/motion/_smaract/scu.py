@@ -10,7 +10,6 @@ from instrumental.drivers.util import check_units
 
 log = get_logger(__name__)
 
-_INST_PARAMS = ['device_id']
 _INST_CLASSES = ['SCULinear', 'SCUAngular']
 
 
@@ -46,8 +45,8 @@ def list_instruments():
             pass
         for ind_channel in range(ind_channel):
             pset.append(ParamSet(SCU if not sensor else SCURotation if rotation else SCULinear,
-                                 device_id=idd, channel_index=ind_channel, sensor=sensor,
-                                 rotation=rotation, nchannels=ind_channel,
+                                 id=idd, index=ind_channel, sensor=sensor,
+                                 rotation=rotation, nchannels=ind_channel+1,
                                  units='steps' if not sensor else 'deg' if rotation else 'µm'))
     NiceSCU.ReleaseDevices()
 
@@ -64,7 +63,7 @@ class SCU(SmaractDevice):
     Takes the device index and channel index as init parameters
 
     """
-    _INST_PARAMS_ = ['device_id', 'channel_index']
+    _INST_PARAMS_ = ['id', 'index']
     dev_type = 'stepper'
     units = 'steps'
 
@@ -75,8 +74,8 @@ class SCU(SmaractDevice):
         -------
 
         """
-        self.device_id = self._paramset['device_id']
-        self.channel_index = self._paramset['channel_index']
+        self.device_id = self._paramset['id']
+        self.channel_index = self._paramset['index']
         self.nchannels = self._paramset['nchannels']
         self._hold_time = 0
         self._actuator = None
@@ -252,5 +251,8 @@ if __name__ == '__main__':
     # except SmarActError as e:
     #     print(e)
     ids = SCU.get_devices()
+    dev = instrument(paramsets[0])
+    dev.move_home()
+    pos = dev.check_position()
     pass
 
