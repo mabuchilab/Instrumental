@@ -216,7 +216,7 @@ class SCULinear(SCU):
             self._actuator.MovePositionRelative_S(value.m_as('µm') * 10, self.hold_time.magnitude)   # takes value in 1/10 of µm
 
     def check_position(self):
-        return Q_(self._actuator.GetPosition_S(), 'µm')
+        return Q_(0.1 * self._actuator.GetPosition_S(), 'µm')
 
 
 class SCURotation(SCU):
