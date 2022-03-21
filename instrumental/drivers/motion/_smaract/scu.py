@@ -255,4 +255,5 @@ if __name__ == '__main__':
     dev.move_home()
     pos = dev.check_position()
     pass
+    dev.close()
 
