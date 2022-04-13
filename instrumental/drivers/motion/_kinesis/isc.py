@@ -8,6 +8,7 @@ from .. import Motion
 from .isc_midlib import NiceISC
 from .common import (KinesisError, MessageType, GenericDevice, GenericMotor,
                      GenericDCMotor, MessageIDs)
+from cffi import FFI
 import nicelib  # noqa (nicelib dep is hidden behind import of isc_midlib)
 
 log = get_logger(__name__)
@@ -17,6 +18,7 @@ STATUS_MOVING_CCW = 0x20
 STATUS_JOGGING_CW = 0x40
 STATUS_JOGGING_CCW = 0x80
 
+ffi = FFI()
 
 class K10CR1(Motion):
     """ Class for controlling Thorlabs K10CR1 integrated stepper rotation stages
@@ -75,17 +77,7 @@ class K10CR1(Motion):
 
     def get_info(self):
         description = NiceISC.GetDeviceInfo(self.serial).description
-        return self.decode(description)
-
-
-    def decode(self, binary_string):
-        s = b''
-        for ind in range(len(binary_string)):
-            if binary_string[ind] != b'\x00':
-                s += binary_string[ind]
-            else:
-                break
-        return s.decode()
+        return ffi.string(description)
 
     @check_units(angle='deg')
     def move_to(self, angle, wait=False, move_type='abs'):
