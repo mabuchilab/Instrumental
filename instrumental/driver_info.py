@@ -1,4 +1,4 @@
-# Auto-generated 2022-04-13T09:30:48.061497
+# Auto-generated 2022-04-13T15:39:03.976685
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -87,7 +87,7 @@ driver_info = OrderedDict([
     ('motion._kinesis.isc', {
         'params': ['serial'],
         'classes': ['K10CR1'],
-        'imports': ['nicelib'],
+        'imports': ['cffi', 'nicelib'],
     }),
     ('motion._madcitylabs.nanodrive', {
         'params': ['serial'],
