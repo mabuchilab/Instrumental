@@ -10,7 +10,7 @@ from instrumental.drivers.util import check_units
 
 log = get_logger(__name__)
 
-_INST_CLASSES = ['SCULinear', 'SCUAngular']
+INST_CLASSES = ['SCU', 'SCULinear', 'SCUAngular']
 
 
 def list_instruments():
@@ -196,7 +196,7 @@ class SCU(SmaractDevice):
 
 
 class SCULinear(SCU):
-
+    _INST_PARAMS_ = ['id', 'index']
     dev_type = 'linear'
     units = 'µm'
 
@@ -220,6 +220,7 @@ class SCULinear(SCU):
 
 
 class SCURotation(SCU):
+    _INST_PARAMS_ = ['id', 'index']
     dev_type = 'rotation'
     units = 'deg'
 

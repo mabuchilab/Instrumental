@@ -1,4 +1,4 @@
-# Auto-generated 2021-07-02T10:20:07.035522
+# Auto-generated 2022-04-13T09:30:48.061497
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -89,6 +89,16 @@ driver_info = OrderedDict([
         'classes': ['K10CR1'],
         'imports': ['nicelib'],
     }),
+    ('motion._madcitylabs.nanodrive', {
+        'params': ['serial'],
+        'classes': ['NanoDrive'],
+        'imports': ['instrumental'],
+    }),
+    ('motion._smaract.scu', {
+        'params': ['id', 'index'],
+        'classes': ['SCU', 'SCULinear', 'SCURotation'],
+        'imports': ['instrumental'],
+    }),
     ('motion.apt', {
         'params': ['serial'],
         'classes': ['TDC001_APT'],
@@ -114,17 +124,6 @@ driver_info = OrderedDict([
         'classes': ['TDC001'],
         'imports': ['cffi', 'nicelib'],
     }),
-
-    ('motion._smaract.scu', {
-        'params': ['id', 'channel_index'],
-        'classes': ['SCULinear', 'SCURotation', 'SCU'],
-        'imports': ['nicelib'],
-    }),
-    ('motion._madcitylabs.nanodrive', {
-        'params': ['serial'],
-        'classes': ['NanoDrive'],
-        'imports': ['nicelib'],
-    }),
     ('multimeters.hp', {
         'params': ['visa_address'],
         'classes': [],
@@ -142,9 +141,9 @@ driver_info = OrderedDict([
         },
     }),
     ('powermeters.thorlabs_tlpm', {
-        'params': ['name', 'reset'],
+        'params': ['model', 'serial'],
         'classes': ['TLPM'],
-        'imports': [],
+        'imports': ['instrumental'],
     }),
     ('powersupplies.gw_instek', {
         'params': ['visa_address'],

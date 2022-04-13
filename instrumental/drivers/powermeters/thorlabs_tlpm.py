@@ -30,7 +30,7 @@ log = get_logger(__name__)
 
 
 _INST_CLASSES = ['TLPM']
-
+_INST_PARAMS = ['serial', 'model']
 
 def list_instruments():
     rsrc = NiceTLPM.Rsrc()
@@ -66,7 +66,7 @@ class UNITS(Enum):
 
 class TLPM(PowerMeter):
 
-    _INST_PARAMS = ['serial', 'model']
+
     unit = UNITS['W']
     init_wavelength = Q_('532nm')
 
