@@ -302,12 +302,12 @@ def get_imports(source, root):
     return requirements
 
 
-def parse_driver_modules(module_name):
-    driver_dir = os.path.join(THIS_DIR, 'drivers', *(module_name.split('.')))
-    for fname in os.listdir(driver_dir):
-        if fname.endswith('.py') and not fname.startswith('_'):
-            mod_name = fname[:-3]
-            yield group + '.' + mod_name
+# def parse_driver_modules(module_name):
+#     driver_dir = os.path.join(THIS_DIR, 'drivers', *(module_name.split('.')))
+#     for fname in os.listdir(driver_dir):
+#         if fname.endswith('.py') and not fname.startswith('_'):
+#             mod_name = fname[:-3]
+#             yield group + '.' + mod_name
 
 
 def parse_driver_modules(module_name):

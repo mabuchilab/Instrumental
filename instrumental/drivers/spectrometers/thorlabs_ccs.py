@@ -21,7 +21,9 @@ from ...errors import Error
 from ... import Q_
 
 if PY2:
-    memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
+    # could not find an equivalent in the future module, so I don't knwow what that buffer is??
+    #memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
+    pass
 
 IDLE = 2
 CONT_SCAN = 4

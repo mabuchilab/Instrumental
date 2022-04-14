@@ -5,9 +5,6 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      DISPLAY: ':99.0'
-      QT_DEBUG_PLUGINS: 1
     steps:
       - name: Set up Python 3.8
         uses: actions/checkout@v3
@@ -23,7 +20,7 @@ jobs:
       - name: Linting with flake8
         run: |
           stop the build if there are Python syntax errors or undefined names
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=docs, examples, images
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=docs,examples,images,/instrumental/drivers/cameras/pvcam.py,/instrumental/drivers/cameras/tsi.py,/instrumental/drivers/spectrometers/thorlabs_ccs.py
 #      - name: Test with pytest
 #        run: |
 #          pytest --cov=pymodaq --cov-report=xml -n auto
