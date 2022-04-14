@@ -1,0 +1,10 @@
+name: '3.8 Linux'
+
+on: [push]
+
+jobs:
+  call_workflow:
+    uses: CEMES-CNRS/Instrumental/.github/workflows/Testbase.yml@master
+    with:
+      python: '3.8'
+      os: 'ubuntu-latest'
