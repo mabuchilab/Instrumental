@@ -71,18 +71,44 @@ To make your driver module integrate nicely with `Instrumental`, there are a few
 
 Special Driver Variables
 """"""""""""""""""""""""
-These variables should be defined at top of your driver module, just below the imports.
 
-`_INST_PARAMS`
-    A list of strings indicating the parameter names which can be used to construct the instruments that this driver provides. The `ParamSet` objects returned by `list_instruments()` should provide each of these parameters.
-`_INST_CLASSES`
-    (*Not required for VISA-based drivers*) A list of strings indicating the names of all `Instrument` subclasses the driver module provides (typically only one). This allows you to avoid writing a driver-specific `_instrument()` function in most cases.
-`_INST_VISA_INFO`
-    (*Optional, only used for VISA instruments*) A dict mapping instrument class names to a tuple `(manufac, models)`, to be checked against the result of an `*IDN?` query. `manufac` is the manufacturer string, and `models` is a list of model strings.
+.. note::
 
-    For instruments that support the `*IDN?` query, this allows us to directly find the correct driver and class to use.
-`_INST_PRIORITY`
-    (*Optional*) An int (nominally 0-9) denoting the driver's priority. Lower-numbered drivers will be tried first. This is useful because some drivers are either slower, less reliable, or less commonly used than others, and should therefore be tried only after all other options are exhausted.
+    Some old drivers are using these special variables that were defined on the module level, just below the imports.
+
+
+    `_INST_PARAMS`
+        A list of strings indicating the parameter names which can be used to construct the instruments that this driver provides. The `ParamSet` objects returned by `list_instruments()` should provide each of these parameters.
+    `_INST_CLASSES`
+        (*Not required for VISA-based drivers*) A list of strings indicating the names of all `Instrument` subclasses the driver module provides (typically only one). This allows you to avoid writing a driver-specific `_instrument()` function in most cases.
+    `_INST_VISA_INFO`
+        (*Optional, only used for VISA instruments*) A dict mapping instrument class names to a tuple `(manufac, models)`, to be checked against the result of an `*IDN?` query. `manufac` is the manufacturer string, and `models` is a list of model strings.
+
+        For instruments that support the `*IDN?` query, this allows us to directly find the correct driver and class to use.
+    `_INST_PRIORITY`
+        (*Optional*) An int (nominally 0-9) denoting the driver's priority. Lower-numbered drivers will be tried first. This is useful because some drivers are either slower, less reliable, or less commonly used than others, and should therefore be tried only after all other options are exhausted.
+
+The parsing utility, that will list all the available drivers and their needed *Parameters* will now look at all
+classes in the *drivers* module for existence of the class variable `_INST_PARAMS_`. The result of this parsing,
+`python -m instrumental.parse_modules`, is the auto-generated *driver_info.py* file listing all drivers, the available
+classes, parameters and dependencies, for instance::
+
+    driver_info = OrderedDict([
+        ('motion._kinesis.isc', {
+            'params': ['serial'],
+            'classes': ['K10CR1'],
+            'imports': ['cffi', 'nicelib'],
+        }),
+        ('scopes.tektronix', {
+            'params': ['visa_address'],
+            'classes': ['MSO_DPO_2000', 'MSO_DPO_3000', 'MSO_DPO_4000', 'TDS_1000', 'TDS_200', 'TDS_2000', 'TDS_3000', 'TDS_7000'],
+            'imports': ['pyvisa', 'visa'],
+            'visa_info': {
+                'MSO_DPO_2000': ('TEKTRONIX', ['MSO2012', 'MSO2014', 'MSO2024', 'DPO2012', 'DPO2014', 'DPO2024']),
+            },
+        }),
+    ])
+
 
 
 .. _special-driver-functions:
