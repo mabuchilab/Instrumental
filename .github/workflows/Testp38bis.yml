@@ -10,17 +10,15 @@ jobs:
       QT_DEBUG_PLUGINS: 1
     steps:
       - name: Set up Python 3.8
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install dependencies
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: '3.8'
       - name: Install package
         run: |
-#         sudo apt install libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0
           python -m pip install --upgrade pip
           pip install flake8 setuptools wheel numpy
-#          pip install pytest
           pip install -e .
       - name: Linting with flake8
         run: |
