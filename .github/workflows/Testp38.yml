@@ -7,4 +7,4 @@ jobs:
     uses: CEMES-CNRS/Instrumental/.github/workflows/Testbase.yml@master
     with:
       python: '3.8'
-      os: 'ubuntu-latest'
+      os: ubuntu-latest
