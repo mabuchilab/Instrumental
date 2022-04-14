@@ -29,9 +29,6 @@ from instrumental.drivers.util import check_units, check_enums, as_enum
 log = get_logger(__name__)
 
 
-_INST_CLASSES = ['TLPM']
-_INST_PARAMS = ['serial', 'model']
-
 def list_instruments():
     rsrc = NiceTLPM.Rsrc()
     Nrsrc = rsrc.findRsrc()
@@ -59,13 +56,14 @@ class DeviceInfo:
         return f'Model: {self.model_name} / SN: {self.serial_number} by {self.manufacturer} is'\
                f' {"" if self.is_available else "not"} available'
 
+
 class UNITS(Enum):
     W = 0
     dBm = 1
 
 
 class TLPM(PowerMeter):
-
+    _INST_PARAMS_ = ['serial', 'model']
 
     unit = UNITS['W']
     init_wavelength = Q_('532nm')

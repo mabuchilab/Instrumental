@@ -17,9 +17,6 @@ from instrumental.drivers.util import check_units
 log = get_logger(__name__)
 
 
-_INST_CLASSES = ['NanoDrive']
-_INST_PARAMS = ['serial']
-
 def list_instruments():
     NiceNanodrive.GrabAllHandles()
     handles, Nhandles = NiceNanodrive.GetAllHandles()
@@ -44,8 +41,7 @@ class NanoDrive(Motion):
     """
     Class controlling motion devices from MadCityLabs using their Nanodrive  library  Madlib.dll
     """
-    _INST_PARAMS = ['serial']
-
+    _INST_PARAMS_ = ['serial']
     axis_indexes = [1, 2, 3]
     axis_range = dict([])
     _units = ''

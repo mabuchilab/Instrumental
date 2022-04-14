@@ -10,8 +10,6 @@ from instrumental.drivers.util import check_units
 
 log = get_logger(__name__)
 
-INST_CLASSES = ['SCU', 'SCULinear', 'SCUAngular']
-
 
 def list_instruments():
     ids, Nids = NiceSCU.GetAvailableDevices(2048)
