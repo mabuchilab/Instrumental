@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2019 Nate Bogdanowicz
+# Copyright 2013-2022 Nate Bogdanowicz
 
 from __future__ import division
 from past.builtins import basestring
 
 import numbers
-from collections import Mapping, namedtuple
+from collections import namedtuple
+from typing import Mapping
 
 from ..log import get_logger
 from .. import u, Q_
