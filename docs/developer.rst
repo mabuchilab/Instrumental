@@ -111,35 +111,9 @@ Code in Instrumental is primarily documented using python docstrings, following 
 Python 2/3 Compatibility
 ------------------------
 
-Currently Instrumental is developed and tested using Python 2.7, with an eye
-towards Python 3 compatibility. The ultimate goal is to to have a code base
-that runs unmodified on Python 2 and 3. Moving straight to 3 would be nice, but
-there is still much code in the universe that has not yet been ported.
+Instrumental was originally developed for Python 2.7 and long maintained Python 2/3 cross compatibility. As of release 0.7, we haved dropped that support and now require Python 3.7+. This means all future development should target Python 3.
 
-There are a number of backwards-incompatible changes that occurred, but perhaps
-the biggest and peskiest for Instrumental was the switchover to using unicode
-strings by default. This is probably the largest source of Python 3
-incompatibility in the existing code.
-
-Other notable changes include:
-
-* ``print`` is now a function, no longer a statement
-* All division now uses "true" division (e.g. ``3/4 == 0.75``). Use ``//`` to
-  denote integer division (e.g. ``3//4 == 0``)
-
-To help alleviate these transition pains, you should use python's built-in
-``__future__`` module, as well as the third-party ``future`` package. E.g.::
-
-    >>> from __future__ import division, print_function, unicode_literals
-    >>> from past.builtins import basestring
-
-
-Some useful links about Py2/3 compatibility
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-* `<https://docs.python.org/3/howto/pyporting.html>`_
-* `<http://python-future.org/>`_
-
+Python 2 support may be removed from existing code as a part of future development, though this is not currently a priority.
 
 -------------------------------------------------------------------------------
 
