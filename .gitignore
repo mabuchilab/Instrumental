@@ -7,6 +7,9 @@
 _*lib.py
 !_*midlib.py
 
+__pycache__
+.pytest_cache
+
 /bin/
 /build/
 /dist/
