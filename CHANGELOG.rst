@@ -1,6 +1,30 @@
 Change Log
 ==========
 
+(unreleased) - 2022-4-xx
+------------------------
+
+Added
+"""""
+- New drivers:
+  - Keysight 81160A (thanks Sylvain Pelissier)
+  - Tektronix MSO/DPO 3000 series oscilloscopes
+- Multi device NIDAQ Tasks (thanks Luka Skoric)
+
+Changed
+"""""""
+- Define `_MSC_VER` in tlccs driver to fix choice of typedefs
+- Fix Rigol function generator detection
+- Overhauled Picam driver
+  - Now uses `Camera` interface
+  - Added Linux support
+  - Added to the docs
+
+Removed
+"""""""
+- Use of deprecated `matplotlib.cbook.is_string_like`
+
+
 (0.6) - 2020-8-29
 -----------------
 
