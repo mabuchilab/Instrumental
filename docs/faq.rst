@@ -15,4 +15,12 @@ Why isn't ``list_instruments()`` producing any errors?
 ``list_instruments()`` is designed to check all Instrumental drivers that are available, importing each driver in turn. If a driver fails to import, this is often because you haven't installed its requirements (because you're not using it), so ``list_instruments()`` simply ignores the error and moves on.
 
 
+Where is the ``instrumental.conf`` configuration file stored?
+-------------------------------------------------------------
 
+The location of ``instrumental.conf`` is platform-dependent. To find where the file is located on
+your system, run::
+
+    >>> from instrumental.conf import user_conf_dir
+    >>> user_conf_dir
+    u'C:\\Users\\Lab\\AppData\\Local\\MabuchiLab\\Instrumental'
