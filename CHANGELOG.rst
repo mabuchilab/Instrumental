@@ -19,6 +19,8 @@ Changed
   - Now uses `Camera` interface
   - Added Linux support
   - Added to the docs
+ - Linked driver development references to the corresponding function/method/class (thanks Drew
+   Risinger)
 
 Removed
 """""""
