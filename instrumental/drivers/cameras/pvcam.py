@@ -19,9 +19,6 @@ from .. import _ParamDict
 from ..util import check_units
 from ...errors import InstrumentTypeError, InstrumentNotFoundError
 from ... import Q_, u
-from future.utils import PY2
-
-
 
 
 __all__ = ['PVCam']

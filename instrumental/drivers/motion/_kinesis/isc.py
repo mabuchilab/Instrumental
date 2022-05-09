@@ -80,23 +80,36 @@ class K10CR1(Motion):
         return ffi.string(description)
 
     @check_units(angle='deg')
-    def move_to(self, angle, wait=False, move_type='abs'):
-        """Rotate the stage to the given angle in absolute or relative units
+    def move_to(self, angle, wait=False):
+        """Rotate the stage to the given angle in absolute units
 
         Parameters
         ----------
         angle : Quantity
             Angle that the stage will rotate to. Takes the stage offset into account.
         wait: (bool) if True waits to receive message telling the move is done else returns
-        move_type: (str) either 'abs' (default) for absolute positioning or 'rel' for relative positioning
         """
         log.debug("Moving stage to {}".format(angle))
         log.debug("Current position is {}".format(self.position))
         self.dev.ClearMessageQueue()
-        if move_type == 'abs':
-            self.dev.MoveToPosition(self._to_dev_units(angle + self.offset))
-        else:
-            self.dev.MoveRelative(self._to_dev_units(angle))
+        self.dev.MoveToPosition(self._to_dev_units(angle + self.offset))
+        if wait:
+            self.wait_for_move()
+
+    @check_units(angle='deg')
+    def move_relative(self, angle, wait=False):
+        """Rotate the stage to the given angle relative to current position
+
+        Parameters
+        ----------
+        angle : Quantity
+            Angle that the stage will rotate to.
+        wait: (bool) if True waits to receive message telling the move is done else returns
+        """
+        log.debug("Moving stage to {}".format(angle))
+        log.debug("Current position is {}".format(self.position))
+        self.dev.ClearMessageQueue()
+        self.dev.MoveRelative(self._to_dev_units(angle))
         if wait:
             self.wait_for_move()
 

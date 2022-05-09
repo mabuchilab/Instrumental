@@ -354,7 +354,7 @@ class CroppableCameraView(QGraphicsView):
     def _create_lut(self, k):
         A = 2**15
         B = 100  # k's scaling factor
-        #g = lambda i, k: A*((k-B)*i) / ((2*k)*x - (k+B)*A)
+        g = lambda i, k: A*((k-B)*i) / ((2*k)*x - (k+B)*A)
 
     def _array_to_qimage(self, arr):
         bpl = arr.strides[0]
