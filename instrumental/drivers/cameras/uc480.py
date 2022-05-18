@@ -930,6 +930,21 @@ class UC480_Camera(Camera):
         exp_ms = self._dev.Exposure(lib.IS_EXPOSURE_CMD_GET_EXPOSURE)
         return Q_(exp_ms, 'ms')
 
+    @Facet
+    def exposure(self):
+        return self._get_exposure()
+
+    @exposure.setter
+    def exposure(self, exposure):
+        if isinstance(exposure, float):
+            exposure = Q_(exposure, 'ms')
+        self._set_exposure(exposure)
+
+    def _get_exposure_range(self):
+        exp_ms_min = self._dev.Exposure(lib.IS_EXPOSURE_CMD_GET_EXPOSURE_RANGE_MIN)
+        exp_ms_max = self._dev.Exposure(lib.IS_EXPOSURE_CMD_GET_EXPOSURE_RANGE_MAX)
+        return Q_(exp_ms_min, 'ms'), Q_(exp_ms_max, 'ms')
+
     def _get_exposure_inc(self):
         inc_ms = self._dev.Exposure(lib.IS_EXPOSURE_CMD_GET_EXPOSURE_RANGE_INC)
         return Q_(inc_ms, 'ms')

@@ -21,8 +21,10 @@ class MessageType(Enum):
 class GenericDevice(Enum):
     SettingsInitialized = 0
     SettingsUpdated = 1
-    Error = 2
-    Close = 3
+    SettingsExtern = 2
+    Error = 3
+    Close = 4
+    SettingsReset = 5
 
 
 class GenericMotor(Enum):

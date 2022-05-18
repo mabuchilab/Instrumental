@@ -71,18 +71,60 @@ To make your driver module integrate nicely with *Instrumental*, there are a few
 
 Special Driver Variables
 """"""""""""""""""""""""
-These variables should be defined at top of your driver module, just below the imports.
+
+.. note::
+
+    Some old drivers use special variables that are defined on the module level, just below the imports. This method is now deprecated in favor of class-level variables. See :ref:`special-driver-variables-old` for info on the old variables.
+
+When an instrument is created via :func:`~instrumental.drivers.list_instruments()`, Instrumental must find the proper driver to use. To avoid importing every driver module to check for the instrument, we use the statically generated file ``driver_info.py``. To register your driver in this file, *do not edit it directly*, but instead define special class attributes within your driver class:
+
+:attr:`_INST_PARAMS_`
+        A list of strings indicating the parameter names which can be used to construct the instruments that this driver class provides. The :class:`~instrumental.drivers.ParamSet` objects returned by :func:`~instrumental.drivers.list_instruments()` should provide each of these parameters. Usually VISA instruments just set ``_INST_PARAMS_ = ['visa_address']``.
+
+:attr:`_INST_VISA_INFO_`
+        (*Optional, only used for VISA instruments*) A tuple ``(manufac, models)``, to be checked against the result of an ``*IDN?`` query. ``manufac`` is the manufacturer string, and ``models`` is a list of model strings.
+
+:attr:`_INST_PRIORITY_`
+        (*Optional*) An int (nominally 0-9) denoting the driver's priority. Lower-numbered drivers will be tried first. This is useful because some drivers are either slower, less reliable, or less commonly used than others, and should therefore be tried only after all other options are exhausted.
+
+
+To re-generate ``driver_info.py``, run ``python -m instrumental.parse_modules``. This will parse all of the driver code and look for classes defining the class attribute :attr:`_INST_PARAMS_`, adding them to its list of known drivers. The generated file contains all driver modules, driver classes, parameters, and required imports. For instanc::
+
+    driver_info = OrderedDict([
+        ('motion._kinesis.isc', {
+            'params': ['serial'],
+            'classes': ['K10CR1'],
+            'imports': ['cffi', 'nicelib'],
+        }),
+        ('scopes.tektronix', {
+            'params': ['visa_address'],
+            'classes': ['MSO_DPO_2000', 'MSO_DPO_3000', 'MSO_DPO_4000', 'TDS_1000', 'TDS_200', 'TDS_2000', 'TDS_3000', 'TDS_7000'],
+            'imports': ['pyvisa', 'visa'],
+            'visa_info': {
+                'MSO_DPO_2000': ('TEKTRONIX', ['MSO2012', 'MSO2014', 'MSO2024', 'DPO2012', 'DPO2014', 'DPO2024']),
+            },
+        }),
+    ])
+
+
+
+.. _special-driver-variables-old:
+
+Special Driver Variables (deprecated method)
+""""""""""""""""""""""""""""""""""""""""""""
+
+Note that these old variable names lacked the trailing underscore.
 
 :attr:`_INST_PARAMS`
-    A list of strings indicating the parameter names which can be used to construct the instruments that this driver provides. The :class:`~instrumental.drivers.ParamSet` objects returned by :func:`~instrumental.drivers.list_instruments` should provide each of these parameters.
+        A list of strings indicating the parameter names which can be used to construct the instruments that this driver provides. The :class:`~instrumental.drivers.ParamSet` objects returned by :func:`~instrumental.drivers.list_instruments()` should provide each of these parameters.
 :attr:`_INST_CLASSES`
-    (*Not required for VISA-based drivers*) A list of strings indicating the names of all :class:`~instrumental.drivers.Instrument` subclasses the driver module provides (typically only one). This allows you to avoid writing a driver-specific `_instrument()` function in most cases.
+        (*Not required for VISA-based drivers*) A list of strings indicating the names of all :class:`~instrumental.drivers.Instrument` subclasses the driver module provides (typically only one). This allows you to avoid writing a driver-specific ``_instrument()`` function in most cases.
 :attr:`_INST_VISA_INFO`
-    (*Optional, only used for VISA instruments*) A dict mapping instrument class names to a tuple `(manufac, models)`, to be checked against the result of an `*IDN?` query. `manufac` is the manufacturer string, and `models` is a list of model strings.
+        (*Optional, only used for VISA instruments*) A dict mapping instrument class names to a tuple ``(manufac, models)``, to be checked against the result of an ``*IDN?`` query. ``manufac`` is the manufacturer string, and ``models`` is a list of model strings.
 
-    For instruments that support the `*IDN?` query, this allows us to directly find the correct driver and class to use.
+        For instruments that support the ``*IDN?`` query, this allows us to directly find the correct driver and class to use.
 :attr:`_INST_PRIORITY`
-    (*Optional*) An int (nominally 0-9) denoting the driver's priority. Lower-numbered drivers will be tried first. This is useful because some drivers are either slower, less reliable, or less commonly used than others, and should therefore be tried only after all other options are exhausted.
+        (*Optional*) An int (nominally 0-9) denoting the driver's priority. Lower-numbered drivers will be tried first. This is useful because some drivers are either slower, less reliable, or less commonly used than others, and should therefore be tried only after all other options are exhausted.
 
 
 .. _special-driver-functions:
@@ -176,7 +218,7 @@ Instrumental provides some commonly-used utilities for helping you to write driv
    :noindex:
 .. autofunction:: instrumental.drivers.util.unit_mag
    :noindex:
-.. autofunction:: instrumental.drivers.util.check_enums
+.. autofunction:: instrumental.drivers.util.check_enums
    :noindex:
 .. autofunction:: instrumental.drivers.util.as_enum
    :noindex:

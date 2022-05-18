@@ -1008,11 +1008,15 @@ def find_nonvisa_instrument(params):
                             "{}.".format(params, params['module']))
 
         classnames = driver_info[params['module']]['classes']
-        for classname in classnames:
-            try:
-                return create_instrument(driver_module, classname, normalized_params)
-            except (InstrumentTypeError, InstrumentNotFoundError):
-                log.info("Failed to create instrument using '%s'", classname)
+        if 'classname' in params:  #force the instrument factory to use the defined class
+            if params['classname'] in classnames:
+                return create_instrument(driver_module, params['classname'], normalized_params)
+        else:  # else try one of the ones defined in driver_info until it works
+            for classname in classnames:
+                try:
+                    return create_instrument(driver_module, classname, normalized_params)
+                except (InstrumentTypeError, InstrumentNotFoundError):
+                    log.info("Failed to create instrument using '%s'", classname)
 
         raise Exception("Could not open non-VISA instrument. Driver module '{}' is missing "
                         "_instrument function, and the listed instrument classes {} "

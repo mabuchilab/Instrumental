@@ -20,6 +20,7 @@ from ..util import check_units
 from ...errors import InstrumentTypeError, InstrumentNotFoundError
 from ... import Q_, u
 
+
 __all__ = ['PVCam']
 
 ffi = FFI()
