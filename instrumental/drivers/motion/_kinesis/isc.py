@@ -8,6 +8,7 @@ from .. import Motion
 from .isc_midlib import NiceISC
 from .common import (KinesisError, MessageType, GenericDevice, GenericMotor,
                      GenericDCMotor, MessageIDs)
+from cffi import FFI
 import nicelib  # noqa (nicelib dep is hidden behind import of isc_midlib)
 
 log = get_logger(__name__)
@@ -17,6 +18,7 @@ STATUS_MOVING_CCW = 0x20
 STATUS_JOGGING_CW = 0x40
 STATUS_JOGGING_CCW = 0x80
 
+ffi = FFI()
 
 class K10CR1(Motion):
     """ Class for controlling Thorlabs K10CR1 integrated stepper rotation stages
@@ -73,14 +75,19 @@ class K10CR1(Motion):
         self.polling_period = polling_period
         self.dev.StartPolling(self.polling_period.m_as('ms'))
 
+    def get_info(self):
+        description = NiceISC.GetDeviceInfo(self.serial).description
+        return ffi.string(description)
+
     @check_units(angle='deg')
     def move_to(self, angle, wait=False):
-        """Rotate the stage to the given angle
+        """Rotate the stage to the given angle in absolute units
 
         Parameters
         ----------
         angle : Quantity
             Angle that the stage will rotate to. Takes the stage offset into account.
+        wait: (bool) if True waits to receive message telling the move is done else returns
         """
         log.debug("Moving stage to {}".format(angle))
         log.debug("Current position is {}".format(self.position))
@@ -88,6 +95,26 @@ class K10CR1(Motion):
         self.dev.MoveToPosition(self._to_dev_units(angle + self.offset))
         if wait:
             self.wait_for_move()
+
+    @check_units(angle='deg')
+    def move_relative(self, angle, wait=False):
+        """Rotate the stage to the given angle relative to current position
+
+        Parameters
+        ----------
+        angle : Quantity
+            Angle that the stage will rotate to.
+        wait: (bool) if True waits to receive message telling the move is done else returns
+        """
+        log.debug("Moving stage to {}".format(angle))
+        log.debug("Current position is {}".format(self.position))
+        self.dev.ClearMessageQueue()
+        self.dev.MoveRelative(self._to_dev_units(angle))
+        if wait:
+            self.wait_for_move()
+
+    def stop(self):
+        self.dev.StopImmediate()
 
     def _decode_message(self, msg_tup):
         msg_type_int, msg_id_int, msg_data_int = msg_tup
@@ -98,9 +125,9 @@ class K10CR1(Motion):
     def _wait_for_message(self, match_id):
         if not isinstance(match_id, (GenericDevice, GenericMotor, GenericDCMotor)):
             raise ValueError("Must specify message ID via enum")
-
         msg_id, msg_data = self._decode_message(self.dev.WaitForMessage())
         log.debug("Received kinesis message ({}: {})".format(msg_id, msg_data))
+
         while msg_id is not match_id:
             msg_id, msg_data = self._decode_message(self.dev.WaitForMessage())
             log.debug("Received kinesis message ({}: {})".format(msg_id, msg_data))
@@ -169,6 +196,14 @@ class K10CR1(Motion):
     @offset.setter
     def offset(self, offset):
         self._offset = offset
+
+    @Facet(units='deg')
+    def backlash(self):
+        return self._to_real_units(self.dev.GetBacklash())
+
+    @backlash.setter
+    def backlash(self, angle):
+        self.dev.SetBacklash(self._to_dev_units(angle))
 
     @Facet(units='deg')
     def position(self):

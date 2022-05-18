@@ -12,6 +12,9 @@ from .fitting import guided_trace_fit, guided_ringdown_fit
 from . import u, Q_, conf, instrument
 from .drivers import scopes
 
+
+from past.builtins import basestring, raw_input
+
 # Fix for Python 2
 try:
     input = raw_input
@@ -461,6 +464,7 @@ TOP_CAM_SERIAL = '4002856484'
 SIDE_CAM_SERIAL = '4002862589'
 
 
+# This function does not work as there is no more a get_camera in .drivers.cameras.uc480
 def do_ringdown_set(set_name, base_dir=None):
     if base_dir is None:
         base_dir = conf.prefs['data_directory']

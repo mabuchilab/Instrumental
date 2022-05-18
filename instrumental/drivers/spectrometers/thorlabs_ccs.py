@@ -22,6 +22,7 @@ from ... import Q_
 
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
+    pass
 
 IDLE = 2
 CONT_SCAN = 4

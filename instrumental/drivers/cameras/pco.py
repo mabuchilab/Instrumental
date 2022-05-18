@@ -25,6 +25,7 @@ from ... import Q_, u
 
 log = get_logger(__name__)
 
+
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
     from time import clock

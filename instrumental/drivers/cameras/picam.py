@@ -18,6 +18,7 @@ from ... import Q_
 
 log = get_logger(__name__)
 
+# could not find an equivalent in the future module, so I don't knwow what that buffer is??
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2
 

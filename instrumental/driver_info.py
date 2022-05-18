@@ -1,4 +1,4 @@
-# Auto-generated 2021-07-02T10:20:07.035522
+# Auto-generated 2022-04-14T09:02:44.677733
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -87,7 +87,17 @@ driver_info = OrderedDict([
     ('motion._kinesis.isc', {
         'params': ['serial'],
         'classes': ['K10CR1'],
-        'imports': ['nicelib'],
+        'imports': ['cffi', 'nicelib'],
+    }),
+    ('motion._madcitylabs.nanodrive', {
+        'params': ['serial'],
+        'classes': ['NanoDrive'],
+        'imports': ['instrumental'],
+    }),
+    ('motion._smaract.scu', {
+        'params': ['id', 'index'],
+        'classes': ['SCU', 'SCULinear', 'SCURotation'],
+        'imports': ['instrumental'],
     }),
     ('motion.apt', {
         'params': ['serial'],
@@ -129,6 +139,11 @@ driver_info = OrderedDict([
         'visa_info': {
             'PM100D': ('Thorlabs', ['PM100D']),
         },
+    }),
+    ('powermeters.thorlabs_tlpm', {
+        'params': ['model', 'serial'],
+        'classes': ['TLPM'],
+        'imports': ['instrumental'],
     }),
     ('powersupplies.gw_instek', {
         'params': ['visa_address'],
