@@ -9,6 +9,10 @@ Added
 - New drivers:
   - Keysight 81160A (thanks Sylvain Pelissier)
   - Tektronix MSO/DPO 3000 series oscilloscopes
+  - Mad City Labs NanoDrive (thanks Sébastien Weber)
+  - SmarAct SCU (thanks Sébastien Weber)
+  - ThorLabs TLPM power meter (thanks Sébastien Weber)
+- Exposure Facet for uc480 (thanks Sébastien Weber)
 - Multi device NIDAQ Tasks (thanks Luka Skoric)
 
 Changed
