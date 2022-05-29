@@ -7,7 +7,8 @@ drop-in replacement for matplotlib.pyplot.
 Also acts as a repository for useful plotting tools, like slider-plots.
 """
 
-from collections import OrderedDict, Mapping
+from collections import OrderedDict
+from typing import Mapping
 import itertools
 
 import numpy as np
