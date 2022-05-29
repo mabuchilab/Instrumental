@@ -6,8 +6,7 @@ on:
       - master
   release:
     types:
-      - released
-      - prereleased
+      - published
 
 jobs:
   build-n-publish:
@@ -33,14 +32,14 @@ jobs:
           bdist_wheel
 
       - name: Publish to TestPyPI
-        if: ${{ github.event_name == 'release' && github.event.action == 'prereleased' }}
+        if: ${{ github.event_name == 'release' && (github.event.release.prerelease || github.event.release.draft) }}
         uses: pypa/gh-action-pypi-publish@master
         with:
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
 
       - name: Publish to PyPI
-        if: ${{ github.event_name == 'release' && github.event.action == 'released' }}
+        if: ${{ github.event_name == 'release' && ! (github.event.release.prerelease || github.event.release.draft) }}
         uses: pypa/gh-action-pypi-publish@master
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
