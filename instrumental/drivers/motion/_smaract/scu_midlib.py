@@ -76,6 +76,9 @@ class NiceSCU(NiceLib):
         SetZero_S = Sig('in', 'in')
         GetStatus_S = Sig('in', 'in', 'out')
 
+        GetClosedLoopMaxFrequency_S = Sig('in', 'in', 'out')
+        SetClosedLoopMaxFrequency_S = Sig('in', 'in', 'in')
+
         # for actuator without sensors
         MoveStep_S = Sig('in', 'in', 'in', 'in', 'in')
         GetAmplitude_S = Sig('in', 'in', 'out')

@@ -121,6 +121,14 @@ class SCU(SmaractDevice):
     def hold_time(self, time):
         self._hold_time = time
 
+    @Facet(units='Hz', limits=(0, 18500))
+    def max_frequency(self):
+        return self._actuator.GetClosedLoopMaxFrequency_S()
+
+    @max_frequency.setter
+    def max_frequency(self, frequency):
+        return self._actuator.SetClosedLoopMaxFrequency_S(frequency)
+
     @Facet
     def is_referenced(self):
         ret = self._actuator.GetPhysicalPositionKnown_S()
