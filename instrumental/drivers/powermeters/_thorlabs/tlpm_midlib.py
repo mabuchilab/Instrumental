@@ -15,9 +15,10 @@ class TLPMError(Error):
 @RetHandler(num_retvals=0)
 def ret_errcheck(ret, niceobj):
     """Check error code, ignoring void functions"""
-    if ret != NiceTLPM._defs['VI_SUCCESS']:
-        message = niceobj.errorMessage(ret).decode()
-        raise(TLPMError(message))
+    if ret in NiceTLPM._defs.values():
+        if ret != NiceTLPM._defs['VI_SUCCESS']:
+            message = niceobj.errorMessage(ret).decode()
+            raise(TLPMError(message))
 
 
 def get_0_handle():
@@ -31,7 +32,7 @@ class NiceTLPM(NiceLib):
     _buflen_ = 256
 
     init = Sig('in', 'in', 'in', 'out')
-    close = Sig('in',ret=ret_ignore)
+    close = Sig('in', ret=ret_ignore)
 
     class Rsrc(NiceObject):
         _init_ = get_0_handle
