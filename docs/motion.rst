@@ -11,3 +11,4 @@ Create :py:class:`~instrumental.drivers.motion.Motion` objects using :py:func:`~
     motion-kinesis
     tdc-001
     ecc100
+    smaract

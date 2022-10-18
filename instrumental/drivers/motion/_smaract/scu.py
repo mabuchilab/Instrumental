@@ -1,3 +1,10 @@
+"""Driver module for Smaract SCU controller.
+
+This module allows controls of linear SLC stages or rotary ones using the SCU controller
+
+The smaract libraries must be known by the system, adding their location on the system path
+"""
+
 from __future__ import division
 
 from instrumental import u, Q_
@@ -13,40 +20,42 @@ log = get_logger(__name__)
 
 def list_instruments():
     ids, Nids = NiceSCU.GetAvailableDevices(2048)
-    if Nids == 1:
-        ids = [ids]
-    NiceSCU.InitDevices(OPERATING_MODES['SA_SYNCHRONOUS_COMMUNICATION'])
     pset = []
-    for ind, idd in enumerate(ids):
-        try:
-            rotation = False
-            ind_channel = 0
-            while True:
-                act = NiceSCU.Actuator(ind, ind_channel)
-                try:
-                    act.GetStatus_S()
-                except SmarActError as e:
-                    # will fire an error if the ind_channel is invalid
-                    break
-                try:
-                    sensor = bool(act.GetSensorPresent_S())
-                except SmarActError as e:
-                    sensor = False
-                if sensor:
+    if Nids > 0:
+        if Nids == 1:
+            ids = [ids]
+        NiceSCU.InitDevices(OPERATING_MODES['SA_SYNCHRONOUS_COMMUNICATION'])
+
+        for ind, idd in enumerate(ids):
+            try:
+                rotation = False
+                ind_channel = 0
+                while True:
+                    act = NiceSCU.Actuator(ind, ind_channel)
                     try:
-                        act.GetAngle_S()
-                        rotation = True
-                    except SmarActError:
-                        rotation = False
-                ind_channel += 1
-        except SmarActError as e:
-            pass
-        for ind_channel in range(ind_channel):
-            pset.append(ParamSet(SCU if not sensor else SCURotation if rotation else SCULinear,
-                                 id=idd, index=ind_channel, sensor=sensor,
-                                 rotation=rotation, nchannels=ind_channel+1,
-                                 units='steps' if not sensor else 'deg' if rotation else 'µm'))
-    NiceSCU.ReleaseDevices()
+                        act.GetStatus_S()
+                    except SmarActError as e:
+                        # will fire an error if the ind_channel is invalid
+                        break
+                    try:
+                        sensor = bool(act.GetSensorPresent_S())
+                    except SmarActError as e:
+                        sensor = False
+                    if sensor:
+                        try:
+                            act.GetAngle_S()
+                            rotation = True
+                        except SmarActError:
+                            rotation = False
+                    ind_channel += 1
+            except SmarActError as e:
+                pass
+            for ind_channel in range(ind_channel):
+                pset.append(ParamSet(SCU if not sensor else SCURotation if rotation else SCULinear,
+                                     id=idd, index=ind_channel, sensor=sensor,
+                                     rotation=rotation, nchannels=ind_channel+1,
+                                     units='steps' if not sensor else 'deg' if rotation else 'µm'))
+        NiceSCU.ReleaseDevices()
 
     return pset
 
@@ -120,6 +129,14 @@ class SCU(SmaractDevice):
     @hold_time.setter
     def hold_time(self, time):
         self._hold_time = time
+
+    @Facet(units='Hz', limits=(0, 18500))
+    def max_frequency(self):
+        return self._actuator.GetClosedLoopMaxFrequency_S()
+
+    @max_frequency.setter
+    def max_frequency(self, frequency):
+        return self._actuator.SetClosedLoopMaxFrequency_S(frequency)
 
     @Facet
     def is_referenced(self):
