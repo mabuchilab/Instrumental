@@ -5,7 +5,10 @@ Driver module for Tektronix oscilloscopes.
 """
 import datetime as dt
 
-import visa
+try:
+    import visa
+except ImportError:
+    import pyvisa as visa
 from pyvisa.constants import InterfaceType
 import numpy as np
 from pint import UndefinedUnitError

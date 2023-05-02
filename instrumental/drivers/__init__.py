@@ -538,7 +538,10 @@ def open_visa_inst(visa_address, raise_errors=False):
 
     Logs well-known errors, and also suppress them if raise_errors is False.
     """
-    import visa
+    try:
+        import visa
+    except ImportError:
+        import pyvisa as visa
     rm = visa.ResourceManager()
     try:
         log.info("Opening VISA resource '{}'".format(visa_address))
@@ -562,7 +565,10 @@ def open_visa_inst(visa_address, raise_errors=False):
 
 
 def gen_visa_instruments():
-    import visa
+    try:
+        import visa
+    except ImportError:
+        import pyvisa as visa
     prev_addr = 'START'
     rm = visa.ResourceManager()
     visa_list = rm.list_resources()
@@ -672,7 +678,10 @@ def list_instruments(server=None, module=None, blacklist=None):
     inst_list = []
     if check_visa:
         try:
-            import visa
+            try:
+                import visa
+            except ImportError:
+                import pyvisa as visa
             try:
                 inst_list.extend(list_visa_instruments())
             except visa.VisaIOError:
@@ -711,7 +720,10 @@ def _get_visa_instrument(params):
     Returns the VISA instrument corresponding to 'visa_address'. Uses caching
     to avoid multiple network accesses.
     """
-    import visa
+    try:
+        import visa
+    except ImportError:
+        import pyvisa as visa
 
     if 'visa_address' not in params:
         raise InstrumentTypeError()
@@ -790,7 +802,10 @@ def get_idn(inst):
 
     Returns (None, None) if unsuccessful.
     """
-    import visa
+    try:
+        import visa
+    except ImportError:
+        import pyvisa as visa
     try:
         idn = inst.query("*IDN?")
         log.info("*IDN? gives '{}'".format(idn.strip()))
@@ -882,7 +897,10 @@ def find_matching_drivers(in_params):
 
 
 def find_visa_instrument(params):
-    import visa
+    try:
+        import visa
+    except ImportError:
+        import pyvisa as visa
     rm = visa.ResourceManager()
     visa_address = params['visa_address']
 

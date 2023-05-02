@@ -9,7 +9,10 @@ from ...log import get_logger
 from .. import VisaMixin
 from ..util import check_units
 from ... import u
-import visa
+try:
+    import visa
+except ImportError:
+    import pyvisa as visa
 
 log = get_logger(__name__)
 

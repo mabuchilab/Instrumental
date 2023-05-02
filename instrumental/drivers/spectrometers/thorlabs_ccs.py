@@ -10,7 +10,10 @@ from enum import Enum
 from warnings import warn
 
 import numpy as np
-from visa import ResourceManager
+try:
+    from visa import ResourceManager
+except ImportError:
+    from pyvisa import ResourceManager
 from cffi import FFI
 from nicelib import NiceLib, Sig, NiceObject, load_lib, RetHandler, ret_ignore
 

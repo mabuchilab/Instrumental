@@ -4,7 +4,10 @@ Driver module for Rigol oscilloscopes. Currently supports
 
 * DS1000Z series
 """
-import visa
+try:
+    import visa
+except ImportError:
+    import pyvisa as visa
 from pyvisa.constants import InterfaceType
 import numpy as np
 from pint import UndefinedUnitError
@@ -14,7 +17,10 @@ from ..util import visa_context
 from ... import u, Q_
 from enum import Enum
 from .. import ParamSet
-from visa import ResourceManager
+try:
+    from visa import ResourceManager
+except ImportError:
+    from pyvisa import ResourceManager
 from enum import Enum
 import time
 import numpy as np

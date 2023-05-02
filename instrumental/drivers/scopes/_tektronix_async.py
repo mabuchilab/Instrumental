@@ -2,7 +2,10 @@
 # Copyright 2019 Nate Bogdanowicz
 from collections import defaultdict
 import numpy as np
-import visa
+try:
+    import visa
+except ImportError:
+    import pyvisa as visa
 
 from ..util import visa_context
 from ... import Q_

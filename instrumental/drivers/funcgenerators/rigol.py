@@ -7,7 +7,10 @@ from enum import Enum, auto
 from . import FunctionGenerator
 from .. import VisaMixin, SCPI_Facet
 from .. import ParamSet
-from visa import ResourceManager
+try:
+    from visa import ResourceManager
+except ImportError:
+    from pyvisa import ResourceManager
 
 _INST_PARAMS = ['visa_address']
 _INST_VISA_INFO = {
