@@ -5,7 +5,10 @@ Helpful utilities for writing drivers.
 """
 import copy
 import contextlib
-from inspect import getargspec
+try:
+    from inspect import getargspec
+except ImportError:
+    from inspect import getfullargspec as getargspec
 import pint
 
 from past.builtins import basestring
