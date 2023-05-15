@@ -1,4 +1,4 @@
-# Auto-generated 2022-04-14T09:02:44.677733
+# Auto-generated 2023-05-01T12:23:19.117312
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -168,7 +168,7 @@ driver_info = OrderedDict([
         'visa_info': {
             'MSO_DPO_2000': ('TEKTRONIX', ['MSO2012', 'MSO2014', 'MSO2024', 'DPO2012', 'DPO2014', 'DPO2024']),
             'MSO_DPO_3000': ('TEKTRONIX', ['MSO3012', 'DPO3012', 'MSO3014', 'DPO3014', 'MSO3032', 'DPO3032', 'MSO3034', 'DPO3034', 'DPO3052', 'MSO3054', 'DPO3054']),
-            'MSO_DPO_4000': ('TEKTRONIX', ['MSO4032', 'DPO4032', 'MSO4034', 'DPO4034', 'MSO4054', 'DPO4054', 'MSO4104', 'DPO4104']),
+            'MSO_DPO_4000': ('TEKTRONIX', ['MSO4032', 'DPO4032', 'MSO4034', 'DPO4034', 'MSO4054', 'DPO4054', 'MSO4104', 'DPO4104', 'DPO4054B']),
             'TDS_1000': ('TEKTRONIX', ['TDS 1001B', 'TDS 1002B', 'TDS 1012B']),
             'TDS_200': ('TEKTRONIX', ['TDS 210', 'TDS 220', 'TDS 224']),
             'TDS_2000': ('TEKTRONIX', ['TDS 2002B', 'TDS 2004B', 'TDS 2012B', 'TDS 2014B', 'TDS 2022B', 'TDS 2024B']),

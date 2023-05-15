@@ -73,6 +73,7 @@ MODEL_CHANNELS = {
     'MSO4034': 4,
     'DPO4034': 4,
     'MSO4054': 4,
+    'DPO4054B': 4,
     'DPO4054': 4,
     'MSO4104': 4,
     'DPO4104': 4,
@@ -607,7 +608,8 @@ class MSO_DPO_4000(StatScope):
     """A Tektronix MSO/DPO 4000 series oscilloscope."""
     _INST_PARAMS_ = ['visa_address']
     _INST_VISA_INFO_ = ('TEKTRONIX', ['MSO4032', 'DPO4032', 'MSO4034', 'DPO4034',
-                                      'MSO4054', 'DPO4054', 'MSO4104', 'DPO4104',])
+                                      'MSO4054', 'DPO4054', 'MSO4104', 'DPO4104',
+                                      'DPO4054B',])
     datetime = TekScope._datetime
 
 
