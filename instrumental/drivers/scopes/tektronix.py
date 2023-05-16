@@ -612,6 +612,15 @@ class MSO_DPO_4000(StatScope):
                                       'DPO4054B',])
     datetime = TekScope._datetime
 
+class MSO_DPO_7000(StatScope):
+    """A Tektronix DPO 7000 series oscilloscope."""
+    _INST_PARAMS_ = ['visa_address']
+    _INST_VISA_INFO_ = ('TEKTRONIX', ['DPO7054',])
+    max_waveform_length = 20_000_000
+    waveform_length = SCPI_Facet('HORizontal:ACQLENGTH', convert=int, readonly=True,
+                                 doc="Record length of the source waveform")
+    datetime = TekScope._datetime
+
 
 def load_csv(filename):
     """Load CSV data produced by a Tektronix oscilloscope.
