@@ -1,6 +1,7 @@
 from __future__ import division
 
-from instrumental import u, Q_
+from instrumental import u as ureg
+
 from instrumental.log import get_logger
 from instrumental.drivers import Facet
 from instrumental.drivers import ParamSet
@@ -9,6 +10,9 @@ from instrumental.drivers.motion._smaract.scu_midlib import NiceSCU, SmarActErro
 from instrumental.drivers.util import check_units
 
 log = get_logger(__name__)
+
+ureg._on_redefinition = 'ignore'
+Q_ = ureg.Quantity
 
 
 def list_instruments():
@@ -81,6 +85,9 @@ class SCU(SmaractDevice):
         self._frequency = 100
         self._open(self.device_id)
 
+        if self.units not in ureg:
+            ureg.define(f'{self.units} = 1 = {self.units}')
+
     def _open(self, device_id):
         try:
             NiceSCU.ReleaseDevices()
@@ -107,10 +114,13 @@ class SCU(SmaractDevice):
             return devs
 
     def has_sensor(self):
-        ret = self._actuator.GetSensorPresent_S()
-        if ret == NiceSCU._defs['SA_SENSOR_PRESENT']:
-            return True
-        else:
+        try:
+            ret = self._actuator.GetSensorPresent_S()
+            if ret == NiceSCU._defs['SA_SENSOR_PRESENT']:
+                return True
+            else:
+                return False
+        except SmarActError:
             return False
 
     @Facet(units='ms')
@@ -187,10 +197,11 @@ class SCU(SmaractDevice):
             self._internal_counter += value
 
     def move_home(self, autozero=True):
-        if not self.has_sensor:
+        if not self.has_sensor():
 
-            log.info('No possible homing as no sensor is present, trying to go to 0 internal counter')
-            self.move_to(Q_(-self._internal_counter, ''), 'rel')
+            log.info('No possible homing as no sensor is present, setting current position as 0 in internal counter')
+            self._internal_counter = 0
+            self.move_to(Q_(self._internal_counter, self.units), 'abs')
 
         else:
             self._actuator.MoveToReference_S(self.hold_time.magnitude,
@@ -198,7 +209,7 @@ class SCU(SmaractDevice):
                                            NiceSCU._defs['SA_NO_AUTO_ZERO'])
 
     def check_position(self):
-        return Q_(self._internal_counter, '')
+        return Q_(self._internal_counter, self.units)
 
 
 class SCULinear(SCU):
