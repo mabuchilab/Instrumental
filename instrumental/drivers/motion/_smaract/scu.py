@@ -17,9 +17,8 @@ Q_ = ureg.Quantity
 
 def list_instruments():
     ids, Nids = NiceSCU.GetAvailableDevices(2048)
-    if Nids == 1:
-        ids = [ids]
     NiceSCU.InitDevices(OPERATING_MODES['SA_SYNCHRONOUS_COMMUNICATION'])
+    ids = [NiceSCU.GetDeviceID(ind) for ind in range(Nids)]
     pset = []
     for ind, idd in enumerate(ids):
         try:
