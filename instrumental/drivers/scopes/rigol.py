@@ -4,7 +4,7 @@ Driver module for Rigol oscilloscopes. Currently supports
 
 * DS1000Z series
 """
-import visa
+import pyvisa as visa
 from pyvisa.constants import InterfaceType
 import numpy as np
 from pint import UndefinedUnitError

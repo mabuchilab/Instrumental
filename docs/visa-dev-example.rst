@@ -11,7 +11,7 @@ First, let's open the device and play around with it in an ipython shell using p
 
 .. code-block:: ipython
 
-    In [1]: import visa
+    In [1]: import pyvisa as visa
 
     In [2]: rm = visa.ResourceManager()
 

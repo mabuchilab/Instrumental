@@ -7,7 +7,7 @@ output to use.
 """
 from numpy import fromstring, float32
 from enum import Enum
-import visa
+import pyvisa as visa
 from ..util import check_units, check_enums
 from ...errors import InstrumentTypeError
 from ... import Q_
