@@ -10,7 +10,7 @@ oscilloscopes, spectrometers, and more. It has high-level drivers for instrument
 Tektronix, Thorlabs, PCO, Photometrics, Burleigh, and others.
 
 .. NOTE::
-    As of version 0.7, support has been dropped for Python 2 and Instrumental now requires Python 3.7+.
+    As of version 0.7, Instrumental has dropped support for Python 2 and now requires Python 3.7+.
 
 Instrumental's goal is to make common tasks simple to perform, while still providing the
 flexibility to perform complex tasks with relative ease. It also makes it easy to mess around with

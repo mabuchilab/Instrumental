@@ -5,7 +5,7 @@ Helpful utilities for writing drivers.
 """
 import copy
 import contextlib
-from inspect import getargspec
+from inspect import getfullargspec
 import pint
 
 from past.builtins import basestring
@@ -214,7 +214,7 @@ def arg_decorator(checker_factory, dec_pos_args, dec_kw_args):
     """
     def wrap(func):
         """Function that actually wraps the function to be decorated"""
-        arg_names, vargs, kwds, default_vals = getargspec(func)
+        arg_names, vargs, kwds, default_vals, *_ = getfullargspec(func)
         default_vals = default_vals or ()
         pos_arg_names = {i: name for i, name in enumerate(arg_names)}
 
@@ -275,7 +275,7 @@ def _unit_decorator(in_map, out_map, pos_args, named_args):
                 arg = ret[1:]
             ret_units = to_quantity(arg)
 
-        arg_names, vargs, kwds, defaults = getargspec(func)
+        arg_names, vargs, kwds, defaults, *_ = getfullargspec(func)
 
         pos_units = []
         for arg in pos_args:
