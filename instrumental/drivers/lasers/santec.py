@@ -85,6 +85,38 @@ class MessageTermination(Enum):
     CR_LF = "2"
     Nothing = "3"
 
+tsl570_command_errors = {
+    0:      "No error",
+    -102:   "Syntax error",
+    -103:   "Invalid separator",
+    -108:   "Parameter not allowed",
+    -109:   "Missing parameter",
+    -113:   "Undefined header",
+    -148:   "Character data not allowed",
+    -200:   "Execution error",
+    -222:   "Data out of range",
+    -410:   "Query INTERRUPTED",
+}
+
+### Santec TSL-570 System Alerts (manual page 100, sec. 7.4.6) ###
+
+tsl570_system_alerts = {
+    0:          "Power supply Error1",
+    2:          "Power supply Error2",
+    3:          "Power supply Error3",
+    5:          "Wavelength Error",
+    6:          "Power setting Error",
+    7:          "Inter lock detection",
+    20:         "Temperature control Error1",
+    21:         "Temperature control Error2",
+    22:         "Temperature control Error3",
+    23:         "Ongoing Warm up",
+    25:         "Shutter Error",
+    26:         "Sensor Error",
+    27:         "Connection Error",
+    28:         "Exhaust Fan Error",
+}
+
 class TSL570(Laser, VisaMixin):
     """
     A class for Santec TSL-570 tunable laser.
