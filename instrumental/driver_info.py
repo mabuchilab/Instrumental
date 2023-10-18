@@ -1,4 +1,4 @@
-# Auto-generated 2023-05-15T12:56:15.046873
+# Auto-generated 2023-08-09T11:04:40.710214
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -63,10 +63,18 @@ driver_info = OrderedDict([
             'LDC3724B': ('ILX Lightwave', ['3724B']),
         },
     }),
+    ('lasers.santec', {
+        'params': ['visa_address'],
+        'classes': ['TSL570'],
+        'imports': ['pyvisa'],
+        'visa_info': {
+            'TSL570': ('SANTEC', ['TSL-570']),
+        },
+    }),
     ('lockins.sr844', {
         'params': ['visa_address'],
         'classes': [],
-        'imports': ['visa'],
+        'imports': ['pyvisa'],
         'visa_info': {
             'SR844': ('Stanford_Research_Systems', ['SR844']),
         },
@@ -74,7 +82,7 @@ driver_info = OrderedDict([
     ('lockins.sr850', {
         'params': ['visa_address'],
         'classes': [],
-        'imports': ['visa'],
+        'imports': ['pyvisa'],
         'visa_info': {
             'SR850': ('Stanford_Research_Systems', ['SR850']),
         },
@@ -117,7 +125,7 @@ driver_info = OrderedDict([
     ('motion.newmark', {
         'params': ['serial'],
         'classes': ['NSCA1'],
-        'imports': ['visa'],
+        'imports': ['pyvisa'],
     }),
     ('motion.tdc_001', {
         'params': ['serial'],
@@ -156,7 +164,7 @@ driver_info = OrderedDict([
     ('scopes.agilent', {
         'params': ['visa_address'],
         'classes': ['DSO_1000'],
-        'imports': ['pyvisa', 'visa'],
+        'imports': ['pyvisa'],
         'visa_info': {
             'DSO_1000': ('Agilent Technologies', ['DSO1024A']),
         },
@@ -164,7 +172,7 @@ driver_info = OrderedDict([
     ('scopes.tektronix', {
         'params': ['visa_address'],
         'classes': ['MSO_DPO_2000', 'MSO_DPO_3000', 'MSO_DPO_4000', 'MSO_DPO_7000', 'TDS_1000', 'TDS_200', 'TDS_2000', 'TDS_3000', 'TDS_7000'],
-        'imports': ['pyvisa', 'visa'],
+        'imports': ['pyvisa'],
         'visa_info': {
             'MSO_DPO_2000': ('TEKTRONIX', ['MSO2012', 'MSO2014', 'MSO2024', 'DPO2012', 'DPO2014', 'DPO2024']),
             'MSO_DPO_3000': ('TEKTRONIX', ['MSO3012', 'DPO3012', 'MSO3014', 'DPO3014', 'MSO3032', 'DPO3032', 'MSO3034', 'DPO3034', 'DPO3052', 'MSO3054', 'DPO3054']),
@@ -177,10 +185,34 @@ driver_info = OrderedDict([
             'TDS_7000': ('TEKTRONIX', ['TDS7154', 'TDS7254', 'TDS7404']),
         },
     }),
+    ('spectrometers.agilent', {
+        'params': ['visa_address'],
+        'classes': ['AgilentOSA'],
+        'imports': ['pyvisa'],
+        'visa_info': {
+            'AgilentOSA': ('AGILENT', ['86142B']),
+        },
+    }),
+    ('spectrometers.ando', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': ['pyvisa', 'visa'],
+        'visa_info': {
+            'AQ6331': ('ANDO', ['AQ6331']),
+        },
+    }),
     ('spectrometers.bristol', {
         'params': ['port'],
         'classes': ['Bristol_721'],
         'imports': [],
+    }),
+    ('spectrometers.hp', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': ['pyvisa'],
+        'visa_info': {
+            'HPOSA': ('HEWLETT-PACKARD', ['70951B']),
+        },
     }),
     ('spectrometers.thorlabs_ccs', {
         'params': ['model', 'serial', 'usb'],
