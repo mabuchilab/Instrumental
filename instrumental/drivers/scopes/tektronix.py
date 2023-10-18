@@ -610,6 +610,7 @@ class MSO_DPO_4000(StatScope):
     _INST_VISA_INFO_ = ('TEKTRONIX', ['MSO4032', 'DPO4032', 'MSO4034', 'DPO4034',
                                       'MSO4054', 'DPO4054', 'MSO4104', 'DPO4104',
                                       'DPO4054B',])
+    max_waveform_length = 10_000_000
     datetime = TekScope._datetime
 
 class MSO_DPO_7000(StatScope):
