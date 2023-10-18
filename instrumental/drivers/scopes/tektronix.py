@@ -5,7 +5,7 @@ Driver module for Tektronix oscilloscopes.
 """
 import datetime as dt
 
-import pyvisa as visa
+import pyvisa
 from pyvisa.constants import InterfaceType
 import numpy as np
 from pint import UndefinedUnitError
@@ -266,9 +266,9 @@ class TekScope(Scope, VisaMixin):
         return units
 
     def _read_curve(self, width):
-        with self.resource.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT),\
+        with self.resource.ignore_warning(pyvisa.constants.VI_SUCCESS_MAX_CNT),\
             visa_context(self.resource, timeout=10000, read_termination=None,
-                         end_input=visa.constants.SerialTermination.none):
+                         end_input=pyvisa.constants.SerialTermination.none):
 
             self.write("curve?")
             visalib = self.resource.visalib

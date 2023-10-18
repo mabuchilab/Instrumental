@@ -20,7 +20,7 @@ import time
 
 from . import PowerMeter
 from .. import Facet, MessageFacet, VisaMixin, deprecated
-from ..util import pyvisa as visa_timeout_context
+from ..util import pyvisa_timeout_context
 from ... import Q_, u
 
 

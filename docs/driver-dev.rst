@@ -218,7 +218,8 @@ Instrumental provides some commonly-used utilities for helping you to write driv
    :noindex:
 .. autofunction:: instrumental.drivers.util.unit_mag
    :noindex:
-.. autofunction:: instrumental.drivers.util.check_enums
+.. autofunction:: instrumental.drivers.util.check_enums
+
    :noindex:
 .. autofunction:: instrumental.drivers.util.as_enum
    :noindex:
