@@ -193,10 +193,26 @@ driver_info = OrderedDict([
             'AgilentOSA': ('AGILENT', ['86142B']),
         },
     }),
+    ('spectrometers.ando', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': ['pyvisa', 'visa'],
+        'visa_info': {
+            'AQ6331': ('ANDO', ['AQ6331']),
+        },
+    }),
     ('spectrometers.bristol', {
         'params': ['port'],
         'classes': ['Bristol_721'],
         'imports': [],
+    }),
+    ('spectrometers.hp', {
+        'params': ['visa_address'],
+        'classes': [],
+        'imports': ['pyvisa'],
+        'visa_info': {
+            'HPOSA': ('HEWLETT-PACKARD', ['70951B']),
+        },
     }),
     ('spectrometers.thorlabs_ccs', {
         'params': ['model', 'serial', 'usb'],
