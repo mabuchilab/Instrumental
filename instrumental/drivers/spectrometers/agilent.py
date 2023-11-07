@@ -109,6 +109,8 @@ class AgilentOSA(Spectrometer, VisaMixin):
             au = u.watt
         elif au_str=='MW':
             au = u.milliwatt
+        elif au_str=='AUTO':
+            au = u.dimensionless
         elif au_str=='DBM':
             au = u.dimensionless
         return au
