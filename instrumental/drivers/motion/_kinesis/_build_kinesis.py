@@ -3,6 +3,11 @@
 from nicelib import build_lib
 from nicelib.process import modify_pattern
 
+# add Kinesis Path to system path so that 'ctypes.util.find_library' can find the dll files
+import os
+os.environ['PATH'] = os.environ.get('PATH','')+';'+os.environ.get('ProgramFiles')+'\Thorlabs\Kinesis'
+os.environ['PATH'] = os.environ.get('PATH','')+';'+os.environ.get('ProgramFiles(x86)')+'\Thorlabs\Kinesis'
+
 # shared:
 #   TLI (top-level interface?)
 #   MOT (motors)
