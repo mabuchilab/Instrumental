@@ -4,10 +4,11 @@
 Driver module for Rigol signal generators.
 """
 from enum import Enum, auto
+
+from pyvisa import ResourceManager
+
+from .. import ParamSet, SCPI_Facet, VisaMixin
 from . import FunctionGenerator
-from .. import VisaMixin, SCPI_Facet
-from .. import ParamSet
-from visa import ResourceManager
 
 _INST_PARAMS = ['visa_address']
 _INST_VISA_INFO = {

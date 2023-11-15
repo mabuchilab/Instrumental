@@ -1,25 +1,17 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2015 Nate Bogdanowicz
+# Copyright 2023 Dodd Gray
 """
 Driver module for HP 70000 spectrum analyzer.
 Based on Nate's Tektronix scope driver
 """
 
-# import visa
-# import numpy as np
-# from instrumental import u, Q_
-# from pint import UndefinedUnitError
-# from instrumental.drivers.spectrometers import Spectrometer
-# from instrumental.drivers import _get_visa_instrument
-
-import pyvisa
-from pyvisa.constants import InterfaceType
 import numpy as np
 from pint import UndefinedUnitError
+from pyvisa.constants import VI_SUCCESS_MAX_CNT, SerialTermination
+
+from ... import Q_, u
+from .. import VisaMixin
 from . import Spectrometer
-from .. import VisaMixin, SCPI_Facet
-#from ..util import visa_context
-from ... import u, Q_
 
 _INST_PARAMS_ = ['visa_address']
 _INST_VISA_INFO_ = {
@@ -30,46 +22,13 @@ class AgilentOSA(Spectrometer, VisaMixin):
     """
     A base class for HP 70000 series spectrum analyzers
     """
-    # def __init__(self,params=None):
-    #     """
-    #     Create a spectrometer object that has the given VISA name *name* and connect
-    #     to it. You can find available instrument names using the VISA
-    #     Instrument Manager.
-    #     """
-    #     if params:
-    #         self.inst = _instrument(params)
-    #     else:
-    #         self.inst = _instrument(default_params)
-    #     self.inst.read_termination = "\n"  # Needed for stripping termination
-    #     #self.inst.write("header OFF")
-    #     self.inst.write_termination = ';'
-    #     self.inst.write('TDF P') # set the trace data format to be decimal numbers in parameter units
-
     _INST_PARAMS_ = ['visa_address']
     _INST_VISA_INFO_ = ('AGILENT', ['86142B'])
 
     def _initialize(self):
         self._rsrc.read_termination = '\n'  # Needed for stripping termination
         self._rsrc.timeout = 300
-        #self.inst.write("header OFF")
-        # self._rsrc.write_termination = ';'
         self.write('FORMAT:DATA REAL32') # set the trace data format to be decimal numbers in parameter units
-        # if self.interface_type == InterfaceType.asrl:
-        #     terminator = self.query('RS232:trans:term?').strip()
-        #     self._rsrc.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
-        # elif self.interface_type == InterfaceType.usb:
-        #     terminator = self.query('RS232:trans:term?').strip()
-        #     self._rsrc.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
-        # elif self.interface_type == InterfaceType.tcpip:
-        #     pass
-        # else:
-        #     pass
-        #
-        # self.write("header OFF")
-
-    # def instrument_presets(self):
-    #     self.write('IP')
-    #     self.write('TDF P') # set the trace data format to be decimal numbers in parameter units
 
     def set_center_wavelength(self,cf):
         cf_nm = cf.to(u.nm).magnitude
@@ -159,8 +118,6 @@ class AgilentOSA(Spectrometer, VisaMixin):
         self._rsrc.timeout = 300
         return wl, amp
 
-
-
     def get_data(self, channel=1):
         """Retrieve a trace from the scope.
 
@@ -193,9 +150,9 @@ class AgilentOSA(Spectrometer, VisaMixin):
         inst.timeout = 10000
         inst.write("curve?")
         inst.read_termination = None
-        inst.end_input = pyvisa.constants.SerialTermination.none
+        inst.end_input = SerialTermination.none
         # TODO: Change this to be more efficient for huge datasets
-        with inst.ignore_warning(pyvisa.constants.VI_SUCCESS_MAX_CNT):
+        with inst.ignore_warning(VI_SUCCESS_MAX_CNT):
             s = inst.visalib.read(inst.session, 2)  # read first 2 bytes
             num_bytes = int(inst.visalib.read(inst.session, int(s[0][1]))[0])
             buf = ''
@@ -203,7 +160,7 @@ class AgilentOSA(Spectrometer, VisaMixin):
                 raw_bin, _ = inst.visalib.read(inst.session, num_bytes-len(buf))
                 buf += raw_bin
                 print(len(raw_bin))
-        inst.end_input = pyvisa.constants.SerialTermination.termination_char
+        inst.end_input = SerialTermination.termination_char
         inst.read_termination = '\n'
         inst.read()  # Eat termination
         inst.timeout = tmo
@@ -243,5 +200,3 @@ class AgilentOSA(Spectrometer, VisaMixin):
         data_y = Q_((raw_data_y - y_offset)*y_scale + y_zero, y_unit)
 
         return data_x, data_y
-
-    

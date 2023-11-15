@@ -5,18 +5,17 @@ Driver module for Tektronix oscilloscopes.
 """
 import datetime as dt
 
-import pyvisa
-from pyvisa.constants import InterfaceType
 import numpy as np
+import pyvisa
 from pint import UndefinedUnitError
+from pyvisa.constants import InterfaceType
 
-from . import Scope
-from .. import VisaMixin, SCPI_Facet, Facet
-from ..util import visa_context
-from ...util import to_str
+from ... import Q_, u
 from ...errors import Error
-from ... import u, Q_
-
+from ...util import to_str
+from .. import Facet, SCPI_Facet, VisaMixin
+from ..util import visa_context
+from . import Scope
 
 MODEL_CHANNELS = {
     'TDS 210': 2,

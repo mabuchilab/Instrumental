@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from . import PowerSupply
-from .. import VisaMixin, Facet, SCPI_Facet
-from ... import u, Q_
-from .. import ParamSet
-from enum import Enum
-from visa import ResourceManager
-import pyvisa
 import re
+from enum import Enum
+
+import pyvisa
+
+from ... import Q_, u
+from .. import ParamSet, SCPI_Facet, VisaMixin
+from . import PowerSupply
 
 _INST_PARAMS_ = ['visa_address']
 _INST_VISA_INFO_ = {
@@ -18,7 +18,7 @@ def list_instruments():
     """Get a list of all power supplies currently attached"""
     paramsets = []
     search_string = "ASRL?*"
-    rm = ResourceManager()
+    rm = pyvisa.ResourceManager()
     raw_spec_list = rm.list_resources(search_string)
 
     for spec in raw_spec_list:

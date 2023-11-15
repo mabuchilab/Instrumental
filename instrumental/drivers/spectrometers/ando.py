@@ -1,26 +1,20 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2015 Nate Bogdanowicz
+# Copyright 2023 Dodd Gray
 """
 Driver module for Yokogawa/Ando spectrum analyzers.
 Based on Nate's Tektronix scope driver
 """
 
-# import visa
-# import numpy as np
-# from instrumental import u, Q_
-# from pint import UndefinedUnitError
-# from instrumental.drivers.spectrometers import Spectrometer
-# from instrumental.drivers import _get_visa_instrument
-
-import visa
-from pyvisa.constants import InterfaceType
-import numpy as np
 from time import sleep
+
+import numpy as np
+import pyvisa
 from pint import UndefinedUnitError
+from pyvisa.constants import InterfaceType
+
+from ... import Q_, u
+from .. import VisaMixin
 from . import Spectrometer
-from .. import VisaMixin, SCPI_Facet
-#from ..util import visa_context
-from ... import u, Q_
 
 _INST_PARAMS = ['visa_address']
 _INST_VISA_INFO = {
@@ -230,9 +224,9 @@ class AQ6331(Spectrometer, VisaMixin):
         inst.timeout = 10000
         inst.write("curve?")
         inst.read_termination = None
-        inst.end_input = visa.constants.SerialTermination.none
+        inst.end_input = pyvisa.constants.SerialTermination.none
         # TODO: Change this to be more efficient for huge datasets
-        with inst.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
+        with inst.ignore_warning(pyvisa.constants.VI_SUCCESS_MAX_CNT):
             s = inst.visalib.read(inst.session, 2)  # read first 2 bytes
             num_bytes = int(inst.visalib.read(inst.session, int(s[0][1]))[0])
             buf = ''
@@ -240,7 +234,7 @@ class AQ6331(Spectrometer, VisaMixin):
                 raw_bin, _ = inst.visalib.read(inst.session, num_bytes-len(buf))
                 buf += raw_bin
                 print(len(raw_bin))
-        inst.end_input = visa.constants.SerialTermination.termination_char
+        inst.end_input = pyvisa.constants.SerialTermination.termination_char
         inst.read_termination = '\n'
         inst.read()  # Eat termination
         inst.timeout = tmo

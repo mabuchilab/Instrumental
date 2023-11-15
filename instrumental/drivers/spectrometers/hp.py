@@ -1,25 +1,17 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2015 Nate Bogdanowicz
+# Copyright 2023 Dodd Gray
 """
 Driver module for HP 70000 spectrum analyzer.
 Based on Nate's Tektronix scope driver
 """
 
-# import visa
-# import numpy as np
-# from instrumental import u, Q_
-# from pint import UndefinedUnitError
-# from instrumental.drivers.spectrometers import Spectrometer
-# from instrumental.drivers import _get_visa_instrument
-
-import pyvisa
-from pyvisa.constants import InterfaceType
 import numpy as np
+import pyvisa
 from pint import UndefinedUnitError
+
+from ... import Q_, u
+from .. import VisaMixin
 from . import Spectrometer
-from .. import VisaMixin, SCPI_Facet
-#from ..util import visa_context
-from ... import u, Q_
 
 _INST_PARAMS = ['visa_address']
 _INST_VISA_INFO = {
@@ -38,39 +30,11 @@ class HPOSA(Spectrometer, VisaMixin):
     """
     A base class for HP 70000 series spectrum analyzers
     """
-    # def __init__(self,params=None):
-    #     """
-    #     Create a spectrometer object that has the given VISA name *name* and connect
-    #     to it. You can find available instrument names using the VISA
-    #     Instrument Manager.
-    #     """
-    #     if params:
-    #         self.inst = _instrument(params)
-    #     else:
-    #         self.inst = _instrument(default_params)
-    #     self.inst.read_termination = "\n"  # Needed for stripping termination
-    #     #self.inst.write("header OFF")
-    #     self.inst.write_termination = ';'
-    #     self.inst.write('TDF P') # set the trace data format to be decimal numbers in parameter units
-
     def _initialize(self):
         self._rsrc.read_termination = '\n'  # Needed for stripping termination
         self._rsrc.timeout = 300
-        #self.inst.write("header OFF")
         self._rsrc.write_termination = ';'
         self.write('TDF P') # set the trace data format to be decimal numbers in parameter units
-        # if self.interface_type == InterfaceType.asrl:
-        #     terminator = self.query('RS232:trans:term?').strip()
-        #     self._rsrc.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
-        # elif self.interface_type == InterfaceType.usb:
-        #     terminator = self.query('RS232:trans:term?').strip()
-        #     self._rsrc.read_termination = terminator.replace('CR', '\r').replace('LF', '\n')
-        # elif self.interface_type == InterfaceType.tcpip:
-        #     pass
-        # else:
-        #     pass
-        #
-        # self.write("header OFF")
 
     def instrument_presets(self):
         self.write('IP')
@@ -159,8 +123,6 @@ class HPOSA(Spectrometer, VisaMixin):
         wl = Q_(np.linspace(wl_start.magnitude,wl_stop.magnitude,n_pts),wl_start.units)
         self._rsrc.timeout = 300
         return wl, amp
-
-
 
     def get_data(self, channel=1):
         """Retrieve a trace from the scope.
