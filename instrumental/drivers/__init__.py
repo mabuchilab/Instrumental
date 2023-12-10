@@ -462,34 +462,40 @@ class VisaMixin(Instrument):
 
         >>> inst.write('source{}:value {}', channel, value)
         """
-        full_message = message.format(*args, **kwds)
+        full_message = fmt = message.format(*args, **kwds)
         if self._in_transaction:
-            if full_message[0] != ':':
-                full_message = ':' + full_message
+            if fmt[0] != ':':
+                full_message = ':' + fmt
             self._message_queue.append(full_message)
         else:
-            self._rsrc.write(full_message)
+            self._rsrc.write(fmt)
 
     def query(self, message, *args, **kwds):
         """Query the instrument's VISA resource with `message`
 
         Flushes the message queue if called within a transaction.
         """
+        full_message = fmt = message.format(*args, **kwds)
         if self._in_transaction:
-            self._flush_message_queue()  # TODO: combine query with this message?
-        return self._rsrc.query(message.format(*args, **kwds))
+            if fmt[0] != ':':
+                full_message = ':' + fmt
+            self._message_queue.append(full_message)
+        else:
+            return self._rsrc.query(fmt)
 
     @contextlib.contextmanager
     def transaction(self):
         """Transaction context manager to auto-chain VISA messages
 
-        Queues individual messages written with the `write()` method and sends them all at once,
-        joined by ';'. Messages are actually sent (1) when a call to `query()` is made and (2)
-        upon the end of transaction.
+        Queues individual messages written with the `write()` and `query()` methods and sends them
+        all at once, joined by ';'. Messages are sent upon the end of the transaction.
 
-        This is especially useful when using higher-level functions that call `write()`, as it lets
-        you combine multiple logical operations into a single message (if only using writes), which
-        can be faster than sending lots of little messages.
+        This is especially useful when using higher-level functions that call `write()` or
+        `query()`, as it lets you combine multiple logical operations into a single message,
+        which can be faster than sending lots of little messages.
+
+        Note that all query() calls need to return a string for the transaction. This is important
+        when using a Facet since it is possible to make a Facet return an object.
 
         Be cognizant that a visa resource's write and query methods are not transaction-aware, only
         VisaMixin's are. If you need to call one of these methods (e.g. write_raw), make sure you
@@ -500,9 +506,10 @@ class VisaMixin(Instrument):
             >>> with myinst.transaction():
             ...     myinst.write('A')
             ...     myinst.write('B')
-            ...     myinst.query('C?')  # Query forces flush. Writes "A;B" and queries "C?"
-            ...     myinst.write('D')
-            ...     myinst.write('E')  # End of transaction block, writes "D;E"
+            ...     myinst.query('C?')
+            ...     myinst.query('D?')
+            ...     myinst.write('E')  # End of transaction block, writes "A;B;C?;D?;E"
+            >>> print(myinst.response) # Shows the responses of "C?" and "D?" as a tuple
         """
         self._start_transaction()
         yield
@@ -512,7 +519,7 @@ class VisaMixin(Instrument):
         self._message_queue = []
 
     def _end_transaction(self):
-        self._flush_message_queue()
+        self.response = self._flush_message_queue()
         self._message_queue = None  # signals end of transaction
 
     def _flush_message_queue(self):
@@ -520,8 +527,12 @@ class VisaMixin(Instrument):
         if not self._in_transaction:
             return
         message = ';'.join(self._message_queue)
-        self._rsrc.write(message)
         self._message_queue = []
+
+        if message.find('?') != -1:
+            return self._rsrc.query(message).split(';')
+        else:
+            self._rsrc.write(message)
 
     @property
     def _in_transaction(self):
