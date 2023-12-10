@@ -11,8 +11,9 @@ from .. import ParamSet
 from ... import Q_, u
 
 
-def list_instruments():
-    return [ParamSet(TDC001_APT, port=p.device) for p in comports() if (p.vid, p.pid) == (0x0403, 0xfaf0)]
+def list_instruments(filter_serial_number=None):
+    return [ParamSet(TDC001_APT, port=p.device, serialnumber=p.serial_number) for p in comports() 
+            if (p.vid, p.pid) == (0x0403, 0xfaf0)]
 
 class APT(Motion):
     """Generic Thorlabs device, controlled via APT commands"""
@@ -127,7 +128,8 @@ class TDC001_APT(APT):
         """ Check if the move is completed.
         """
         rsp = self._ser.read(6)
-        if rsp == bytes([0x64, 0x04, 0x0e, 0x00, self.src | 0x80, self.dst ]):
+        ## The 5th and 6th byte in rsp were returned different from 
+        if rsp == bytes([0x64, 0x04, 0x0e, 0x00, self.dst | 0x80, self.src ]):
             return True
         else:
             return False
@@ -151,7 +153,7 @@ class TDC001_APT(APT):
         """ Check if the device is homed.
         """
         rsp = self._ser.read(6)
-        if rsp == bytes([0x44, 0x04, 0x01, 0x00, self.src, self.dst]):
+        if rsp == bytes([0x44, 0x04, 0x01, 0x00, self.dst, self.src]):
             return True
         else:
             return False
