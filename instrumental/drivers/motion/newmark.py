@@ -9,7 +9,7 @@ from ...log import get_logger
 from .. import VisaMixin
 from ..util import check_units
 from ... import u
-import visa
+import pyvisa
 
 log = get_logger(__name__)
 
@@ -31,7 +31,7 @@ class NSCA1(Motion):
         self.serial = self._paramset['serial']
         # I only ever use channel 1, but maybe there are needs for more.
         self.channel = 1
-        self._rsrc = visa.ResourceManager().open_resource(
+        self._rsrc = pyvisa.ResourceManager().open_resource(
             self.serial,
             read_termination='\r',
             write_termination='\r')

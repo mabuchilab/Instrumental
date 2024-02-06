@@ -11,9 +11,9 @@ First, let's open the device and play around with it in an ipython shell using p
 
 .. code-block:: ipython
 
-    In [1]: import visa
+    In [1]: import pyvisa
 
-    In [2]: rm = visa.ResourceManager()
+    In [2]: rm = pyvisa.ResourceManager()
 
     In [4]: rm.list_resources()
     Out[4]:
@@ -30,7 +30,7 @@ Which resource is our power meter? Well, like all well-behaved SCPI instruments,
     In [5]: for addr in rm.list_resources():
        ...:     try:
        ...:         print(addr, '-->', rm.open_resource(addr).query('*IDN?').strip())
-       ...:     except visa.VisaIOError:
+       ...:     except pyvisa.VisaIOError:
        ...:         pass
        ...:
 

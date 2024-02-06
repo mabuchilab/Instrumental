@@ -7,7 +7,7 @@ output to use.
 """
 from numpy import fromstring, float32
 from enum import Enum
-import visa
+import pyvisa
 from ..util import check_units, check_enums
 from ...errors import InstrumentTypeError
 from ... import Q_
@@ -567,8 +567,8 @@ class SR844(Lockin):
             #Factor of 2 is so that the transfer completes before timing out
             self._rsrc.timeout = 2*BINARY_TIME_PER_POINT.to('ms').magnitude*points[1] + timeout
             self._rsrc.read_termination = None
-            self._rsrc.end_input = visa.constants.SerialTermination.none
-            with self._rsrc.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT):
+            self._rsrc.end_input = pyvisa.constants.SerialTermination.none
+            with self._rsrc.ignore_warning(pyvisa.constants.VI_SUCCESS_MAX_CNT):
                 raw_binary, _ = self._rsrc.visalib.read(self._rsrc.session,
                                                         points[1]*BYTES_PER_POINT)
             trace = fromstring(raw_binary, dtype=float32)

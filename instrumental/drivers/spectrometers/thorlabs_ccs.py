@@ -3,22 +3,21 @@
 """
 Driver Module for Thorlabs CCSXXX series spectrometers. Currently Windows only.
 """
-from future.utils import PY2
-
 import time
 from enum import Enum
 from warnings import warn
 
 import numpy as np
-from visa import ResourceManager
 from cffi import FFI
-from nicelib import NiceLib, Sig, NiceObject, load_lib, RetHandler, ret_ignore
+from future.utils import PY2
+from nicelib import NiceLib, NiceObject, RetHandler, Sig, load_lib, ret_ignore
+from pyvisa import ResourceManager
 
-from . import Spectrometer
-from ..util import check_units, check_enums
-from .. import ParamSet
-from ...errors import Error
 from ... import Q_
+from ...errors import Error
+from .. import ParamSet
+from ..util import check_enums, check_units
+from . import Spectrometer
 
 if PY2:
     memoryview = buffer  # Needed b/c np.frombuffer is broken on memoryviews in PY2

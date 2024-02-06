@@ -9,7 +9,7 @@ import warnings
 import time
 
 from . import Wavemeter
-from ..util import visa_timeout_context
+from ..util import pyvisa_timeout_context
 from ... import Q_
 
 # Constants; See Appendix A of WA-1000/1500 manual for details

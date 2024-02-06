@@ -538,12 +538,12 @@ def open_visa_inst(visa_address, raise_errors=False):
 
     Logs well-known errors, and also suppress them if raise_errors is False.
     """
-    import visa
-    rm = visa.ResourceManager()
+    import pyvisa
+    rm = pyvisa.ResourceManager()
     try:
         log.info("Opening VISA resource '{}'".format(visa_address))
         visa_inst = rm.open_resource(visa_address, open_timeout=50, timeout=200)
-    except visa.VisaIOError as e:
+    except pyvisa.VisaIOError as e:
         # Could not create visa instrument object
         log.info("Skipping this resource due to VisaIOError")
         log.info(e)
@@ -562,9 +562,9 @@ def open_visa_inst(visa_address, raise_errors=False):
 
 
 def gen_visa_instruments():
-    import visa
+    import pyvisa
     prev_addr = 'START'
-    rm = visa.ResourceManager()
+    rm = pyvisa.ResourceManager()
     visa_list = rm.list_resources()
     for addr in visa_list:
         if addr.startswith(prev_addr):
@@ -672,10 +672,10 @@ def list_instruments(server=None, module=None, blacklist=None):
     inst_list = []
     if check_visa:
         try:
-            import visa
+            import pyvisa
             try:
                 inst_list.extend(list_visa_instruments())
-            except visa.VisaIOError:
+            except pyvisa.VisaIOError:
                 pass  # Hide visa errors
         except (ImportError, ConfigError):
             pass  # Ignore if PyVISA not installed or configured
@@ -711,7 +711,7 @@ def _get_visa_instrument(params):
     Returns the VISA instrument corresponding to 'visa_address'. Uses caching
     to avoid multiple network accesses.
     """
-    import visa
+    import pyvisa
 
     if 'visa_address' not in params:
         raise InstrumentTypeError()
@@ -727,11 +727,11 @@ def _get_visa_instrument(params):
                                           addr + "' not found!")
     else:
         try:
-            rm = visa.ResourceManager()
+            rm = pyvisa.ResourceManager()
             visa_inst = rm.open_resource(addr, open_timeout=50, **kwds)
             # Cache the instrument for possible later use
             params['**visa_instrument'] = visa_inst
-        except visa.VisaIOError:
+        except pyvisa.VisaIOError:
             # Cache the fact that the instrument isn't connected
             params['**visa_instrument'] = None
             raise InstrumentNotFoundError("Error: device with address '" +
@@ -790,7 +790,7 @@ def get_idn(inst):
 
     Returns (None, None) if unsuccessful.
     """
-    import visa
+    import pyvisa
     try:
         idn = inst.query("*IDN?")
         log.info("*IDN? gives '{}'".format(idn.strip()))
@@ -798,7 +798,7 @@ def get_idn(inst):
         log.info("UnicodeDecodeError while getting IDN. Probably a non-Visa Serial device")
         log.info(str(e))
         return None, None
-    except visa.VisaIOError as e:
+    except pyvisa.VisaIOError as e:
         log.info("Getting IDN failed due to VisaIOError")
         log.info(str(e))
         return None, None
@@ -882,8 +882,8 @@ def find_matching_drivers(in_params):
 
 
 def find_visa_instrument(params):
-    import visa
-    rm = visa.ResourceManager()
+    import pyvisa
+    rm = pyvisa.ResourceManager()
     visa_address = params['visa_address']
 
     if 'module' in params:

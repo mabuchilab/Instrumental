@@ -2,7 +2,7 @@
 # Copyright 2019 Nate Bogdanowicz
 from collections import defaultdict
 import numpy as np
-import visa
+import pyvisa
 
 from ..util import visa_context
 from ... import Q_
@@ -78,9 +78,9 @@ def async_get_data(self, channel=1, width=2):
 
 @method_of('TekScope')
 def _async_read_curve(self, width):
-    with self.resource.ignore_warning(visa.constants.VI_SUCCESS_MAX_CNT),\
+    with self.resource.ignore_warning(pyvisa.constants.VI_SUCCESS_MAX_CNT),\
         visa_context(self.resource, timeout=10000, read_termination=None,
-                     end_input=visa.constants.SerialTermination.none):
+                     end_input=pyvisa.constants.SerialTermination.none):
 
         self.write("curve?")
         async_read_chunk = self.resource._async_read_chunk
