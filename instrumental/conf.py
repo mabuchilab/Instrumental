@@ -29,7 +29,7 @@ save_dir = os.path.join(user_data_dir, 'instruments')
 
 def copy_file_text(from_path, to_path):
     """Copies a text file, using platform-specific line endings"""
-    with open(from_path, 'rU') as from_file:
+    with open(from_path, 'r') as from_file:
         with open(to_path, 'w') as to_file:
             to_file.writelines((line for line in from_file))
 
