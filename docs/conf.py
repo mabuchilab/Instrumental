@@ -23,7 +23,6 @@ on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 if not on_rtd:
     import sphinx_rtd_theme
     html_theme = "sphinx_rtd_theme"
-    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 
 # Allow docs to build even without required modules
@@ -113,7 +112,7 @@ master_doc = 'index'
 # Load metadata from __about__.py
 base_dir = os.path.join(os.path.dirname(__file__), os.pardir)
 about = {}
-with open(os.path.join(base_dir, 'instrumental', '__about__.py')) as f:
+with open(os.path.join(base_dir, 'src', 'instrumental', '__about__.py')) as f:
     exec(f.read(), about)
 
 # General information about the project.
@@ -320,4 +319,4 @@ texinfo_documents = [
 
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'http://docs.python.org/': None}
+intersphinx_mapping = {'python': ('https://docs.python.org/3', None)}
