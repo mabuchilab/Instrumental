@@ -5,6 +5,18 @@ Change Log
 Unreleased
 ----------
 
+Added
+"""""
+- New drivers:
+  - Tektronix DPO4054B and DPO7054 (thanks Mike Shlanta #159 #161)
+  - Santec TSL570 (thanks Dodd Gray)
+  - Agilent/HP OSA driver (thanks Dodd Gray)
+
+Changed
+"""""""
+- Fixed `getfullargspec()` usage for Python 3.11+ (thanks Max-Herbold #160)
+- Cleaned up pyvisa imports
+
 
 (0.7) - 2022-5-29
 -----------------
