@@ -44,6 +44,8 @@ jobs:
   publish-to-pypi:
     name: Publish to PyPI
     if: ${{ github.event_name == 'release' && github.event.action == 'released' }}
+    needs:
+    - build
     runs-on: ubuntu-latest
 
     environment:
@@ -65,7 +67,9 @@ jobs:
 
   publish-to-testpypi:
     name: Publish to TestPyPI
-    if: ${{ github.event_name == 'release' && github.event.action == 'prereleased' }}
+    #if: ${{ github.event_name == 'release' && github.event.action == 'prereleased' }}
+    needs:
+    - build
     runs-on: ubuntu-latest
 
     environment:
