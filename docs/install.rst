@@ -9,14 +9,12 @@ Installation
 Brief Install Instructions
 --------------------------
 
-Starting with version 0.2.1, you can install Instrumental using pip::
+Simply install Instrumental from PyPI using pip::
 
     $ pip install instrumental-lib
 
 This will install the latest release version along with the core dependencies if they aren't already
-installed. It's recommended that you use the the Anaconda distribution so you don't have to compile
-numpy and scipy (see the detailed install instructions below).
-
+installed.
 
 Installing the Development Version from GitHub
 ----------------------------------------------
@@ -30,45 +28,6 @@ Download and extract a zip of Instrumental from the `Github page
 ------------------------------------------------------------------------------
 
 
-Detailed Install Instructions
------------------------------
-
-Instrumental should install any core dependencies it requires, but if you're having problems, you may want to read this section over. Note that many *per-driver* dependencies are not installed automatically, so you can install them as-needed.
-
-
-Python Sci-Comp Stack
-~~~~~~~~~~~~~~~~~~~~~
-To install the standard scientific computing stack, we recommend using `Anaconda
-<http://continuum.io/downloads>`_. Download the appropriate installer from the download page and run
-it to install Anaconda. The default installation will include NumPy, SciPy, and Matplotlib as well
-as lots of other useful stuff.
-
-Pint
-~~~~
-Next, install Pint for units support:: 
-
-    $ pip install pint
-
-For more information, or to get a more recent version, check out the `Pint
-install page <https://pint.readthedocs.org/en/latest/getting.html>`_.
-
-
-Instrumental
-~~~~~~~~~~~~
-If you're using git, you can clone the Instrumental repository to get the
-source code. If you don't know git or don't want to set up a local repo yet,
-you can just download a zip file by clicking the 'Download ZIP' button on the
-right hand side of the `Instrumental Github page
-<https://github.com/mabuchilab/Instrumental>`_.  Unzip the code wherever you'd
-like, then open a command prompt to that directory and run::
-
-    $ python setup.py install
-    
-to install Instrumental to your Python site-packages directory.  You're all set! Now go check out
-some of the examples in the ``examples`` directory contained in the files you downloaded!
-
-------------------------------------------------------------------------------
-
 Optional Driver Libraries
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -79,7 +38,7 @@ need:
 
 1. an implementation of VISA, and
 2. a Python interface layer called PyVISA
-  
+
 More info about PyVISA, including more detailed install-related information can
 be found `here <http://pyvisa.readthedocs.org/en/latest/>`_.
 
