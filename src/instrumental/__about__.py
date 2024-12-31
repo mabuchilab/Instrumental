@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2022 Nate Bogdanowicz
+# Copyright 2016-2024 Nate Bogdanowicz
 
 import datetime
 
 __distname__ = "Instrumental-lib"
-__version__ = "0.8.dev0"
+__version__ = "0.8"
 __author__ = "Nate Bogdanowicz"
 __email__ = "natezb@gmail.com"
 __url__ = 'https://github.com/mabuchilab/Instrumental'
