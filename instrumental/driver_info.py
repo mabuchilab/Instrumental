@@ -1,4 +1,4 @@
-# Auto-generated 2023-10-30T12:52:01.206265
+# Auto-generated 2024-12-31T12:06:31.328465
 from collections import OrderedDict
 
 driver_info = OrderedDict([
@@ -42,7 +42,7 @@ driver_info = OrderedDict([
     ('funcgenerators.rigol', {
         'params': ['visa_address'],
         'classes': [],
-        'imports': ['visa'],
+        'imports': ['pyvisa'],
         'visa_info': {
             'DG800': ('Rigol Technologies', ['DG811', 'DG812']),
         },
@@ -196,7 +196,7 @@ driver_info = OrderedDict([
     ('spectrometers.ando', {
         'params': ['visa_address'],
         'classes': [],
-        'imports': ['pyvisa', 'visa'],
+        'imports': ['pyvisa'],
         'visa_info': {
             'AQ6331': ('ANDO', ['AQ6331']),
         },
@@ -217,7 +217,7 @@ driver_info = OrderedDict([
     ('spectrometers.thorlabs_ccs', {
         'params': ['model', 'serial', 'usb'],
         'classes': ['CCS'],
-        'imports': ['cffi', 'nicelib', 'visa'],
+        'imports': ['cffi', 'nicelib', 'pyvisa'],
     }),
     ('spectrumanalyzers.rohde_schwarz', {
         'params': ['visa_address'],
