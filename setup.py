@@ -20,13 +20,14 @@ classifiers = [
 
 # Load metadata from __about__.py
 base_dir = os.path.dirname(__file__)
+pkg_dir = os.path.join(base_dir, 'src', 'instrumental')
 about = {}
-with open(os.path.join(base_dir, 'instrumental', '__about__.py')) as f:
+with open(os.path.join(pkg_dir, '__about__.py')) as f:
     exec(f.read(), about)
 
 # Load driver info
 try:
-    with open(os.path.join(base_dir, 'instrumental', 'driver_info.py')) as f:
+    with open(os.path.join(pkg_dir, 'driver_info.py')) as f:
         namespace = {}
         exec(f.read(), namespace)
         driver_info = namespace['driver_info']
@@ -83,7 +84,7 @@ class GenerateCommand(distutils.cmd.Command):
     def run(self):
         self.announce("Generating driver_info.py...")
         from subprocess import call
-        call([sys.executable, os.path.join(base_dir, 'instrumental', 'parse_modules.py')])
+        call([sys.executable, os.path.join(pkg_dir, 'parse_modules.py')])
 
 
 if __name__ == '__main__':
@@ -94,7 +95,8 @@ if __name__ == '__main__':
     setup(
         name = about['__distname__'],
         version = about['__version__'],
-        packages = find_packages(exclude=['*._cffi_build']),
+        packages = find_packages(where='src', exclude=['*._cffi_build']),
+        package_dir = {'': 'src'},
         package_data = {
             '': ['*.h', '*.pyd'],
             'instrumental': ['instrumental.conf.default']
