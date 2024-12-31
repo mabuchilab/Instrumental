@@ -4,6 +4,7 @@
 *.pyo
 *.swp
 .idea/*
+.dir-locals.el
 
 _*lib.py
 !_*midlib.py
@@ -27,4 +28,5 @@ errortext.*.pyd
 
 *lextab.py
 *yacctab.py
+*.so
 
