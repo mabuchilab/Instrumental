@@ -16,7 +16,7 @@ __pycache__
 /build/
 /dist/
 /.cache/
-/*.egg-info/
+*.egg-info/
 
 /docs/_build
 /docs/_themes
