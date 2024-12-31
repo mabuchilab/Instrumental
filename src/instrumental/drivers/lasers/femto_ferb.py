@@ -7,8 +7,8 @@ The femtofiber drivers, which among
 other things make the usb connection appear as a serial port, must be
 installed (available from http://www.toptica.com/products/ultrafast_fiber_lasers/femtofiber_smart/femtosecond_erbium_fiber_laser_1560_nm_femtoferb)
 """
+from ..util import visa_timeout_context
 from . import Laser
-from ..util import pyvisa_timeout_context
 
 _INST_PRIORITY = 6
 _INST_PARAMS = ['visa_address']

@@ -18,10 +18,10 @@ One can then connect and measure the power using the following sequence::
 """
 import time
 
-from . import PowerMeter
-from .. import Facet, MessageFacet, VisaMixin, deprecated
-from ..util import pyvisa_timeout_context
 from ... import Q_, u
+from .. import Facet, MessageFacet, VisaMixin, deprecated
+from ..util import visa_timeout_context
+from . import PowerMeter
 
 
 def _check_visa_support(visa_inst):

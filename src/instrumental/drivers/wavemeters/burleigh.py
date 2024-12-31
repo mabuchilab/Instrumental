@@ -5,12 +5,12 @@ Driver module for Burleigh wavemeters. Supports:
 
 * WA-1000/1500
 """
-import warnings
 import time
+import warnings
 
-from . import Wavemeter
-from ..util import pyvisa_timeout_context
 from ... import Q_
+from ..util import visa_timeout_context
+from . import Wavemeter
 
 # Constants; See Appendix A of WA-1000/1500 manual for details
 # 'Hard' command codes
