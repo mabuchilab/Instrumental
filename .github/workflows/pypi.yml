@@ -32,7 +32,7 @@ jobs:
     - name: Build distributions via setup.py
       run: >-
         python setup.py
-        sdist --formats=zip
+        sdist
         bdist_wheel
 
     - name: Store the distribution packages
