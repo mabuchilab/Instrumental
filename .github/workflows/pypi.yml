@@ -67,7 +67,7 @@ jobs:
 
   publish-to-testpypi:
     name: Publish to TestPyPI
-    #if: ${{ github.event_name == 'release' && github.event.action == 'prereleased' }}
+    if: ${{ github.event_name == 'release' && github.event.action == 'prereleased' }}
     needs:
     - build
     runs-on: ubuntu-latest
